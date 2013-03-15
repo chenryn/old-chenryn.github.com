@@ -1,0 +1,360 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>nginx泛域名cache_store</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>nginx泛域名cache_store <small></small></h1>
+    <div class="date"><span>13 March 2010</span></div>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>回到nginx的cache_store方式上来。这是传统的nginx缓存方式，配置一般如下：</p>
+
+<div class="highlight"><pre><code class="nginx"><span class="k">upstream</span> <span class="s">test</span><span class="p">{</span>
+    <span class="kn">server</span> <span class="n">211.152.60.180</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">server</span> <span class="p">{</span>
+    <span class="kn">listen      </span> <span class="mi">80</span><span class="p">;</span>
+    <span class="kn">server_name </span> <span class="s">images6.static.com</span><span class="p">;</span>
+    <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
+        <span class="kn">root</span> <span class="s">/cache/images6.static.com/</span><span class="p">;</span>
+        <span class="kn">proxy_redirect</span> <span class="no">off</span><span class="p">;</span>
+        <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="nv">$host</span><span class="p">;</span>
+        <span class="kn">proxy_set_header</span> <span class="s">X-Real-IP</span> <span class="nv">$remote_addr</span><span class="p">;</span>
+        <span class="kn">proxy_set_header</span> <span class="s">X-Forwarded-For</span> <span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span>
+        <span class="kn">proxy_store</span> <span class="no">on</span><span class="p">;</span>
+        <span class="kn">proxy_store_access  </span> <span class="s">user:rw </span> <span class="s">group:rw </span> <span class="s">all:r</span><span class="p">;</span>
+        <span class="kn">proxy_temp_path    </span> <span class="s">/cache/temp</span><span class="p">;</span>
+        <span class="kn">if</span> <span class="s">(!-f</span> <span class="nv">$request_filename</span><span class="s">)</span> <span class="p">{</span>
+            <span class="kn">proxy_pass</span> <span class="s">http://test</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>很简单明了。不过如果如果碰上img[1-16].static.com这样的客户，难不成把这一大段复制粘贴上16遍？汗~~必然得采用泛域名方式了。</p>
+
+<p>server_name 支持.static.com的方式，root也支持/cache/$host/没有问题，save&amp;&amp;reconfigure，wget试一下，却没能缓存住。</p>
+
+<p>于是去翻nginx官方wiki，刚巧看到proxy_store语法，除了on和off这两个想当然的赋值外，还有一个path！原文如下：</p>
+
+<pre><code>Furthermore, the name of the path can be clearly assigned with the aid of the
+line with the variables:
+proxy_store   /data/www$original_uri;
+</code></pre>
+
+<p>赶紧换上，测试果然成功！conf如下：</p>
+
+<div class="highlight"><pre><code class="nginx"><span class="k">upstream</span> <span class="s">test</span><span class="p">{</span>
+    <span class="kn">server</span> <span class="n">211.152.60.180</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">server</span> <span class="p">{</span>
+    <span class="kn">listen</span>       <span class="mi">80</span><span class="p">;</span>
+    <span class="kn">server_name</span>  <span class="s">.anjukestatic.com</span><span class="p">;</span>
+    <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
+        <span class="kn">root</span> <span class="s">/cache/</span><span class="nv">$host/</span><span class="p">;</span>
+        <span class="kn">proxy_redirect</span> <span class="no">off</span><span class="p">;</span>
+        <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="nv">$host</span><span class="p">;</span>
+        <span class="kn">proxy_set_header</span> <span class="s">X-Real-IP</span> <span class="nv">$remote_addr</span><span class="p">;</span>
+        <span class="kn">proxy_set_header</span> <span class="s">X-Forwarded-For</span> <span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span>
+        <span class="kn">proxy_store</span> <span class="s">/cache/</span><span class="nv">$host$uri</span><span class="p">;</span>
+        <span class="kn">proxy_store_access</span>   <span class="s">user:rw</span>  <span class="s">group:rw</span>  <span class="s">all:r</span><span class="p">;</span>
+        <span class="kn">proxy_temp_path</span>      <span class="s">/cache/temp</span><span class="p">;</span>
+        <span class="kn">if</span> <span class="s">(!-f</span> <span class="nv">$request_filename</span><span class="s">)</span> <span class="p">{</span>
+            <span class="kn">proxy_pass</span> <span class="s">http://test</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>测试日志记录如下：</p>
+
+<pre><code>1268456455.505 -/200 101 GET http://images6.static.com/property/20090911/600x600.jpg PARENT/211.152.60.180:80 "-" "Wget/1.10.2 (Red Hat modified)"
+1268456586.371 -/200 101 GET http://images6.static.com/property/20090911/600x600.jpg PARENT/- "-" "Wget/1.10.2 (Red Hat modified)"
+1268456631.414 -/200 45 GET http://images9.static.com/property/20100103/420x315.jpg PARENT/211.152.60.180:80 "-" "Wget/1.10.2 (Red Hat modified)"
+1268456632.231 -/200 45 GET http://images9.static.com/property/20100103/420x315.jpg PARENT/- "-" "Wget/1.10.2 (Red Hat modified)"
+</code></pre>
+
+<p>不知道为什么，这个$upstream_cache_status居然一直是-，郁闷一下下。</p>
+
+<p>另，刚开始只写proxy_store /cache/$host;也不行，后来看error.log中提示</p>
+
+<pre><code>“rename() "/cache/temp/0000000001" to "/cache/images6.static.com/" failed (20: Not a directory)”
+</code></pre>
+
+<p>才知道必须加上$uri。官方文档写的是$original_uri，日志里写的是$request_uri，nginx的内置变量有时候真的让人有些头晕……
+思路跳回上篇的大小写，或许用下面这个办法可以？</p>
+
+<div class="highlight"><pre><code class="nginx"><span class="k">perl_set</span> <span class="nv">$url</span> <span class="s">&#39;</span>
+<span class="s">sub</span> <span class="p">{</span>
+    <span class="kn">my</span> <span class="nv">$r</span> <span class="p">=</span> <span class="s">shift</span><span class="p">;</span>
+    <span class="kn">my</span> <span class="nv">$re</span> <span class="p">=</span> <span class="s">lc(</span><span class="nv">$r-&gt;uri</span><span class="s">)</span><span class="p">;</span>
+    <span class="kn">return</span> <span class="nv">$re</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">&#39;</span><span class="p">;</span>
+<span class="k">proxy_store</span> <span class="s">/cache/</span><span class="nv">$host$url</span><span class="p">;</span>
+<span class="c1">#proxy_cache_key $host$url$is_args$args;</span>
+</code></pre></div>
+
+<p>未经试验，目前猜测，可能结果是nginx回源下载新文件，然后覆盖掉原来的——也就是说达到节省磁盘的目的，但HIT/MISS照旧。</p>
+
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2010/03/13/ignore-case-in-nginx-2" title="忽略大小写（刚在nginx的maillist看到的）">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2010/03/15/consistent_hash" title="consistent_hash">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

@@ -1,0 +1,359 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>ESI & CACHE</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>ESI & CACHE <small></small></h1>
+    <div class="date"><span>22 February 2010</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
+    	<li><a href="/tags.html#squid-ref">squid <span>24</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>今天看到一个叫做ESI的东东，以此为线索，一路链接下去，颇为有趣，摘抄些新闻/博客段落来，算作长眼了：
+首先是《CSDN09大会见闻》，其中提到康神的讲演《网站的那些事儿》，介绍了大规模网站架构上的种种工具和技术“比如做数据切分的Mysql Proxy，分布式缓存的Memory Cached，Web服务器缓存的Squid，页面优化的Y!Slow，页面切分方面的js拼接和iframe拼接（呵呵，怪不得搜狐的页面都是js加载，对搜索引擎很不友好），前端服务器Lighttpd,Squid3,ESI等。也提到了架构设计中扩展性，可用性和一致性三者的关系，优化时应让让一致性延迟。提到目前网站系统一般都是三层结构DB层，逻辑层和前端层，而可扩展度方面DB&lt; 逻辑 &lt;前端，原因就是有状态的最难扩展，无状态的最容易扩展，所以主张优化时尽量减少DB中存储的状态，将逻辑前移，最后总结优化的大方向就是：逻辑前移，善用缓存（无处不在的缓存）和数据冗余（方便查询）。”
+从中得到几个信息——1、搜狐的架构康神插手了；2、squid对ESI的支持限于3.0版本以上（这点很重要，因为其他任何地方都没写明）；3、缓存无处不在~~
+然后是ESI的概念原理。“ESI（Edge Side Include）通过使用简单的标记语言来对那些可以加速和不能加速的网页中的内容片断进行描述，每个网页都被划分成不同的小部分分别赋予不同的缓存控制策略，使Cache服务器可以根据这些策略在将完整的网页发送给用户之前将不同的小部分动态地组合在一起。通过这种控制，可以有效地减少从服务器抓取整个页面的次数，而只用从原服务器中提取少量的不能缓存的片断，因此可以有效降低原服务器的负载，同时提高用户访问的响应时间”
+从中得到几个信息——1、ESI不是一门新语言，而只是嵌入在html里的一种标记，首先要求对网页进行模板式的规划，然后由支持ESI的cache服务器根据“HTTP请求标题或用户的cookie信息”自行组装返回给browser；2、我想到lighttpd和nginx的流媒体支持，也是根据cookie信息，获取拖拽的指定帧定位。不过没找到这两个对esi的cache处理文章，毕竟他们的主业还是webserver……
+然后是计算机世界网中关于ESI的介绍。内容较长，不贴了，要点如下：1、ESI最多支持三级递归，可以在包含文档中再嵌套进一步ESI标记；2、ESI支持基于布尔比较或者环境变量的条件处理；3、ESI支持cgi环境变量，比如cookie；4、ESI支持开发者定制失败动作（这不就是我梦寐以求的东东？呵呵，夸张鸟~）5、ESI提供内容无效规范进行内容管理（cache的purge不再头疼？）；5、ESI是基于XML语言的，现有一个java的定制标签库JESI帮助生成jsp代码，这个东东我想是ESI标准被诸多寡头接受的重要原因，不然去哪找来一大批专门写ESI的设计员呢；6、ESI的主要开发和推动者，是CDN老大akaimai和DB老大oracle！！再次验证康神的话，Optimization=Cache+Data。
+最后，说一下squid3如何支持ESI。
+src-configure参数如下：
+&ndash;enable-esi           
+Enable ESI for accelerators. Requires libexpat.
+Enabling ESI will cause squid to follow the Edge
+Acceleration Specification (www.esi.org). This
+causes squid to IGNORE client Cache-Control headers.
+DO NOT use this in a squid configured as a web
+proxy, ONLY use it in a squid configured for
+webserver acceleration.
+squid.conf参数如下：</p>
+
+<div class="highlight"><pre><code class="squid">httpd_accel_surrogate_id<span class="w"> </span>unset-id<span class="w"></span>
+http_accel_surrogate_remote<span class="w"> </span><span class="no">on</span><span class="w"></span>
+esi_parser<span class="w"> </span>custom<span class="w"></span>
+</code></pre></div>
+
+<p>写到最后郁闷了一下，这个东东，为了cache而发明出来了，却是得写在web上的。那我这篇博文，该归哪个类别呢？——或者这也验证了工作中的一点郁闷吧，cache的问题，经常出在web上，我们做CDN的，能怎么办呢？
+ESI网站
+<a href="http://www.akamai.com/html/support/esi.html">http://www.akamai.com/html/support/esi.html</a>
+<a href="http://www.w3.org/TR/esi-lang">http://www.w3.org/TR/esi-lang</a></p>
+<hr />
+
+<p> 2010年8月1日：
+ESI指令集
+<esi:include src="http://example.com/1.html" alt="http://bak.example.com/2.html" onerror="continue" />
+include页面1.html，如果不存在就显示2.html，如果还不存在，就忽略这条esi</p>
+<esi:choose> 
+    <esi:when test="$(HTTP_COOKIE{group})=='Advanced'"> 
+        <esi:include src="http://www.example.com/advanced.html" /> 
+    </esi:when> 
+    <esi:when test="$(HTTP_COOKIE{group})=='Basic User'">
+        <esi:include src="http://www.example.com/basic.html" />
+    </esi:when> 
+    <esi:otherwise> 
+        <esi:include src="http://www.example.com/new_user.html" /> 
+    </esi:otherwise>
+</esi:choose>
+<p>一个类似case的esi语句</p>
+<esi:try> 
+    <esi:attempt>
+        <esi:comment text="Include an ad" /> 
+        <esi:include src="http://www.example.com/ad1.html" /> 
+    </esi:attempt>
+    <esi:except> 
+        <esi:comment text="Just write some HTML instead" /> 
+        &lt;a href=www.akamai.com&gt;www.example.com
+    </esi:except> 
+</esi:try>
+<p>一个类似if-else的esi语句
+<esi:include src="http://www.example.com/ad.html" /> </p>
+<esi:remove> 
+  <a href="http://www.example.com">www.example.com</a>
+</esi:remove>
+<p>如果esi可执行，就只执行include；如果不可，正好识别href；</p>
+<esi:vars>
+  <img src="http://www.example.com/$(HTTP_COOKIE{type})/hello.gif" />
+</esi:vars>
+<p>设定esi变量。变量都是从request-header中获得的，squid只支持标准的esi协议，即只识别下列header。
+     addVariable (&ldquo;HTTP_ACCEPT_LANGUAGE&rdquo;, 20, new ESIVariableLanguage); 
+     addVariable (&ldquo;HTTP_COOKIE&rdquo;, 11, new ESIVariableCookie); 
+     addVariable (&ldquo;HTTP_HOST&rdquo;, 9, new ESIVariableHost); 
+     addVariable (&ldquo;HTTP_REFERER&rdquo;, 12, new ESIVariableReferer); 
+     addVariable (&ldquo;HTTP_USER_AGENT&rdquo;, 15, new ESIVariableUserAgent(*this)); 
+     addVariable (&ldquo;QUERY_STRING&rdquo;, 12, new ESIVariableQuery(uri)); 
+逻辑表达式:
+==&lt;&gt;!&amp;|，!&amp;|都只能用于表达式之间的关系，本身不具有真义，所以类似shell的(1 &amp; 2)是不成立的。
+ESI必须由web端在response-header中声明Surrogate-Control: content=&rdquo;ESI/1.0&rdquo;。启用ESI后，Set-Cookie、Cache-Control、Last-Modified无效。</p>
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2010/02/09/qhttpd" title="qhttpd">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2010/02/23/extend-shell-variables" title="shell变量扩展">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

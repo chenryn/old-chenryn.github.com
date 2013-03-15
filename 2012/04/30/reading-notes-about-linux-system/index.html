@@ -1,0 +1,378 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Linux系统调优读书笔记</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>Linux系统调优读书笔记 <small></small></h1>
+    <div class="date"><span>30 April 2012</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
+    	<li><a href="/tags.html#tunning-ref">tunning <span>1</span></a></li>
+     
+    	<li><a href="/tags.html#monitor-ref">monitor <span>1</span></a></li>
+     
+    	<li><a href="/tags.html#ruby-ref">ruby <span>9</span></a></li>
+     
+    	<li><a href="/tags.html#hadoop-ref">hadoop <span>1</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>今天在图书馆看书，摘抄一些有意思的细节。</p>
+
+<h1 id="linux">Linux服务器性能调整</h1>
+
+<p>Linux内存布局NUMA：  <br />
+    非一致性读取 每个节点；  <br />
+    每个节点下有 多个管理区(ZONE)内存块；  <br />
+    内存块包括：  <br />
+        ZONE_DMA 0~16MB  <br />
+        ZONE_NORMAL 16~896MB
+        ZONE_HIGHMEM 896MB~结束  <br />
+    32位处理器下，用户空间3GB，内核空间1GB；  <br />
+        内核空间除去ZONE_DMA和ZONE_NORMAL后只剩下128MB用来vmalloc/kmap等操作；  <br />
+        kmap操作用来虚拟化页表数据位，可以在32位处理器下支持64GB内存。 <br />
+    NUMA结构下8节点的互连结构，只是3个相互最近的互连；  <br />
+    不同节点之间的定时器很难一致，通常选一个做唯一定时。    </p>
+
+<p>多处理SMP：  <br />
+    松耦合系统：每个处理器都有自己的总线、内存和IO系统；  <br />
+    紧耦合系统：只运行一个OS；  <br />
+      对称系统均分任务；  <br />
+      非对称系统有一个主控处理器；  <br />
+        cache是否共享？内存、总线和IO子系统肯定是共享的，cache会带来一致性问题；  <br />
+        锁竞争导致的开销，所以N个处理器不能达到N倍效率提升；  <br />
+        affinity即绑定进程到CPU，让进程跟cache更近。  <br />
+          linux里进程是高权的线程（一般说法是反过来说线程是小型的进程）    </p>
+
+<p>集群cluster：  <br />
+    高性能：分布式任务并行处理，100+节点，通称为计算机；  <br />
+    高可用：故障问题，最多16节点，通常2~4节点，通称为企业服务器。    </p>
+
+<p>系统跟踪前提：  <br />
+    容量足够；开销较小；场景可重现；尽量无其他进程干扰除非是场景本身需要。    </p>
+
+<p>strace命令场景：  <br />
+    判断IO阻塞，内存分配及其频率等。    </p>
+
+<p>OProfile：
+    opcontrol命令：设置的count要足够大，否则中断本身次数会影响结果。</p>
+
+<p>内核调度器：  <br />
+    优先级0~MAX_PRIO(140)；  <br />
+    0~100为实时任务；  <br />
+    101~140为分时任务，即nice命令调整的-20~19。    </p>
+
+<p>I/O调度器：  <br />
+    deadline：  <br />
+      read_expire;  <br />
+      seek_cost=(x+stream_unit-1)/stream_unit，默认stream_unit为4字节；  <br />
+      write_starved：读优先N次后才写；    </p>
+
+<p>文件系统：  <br />
+    hdparm：MaxMultSect参数，默认16，当前都支持32位输出了。    </p>
+
+<p>网络：  <br />
+    tcp_window_scaling、tcp_sack、tcp_fsack等。    </p>
+
+<p>进程间通信：  <br />
+    ipcs -u查看状态；  <br />
+    ipcs -l查看限制。    </p>
+
+<p>数据库：  <br />
+    OLTP在线事务处理的业务类型类似小文件，一般文件块大小在2KB左右；  <br />
+    DSS决策支持系统的业务类型类似大文件，一般文件块大小在8KB以上。    </p>
+
+<h1 id="section">网站性能监测与优化</h1>
+
+<p>Netflix的Jiffy是客户端收集的开源项目；  <br />
+  sqmphoniq即是服务器端分析，也要客户端js的支持；  <br />
+  Episodes同上。    </p>
+
+<h1 id="jruby">JRuby语言实战技术</h1>
+
+<p>类与超类：  <br />
+    所有类的超类都是Object；  <br />
+    所有类都是类Class的对象。</p>
+
+<h1 id="hadoop">Hadoop实战</h1>
+
+<p>chukwa监控系统：  <br />
+    在HDFS和Map/Reduce的基础上，即意味着日志非tail方式，而是有collector先行合并成大文件再存储到HDFS；  <br />
+    致力于2000+节点，1TB+日志量的集群日志分析，即意味着非实时性；  <br />
+    数据结果目前还是存MySQL里再web展示，可能会转移到HBase上。  <br />
+    流程架构类似如下：  <br />
+        N个agents(每台server一个) &ndash;HTTP&ndash;&gt; M个collectors(每百个agent一个) &ndash;sink&ndash;&gt; HDFS &ndash;map/reduce&ndash;&gt; MySQL &lt;&ndash;JSP/JS&ndash;&gt; Web(HICC)  <br />
+    整个流程跟logstash很类似，但是logstash没有固定hadoop平台，所以不用sink这步，实时性更好；而agent的input代码段就类似于执行类似map的工作，output段就是reduce结果了。</p>
+
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2012/04/21/backup-blog-to-51cto" title="51CTO博客自动发布脚本">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2012/05/08/collect-log-variables-by-ngx-lua" title="通过lua统计nginx内部变量数据">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

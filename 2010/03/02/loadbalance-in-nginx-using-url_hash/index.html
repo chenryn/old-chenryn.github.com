@@ -1,0 +1,414 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>nginx负载均衡（url_hash）配置</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>nginx负载均衡（url_hash）配置 <small></small></h1>
+    <div class="date"><span>02 March 2010</span></div>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>nginx是著名的非专职全七层负载均衡器，在用惯了四层LVS后，终于碰上了麻烦：LVS后端的4台RS磁盘都较小（20G），跑不到一天就塞满了东西；而根据预估，实际上一天时间该节点也就只有20G的文件增长。很显然，因为lvs转发的轮询算法，导致RS重复缓存了相同的文件。</p>
+
+<p>针对这个情况，可以有两个办法（我只想到两个，欢迎大家补充）：</p>
+
+<ol>
+  <li>架构拆分，把不同的几个域名分别指向不同的server，这个在DNS上就能完成，不过就丧失了lvs的冗余；也可以用nginx的upstream+server配置，分别指向不通的RS，不过不同域名文件数量如果相差比较大的话，RS的负载就不均衡了……</li>
+  <li>url_hash，采用HAproxy的loadbalance uri或者nginx的upstream_hash模块，都可以做到针对url进行哈希算法式的负载均衡转发。</li>
+</ol>
+
+<p>那么，就开始试试nginx的url_hash负载均衡吧：</p>
+
+<ol>
+  <li>安装部署：</li>
+</ol>
+
+<div class="highlight"><pre><code class="bash">wget ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre-8.01.tar.gz
+tar zxvf pcre-8.01.tar.gz
+wget http://wiki.nginx.org/images/7/78/Nginx_upstream_hash-0.3.tar.gz
+tar zxvf Nginx_upstream_hash-0.3.tar.gz
+wget http://sysoev.ru/nginx/nginx-0.7.65.tar.gz
+tar zxvf nginx-0.7.65.tar.gz
+</code></pre></div>
+
+<p>vi nginx-0.7.65/src/http/ngx_http_upstream.h</p>
+
+<div class="highlight"><pre><code class="c"><span class="k">struct</span> <span class="n">ngx_http_upstream_srv_conf_s</span> <span class="p">{</span>
+<span class="n">ngx_http_upstream_peer_t</span><span class="err">        </span> <span class="n">peer</span><span class="p">;</span>
+<span class="kt">void</span><span class="err">                          </span> <span class="o">**</span><span class="n">srv_conf</span><span class="p">;</span>
+
+<span class="n">ngx_array_t</span><span class="err">                    </span> <span class="o">*</span><span class="n">servers</span><span class="p">;</span><span class="err"> </span> <span class="cm">/* ngx_http_upstream_server_t */</span>
+
+<span class="o">+</span><span class="n">ngx_array_t</span><span class="err">                    </span> <span class="o">*</span><span class="n">values</span><span class="p">;</span>
+<span class="o">+</span><span class="n">ngx_array_t</span><span class="err">                    </span> <span class="o">*</span><span class="n">lengths</span><span class="p">;</span>
+<span class="o">+</span><span class="n">ngx_uint_t</span><span class="err">                      </span> <span class="n">retries</span><span class="p">;</span>
+
+<span class="n">ngx_uint_t</span><span class="err">                      </span> <span class="n">flags</span><span class="p">;</span>
+<span class="n">ngx_str_t</span><span class="err">                       </span> <span class="n">host</span><span class="p">;</span>
+<span class="n">u_char</span><span class="err">                         </span> <span class="o">*</span><span class="n">file_name</span><span class="p">;</span>
+<span class="n">ngx_uint_t</span><span class="err">                      </span> <span class="n">line</span><span class="p">;</span>
+<span class="n">in_port_t</span><span class="err">                       </span> <span class="n">port</span><span class="p">;</span>
+<span class="n">in_port_t</span><span class="err">                       </span> <span class="n">default_port</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre></div>
+
+<p>为了安全，可以修改一下nginx的version信息：vi nginx-0.7.65/src/core/nginx.h</p>
+
+<div class="highlight"><pre><code class="c"><span class="cp">#define NGINX_VERSION      &quot;2.6.STABLE21&quot;</span>
+<span class="cp">#define NGINX_VER          &quot;squid/&quot; NGINX_VERSION</span>
+</code></pre></div>
+
+<p>vi nginx-0.7.65/src/http/ngx_http_header_filter_module.c</p>
+
+<div class="highlight"><pre><code class="c"><span class="k">static</span> <span class="kt">char</span> <span class="n">ngx_http_server_string</span><span class="p">[]</span> <span class="o">=</span> <span class="s">&quot;Server: squid/2.6.STABLE21&quot;</span> <span class="n">CRLF</span><span class="p">;</span>
+</code></pre></div>
+
+<p>vi nginx-0.7.65/src/http/ngx_http_special_response.c</p>
+
+<div class="highlight"><pre><code class="c"><span class="k">static</span> <span class="n">u_char</span> <span class="n">ngx_http_error_tail</span><span class="p">[]</span> <span class="o">=</span>
+<span class="s">&quot;&lt;hr&gt;&lt;center&gt;squid/2.6.STABLE21&lt;/center&gt;&quot;</span> <span class="n">CRLF</span>
+<span class="s">&quot;&lt;/body&gt;&quot;</span> <span class="n">CRLF</span>
+<span class="s">&quot;&lt;/html&gt;&quot;</span> <span class="n">CRLF</span>
+</code></pre></div>
+
+<div class="highlight"><pre><code class="bash"><span class="nb">cd </span>pcre-8.01
+./configure --prefix<span class="o">=</span>/usr
+make <span class="o">&amp;&amp;</span> make install
+<span class="nb">cd </span>nginx-0.7.65
+./configure --prefix<span class="o">=</span>/home/nginx  --with-pcre --with-http_stub_status_module --with-http_ssl_module --without-http_rewrite_module --add-module<span class="o">=</span>/tmp/nginx_upstream_hash-0.3
+</code></pre></div>
+
+<p>vi auto/cc/gcc</p>
+
+<div class="highlight"><pre><code class="c"><span class="cp"># debug</span>
+<span class="cp">#CFLAGS=&quot;$CFLAGS -g&quot;</span>
+</code></pre></div>
+
+<div class="highlight"><pre><code class="bash">make <span class="o">&amp;&amp;</span> make install
+</code></pre></div>
+
+<p>这样就安装完成了。</p>
+
+<p>2、配置文件</p>
+
+<div class="highlight"><pre><code class="nginx"><span class="k">upstream</span> <span class="s">images6.static.com</span> <span class="p">{</span>
+    <span class="kn">server</span> <span class="n">11.11.11.11</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
+    <span class="kn">server</span> <span class="n">11.11.21.12</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
+    <span class="kn">server</span> <span class="n">11.11.21.13</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
+    <span class="kn">server</span> <span class="n">11.11.21.14</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
+    <span class="kn">hash   </span> <span class="nv">$request_uri</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">server</span> <span class="p">{</span>
+    <span class="kn">listen      </span> <span class="mi">80</span><span class="p">;</span>
+    <span class="kn">server_name </span> <span class="s">images6.static.com</span><span class="p">;</span>
+    <span class="kn">access_log </span> <span class="s">/dev/null </span> <span class="s">main</span><span class="p">;</span>
+    <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
+        <span class="kn">proxy_pass       </span>  <span class="s">http://images6.static.com</span><span class="p">;</span>
+        <span class="kn">proxy_set_header  </span> <span class="s">Host            </span> <span class="nv">$host</span><span class="p">;</span>
+        <span class="kn">proxy_set_header  </span> <span class="s">X-Real-IP       </span> <span class="nv">$remote_addr</span><span class="p">;</span>
+        <span class="kn">proxy_set_header  </span> <span class="s">X-Forwarded-For</span> <span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>以上配置的问题：</p>
+
+<ol>
+  <li>RS中不能设置nginx本机的其他端口，我本来设定的server 11.11.11.10:3128，希望能把nginx本机也开上squid，省出一台机器来。结果在确认配置了DNS的情况下，返回状态码全是503……</li>
+  <li>RS一旦有宕机的，nginx不会重算hash，导致部分url返回错误信息；而启用hash_again标签的话，其他RS就都乱了。</li>
+  <li>RS中默认logformat中将显示nginx的IP。</li>
+</ol>
+
+<p>解决办法：
+1. 不知道
+2. 不采用hash_again标签而采用error_page重定向到专门的备份服务器保障访问
+3. 修改RS的logformat，把%&gt;a改成%{X-Real_IP}&gt;h即可。</p>
+
+<p>最后的根本性问题：</p>
+
+<p>对nginx下的RS集群进行增减操作，是否会对hash表产生影响？nginx_upstream_hash目录中的CHANGES有如下三条：</p>
+
+<pre><code>Changes with upstream_hash 0.3                                   06 Aug 2008
+*) Bugfix: infinite loop when retrying after a 404 and the "not_found" flag of *_next_upstream was set.
+*) Change: no more "hash_method" directive. Hash method is always CRC-32.
+*) Change: failover strategy is compatible with PECL Memcache.
+</code></pre>
+
+<p>nginx的wiki上，关于hash_again的doc这么写到：</p>
+
+<pre><code>Number of times to rehash the value and choose a different server if the backend connection fails. Increase this number to provide high availability.
+</code></pre>
+
+<p>关于PECL Memcache，请参考下列链接：</p>
+
+<p><a title="http://www.surfchen.org/archives/348" href="http://www.surfchen.org/archives/348">http://www.surfchen.org/archives/348</a>
+<a href="http://tech.idv2.com/2008/07/24/memcached-004/">http://tech.idv2.com/2008/07/24/memcached-004/</a></p>
+
+<p>尤其是第二个链接，其中关于rehash的解释，很好的解释了为什么大家都不推荐使用hash_again标签。
+由此可知，upstream_hash模块，使用的是余数计算standard+CRC32方式，10+2的存活率是17%，3+1的存活率是23%！
+而存活率最高的是consistent+CRC32方式，存活率是n/(n+m)*100%，10+2是83%，3+1是75%。</p>
+
+<p>nginx的wiki中，还有另一个3rd模块upstream_consistent_hash，下回可以试试；
+网上还有针对upstream_hash模块的补丁<a href="http://www.sanotes.net/wp-content/uploads/2009/06/nginx_upstream_hash.pdf">http://www.sanotes.net/wp-content/uploads/2009/06/nginx_upstream_hash.pdf</a>，好模块就是有人研究呀~~</p>
+
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2010/02/25/php-problem-of-wordpress-install" title="wordpress部署时碰到的php小问题~">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2010/03/03/an-alarm-shell-using-sendemail" title="服务器监控报警小脚本（shell+sendEmail）">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

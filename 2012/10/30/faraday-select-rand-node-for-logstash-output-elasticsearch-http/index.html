@@ -1,0 +1,351 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>【Logstash系列】Outputs::ElasticsearchHTTP自动获取随机node</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>【Logstash系列】Outputs::ElasticsearchHTTP自动获取随机node <small></small></h1>
+    <div class="date"><span>30 October 2012</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
+    	<li><a href="/tags.html#ruby-ref">ruby <span>9</span></a></li>
+     
+    	<li><a href="/tags.html#elasticsearch-ref">elasticsearch <span>8</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>今天在ES群中和medcl请教了一下index的性能问题。基本上在bulk的基础上，还有几点是可以做的。当然medcl说的是正常的全文索引的场景：</p>
+
+<ul>
+  <li>不用http协议，直接走tcp层，维护一个pool发bulk；</li>
+  <li>多台node的情况下，在bulk前先设置replica为0；bulk完成后再调整replica；</li>
+  <li>因为es会自动路由，所以index请求可以分散开直接发给多个node。</li>
+</ul>
+
+<p>总之，就是减少集群内部的网络传输。</p>
+
+<p>介于logstash的应用是一直持续往es写数据的，所以replica调整这招用不上，顶多加大refresh时间而已。所以可以动手的地方主要就是第三条了。</p>
+
+<p>正好去翻了一下perl的Elasticsearch.pm的POD。发现原来perl模块本色默认就是这么做的。new的时候定义的server，是用来发送请求获取集群所有alive的nodes。然后会从这个nodes列表里选择(随机)一个创建真正的链接返回。获取nodes的API如下：</p>
+
+<div class="highlight"><pre><code class="bash">curl http://192.168.1.33:9200/_cluster/nodes?pretty<span class="o">=</span>1
+<span class="o">{</span>
+  <span class="s2">&quot;ok&quot;</span> : <span class="nb">true</span>,
+  <span class="s2">&quot;cluster_name&quot;</span> : <span class="s2">&quot;logstash&quot;</span>,
+  <span class="s2">&quot;nodes&quot;</span> : <span class="o">{</span>
+    <span class="s2">&quot;he6ipuA3SDeNmOQYIr-bjg&quot;</span> : <span class="o">{</span>
+      <span class="s2">&quot;name&quot;</span> : <span class="s2">&quot;Afari, Jamal&quot;</span>,
+      <span class="s2">&quot;transport_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.33:9300]&quot;</span>,
+      <span class="s2">&quot;hostname&quot;</span> : <span class="s2">&quot;ES-33.domain.com&quot;</span>,
+      <span class="s2">&quot;http_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.33:9200]&quot;</span>
+    <span class="o">}</span>,
+    <span class="s2">&quot;WXK68VX0ThmNnozq0uioQw&quot;</span> : <span class="o">{</span>
+      <span class="s2">&quot;name&quot;</span> : <span class="s2">&quot;Harker, Quincy&quot;</span>,
+      <span class="s2">&quot;transport_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.68:9300]&quot;</span>,
+      <span class="s2">&quot;hostname&quot;</span> : <span class="s2">&quot;ES-68.domain.com&quot;</span>,
+      <span class="s2">&quot;http_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.68:9200]&quot;</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div>
+
+<p>这样显然可以在cluster较大的时候分担index的压力(search的时候压力在集群本身的cpu上)。我打算给我的pure-ruby branch里的faraday版的Logstash::Outputs::ElasticsearchHTTP也加上这个功能。</p>
+<hr />
+
+<p>大致简单实现如下：</p>
+
+<div class="highlight"><pre><code class="ruby">  <span class="k">def</span> <span class="nf">select_rand_host</span>
+    <span class="nb">require</span> <span class="s2">&quot;json&quot;</span>
+    <span class="k">begin</span>
+      <span class="n">response</span> <span class="o">=</span> <span class="vi">@agent</span><span class="o">.</span><span class="n">get</span> <span class="s1">&#39;/_cluster/nodes&#39;</span>
+      <span class="n">nodelist</span> <span class="o">=</span> <span class="no">JSON</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">body</span><span class="p">)</span><span class="o">[</span><span class="s1">&#39;nodes&#39;</span><span class="o">].</span><span class="n">values</span>
+      <span class="n">livenode</span> <span class="o">=</span> <span class="n">nodelist</span><span class="o">[</span><span class="nb">rand</span><span class="p">(</span><span class="n">nodelist</span><span class="o">.</span><span class="n">length</span><span class="p">)</span><span class="o">][</span><span class="s2">&quot;http_address&quot;</span><span class="o">].</span><span class="n">split</span><span class="p">(</span><span class="sr">/\[|\]/</span><span class="p">)</span><span class="o">[</span><span class="mi">1</span><span class="o">]</span>
+      <span class="vi">@agent</span> <span class="o">=</span> <span class="no">Faraday</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">:url</span> <span class="o">=&gt;</span> <span class="s2">&quot;http:/</span><span class="si">#{</span><span class="n">livenode</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="k">do</span> <span class="o">|</span><span class="n">faraday</span><span class="o">|</span>
+        <span class="n">faraday</span><span class="o">.</span><span class="n">use</span> <span class="ss">Faraday</span><span class="p">:</span><span class="ss">:Adapter</span><span class="o">::</span><span class="no">EMHttp</span>
+      <span class="k">end</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+</code></pre></div>
+
+<p>然后在<code>def register</code>里和<code>def flush</code>的<code>retry</code>前面都加上<code>select_rand_host()</code>就好了。当然比起perl的ElasticSearch::Transport里各种检查各种排除，我这个还是简单多了……
+另，在Ruby1.9里从数组返回随机元素可以直接调用<code>.sample</code>，真赞。不过谁让我都是1.8.7的版本呢……</p>
+
+<p><strong>2012 年 12 月 30 日附注：</strong></p>
+
+<p>之后我在 maillist 里联系了 logstash 的作者。不过作者表示：第一，需要自选 node 功能的，建议使用 output/elasticsearch 因为这个是用的 java 客户端，直接会把自己作为一个 node 加入 ES 的 cluster。第二，ruby 的 http 模块他都不喜欢，所以全部项目里的相关部分他都只用自己写的 ftw 模块 ==!</p>
+
+<p><strong>2013 年 02 月 26 日附注：</strong></p>
+
+<p>最新版的 Logstash::Outputs::ElasticSearchHTTP 已经加入随机选择 node 功能。是其他网友在 ftw 模块基础上添加的。</p>
+
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2012/10/26/systemtap-and-file-descriptor" title="用systemtap调试文件描述符限制">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2012/11/09/chrome-app-demo" title="Chrome的APP简单用法">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

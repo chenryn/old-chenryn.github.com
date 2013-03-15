@@ -1,0 +1,478 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>【puppet系列】puppet使用ENC定义节点</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>【puppet系列】puppet使用ENC定义节点 <small></small></h1>
+    <div class="date"><span>18 May 2012</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
+    	<li><a href="/tags.html#perl-ref">perl <span>52</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>今天研究puppet dashboard。主要有ENC和reports两个功能。其中ENC功能相当扯淡，因为你在web上点击添加的class/node/group，是没有任何依赖性检查(比如node命名是否符合fqdn，class是否存在)的，随便咋填绝无报错和拒绝！而且也没有提供类似report的导入工具，一旦启用就要完全重新手工输入所有配置……所以无论是从导入角度还是管理角度，自己实现一个靠谱点的ENC都是有必要的。  <br />
+关于puppet的ENC配置，参见<a href="http://docs.puppetlabs.com/guides/external_nodes.html">ENC的文档</a>  <br />
+主要就是修改puppet.conf里两个配置：  <br />
+node_terminus，由plain修改成exec；external_nodes，由none修改为ENC脚本的路径。  <br />
+类似如下：
+    [master]  <br />
+    node_terminus = exec  <br />
+    external_nodes = /etc/puppet/webui/external_nodes  <br />
+脚本输入输出的说明：    </p>
+
+<pre><code>Its only argument is the name of the node to be classified, and it returns a YAML document describing the node.
+</code></pre>
+
+<p>注意到此为止配置修改不算结束！文档中提到，puppet是支持同时开启ENC和site.pp配置的。puppet会自动merge两个配置。但是debug运行时可以看到，这个merge是按照node级别进行的。也就是说：    </p>
+
+<ol>
+  <li>puppet master收到一个node的请求，如果node_terminus配置为exec，输出node的fqdn给external_nodes；    </li>
+  <li>收到external_nodes的返回，为一个yaml体或者空；    </li>
+  <li>加载site.pp，这是按照文本顺序进行的。如果都是import &ldquo;module&rdquo;，那么最后就进入module的parameter和template处理。    </li>
+  <li>如果碰到import &ldquo;node/<em>.pp&rdquo;这样的配置，则开始加载node/</em>.pp中的node配置；    </li>
+  <li>如果node/*.pp中的node在当前的node object中不存在，那么新建这个object。    </li>
+  <li>如果已经存在，那么覆盖为后来的这个node配置。    </li>
+</ol>
+
+<p>所以为了方便起见，请删除掉site.pp中的import &ldquo;node/*.pp&rdquo;这行配置。我在这里就被郁闷了很久。</p>
+
+<p>然后是我这里的想法是尽量不更改pp的语法，只是提供一个把group里的ip到fqdn的转化然后查找cluster配置组合成yaml。  <br />
+也就是说有一个group的配置目录，其配置文件为&rdquo;groupname.pp&rdquo;，内容如下：</p>
+
+<div class="highlight"><pre><code class="ruby"><span class="n">group</span> <span class="s2">&quot;groupname&quot;</span> <span class="p">{</span>
+    <span class="vg">$string</span> <span class="o">=</span> <span class="s2">&quot;test&quot;</span>
+    <span class="vg">$arrays</span> <span class="o">=</span> <span class="o">[</span><span class="mi">123</span><span class="p">,</span> <span class="n">abc</span><span class="o">]</span>
+    <span class="kp">include</span> <span class="n">module1</span><span class="p">,</span> <span class="n">module2</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>还有一个iplist的配置目录，其配置文件为“groupname.iplist”，内容如下：</p>
+
+<div class="highlight"><pre><code class="squid"><span class="mf">1.2.3.4</span><span class="w"></span>
+<span class="mf">2.3.4.5</span><span class="w"></span>
+</code></pre></div>
+
+<p>那么以后服务器组有啥变更，只需要修改一下iplist就好了，不用重启puppet进程。    </p>
+
+<p>所以有两个脚本，一个是external_node脚本：    </p>
+
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/bin/env perl</span>
+<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">autodie</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">DBI</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">YAML::</span><span class="n">Syck</span><span class="p">;</span>
+
+<span class="k">my</span> <span class="nv">$base_dir</span> <span class="o">=</span> <span class="s">&quot;/etc/puppet/webui&quot;</span><span class="p">;</span>
+
+<span class="k">my</span> <span class="nv">$node</span> <span class="o">=</span> <span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+<span class="k">my</span> <span class="nv">$group</span> <span class="o">=</span> <span class="n">sqlite_select</span><span class="p">(</span><span class="nv">$node</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$hash</span> <span class="o">=</span> <span class="n">pp2hashref</span><span class="p">(</span><span class="nv">$group</span><span class="p">);</span>
+<span class="k">print</span> <span class="n">Dump</span><span class="p">(</span><span class="nv">$hash</span><span class="p">);</span>
+<span class="c1"># ENC要求退出值必须为0 </span>
+<span class="nb">exit</span> <span class="mi">0</span><span class="p">;</span>
+
+<span class="k">sub </span><span class="nf">pp2hashref</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$group</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="p">{};</span>
+    <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;&lt;&#39;</span><span class="p">,</span> <span class="s">&quot;${base_dir}/group/${group}.pp&quot;</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$i</span><span class="p">;</span>
+    <span class="k">while</span><span class="p">(</span><span class="sr">&lt;$fh&gt;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="sr"> /^#|^\s*$|}$/</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="k">next</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="sr"> /^group\s+&quot;(\w+)&quot;/</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="nb">die</span> <span class="s">&quot;group name do not match,check please!&quot;</span> <span class="k">unless</span> <span class="nv">$1</span> <span class="o">=~</span> <span class="sr">m/$group/i</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="sr"> /^\s*?\$(\w+)\s*=\s*&quot;(.+)&quot;$/</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;parameters&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$1&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$2</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="sr"> /^\s*?include\s+(.+)$/</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="nv">@</span><span class="p">{</span><span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;classes&quot;</span><span class="p">}}</span> <span class="o">=</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/,\s*/</span><span class="p">,</span> <span class="nv">$1</span><span class="p">);</span>
+        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="sr"> /^\s*\$(\w+)\s*=\s*\[([^]]+)]?/</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="nv">$i</span> <span class="o">=</span> <span class="nv">$1</span><span class="p">;</span>
+            <span class="nb">grep</span> <span class="p">{</span> <span class="nb">push</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;parameters&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$i&quot;</span><span class="p">}},</span> <span class="nv">$_</span> <span class="p">}</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/,\s*/</span><span class="p">,</span> <span class="nv">$2</span><span class="p">);</span>
+        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="sr"> /^\s*([^]]+)]?/</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="nb">grep</span> <span class="p">{</span> <span class="nb">push</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;parameters&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$i&quot;</span><span class="p">}},</span> <span class="nv">$_</span> <span class="p">}</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/,\s*/</span><span class="p">,</span> <span class="nv">$1</span><span class="p">);</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="k">next</span><span class="p">;</span>
+        <span class="p">};</span>
+    <span class="p">};</span>
+    <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;parameters&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;clustername&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$group</span><span class="p">;</span>
+    <span class="c1"># ENC要求输出的yaml中必须提供environment参数 </span>
+    <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;environment&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="s">&quot;production&quot;</span><span class="p">;</span>
+    <span class="k">return</span> <span class="nv">$data</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">sub </span><span class="nf">sqlite_select</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$node</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$dbh</span> <span class="o">=</span> <span class="n">DBI</span><span class="o">-&gt;</span><span class="nb">connect</span><span class="p">(</span><span class="s">&quot;dbi:SQLite:dbname=${base_dir}/node_info.db&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">,{</span><span class="n">RaiseError</span><span class="o">=&gt;</span><span class="mi">1</span><span class="p">,</span><span class="n">AutoCommit</span><span class="o">=&gt;</span><span class="mi">0</span><span class="p">});</span>
+    <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span><span class="s">&quot;select node_group from node_info where node_fqdn = ?&quot;</span><span class="p">);</span>
+    <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">(</span><span class="s">&quot;$node&quot;</span><span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">fetchrow_hashref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;node_group&quot;</span><span class="p">};</span>
+    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">disconnect</span><span class="p">();</span>
+    <span class="k">return</span> <span class="nv">$ret</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre></div>
+
+<p>一个是维护sqlite的脚本：</p>
+
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/bin/env perl</span>
+<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">autodie</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">DBI</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Net::</span><span class="n">Nslookup</span><span class="p">;</span>
+
+
+<span class="k">my</span> <span class="nv">$base_dir</span> <span class="o">=</span> <span class="s">&quot;/etc/puppet/webui&quot;</span><span class="p">;</span>
+
+<span class="n">sqlite_update</span><span class="p">();</span>
+
+<span class="k">sub </span><span class="nf">ip_conv</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$name</span> <span class="o">=</span> <span class="n">nslookup</span><span class="p">(</span><span class="n">host</span> <span class="o">=&gt;</span> <span class="s">&quot;$ip&quot;</span><span class="p">,</span> <span class="n">type</span> <span class="o">=&gt;</span> <span class="s">&quot;PTR&quot;</span><span class="p">);</span>
+    <span class="c1"># ENC的输入参数为全小写格式，所以sqlite中也必须存储小写格式的主机名 </span>
+    <span class="k">return</span> <span class="nb">lc</span><span class="p">(</span><span class="nv">$name</span><span class="p">);</span>
+<span class="p">};</span>
+
+<span class="k">sub </span><span class="nf">sqlite_rebuild</span> <span class="p">{</span>
+    <span class="c1"># 配置系统变动不大，且puppet本身还有一层也是用sqlite的node配置缓存层，</span>
+    <span class="c1"># 所以这里不用复杂的select判断再update或者insert，直接重建sqlite </span>
+    <span class="nb">unlink</span> <span class="s">&quot;${base_dir}/node_info.db&quot;</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$dbh</span> <span class="o">=</span> <span class="n">DBI</span><span class="o">-&gt;</span><span class="nb">connect</span><span class="p">(</span><span class="s">&quot;dbi:SQLite:dbname=${base_dir}/node_info.db&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">,{</span><span class="n">RaiseError</span><span class="o">=&gt;</span><span class="mi">1</span><span class="p">,</span><span class="n">AutoCommit</span><span class="o">=&gt;</span><span class="mi">0</span><span class="p">});</span>
+    <span class="k">my</span> <span class="nv">$sql</span> <span class="o">=</span> <span class="s">&#39;create table node_info (node_fqdn, node_group)&#39;</span><span class="p">;</span>
+    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="k">do</span><span class="p">(</span><span class="nv">$sql</span><span class="p">);</span>
+    <span class="c1"># sqlite支持简单事务，所以要即时提交 </span>
+    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">commit</span><span class="p">();</span>
+    <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span><span class="s">&#39;replace into node_info values(?,?)&#39;</span><span class="p">);</span>
+    <span class="k">my</span> <span class="nv">@groups</span> <span class="o">=</span> <span class="nb">grep</span> <span class="p">{</span> <span class="sr">s/^${base_dir}\/iplist\/(\w+?).list$/$1/</span> <span class="p">}</span> <span class="nb">glob</span><span class="p">(</span><span class="s">&quot;${base_dir}/iplist/*&quot;</span><span class="p">);</span>
+    <span class="k">print</span> <span class="nv">$_</span><span class="p">,</span><span class="s">&quot;\n&quot;</span> <span class="k">for</span> <span class="nv">@groups</span><span class="p">;</span>
+    <span class="k">foreach</span> <span class="p">(</span> <span class="nv">@groups</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="nv">$group</span> <span class="o">=</span> <span class="nv">$_</span><span class="p">;</span>
+        <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;&lt;&#39;</span><span class="p">,</span> <span class="s">&quot;${base_dir}/iplist/${group}.list&quot;</span><span class="p">;</span>
+        <span class="k">while</span> <span class="p">(</span><span class="sr">&lt;$fh&gt;</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">my</span> <span class="nv">$fqdn</span> <span class="o">=</span> <span class="n">ip_conv</span><span class="p">(</span><span class="nv">$_</span><span class="p">);</span>
+            <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">(</span><span class="s">&quot;$fqdn&quot;</span><span class="p">,</span> <span class="s">&quot;$group&quot;</span><span class="p">);</span>
+            <span class="nb">die</span> <span class="nv">$</span><span class="nn">DBI::</span><span class="nv">errstr</span> <span class="k">if</span> <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">err</span><span class="p">();</span>
+        <span class="p">};</span>
+    <span class="p">};</span>
+    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">commit</span><span class="p">();</span>
+    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">disconnect</span><span class="p">();</span>
+<span class="p">};</span>
+</code></pre></div>
+
+<p>以上是ENC的配置。继续分析puppet dashboard，除了ENC外，另一个功能就是reports，相比ENC来说，reports功能还算稍微靠谱一点，用http方式替换puppet自身的store方式，并存数据在mysql里。目前使用dashboard的人主要也就是在用这个功能。  <br />
+但是我个人认为，一般情况下运维不可能专门开一个页面看着puppet，也不太会有必要按照时间段查看状态报表汇总图这个东东，真正要紧的，是及时接到运行错误的报警以便上机处理。所以这里最后是一个监控reports的脚本，目前还没看到http方式的reports数据格式，所以暂时继续使用store的方式，然后采用Linux文件系统的inotify方式报警。</p>
+
+<div class="highlight"><pre><code class="perl"><span class="c1">#!env perl</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">YAML::</span><span class="n">Syck</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">AnyEvent::Filesys::</span><span class="n">Notify</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">EV</span><span class="p">;</span>
+
+<span class="c1"># 使用AE的这个扩展而不直接用Linux::Inotify2模块，方便万一之后迁移到BSD主机</span>
+<span class="c1"># 而且异步回调的方式性能更好，在压力较大时不会阻塞丢失事件 </span>
+<span class="k">my</span> <span class="nv">$notifier</span> <span class="o">=</span> <span class="nn">AnyEvent::Filesys::</span><span class="n">Notify</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+    <span class="n">dirs</span>     <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw(/var/lib/puppet/reports)</span><span class="p">],</span>
+    <span class="n">interval</span> <span class="o">=&gt;</span> <span class="mf">0.5</span><span class="p">,</span>
+    <span class="c1"># 在puppetd请求的时候，会在目录下先生成临时文件，完成后再mv成正式的，所以要过滤</span>
+    <span class="n">filter</span>   <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nb">shift</span> <span class="o">=~</span><span class="sr"> /\.yaml$/</span> <span class="p">},</span>
+    <span class="n">cb</span>       <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+        <span class="k">for</span> <span class="p">(</span> <span class="nv">@_</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="c1"># 一般这里会是两个type，创建的created和修改的modified，因为文件名只精确到分钟，如果两次运行在一分钟内，文件名就一样</span>
+            <span class="k">if</span> <span class="p">(</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="n">type</span> <span class="p">)</span> <span class="p">{</span>
+                <span class="k">my</span> <span class="nv">$file</span> <span class="o">=</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="n">path</span><span class="p">;</span>
+                <span class="k">my</span> <span class="nv">$logs</span> <span class="o">=</span> <span class="n">LoadFile</span><span class="p">(</span><span class="nv">$file</span><span class="p">)</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;logs&#39;</span><span class="p">};</span>
+                <span class="k">for</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$logs</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
+                    <span class="k">if</span> <span class="p">(</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;level&#39;</span><span class="p">}</span> <span class="ow">eq</span> <span class="s">&#39;err&#39;</span> <span class="p">)</span> <span class="p">{</span>
+                        <span class="n">process</span><span class="p">(</span><span class="nv">$file</span><span class="p">,</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;message&#39;</span><span class="p">});</span>
+                    <span class="p">};</span>
+                <span class="p">};</span>
+            <span class="p">};</span>
+        <span class="p">};</span>
+    <span class="p">},</span>
+<span class="p">);</span>
+
+<span class="nn">EV::</span><span class="n">loop</span><span class="p">();</span>
+
+<span class="k">sub </span><span class="nf">process</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="p">(</span> <span class="nv">$path</span><span class="p">,</span> <span class="nv">$message</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="nv">$path</span> <span class="o">=~</span> <span class="sr">m/\/([^\/]+)\/\d{12}\.yaml$/</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="c1"># 这里用nagios还是email方式处理都可以，代码略</span>
+        <span class="k">print</span> <span class="nv">$1</span><span class="p">,</span><span class="s">&quot; has err: &quot;</span><span class="p">,</span><span class="nv">$message</span><span class="p">,</span><span class="s">&quot;\n&quot;</span><span class="p">;</span>
+    <span class="p">};</span>
+<span class="p">};</span>
+</code></pre></div>
+
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2012/05/10/quick-start-for-puppet-facter-erb" title="【puppet系列】puppet安装／Facter插件和puppet模板编写">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2012/05/22/puppet-reports-analysis-by-web" title="【puppet系列】网页展示puppet的客户端报告">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

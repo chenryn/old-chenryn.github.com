@@ -1,0 +1,331 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>squid源站故障转向（终结篇）</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>squid源站故障转向（终结篇） <small></small></h1>
+    <div class="date"><span>28 March 2010</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
+    	<li><a href="/tags.html#squid-ref">squid <span>24</span></a></li>
+     
+    	<li><a href="/tags.html#C-ref">C <span>3</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>因为这么一个想法，我陆陆续续的把squid很多功能都理了一遍，今天终于打算写个不完美的终结篇。而就在写这个终结篇的同时，公司里也已经开始把这批别扭的客户改往nginx平台加速了。</p>
+
+<p>总结这批客户的跳转要求，其实格式都比较统一，大抵就是*.abc.com(.cn)坏了就转到abc.cdn.21vokglb.cn。在3月24日的博文最后，已经有了一个思路——既然无法执行php的header(Location)和strstr(%U)，那么就干脆在squid的src里对%U进行操作好了。</p>
+
+<p>squid-src/errorpage.c中关于%U的注释是：</p>
+
+<pre><code>U - URL without password
+</code></pre>
+
+<p>相关语句是：</p>
+
+<div class="highlight"><pre><code class="c"><span class="n">p</span> <span class="o">=</span> <span class="n">r</span> <span class="o">?</span> <span class="n">urlCanonicalClean</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">:</span> <span class="n">err</span><span class="o">-&gt;</span><span class="n">url</span> <span class="o">?</span> <span class="n">err</span><span class="o">-&gt;</span><span class="n">url</span> <span class="o">:</span> <span class="s">&quot;[no URL]&quot;</span><span class="p">;</span>
+</code></pre></div>
+
+<p>只要把url按&rdquo;.&rdquo;分割，然后取出第二个域abc，就可以在html代码中给它加上跳转后的url了——这一步也能在src里完成，不过以后不好修改了，虽然现在这样子的定制性也强不到哪去~
+从大二到现在无数年了，c已经属于忘到冥王星外的东东，于是一个一个的翻c的字符串函数，从strstr、strchr、strcat、strtok、strsep到最后终于发现sscanf。只要在src/errorpage.c的588行下加这么一句话就可以了：</p>
+
+<div class="highlight"><pre><code class="c"><span class="mi">587</span><span class="err">    </span> <span class="k">case</span> <span class="sc">&#39;U&#39;</span>:
+<span class="mi">588</span><span class="err">        </span> <span class="n">p</span> <span class="o">=</span> <span class="n">r</span> <span class="o">?</span> <span class="n">urlCanonicalClean</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">:</span> <span class="n">err</span><span class="o">-&gt;</span><span class="n">url</span> <span class="o">?</span> <span class="n">err</span><span class="o">-&gt;</span><span class="n">url</span> <span class="o">:</span> <span class="s">&quot;[no URL]&quot;</span><span class="p">;</span>
+<span class="mi">589</span><span class="o">+</span><span class="err">     </span> <span class="n">sscanf</span><span class="p">(</span><span class="n">p</span><span class="p">,</span><span class="s">&quot;%*[^.].%[^.]&quot;</span><span class="p">,</span><span class="n">p</span><span class="p">);</span>
+<span class="mi">590</span><span class="err">        </span> <span class="k">break</span><span class="p">;</span>
+</code></pre></div>
+
+<p>然后编译安装，一路通过没有问题~~启动squid服务，测试一下%U吧~
+先把ERR_ACCESS_DENIED内容修改如下：</p>
+
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;HTML&gt;</span>
+<span class="nt">&lt;BODY&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+<span class="nt">&lt;META</span> <span class="na">HTTP-EQUIV=</span><span class="s">&quot;refresh&quot;</span><span class="err">  </span> <span class="na">Content=</span><span class="s">&quot;0;URL=http://%U.cdn.21vokglb.cn/index.htm&quot;</span><span class="nt">&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;/HTML&gt;</span>
+</code></pre></div>
+
+<p>然后在squid.conf中增加对自己本机的访问控制如下：</p>
+
+<div class="highlight"><pre><code class="squid"><span class="k">acl</span><span class="w"> </span>test<span class="w"> </span><span class="k">src</span><span class="w"> </span><span class="mf">222.62.104.189/255.255.255.255</span><span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span>rao<span class="w"></span>
+</code></pre></div>
+
+<p>squid -k reconfigure生效，访问一下www.xyfunds.com.cn，果然跳转到xyfunds.cdn.21vokglb.cn/index.htm啦~~
+完毕。
+虽然最终还是没能达到任意定义跳转url的目标，不过就本身的出发点来说，还是完成了需求。这也是我N年来第一次重新看C，也是第一次修改squid代码，虽然只加了一句~~~不过意义还是有滴，晚上吃个鸡蛋自我犒劳一下咯。</p>
+
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2010/03/25/zabbix_proxy-install" title="zabbix_proxy部署">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2010/03/30/purge-script-by-perl" title="perl边学边练（purge脚本）">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

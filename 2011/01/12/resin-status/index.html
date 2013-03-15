@@ -1,0 +1,323 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>resin-status</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>resin-status <small></small></h1>
+    <div class="date"><span>12 January 2011</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
+    	<li><a href="/tags.html#resin-ref">resin <span>3</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>和apache、nginx一样，resin也自带了一个比较简易的status模块，只需要在resin.conf里配置就行了。在里添加如下一段：<span style="font-family: Consolas, Monaco, 'Courier New', Courier, monospace; line-height: 18px; font-size: 12px; white-space: pre;"> </span></p>
+
+<div class="highlight"><pre><code class="xml">    <span class="nt">&lt;servlet-mapping</span> <span class="na">servlet-class=</span><span class="s">&#39;com.caucho.servlets.ResinStatusServlet&#39;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;url-pattern&gt;</span>/resin-status<span class="nt">&lt;/url-pattern&gt;</span>
+      <span class="nt">&lt;init</span> <span class="na">enable=</span><span class="s">&quot;read&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;/servlet-mapping&gt;</span>
+</code></pre></div>
+
+<p>重启resin即可。
+然后curl访问http://127.0.0.1:8080/resin-status就可以看到输出了。
+用浏览器的话，大致如下图：
+<a href="http://chenlinux.com/wp-content/uploads/2011/01/resin.jpg"><img class="alignnone size-full wp-image-2166" title="resin" src="http://chenlinux.com/wp-content/uploads/2011/01/resin.jpg" alt="" width="550" height="552" /></a>
+可以关注线程数、连接数、内存使用大小和请求处理数。</p>
+
+<p>如果要做监控的话，直接从html里获取相应数值即可。</p>
+
+<p>唯一需要稍微注意的是请求处理数。因为其他的都是AVERAGE，只有这个是COUNTER型的。要是想很方便的看到rps。可以采用如下方法查看：</p>
+
+<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@rtuku ~<span class="o">]</span><span class="c"># a=`curl -s http://127.0.0.1:8081/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 1;curl -s http://10.168.168.56:8081/resin-status|awk -F/ &#39;/Invocation/{print($NF-&#39;$a&#39;}&#39;</span>
+718
+</code></pre></div>
+
+<p>这里比较有趣的是因为这行的数据本身是有个括号的，所以就有了各种各样的写法和报错了。一并贴上来，可以体会一下awk的系统变量/内部函数/字符类型的用法：</p>
+
+<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@rtuku logs<span class="o">]</span><span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&#39;$a&#39;}&#39;</span>
+awk: cmd. line:1: /Invocation/<span class="o">{</span>print <span class="nv">$NF</span>-3949612<span class="o">)}</span>
+awk: cmd. line:1:                               ^ syntax error
+<span class="o">[</span>root@rtuku logs<span class="o">]</span><span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&#39;&quot;$a&quot;&#39;}&#39;</span>
+awk: cmd. line:1: /Invocation/<span class="o">{</span>print <span class="nv">$NF</span>-4025373<span class="o">)}</span>
+awk: cmd. line:1:                               ^ syntax error
+<span class="o">[</span>root@rtuku logs<span class="o">]</span><span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&quot;&#39;$a&#39;&quot;}&#39;</span>
+7607
+<span class="o">[</span>root@rtuku logs<span class="o">]</span><span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print substr($NF,0,length($NF)-1)}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&#39;$a&#39;}&#39;</span>
+7927
+<span class="o">[</span>root@rtuku logs<span class="o">]</span><span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print($NF-&#39;$a&#39;}&#39;</span>
+7212
+</code></pre></div>
+
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2011/01/11/construct-http-auth-header" title="HTTP的auth请求模拟">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2011/01/13/learning-accel-dynamic-data" title="读《基于动态内容的缓存加速技术》笔记">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

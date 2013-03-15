@@ -1,0 +1,380 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>PostgreSQL中国用户会DBA2000培训计划北京第二课笔记</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>PostgreSQL中国用户会DBA2000培训计划北京第二课笔记 <small></small></h1>
+    <div class="date"><span>18 March 2012</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
+    	<li><a href="/tags.html#PostgreSQL-ref">PostgreSQL <span>2</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <h2 id="section">运行维护</h2>
+
+<h3 id="vacuum">vacuum命令</h3>
+
+<p>pgsql是multi-version concurrency control的，update和delete的操作并不会真正的修改原版本的内容，而只是做一个标记，最后需要用vacuum命令回收失效版本的位置。<br />
+vacuum的主要作用：
+1. 恢复或重用失效的空间；
+2. 更新pgsql规划器的数据统计；
+3. 避免事务ID的重复。
+事务ID只有32位，差不多40亿左右。建议在达到10亿左右的时候就需要vacuum一次。<br />
+在version8.*之后，默认就是用auto vacuum。注意auto vacuum不是定时启动，而是触发式的。</p>
+
+<p>vacuum命令有两种形式：
+1. vacuum，正常情况，不阻塞读写。
+2. vacuum full，使用全表排他锁，不可读，产生最小大小的数据文件。不建议在7*24的生产环境使用。</p>
+
+<p>vacuum full命令的操作原理简述：
+1. 标记旧数据；
+2. 移动数据成连续空间；
+3. 截断文件。</p>
+
+<h3 id="reindex">reindex命令</h3>
+
+<p>在version7.4之后，该命令不再需要经常性运行了。<br />
+执行该命令会阻塞写操作。读操作照常。</p>
+
+<h3 id="analyze">analyze命令</h3>
+
+<p>建议规划一个database范围的analyze，然后每天运行看效果。</p>
+
+<h2 id="section-1">存储过程</h2>
+
+<h3 id="plpgsql">pl/pgsql示例：</h3>
+
+<div class="highlight"><pre><code class="sql"><span class="k">CREATE</span> <span class="k">FUNCTION</span> <span class="n">func_name</span> <span class="p">(</span> <span class="k">option</span> <span class="k">type</span> <span class="p">)</span> <span class="k">RETURNS</span>
+    <span class="k">type</span> <span class="k">AS</span> <span class="err">$$</span>
+    <span class="p">...</span>
+</code></pre></div>
+
+<h3 id="section-2">触发器示例：</h3>
+
+<div class="highlight"><pre><code class="sql"><span class="k">CREATE</span> <span class="k">FUNCTION</span> <span class="k">trigger_name</span> <span class="p">(</span> <span class="k">option</span> <span class="k">type</span> <span class="p">)</span> <span class="k">RETURNS</span>
+    <span class="n">tirgger</span> <span class="k">AS</span> <span class="err">$$</span>
+<span class="k">DECLARE</span> <span class="p">...</span>
+<span class="k">BEGIN</span>
+    <span class="p">....</span>
+    <span class="k">RETURN</span> <span class="k">NEW</span><span class="o">/</span><span class="k">NULL</span> <span class="cm">/*NULL就回滚上面的操作*/</span>
+<span class="k">END</span>
+</code></pre></div>
+
+<h3 id="section-3">调试</h3>
+
+<p>图形化安装时带有的pgadmin3里有一项debugger。<br />
+配置：shared_preload_libraries=&rdquo;$libdir/plugins/plugin_debugger.so&rdquo;<br />
+导入：debugger.sql</p>
+
+<h2 id="section-4">监控</h2>
+
+<ol>
+  <li>data/pg_log/*.log</li>
+</ol>
+
+<p>标示等级一般为：通用等级LOG NOTICE，错误等级FATAL ERROR，提示等级LOG HINT
+一般有一个startup.log文件记录启动过程；一些以时间为名字的日志，记录运行过程，每当文件超过10MB，每次重启，以及每过一整天的时候，就会生成一个新文件。</p>
+
+<ol>
+  <li>pgadmin3</li>
+</ol>
+
+<p>通过server status看锁状态，杀进程等。</p>
+
+<ol>
+  <li>psql命令</li>
+</ol>
+
+<div class="highlight"><pre><code class="sql"><span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">pg_stat_activetity</span><span class="p">;</span>
+</code></pre></div>
+
+<p>配置：log_min_duration_statement，设置慢查询日志的时限，单位为毫秒。</p>
+
+<h2 id="section-5">集群</h2>
+
+<h3 id="section-6">8.*时代</h3>
+
+<p>复制以WAL File为单位，一旦丢失，就可能损失16MB的事务。而且standby不可读。</p>
+
+<h3 id="section-7">9.*时代</h3>
+
+<p>复制以WAL中的record为单位，且standby可以读操作，能设置成读写分离集群。
+9.0中只有异步复制；9.1中有同步复制。</p>
+
+<h3 id="section-8">主要方案</h3>
+
+<p>PGPool II等</p>
+
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2012/03/17/postgreSQL-DBA-2000-note1" title="PostgreSQL中国用户会DBA2000培训计划北京第一课笔记">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2012/04/16/configs-automatically-effective-for-elastic-monitor" title="弹性集群监控中的配置自动生效问题研究">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

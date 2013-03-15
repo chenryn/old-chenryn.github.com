@@ -1,0 +1,328 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>squid的snmp配置和部分oid说明</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>squid的snmp配置和部分oid说明 <small></small></h1>
+    <div class="date"><span>14 September 2010</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
+    	<li><a href="/tags.html#squid-ref">squid <span>24</span></a></li>
+     
+    	<li><a href="/tags.html#snmp-ref">snmp <span>5</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>首先配置squid.conf如下：</p>
+
+<div class="highlight"><pre><code class="squid"><span class="k">acl</span><span class="w"> </span>MonitorCenter<span class="w"> </span><span class="k">src</span><span class="w"> </span><span class="mf">127.0.0.1</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>snmppublic<span class="w"> </span><span class="k">snmp_community</span><span class="w"> </span>public<span class="w"></span>
+<span class="k">snmp_access</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>snmppublic<span class="w"> </span>MonitorCenter<span class="w"></span>
+<span class="k">snmp_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span><span class="no">all</span><span class="w"></span>
+</code></pre></div>
+
+<p>然后配置snmpd.conf如下：</p>
+
+<pre><code>com2sec notConfigUser  default    public
+group   notConfigGroup v2c           notConfigUser
+view    systemview    included   .1.3.6.1.4.1.3495.1
+proxy -v 1 -c public 127.0.0.1:3401 .1.3.6.1.4.1.3495.1
+</code></pre>
+
+<p>分别重启squid和snmpd即可。
+用snmpwalk -v 2c -c public 192.168.0.2 1.3.6.1.4.1.3495 -Cc就可以查看全部的数据了。对了解前段缓存有用的oid主要如下：</p>
+
+<pre><code>SNMPv2-SMI::enterprises.3495.1.1.1.0 = INTEGER: 286800          内存缓存文件大小KB
+SNMPv2-SMI::enterprises.3495.1.1.2.0 = INTEGER: 1072480         磁盘缓存文件大小KB
+SNMPv2-SMI::enterprises.3495.1.3.1.3.0 = INTEGER: 387200        内存使用大小KB
+SNMPv2-SMI::enterprises.3495.1.3.1.5.0 = INTEGER: 8             进程使用CPU的比例
+SNMPv2-SMI::enterprises.3495.1.3.1.7.0 = Gauge32: 66757         缓存文件总数
+SNMPv2-SMI::enterprises.3495.1.3.1.10.0 = Gauge32: 225          可用文件描述符个数
+SNMPv2-SMI::enterprises.3495.1.3.1.12.0 = Gauge32: 799          当前使用中的文件描述符个数
+SNMPv2-SMI::enterprises.3495.1.3.2.1.15.0 = Gauge32: 90377      当前访问缓存的客户端总数
+SNMPv2-SMI::enterprises.3495.1.3.2.2.1.9.1 = INTEGER: 89        一分钟请求命中比
+SNMPv2-SMI::enterprises.3495.1.3.2.2.1.10.1 = INTEGER: 94       一分钟字节命中比
+SNMPv2-SMI::enterprises.3495.1.3.2.2.1.3.1 = INTEGER: 7         一分钟TCP_MISS/200比
+SNMPv2-SMI::enterprises.3495.1.3.2.2.1.4.1 = INTEGER: 0         一分钟TCP_IMS_HIT/304比
+SNMPv2-SMI::enterprises.3495.1.3.2.2.1.5.1 = INTEGER: 0         一分钟TCP_HIT/200比
+SNMPv2-SMI::enterprises.3495.1.3.2.2.1.11.1 = INTEGER: 45       一分钟TCP_REFRESH_HIT/304比
+++++++++以上oid最后一位都可以改成任意时间（分钟为单位）进行统计++++++++
+SNMPv2-SMI::enterprises.3495.1.5.1.1.9.10.10.10.13 = Counter32: 324396    请求回某源的总数
+SNMPv2-SMI::enterprises.3495.1.5.2.1.2.58.31.229.71 = Counter32: 19       某客户ip的http请求数
+SNMPv2-SMI::enterprises.3495.1.5.2.1.3.58.31.229.71 = Counter32: 327      响应该IP请求的字节数KB
+SNMPv2-SMI::enterprises.3495.1.5.2.1.4.58.31.229.71 = Counter32: 17       响应该IP请求的命中率
+SNMPv2-SMI::enterprises.3495.1.5.2.1.5.58.31.229.71 = Counter32: 324      响应该IP请求的字节命中数KB
+</code></pre>
+
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2010/09/14/an-oid-error-of-snmpwalk" title="snmpwalk的报错一例">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2010/09/17/conditional-command-details" title="条件判断命令小细节">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

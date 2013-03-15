@@ -1,0 +1,301 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>BSD上的流量监控脚本</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>BSD上的流量监控脚本 <small></small></h1>
+    <div class="date"><span>21 March 2011</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
+    	<li><a href="/tags.html#FreeBSD-ref">FreeBSD <span>2</span></a></li>
+     
+    	<li><a href="/tags.html#awk-ref">awk <span>19</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>之前有过一篇linux上的流量监控脚本的博文，是利用procfs进行数据运算。但BSD上的procfs和linux有所不同，它只包含了进程的信息，没有系统的统计。所以只能通过其他方法。
+linux上另一种获取网卡总流量的方法是ifconfig命令，这个命令其实也是读取proc；但是BSD上的ifconfig输出里也没有……
+不过BSD上倒不是没法查流量上，事实上另外有两个命令，在实时观测中更加好用，一个是systat -if 1，几乎就是一个无色版的iptraf；另一个是netstat -idbhI bce0 1。
+解释一下，systat是bsd上用来查看系统信息的一个超级利器，-if是-ifstat的简写，类似还有-vmstat等等。netstat是专门用来显示网络状态的，最常用的就是-ant显示所有的TCP链接，这里用的idbhI，表示interface、drop、bytes、human，也就是用方便读取的格式输出某网卡的流量值。
+但是这两个命令，都是持续输出，必须接到^C信号才会退出运行。在实时管理时很好用，在做监控脚本的时候，就弄巧成拙了……
+好在netstat参数多，调整一下，使用idbnf参数（family）即可输出网卡总流量值，然后按照linux上一样的思路进行计算了。
+最终脚本如下：</p>
+
+<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
+/usr/local/bin/gawk <span class="s1">&#39;BEGIN{flow=&quot;netstat -idbnf inet&quot;;while((flow) | getline){now_in[$1]=$7;now_out[$1]=$10};time=systime()}{if_in[$1]=(now_in[$1]-$2)*8/(time-$4);if_out[$1]=(now_out[$1]-$3)*8/(time-$4)}END{printf &quot;OK. The flow is %.2f,%.2f,%.2f,%.2f Kbps | bce0_in=%d;0;0;0;0 bce0_out=%d;0;0;0;0 bce1_in=%d;0;0;0;0 bce1_out=%d;0;0;0;0&quot;,if_in[&quot;bce0&quot;]/1024,if_out[&quot;bce0&quot;]/1024,if_in[&quot;bce1&quot;]/1024,if_out[&quot;bce1&quot;]/1024,if_in[&quot;bce0&quot;],if_out[&quot;bce0&quot;],if_in[&quot;bce1&quot;],if_out[&quot;bce1&quot;];for(i in now_in){print i,now_in[i],now_out[i],time &gt; &quot;/tmp/if_flow.txt&quot;}}&#39;</span> /tmp/if_flow.txt
+</code></pre></div>
+
+<p>脚本就一行，不过就有一个缺点比不上分开写很多行的shell脚本，第一次运行前必须手动touch /tmp/if_flow.txt。因为如果这个文件不存在的话，awk会报错，执行不到END{}来，不会自动生成这个文件的……
+另：systime()函数是gawk特有的，而BSD上默认的是awk，所以需要安装gawk（在/usr/ports/lang/gawk目录下make&amp;&amp;make install）；或者在awk中采用shell变量，定义time=&rsquo;<code>date +%s</code>&lsquo;来调用了。</p>
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2011/03/18/gearmand-test-on-single-server" title="gearman单机试验">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2011/03/28/using-awk-as-one-line-command" title="awk单行命令">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

@@ -1,0 +1,567 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>squid监控+dancer小试验</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>squid监控+dancer小试验 <small></small></h1>
+    <div class="date"><span>28 June 2011</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
+    	<li><a href="/tags.html#squid-ref">squid <span>24</span></a></li>
+     
+    	<li><a href="/tags.html#perl-ref">perl <span>52</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>squid监控之前有一篇关于snmp的内容，不过这次是真要用上了，所以细细挑出来几个做监控。碰巧凯哥更新了一把modern perl的东西，我亦步亦趋，也试试dancer。不过花了两天时间，DBIx::Class::Schema还是没搞出来，最终还是简单的用DBI跳过了……
+用的database就是之前nmap试验时生成的数据，有application/channel/intranet等column。
+首先安装：</p>
+
+<div class="highlight"><pre><code class="perl"><span class="n">cpanm</span> <span class="n">Dancer</span> <span class="n">DBI</span> <span class="n">DBD:mysql</span> <span class="n">Template</span> <span class="nn">Dancer::Session::</span><span class="n">YAML</span>
+<span class="n">dancer</span> <span class="o">-</span><span class="n">a</span> <span class="n">cachemoni</span>
+</code></pre></div>
+
+<p>然后修改cachemoni/lib/cachemoni.pm如下：</p>
+
+<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="n">cachemoni</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">Dancer</span> <span class="s">&#39;:syntax&#39;</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Dancer::Plugin::</span><span class="n">Database</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Net::</span><span class="n">SNMP</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
+<span class="k">our</span> <span class="nv">$VERSION</span> <span class="o">=</span> <span class="s">&#39;0.1&#39;</span><span class="p">;</span>
+
+<span class="n">get</span> <span class="s">&#39;/monitor&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$app</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">app</span><span class="p">}</span> <span class="o">||</span> <span class="s">&#39;squid&#39;</span><span class="p">;</span>
+    <span class="k">return</span> <span class="s">&#39;Only support squid now&#39;</span> <span class="k">unless</span> <span class="nv">$app</span> <span class="ow">eq</span> <span class="s">&#39;squid&#39;</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$checkstat</span> <span class="o">=</span> <span class="n">_snmp_check</span><span class="p">(</span><span class="nv">$app</span><span class="p">);</span>
+    <span class="n">template</span> <span class="s">&#39;monitor&#39;</span><span class="p">,</span> <span class="p">{</span> <span class="n">status</span> <span class="o">=&gt;</span> <span class="nv">$checkstat</span><span class="p">,</span>
+                          <span class="n">name</span>   <span class="o">=&gt;</span> <span class="p">[</span><span class="s">&#39;IP地址&#39;</span><span class="p">,</span><span class="s">&#39;流量命中率&#39;</span><span class="p">,</span><span class="s">&#39;请求数命中率&#39;</span><span class="p">,</span><span class="s">&#39;回源请求响应毫秒&#39;</span><span class="p">,</span><span class="s">&#39;当前客户端数&#39;</span><span class="p">,</span><span class="s">&#39;剩余文件描述符数&#39;</span><span class="p">,</span><span class="s">&#39;已缓存文件数&#39;</span><span class="p">,</span><span class="s">&#39;平均每秒请求数&#39;</span><span class="p">],</span>
+                        <span class="p">};</span>
+<span class="p">};</span>
+
+<span class="n">any</span><span class="p">[</span><span class="s">&#39;get&#39;</span><span class="p">,</span> <span class="s">&#39;post&#39;</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="s">&#39;/login&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$err</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="n">request</span><span class="o">-&gt;</span><span class="n">method</span><span class="p">()</span> <span class="ow">eq</span> <span class="s">&#39;POST&#39;</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="nv">$name</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">username</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$passwd</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">password</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="n">database</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span>
+            <span class="s">&#39;select audit,passwd from ops_user where name = ?&#39;</span>
+        <span class="p">);</span>
+        <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">(</span><span class="nv">$name</span><span class="p">);</span>
+        <span class="k">my</span> <span class="nv">$ref</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">fetchrow_arrayref</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nb">defined</span> <span class="nv">$ref</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">redirect</span> <span class="s">&#39;/register&#39;</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">ne</span> <span class="s">&#39;yes&#39;</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="nv">$err</span> <span class="o">=</span> <span class="s">&#39;你的帐户还没通过审核&#39;</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="n">md5_hex</span><span class="p">(</span><span class="s">&quot;$passwd&quot;</span><span class="p">)</span> <span class="ow">ne</span> <span class="s">&quot;$ref-&gt;[1]&quot;</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="nv">$err</span> <span class="o">=</span> <span class="s">&#39;密码错误&#39;</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="n">session</span> <span class="s">&#39;logged_in&#39;</span> <span class="o">=&gt;</span> <span class="nv">$name</span><span class="p">;</span>
+            <span class="n">redirect</span> <span class="s">&#39;/&#39;</span><span class="p">;</span>
+        <span class="p">};</span>
+    <span class="p">};</span>
+    <span class="n">template</span> <span class="s">&#39;login&#39;</span><span class="p">,</span> <span class="p">{</span> <span class="s">&#39;err&#39;</span> <span class="o">=&gt;</span> <span class="nv">$err</span><span class="p">,</span> <span class="p">};</span>
+<span class="p">};</span>
+
+<span class="n">any</span><span class="p">[</span><span class="s">&#39;get&#39;</span><span class="p">,</span> <span class="s">&#39;post&#39;</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="s">&#39;/register&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$err</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="n">request</span><span class="o">-&gt;</span><span class="n">method</span><span class="p">()</span> <span class="ow">eq</span> <span class="s">&#39;POST&#39;</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="nv">$name</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">username</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$passwd</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">password</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$check_sth</span> <span class="o">=</span> <span class="n">database</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span>
+            <span class="s">&#39;select count(name) from ops_user where name = ?&#39;</span>
+        <span class="p">);</span>
+        <span class="nv">$check_sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">(</span><span class="nv">$name</span><span class="p">);</span>
+        <span class="k">my</span> <span class="nv">$ref</span> <span class="o">=</span> <span class="nv">$check_sth</span><span class="o">-&gt;</span><span class="n">fetchrow_arrayref</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span> <span class="s">&quot;$ref-&gt;[0]&quot;</span> <span class="o">==</span> <span class="s">&#39;0&#39;</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="k">my</span> <span class="nv">$insert_sth</span> <span class="o">=</span> <span class="n">database</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span>
+                <span class="s">&#39;insert into ops_user (name,passwd) value(?,?)&#39;</span>
+            <span class="p">);</span>
+            <span class="nv">$insert_sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">(</span><span class="nv">$name</span><span class="p">,</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$passwd</span><span class="p">));</span>
+            <span class="nv">$err</span> <span class="o">=</span> <span class="s">&#39;等待人工审核通过,3Q&#39;</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="nv">$err</span> <span class="o">=</span> <span class="s">&#39;该用户名已注册&#39;</span><span class="p">;</span>
+        <span class="p">};</span>
+    <span class="p">};</span>
+    <span class="n">template</span> <span class="s">&#39;register&#39;</span><span class="p">,</span> <span class="p">{</span> <span class="s">&#39;err&#39;</span> <span class="o">=&gt;</span> <span class="nv">$err</span><span class="p">,</span> <span class="p">};</span>
+<span class="p">};</span>
+
+<span class="n">get</span> <span class="s">&#39;/&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="n">template</span> <span class="s">&#39;index&#39;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="n">get</span> <span class="s">&#39;/logout&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="n">session</span><span class="o">-&gt;</span><span class="n">destroy</span><span class="p">;</span>
+    <span class="n">redirect</span> <span class="s">&#39;/&#39;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="k">sub </span><span class="nf">_snmp_check</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$app</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$list</span> <span class="o">=</span> <span class="p">{};</span>
+<span class="c1">#之前通过use加载了plugin::database，所以直接有database对象引用了</span>
+    <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="n">database</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span>
+        <span class="s">&#39;select channel,intranet from myhost where application = ?&#39;</span><span class="p">,</span>
+    <span class="p">);</span>
+    <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">(</span><span class="nv">$app</span><span class="p">);</span>
+    <span class="k">while</span> <span class="p">(</span><span class="k">my</span> <span class="nv">$ref</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">fetchrow_hashref</span><span class="p">())</span> <span class="p">{</span>
+        <span class="nv">$list</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$ref-&gt;{&#39;channel&#39;}&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="o">[]</span> <span class="k">unless</span> <span class="nb">exists</span> <span class="nv">$list</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$ref-&gt;{&#39;channel&#39;}&quot;</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;intranet&#39;</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">@snmpstat</span> <span class="o">=</span> <span class="n">_snmp_walk</span><span class="p">(</span><span class="s">&quot;$ip&quot;</span><span class="p">);</span>
+<span class="c1">#这里第一是没想到比较好的把每个ip的各项检查结果导出的办法；所以干脆采用固定次序输出；</span>
+<span class="c1">#第二是因为unshift很耗资源，所以先push再reverse</span>
+        <span class="nb">push</span> <span class="nv">@snmpstat</span><span class="p">,</span> <span class="nv">$ip</span><span class="p">;</span>
+        <span class="nv">@snmpstat</span> <span class="o">=</span> <span class="nb">reverse</span> <span class="nv">@snmpstat</span><span class="p">;</span>
+        <span class="nb">push</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$list</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$ref-&gt;{&#39;channel&#39;}&quot;</span><span class="p">}},</span> <span class="o">\</span><span class="nv">@snmpstat</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="nb">push</span> <span class="k">my</span> <span class="nv">@checkstat</span><span class="p">,</span> <span class="nb">map</span><span class="p">{</span>
+        <span class="p">{</span> <span class="n">channel</span> <span class="o">=&gt;</span> <span class="nv">$_</span><span class="p">,</span>
+          <span class="n">host</span>    <span class="o">=&gt;</span> <span class="nv">$list</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$_&quot;</span><span class="p">},</span>
+        <span class="p">}</span>
+    <span class="p">}</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$list</span><span class="p">};</span>
+    <span class="k">return</span> <span class="o">\</span><span class="nv">@checkstat</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="k">sub </span><span class="nf">_snmp_walk</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$o_host</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$o_community</span> <span class="o">=</span> <span class="s">&#39;public&#39;</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$result</span> <span class="o">=</span> <span class="p">{};</span>
+    <span class="k">my</span> <span class="nv">%oids</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s">&#39;cacheUptime&#39;</span>                  <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.1.3.0&#39;</span><span class="p">,</span>
+        <span class="s">&#39;cacheProtoClientHttpRequests&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.3.2.1.1.0&#39;</span><span class="p">,</span>
+        <span class="s">&#39;cacheNumObjCount&#39;</span>             <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.3.1.7.0&#39;</span><span class="p">,</span>
+        <span class="s">&#39;cacheCurrentUnusedFDescrCnt&#39;</span>  <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.3.1.10.0&#39;</span><span class="p">,</span>
+        <span class="s">&#39;cacheClients&#39;</span>                 <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.3.2.1.15.0&#39;</span><span class="p">,</span>
+        <span class="s">&#39;cacheHttpMissSvcTime&#39;</span>         <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.3.2.2.1.3.1&#39;</span><span class="p">,</span>
+        <span class="s">&#39;cacheRequestHitRatio&#39;</span>         <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.3.2.2.1.9.1&#39;</span><span class="p">,</span>
+        <span class="s">&#39;cacheRequestByteRatio&#39;</span>        <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.3.2.2.1.10.1&#39;</span><span class="p">,</span>
+    <span class="p">);</span>
+
+    <span class="k">my</span> <span class="p">(</span><span class="nv">$session</span><span class="p">,</span> <span class="nv">$error</span><span class="p">)</span> <span class="o">=</span> <span class="nn">Net::</span><span class="n">SNMP</span><span class="o">-&gt;</span><span class="n">session</span><span class="p">(</span>
+        <span class="o">-</span><span class="n">hostname</span>  <span class="o">=&gt;</span> <span class="nv">$o_host</span><span class="p">,</span>
+        <span class="o">-</span><span class="n">community</span> <span class="o">=&gt;</span> <span class="nv">$o_community</span><span class="p">,</span>
+<span class="c1">#默认是5秒超时，如果有没开snmp的，这页面打开时间一下就上去了，所以要调短</span>
+        <span class="o">-</span><span class="n">timeout</span>   <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">defined</span> <span class="nv">$session</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$session</span><span class="o">-&gt;</span><span class="n">translate</span><span class="p">(</span><span class="nn">Net::</span><span class="n">SNMP</span><span class="o">-&gt;</span><span class="n">TRANSLATE_NONE</span><span class="p">);</span>
+        <span class="k">my</span> <span class="nv">$squid_status</span> <span class="o">=</span> <span class="nv">$session</span><span class="o">-&gt;</span><span class="n">get_request</span><span class="p">(</span> <span class="o">-</span><span class="n">varbindlist</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheUptime&#39;</span><span class="p">},</span> <span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheProtoClientHttpRequests&#39;</span><span class="p">},</span> <span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheNumObjCount&#39;</span><span class="p">},</span> <span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheCurrentUnusedFDescrCnt&#39;</span><span class="p">},</span> <span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheClients&#39;</span><span class="p">},</span> <span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheHttpMissSvcTime&#39;</span><span class="p">},</span> <span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheRequestHitRatio&#39;</span><span class="p">},</span> <span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheRequestByteRatio&#39;</span><span class="p">},</span> <span class="p">],</span> <span class="p">);</span>
+        <span class="nv">$session</span><span class="o">-&gt;</span><span class="nb">close</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">defined</span> <span class="nv">$squid_status</span><span class="p">)</span> <span class="p">{</span>
+<span class="c1">#如果要算当前的rps，那得sleep 1再取一次，对几十台集群监控来说不可取；</span>
+<span class="c1">#姑且用总的平均值做个衡量，或许可以采用二八法则估算一个高峰时间的rps；</span>
+<span class="c1">#注意这个cacheUptime是保留两位ms的，所以算rps的时候要除以100；</span>
+<span class="c1">#上述原因也是一般大家对单机squid监控采用rrd的原因，采用COUNTER32数据源，直接递增显示。</span>
+            <span class="k">my</span> <span class="nv">$request_sum</span> <span class="o">=</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheProtoClientHttpRequests&#39;}&quot;</span><span class="p">};</span>
+            <span class="k">my</span> <span class="nv">$uptime</span> <span class="o">=</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheUptime&#39;}&quot;</span><span class="p">};</span>
+            <span class="k">return</span> <span class="nv">$request_sum</span> <span class="o">/</span> <span class="nv">$uptime</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheNumObjCount&#39;}&quot;</span><span class="p">},</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheCurrentUnusedFDescrCnt&#39;}&quot;</span><span class="p">},</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheClients&#39;}&quot;</span><span class="p">},</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheHttpMissSvcTime&#39;}&quot;</span><span class="p">},</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheRequestHitRatio&#39;}&quot;</span><span class="p">},</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheRequestByteRatio&#39;}&quot;</span><span class="p">};</span>
+        <span class="p">};</span>
+    <span class="p">};</span>
+<span class="p">};</span>
+
+<span class="n">true</span><span class="p">;</span>
+</code></pre></div>
+
+<p>修改cachemoni/config.yml如下：</p>
+
+<div class="highlight"><pre><code class="yaml"><span class="l-Scalar-Plain">appname</span><span class="p-Indicator">:</span> <span class="s">&quot;cachemoni&quot;</span>
+<span class="l-Scalar-Plain">layout</span><span class="p-Indicator">:</span> <span class="s">&quot;main&quot;</span>
+<span class="l-Scalar-Plain">charset</span><span class="p-Indicator">:</span> <span class="s">&quot;UTF-8&quot;</span>
+<span class="c1">#采用TT作为view模板，注意tt默认是[%%]，而dancer里是&lt;%%&gt;，所以另外要定义标签</span>
+<span class="l-Scalar-Plain">template</span><span class="p-Indicator">:</span> <span class="s">&quot;template_toolkit&quot;</span>
+<span class="l-Scalar-Plain">engines</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">template_toolkit</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">encoding</span><span class="p-Indicator">:</span>  <span class="s">&#39;utf8&#39;</span>
+    <span class="l-Scalar-Plain">start_tag</span><span class="p-Indicator">:</span> <span class="s">&#39;[%&#39;</span>
+    <span class="l-Scalar-Plain">end_tag</span><span class="p-Indicator">:</span>   <span class="s">&#39;%]&#39;</span>
+<span class="c1">#用默认的Simple，即存在内存的一个hash里，实际效果很不稳定，改用yaml，但也有yml文件在关闭浏览器后依旧存在的问题。</span>
+<span class="l-Scalar-Plain">session</span><span class="p-Indicator">:</span> <span class="s">&quot;YAML&quot;</span>
+<span class="l-Scalar-Plain">session_dir</span><span class="p-Indicator">:</span> <span class="s">&quot;/tmp/dancer_session_dir&quot;</span>
+<span class="l-Scalar-Plain">session_expires</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">300</span>
+<span class="l-Scalar-Plain">plugins</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">Database</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">driver</span><span class="p-Indicator">:</span> <span class="s">&#39;mysql&#39;</span>
+    <span class="l-Scalar-Plain">database</span><span class="p-Indicator">:</span> <span class="s">&#39;myops&#39;</span>
+    <span class="l-Scalar-Plain">host</span><span class="p-Indicator">:</span> <span class="s">&#39;10.1.1.25&#39;</span>
+    <span class="l-Scalar-Plain">username</span><span class="p-Indicator">:</span> <span class="s">&#39;user&#39;</span>
+    <span class="l-Scalar-Plain">password</span><span class="p-Indicator">:</span> <span class="s">&#39;password&#39;</span>
+    <span class="l-Scalar-Plain">connection_check_threshold</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">10</span>
+    <span class="l-Scalar-Plain">dbi_params</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">RaiseError</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">1</span>
+      <span class="l-Scalar-Plain">AutoCommit</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">1</span>
+    <span class="l-Scalar-Plain">on_connect_do</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="s">&quot;SET</span><span class="nv"> </span><span class="s">NAMES</span><span class="nv"> </span><span class="s">&#39;utf8&#39;&quot;</span><span class="p-Indicator">,</span> <span class="s">&quot;SET</span><span class="nv"> </span><span class="s">CHARACTER</span><span class="nv"> </span><span class="s">SET</span><span class="nv"> </span><span class="s">&#39;utf8&#39;&quot;</span> <span class="p-Indicator">]</span>
+    <span class="l-Scalar-Plain">log_queries</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">1</span>
+</code></pre></div>
+
+<p>创建cachemoni/views/monitor.tt如下：</p>
+
+<div class="highlight"><pre><code class="html">[% IF session.logged_in %]
+[% FOREACH stat IN status %]
+  <span class="nt">&lt;hr&gt;</span> channel: [% stat.channel %]
+  <span class="nt">&lt;table</span> <span class="na">width=</span><span class="s">&quot;100%&quot;</span> <span class="na">cellspacing=</span><span class="s">&quot;0&quot;</span> <span class="na">cellpadding=</span><span class="s">&quot;0&quot;</span> <span class="na">border=</span><span class="s">&quot;1&quot;</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;tr&gt;</span>
+  [% FOREACH col IN name %] 
+    <span class="nt">&lt;th&gt;&lt;center&gt;</span>
+    [% col %]
+    <span class="nt">&lt;/center&gt;&lt;/th&gt;</span>
+  [% END %]
+  <span class="nt">&lt;/tr&gt;</span>
+  [% FOREACH host IN stat.host %]
+    <span class="nt">&lt;tr&gt;</span>
+    [% FOREACH list IN host %]
+      <span class="nt">&lt;td&gt;</span>
+      [% list %]
+      <span class="nt">&lt;/td&gt;</span>
+    [% END %]
+  [% END %]
+  <span class="nt">&lt;/tr&gt;&lt;/table&gt;</span>
+[% END %]
+[% ELSE %]
+  内部信息，请登陆后查看
+[% END %]
+</code></pre></div>
+
+<p>创建cachemoni/views/login.tt如下：</p>
+
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;center&gt;</span>
+<span class="nt">&lt;h2&gt;</span>登陆页面<span class="nt">&lt;/h2&gt;</span>
+[% IF err %]<span class="nt">&lt;p</span> <span class="na">class=</span><span class="s">error</span><span class="nt">&gt;&lt;strong&gt;</span>Error:<span class="nt">&lt;/strong&gt;</span> [% err %][% END %]
+<span class="nt">&lt;form</span> <span class="na">action=</span><span class="s">&quot;/login&quot;</span> <span class="na">method=</span><span class="s">post</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;dl&gt;</span>
+    <span class="nt">&lt;dt&gt;</span>用户名:
+    <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">text</span> <span class="na">name=</span><span class="s">username</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;dt&gt;</span>密  码:
+    <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">password</span> <span class="na">name=</span><span class="s">password</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;dd&gt;&lt;input</span> <span class="na">type=</span><span class="s">submit</span> <span class="na">value=</span><span class="s">login</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;/dl&gt;</span>
+<span class="nt">&lt;/form&gt;</span>
+<span class="nt">&lt;/center&gt;</span>
+</code></pre></div>
+<p>注册页面类似，不贴了。
+然后是layout层的共用部分，之前定义了是views/layouts/main.tt，如下：</p>
+
+<div class="highlight"><pre><code class="html">……
+<span class="nt">&lt;body&gt;</span>
+<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">metanav</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;/&quot;</span><span class="nt">&gt;</span>首页<span class="nt">&lt;/a&gt;</span> | 
+  [% IF not session.logged_in %]
+    <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;/register&quot;</span><span class="nt">&gt;</span>注册<span class="nt">&lt;/a&gt;</span> | 
+    <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;/login&quot;</span><span class="nt">&gt;</span>登陆<span class="nt">&lt;/a&gt;</span>
+  [% ELSE %]
+    <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;/logout&quot;</span><span class="nt">&gt;</span>退出<span class="nt">&lt;/a&gt;</span>
+  [% END %]
+
+[% content %]
+<span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">&quot;footer&quot;</span><span class="nt">&gt;</span>
+Powered by <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://perldancer.org/&quot;</span><span class="nt">&gt;</span>Dancer<span class="nt">&lt;/a&gt;</span> [% dancer_version %]
+
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div>
+
+<p>这里修改了&lt;%%&gt;为[%%]，其他的tt模版也要改。
+然后运行perl cachemoni/bin/app.pl，启动3000端口的监听，访问一下如下：
+<img src="/images/uploads/squid-monitor-demo.jpg" alt="" title="123" width="571" height="401" class="alignnone size-full wp-image-2505" />&lt;/a&gt;
+这就算完成一个小的网页了，然后开始配置进apache：</p>
+
+<div class="highlight"><pre><code class="bash">cpanm Plack::Handler::Apache2
+wget http://search.cpan.org/CPAN/authors/id/P/PH/PHRED/mod_perl-2.0.5.tar.gz
+tar zxvf mod_perl-2.0.5.tar.gz
+<span class="nb">cd </span>mod_perl-2.0.5
+perl Makefile.PL
+然后会提示输入apxs的全路径：/usr/local/apache2/bin/apxs
+make <span class="o">&amp;&amp;</span> make install
+sed -i s<span class="err">&#39;</span>/LoadModule/i<span class="se">\L</span>oadModule perl_module modules/mod_perl.so<span class="se">\&#39;</span> /usr/local/apache2/conf/httpd.conf
+cat &gt;&gt; /usr/local/apache2/conf/httpd.conf <span class="s">&lt;&lt;EOF</span>
+<span class="s">&lt;VirtualHost *:80&gt;</span>
+<span class="s">        ServerName dancer.test.china.com</span>
+<span class="s">        DocumentRoot /www/html/cachemoni</span>
+<span class="s">        &lt;Directory /www/html/cachemoni&gt;</span>
+<span class="s">            AllowOverride None</span>
+<span class="s">            Order allow,deny</span>
+<span class="s">            Allow from all</span>
+<span class="s">        &lt;/Directory&gt;</span>
+<span class="s">        &lt;Location /&gt;</span>
+<span class="s">            SetHandler perl-script</span>
+<span class="s">            PerlHandler Plack::Handler::Apache2</span>
+<span class="s">            PerlSetVar psgi_app /www/html/cachemoni/bin/app.pl</span>
+<span class="s">        &lt;/Location&gt;</span>
+<span class="s">&lt;/VirtualHost&gt;</span>
+<span class="s">EOF</span>
+/usr/local/apache2/bin/apachectl restart
+</code></pre></div>
+
+<p>访问一下，OK~
+各种和webserver搭配的方法（其实就是两种：mod_perl和各种cgi）详见：<a href="http://search.cpan.org/~sukria/Dancer-1.3060/lib/Dancer/Deployment.pod">CPAN文档</a></p>
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2011/06/23/make-patch-of-squid-snmp" title="patch制作和使用">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2011/07/08/bash_syslog_history" title="bash_syslog_history">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

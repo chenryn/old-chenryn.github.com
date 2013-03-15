@@ -1,0 +1,313 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>squid请求处理流程（源站故障转向研究）</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>squid请求处理流程（源站故障转向研究） <small></small></h1>
+    <div class="date"><span>31 December 2009</span></div>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>今天继续想别的办法，第一，当然还是修改源代码，这个C++可惜俺不懂，只是大略的通过百大哥谷大婶知道了squid的请求处理流程：</p>
+
+<ol>
+  <li>客户端和squid建立连接（client-side模块、clientBeginRequest()函数）；</li>
+  <li>检查ACL访问控制；</li>
+  <li>检查重定向；</li>
+  <li>检查缓存命中（GetMoreData()函数），写入StoreEntry（client-side模块）；
+4.1. 命中（client-side模块）；
+4.2. 未命中（rotoDispatch()函数启动peer算法，算法检查never|always_direct）；</li>
+  <li>收到ICP响应，选择中止，转发请求（protoStart()函数）；</li>
+  <li>打开到源站或peer的连接（HTTP模块），发起请求（Network
+Communication模块），建立连接并处理异常（comm.c程序）；</li>
+  <li>建立写缓存（HTTP模块），将请求写入socket；</li>
+  <li>建立相应的socket读缓存，接受处理HTTP响应（即，如果已有socket，可以跳过6、7步）；</li>
+  <li>响应被接受，squid接收到header信息，并在被读取时把data追加进StoreEntry，同时通知client-side模块，这个过程的速度取决于delay_pools；</li>
+  <li>client-side模块从StoreEntry取数据，并写入客户端socket；</li>
+  <li>客户端读取完成，数据根据情况（refresh、cache）存入磁盘；</li>
+  <li>回源取完数据，标记StoreEntry为“完成”（client-side模块），socket关闭或保留到持久连接池；</li>
+  <li>数据写入客户端socket完成，从StoreEntry注释掉client-side模块，同样，关闭或等待客户端连接请求。</li>
+</ol>
+
+<p>原先的想法就是在第3步，而缓存在第4步，所以不行。也就是说，必须在第4步以后操作，才能不影响CDN的命中率。很显然，我注意到一个词，第6步中“建立链接并处理异常”的comm.c程序；其次，第9步“响应被接受”，也就是说，可能建立链接但没响应，这里就应该是socket的存活过期时间来决定。<br />
+思路到此为止，往下就是编程开发能力的事儿了，哭ing~~<br />
+第二个办法，还在squid本身上做文章。我注意到，处理流程的4.2步上，squid是同时检查源站和cache_peer的。那么，在源站故障的时候，cache_peer可以设成其他服务器顶上。这样的情况，不单解决一个url跳转，还能做一个源站备份。配置如下：</p>
+
+<div class="highlight"><pre><code class="squid">nonhierarchical_direct<span class="w"> </span><span class="no">off</span><span class="w"></span>
+<span class="k">prefer_direct</span><span class="w"> </span><span class="no">on</span><span class="w"></span>
+<span class="k">cache_peer</span><span class="w"> </span><span class="mf">192.168.1.1</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="no">no-query</span><span class="w"> </span>originserver<span class="w"></span>
+name=S1<span class="w"></span>
+<span class="k">cache_peer</span><span class="w"> </span><span class="mf">192.168.1.2</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"></span>
+<span class="no">no-query</span><span class="w"> </span>name=S2<span class="w"></span>
+<span class="k">cache_peer</span><span class="w"> </span><span class="mf">192.168.1.3</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"></span>
+<span class="no">no-query</span><span class="w"> </span>name=S3<span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>myservice<span class="w"> </span><span class="k">dstdomain</span><span class="w"> </span>.site.com<span class="w"></span>
+<span class="k">cache_peer_access</span><span class="w"> </span>S1<span class="w"> </span><span class="no">allow</span><span class="w"> </span>myservice<span class="w"></span>
+<span class="k">cache_peer_access</span><span class="w"> </span>S2<span class="w"> </span><span class="no">allow</span><span class="w"> </span>myservice<span class="w"></span>
+<span class="k">cache_peer_access</span><span class="w"> </span>S3<span class="w"> </span><span class="no">allow</span><span class="w"> </span>myservice<span class="w"></span>
+</code></pre></div>
+
+<p>第一句的意思，就是当originserver挂了，不可层叠的请求（即hierarchy_stoplist定义的）就“可能”发往其他peer。<br />
+第二句的意思，就是所有优先originserver，只有挂了以后才去peer，这个配置针对的可cache的请求。<br />
+不过两句加起来，还有那些不再hierarchy_stoplist定义又不cache的（没实验，不知道这个可cache是指squid配置还是包括origin的header设置），可就没办法了，也不全面。</p>
+
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2009/12/30/system-function-in-awk" title="awk中让人郁闷的system()函数">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2010/01/01/limit-speed-in-squid" title="squid限速">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

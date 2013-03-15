@@ -1,0 +1,329 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>client-cache-origin之间的session问题</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>client-cache-origin之间的session问题 <small></small></h1>
+    <div class="date"><span>09 January 2010</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
+    	<li><a href="/tags.html#squid-ref">squid <span>24</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>昨天，突然接到某客户的邮件，表示他们质疑我们cache对其多originserver的轮询不均等，以至于影响到网站的访问。
+听起来不是什么难题，把服务器上的DNSCache进程中止掉，不就能平均轮询了么？可是操作完成后，客户依然不认可……于是开始细细探讨具体的错误问题所在。
+原来实际情况是这样：点击其网站的回复、收藏等动态页面时，时常会弹出错误页面。对这个错误页面，客户的解释是“session状态CDN加速未保留”。
+由此解释，我觉得cache上的问题恰恰相反，正是因为均等轮询了导致的。而客户其他一些单源的域名服务正常，也证明了这点。
+上cache服务器查看配置，使用的默认keep-alive设置，也就是对client和origin都开启了keep-alive，默认时间为2min。但实际上并没有起作用。在测试中，可以看到这样的日志：</p>
+
+<pre><code>[rao@localhost ~]$ tail access.log|awk '{print $4,$6,$7,$9,$10}'
+TCP_IMS_HIT/304 GET http://a.b.com/wentiyongpin/11106917.html NONE/- "http://a.b.com/wentiyongpin/"
+TCP_MISS/200 GET http://a.b.com/RelatedUserInfo.aspx?nickname=shunfataiqiu DIRECT/1.2.3.4 "http://a.b.com/wentiyongpin/11106917.html"
+TCP_MISS/200 GET http://a.b.com/postcomment/Reply.aspx?info_id=11106917 DIRECT/1.2.3.5 "http://a.b.com/wentiyongpin/11106917.html"
+TCP_MISS/302 POST http://a.b.com/postcomment/Reply.aspx?info_id=11106917 DIRECT/1.2.3.4 "http://a.b.com/postcomment/Reply.aspx?info_id=11106917"
+TCP_MISS/404 GET http://a.b.com/nf3.aspx?aspxerrorpath=/postcomment/Reply.aspx DIRECT/1.2.3.4 "http://a.b.com/postcomment/Reply.aspx?info_id=11106917"
+</code></pre>
+
+<p>由日志可见，在进入post页面（此时方式还是GET）时，session的origin从1.2.3.4轮询到了1.2.3.5，而填完了回复内容，点击提交（此时方式改成POST）时，origin又轮询回了1.2.3.4——而此时1.2.3.4上并没有相应ID的session存在——于是页面被302重定向去了错误提示页面，也就是下面的404。</p>
+
+<p>这种情况，主要来说，还是客户网站本身的架构问题。简单点，只用一个origin；复杂点，在多台webserver与后台数据库之间建共享连接池。保证session调用正常。</p>
+
+<p>但在客户修改origin之前，cache本身能不能作出一定的改变呢？能。放弃使用dns查询，而采用squid本身的peer功能，就能搞定它，配置如下：</p>
+
+<div class="highlight"><pre><code class="squid"><span class="c">#Parent</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>ParentDomain<span class="w"> </span><span class="k">dstdomain</span><span class="w"> </span>a.b.com<span class="w"></span>
+<span class="k">cache_peer</span><span class="w"> </span><span class="mf">1.2.3.4</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="no">no-query</span><span class="w"> </span>no-netdb-exchange<span class="w"> </span>originserver<span class="w"> </span>sourcehash<span class="w"></span>
+<span class="k">cache_peer</span><span class="w"> </span><span class="mf">1.2.3.5</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="no">no-query</span><span class="w"> </span>no-netdb-exchange<span class="w"> </span>originserver<span class="w"> </span>sourcehash<span class="w"></span>
+<span class="k">cache_peer_access</span><span class="w"> </span><span class="mf">1.2.3.4</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>ParentDomain<span class="w"></span>
+<span class="k">cache_peer_access</span><span class="w"> </span><span class="mf">1.2.3.5</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>ParentDomain<span class="w"></span>
+<span class="k">always_direct</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>!ParentDomain<span class="w"></span>
+<span class="c">#Parent end</span><span class="w"></span>
+</code></pre></div>
+
+<p>用的sourcehash参数，相同的clientIP，使用相同的originIP，多好的loadbalance呀，更巧的是这个option，正好是squid2.6.STABLE21能用的，连2.7都没有，哈哈~~reconfigure后的正常日志如下：</p>
+
+<pre><code>[rao@localhost ~]$ tail access.log|awk '{print $4,$6,$7,$9,$10}'
+TCP_IMS_HIT/304 GET http://a.b.com/wentiyongpin/11106917.html NONE/- "http://a.b.com/wentiyongpin/"
+TCP_MISS/200 GET http://a.b.com/postcomment/Reply.aspx?info_id=11106917 SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/wentiyongpin/11106917.html"
+TCP_MISS/200 GET http://a.b.com/RelatedUserInfo.aspx?nickname=shunfataiqiu SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/wentiyongpin/11106917.html"
+TCP_MISS/200 POST http://a.b.com/postcomment/Reply.aspx?info_id=11106917 SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/postcomment/Reply.aspx?info_id=11106917"
+TCP_MISS/200 GET http://a.b.com/ SOURCEHASH_PARENT/1.2.3.4 "-"
+TCP_MISS/200 GET http://a.b.com/zufang/ SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/"
+TCP_MISS/200 GET http://a.b.com/ad.ashx?ad=ad&amp;url=http://a.b.com/zufang/&amp;alias=zufang&amp;childalias=zufang SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/zufang/"
+</code></pre>
+
+<p>整个访问中，回源IP一直都是1.2.3.4，而且POST不再是302转404，而是200了~~</p>
+
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2010/01/09/intro-http_status" title="squid3新acl类型http_status试用（源站故障转向研究）">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2010/01/10/zz-intro-acls-in-squid" title="Squid的ACL分类">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

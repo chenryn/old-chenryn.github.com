@@ -1,0 +1,366 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>zabbix安装试用</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>zabbix安装试用 <small></small></h1>
+    <div class="date"><span>18 March 2010</span></div>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>在CU上看到有帖子比较各开源monitor软件，其中对zabbix颇多赞誉。决定试用一下。</p>
+
+<div class="highlight"><pre><code class="bash"><span class="c">#为快速安装方便，LAMP环境都采用yum获取。</span>
+yum install httpd mysql* php* gcc net-snmp* curl*
+<span class="c">#然后编译安装zabbix，步骤如下：</span>
+groupadd zabbix
+useradd -g zabbix zabbix
+wget http://cdnetworks-kr-1.dl.sourceforge.net/project/zabbix/ZABBIX%20Latest%20Stable/1.8.1/zabbix-1.8.1.tar.gz
+tar zxvf zabbix-1.8.1.tar.gz
+<span class="nb">cd </span>zabbix-1.8.1
+mysql -uroot -p
+&gt;create database zabbix;
+&gt;grant all privileges on zabbix.* to zabbix@<span class="s2">&quot;localhost&quot;</span> identified by <span class="s1">&#39;123456&#39;</span>;
+&gt;flush privileges;
+mysql -uroot -p zabbix &lt; create/schema/mysql.sql
+mysql -uroot -p zabbix &lt; create/data/data.sql
+mysql -uroot -p zabbix &lt; create/data/images_msql.sql
+./configure --prefix<span class="o">=</span>/home/zabbix --enable-server --enable-proxy --enable-agent --with-mysql --with-net-snmp --with-libcurl
+make <span class="o">&amp;&amp;</span> make install
+cat &gt;&gt; /etc/services <span class="s">&lt;&lt;EOF</span>
+<span class="s">zabbix-agent    10050/tcp            # Zabbix Agent</span>
+<span class="s">zabbix-agent    10050/udp            # Zabbix Agent</span>
+<span class="s">zabbix-trapper    10051/tcp            # Zabbix Trapper</span>
+<span class="s">zabbix-trapper    10051/udp            # Zabbix Trapper</span>
+<span class="s">EOF</span>
+make /home/zabbix/conf
+cp misc/conf/* /home/zabbix/conf/
+ln -s /home/zabbix/conf /etc/zabbix
+chown -R zabbix.zabbix /etc/zabbix
+<span class="nv">i</span><span class="o">=</span><span class="sb">`</span>hostname<span class="sb">`</span>;sed -i <span class="s2">&quot;s/^Hostname=system.uname/Hostname=$i&quot;</span> /etc/zabbix/zabbix_agentd.conf
+sed -i <span class="s1">&#39;s/^DBUser=root/DBUser=zabbix/g&#39;</span> /etc/zabbix/zabbix_server.conf
+sed -i <span class="s1">&#39;s/^# DBPassword=/DBPassword=zabbix/g&#39;</span> /etc/zabbix/zabbix_server.conf
+mv frontends/php /var/www/html/zabbix
+chown -R zabbix.zabbix /var/www/html/zabbix
+</code></pre></div>
+
+<p>根据zabbix需求修改LAMP，vi /etc/php.ini修改相关参数如下：</p>
+
+<pre><code>max_execution_time = 300
+date.timezone = Asia/Shanghai
+post_max_size = 32M
+memory_limit = 128M
+mbstring.func_overload = 2
+</code></pre>
+
+<p>vi /etc/httpd/conf/httpd.conf修改servername，然后启动apache。</p>
+
+<p>服务器操作部分完成，接下来是web配置。</p>
+
+<p>浏览器打开http://mydomain.com/zabbix，出现setup.php，按说明next即可。到最后要求下载zabbix.conf.php。其实可以直接修改服务器文件。</p>
+
+<div class="highlight"><pre><code class="bash">sed -i <span class="s1">&#39;s/0&quot;;/3306&quot;;/g&#39;</span> /var/www/html/zabbix/conf/zabbix.conf.php.example
+sed -i <span class="s1">&#39;s/_password//g&#39;</span> /var/www/html/zabbix/conf/zabbix.conf.php.example
+mv /var/www/html/zabbix/conf/zabbix.conf.php.example /var/www/html/zabbix/conf/zabbix.conf.php
+</code></pre></div>
+
+<p>然后test即可OK，进行登陆界面。初始用户名密码为admin/zabbix。
+进去以后，第一件事改密码。
+选择administrator下的user，点击admin，change password即可；还可以添上email等信息；另外，可以选择chinese，save之后relogin，可以看到稍微友好一点点的中文界面，不过翻译水平就请将就一下吧~~（最无语的是把select翻译成搜索==!）
+<a href="http://www.hiadmin.com" target="_blank">架构研究室</a>刚刚发布了一个汉化全面一些的<a href="http://www.hiadmin.com/wp-content/uploads/2010/03/cn_zh.inc.php_.tar.gz" target="_blank">语言包</a>，可以解压覆盖/var/www/html/zabbix/include/locales/cn_zh.inc.php。
+开始在页面上点点看看吧，不过这时候才想起来，web虽然开了，zabbix服务本身却一直没有启动呢~返回服务器操作：</p>
+
+<div class="highlight"><pre><code class="bash">cp misc/init.d/redhat/zabbix_* /etc/init.d/
+</code></pre></div>
+
+<p>vi /etc/init.d/zabbix_server_ctl，把BASEDIR改成/home/zabbix，PIDFILE=/var/tmp修改成PIDFILE=/tmp/，$BASEDIR/bin/改成$BASEDIR/sbin/。zabbix_agentd_ctl同理。</p>
+
+<p>然后，启动服务，/etc/init.d/zabbix_server_ctl start;/etc/init.d/zabbix_agentd_ctl start</p>
+
+<p>（网上都没写pid路径也要改，实际上zabbix_server.conf里的路径是/tmp/zabbix_server.pid，不改会导致启动脚本失效）</p>
+
+<p>zabbix和nagios等监控一样，需要在被监控host上安装agent来完成数据采集和其他操作。当然，如果就是不肯安装的话，也可以使用snmp来完成一些基本的东西。
+host上的agent部署特别简单：</p>
+
+<div class="highlight"><pre><code class="bash">wget http://www.zabbix.com/downloads/1.8/zabbix_agents_1.8.linux2_6.x64.tar.gz
+tar zxvf zabbix_agents_1.8.linux2_6.x64.tar.gz -C /home/
+cat &gt;&gt; /home/zabbix/conf/zabbix_agentd.conf <span class="s">&lt;&lt; eof</span>
+<span class="s">LogFile=/tmp/zabbix_agentd.log</span>
+<span class="s">Server=zabbix服务器的ip</span>
+<span class="s">Hostname=被监控host的名字</span>
+<span class="s">eof</span>
+</code></pre></div>
+
+<p>然后启动即可。/home/zabbix/sbin/zabbix_agentd -c /home/zabbix/conf/zabbix_agentd.conf &amp;</p>
+
+<p>据称这里如果不写全路径，可能出错。</p>
+
+<p>进入使用环节咯。大体上monitor都是这样，groups-hosts-templates-items-triggers-graphs-actions
+create一个新host group，太简单，略过；  <br />
+create一个新host，主要选择group、link相应的template；  <br />
+返回host列表，就可以选择它们自己的items、trigger、graph了。需要注意的是原有的trigger是从template里读出来的，所以修改的话也要从template里修改。  <br />
+action是报警方式，比如上面编辑user时加的email，这里可以在add operations的时候选择send message给某user（不要忘了在administration的media types里配smtp），还可以选择remote command；另外add conditions的时候，选择具体是哪些主机、那些trigger等等。  <br />
+graph是绘图，有阴影、连线、散点等方式，只要是items里有的，都能绘图出来。重叠在一张图里显示的时候，不要忘了改成好区分的颜色，一目了然~~常见的自然是流量、负载、磁盘使用等等图。  <br />
+web是对url的监控，这个比nagios等要强大多了。因为使用libcurl，它可以模拟各种user-agent下的访问，还能post数据模拟一系列操作（登陆、发帖、收藏等等，先在variables里定义好变量，然后在step中传递）。添加完成后，就可以看到对这些url的响应速度和时间的监控图了。完成后，在该host的trigger中，select items还增加了web monitor项，分别是速度、时间、状态码，也可以对此进行报警。  <br />
+<em>to_be_continued</em></p>
+
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2010/03/17/problem-of-squid-access-log" title="squid 灵异日志">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2010/03/21/fms3-5" title="fms3.5试用">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

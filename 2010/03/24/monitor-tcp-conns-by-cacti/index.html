@@ -1,0 +1,399 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>cacti自建tcp80连接数监控</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>cacti自建tcp80连接数监控 <small></small></h1>
+    <div class="date"><span>24 March 2010</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
+    	<li><a href="/tags.html#cacti-ref">cacti <span>7</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>同样作为提供web服务的机器，因为不同业务的关系，除了流量以外，还需要参考TCP80连接数来分析服务器性能状况。下面就试试cacti对连接数的监控。
+最简单的方法，利用snmpnetstat这个命令，自动搞定一切。cactiuser.org上提供一个现成的模板，只要import就能直接用。下载地址如右：<a href="http://www.iammecn.com/wp-content/uploads/2009/12/cacti_graph_template_snmp_connections.zip" target="_blank">http://www.iammecn.com/wp-content/uploads/2009/12/cacti_graph_template_snmp_connections.zip</a></p>
+
+<p>不过这个snmpnetstat用起来精准度不太好保证，比如我在测试机上运行如下：</p>
+
+<pre><code>[root@BeiJingBGP-Dns-02 ~]# snmpnetstat  -c 'public' -v 2c 10.10.10.43:161
+Active Internet (udp) Connections
+Proto Local Address
+udp   *.ntp
+udp   *.snmp
+udp   *.filenet-
+udp   *.54927
+udp   localhost.domain
+udp   localhost.ntp
+udp   localhost.domain
+udp   localhost.ntp
+udp   211.151.65.53.ntp
+udp   211.151.67.80.domain
+</code></pre>
+
+<p>居然一个tcp都没显示出来。我汗~~
+所以采用一个自建脚本模板的方法来完成吧~~
+首先在host上新建/etc/snmp/tcpconn.sh，内容如下：</p>
+
+<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/sh</span>
+<span class="nv">conn</span><span class="o">=</span><span class="sb">`</span>netstat -s -t | grep connections established |awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
+<span class="nb">echo</span> <span class="nv">$conn</span>
+</code></pre></div>
+
+<table>
+  <tbody>
+    <tr>
+      <td>对这个脚本我个人持保留意见。因为在netstat -anpl</td>
+      <td>grep :80</td>
+      <td>wc -l、netstat -s -t和/proc/net/tcp中来看，netstat -s -t最省时间，但数字也最不准~</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>三种方法测试如下：
+    [root@BeiJingBGP-Dns-02 ~]# time netstat -s -t|awk &lsquo;/connections established/{print $1}&rsquo;
+    3</p>
+
+<pre><code>real    0m0.008s
+user    0m0.000s
+sys    0m0.008s
+[root@BeiJingBGP-Dns-02 ~]# time netstat -plna|awk '/:80/{a++}END{print a}'
+1
+
+real    0m0.065s
+user    0m0.000s
+sys    0m0.048s
+[root@BeiJingBGP-Dns-02 ~]# time awk '$4=="01"{a++}END{print a}' /proc/net/tcp
+
+real    0m0.023s
+user    0m0.000s
+sys    0m0.024s
+</code></pre>
+
+<table>
+  <tbody>
+    <tr>
+      <td>（话说顺便试了一下</td>
+      <td>grep :80</td>
+      <td>wc -l和</td>
+      <td>awk &lsquo;/:80/{a++}END{print a}&rsquo;的time，awk快5ms，哈哈~）</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>然后在/etc/snmp/snmpd.cong里添加如下句：</p>
+
+<pre><code>exec .1.3.6.1.4.1.2021.18 tcpCurrEstab /etc/snmp/tcpconn.sh
+</code></pre>
+
+<p>重启snmpd服务即可。</p>
+
+<p>回cacti服务器端，运行如下命令，可以看到相关输出即可。</p>
+
+<pre><code>[root@BeiJingBGP-Dns-02 ~]# snmpwalk -c 'public' -v 2c 10.10.10.43 .1.3.6.1.4.1.2021.18
+UCD-SNMP-MIB::ucdavis.18.1.1 = INTEGER: 1
+UCD-SNMP-MIB::ucdavis.18.2.1 = STRING: "tcpCurrEstab"
+UCD-SNMP-MIB::ucdavis.18.3.1 = STRING: "/etc/snmp/tcpconn.sh"
+UCD-SNMP-MIB::ucdavis.18.100.1 = INTEGER: 0
+UCD-SNMP-MIB::ucdavis.18.101.1 = STRING: "3"
+UCD-SNMP-MIB::ucdavis.18.102.1 = INTEGER: 0
+UCD-SNMP-MIB::ucdavis.18.103.1 = ""
+</code></pre>
+
+<p>这个string:&rdquo;3&rdquo;就是真正的tcp80连接数。
+然后进入cacti的web页面进行设置吧：</p>
+
+<table>
+  <tbody>
+    <tr>
+      <td>在cacti界面中console-&gt;Templates-&gt;Data Templates，然后点击右上角的Add，Data Templates中的name是给这个数据模板的命名，Data Source中的name将来显示在Data Sources中，我这里添加“</td>
+      <td>host_description</td>
+      <td>– Tcp Conn. – ESTBLISHED”，选get snmp data，Internal Data Source Name也可以随便添，这个用来给rrd文件命名。设置完后就可以create了，之后会发现下面多了一些选项，在最下面那个添上我们需要的数据的OID“.1.3.6.1.4.1.2021.18.101.1”，可以save了。</td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <tbody>
+    <tr>
+      <td>此后需要创建一个Graph Templates，好让cacti生成图片。在cacti界面中console-&gt;Templates-&gt;Graph Templates，然后点击右上角的Add，Templates中的name是给这个数据模板的命名，Graph Template中的name是将来显示在图片上面中间的内容，我这里添加“</td>
+      <td>host_description</td>
+      <td>– Tcp Conn. –ESTBLISHED”，其他保持默认，保存之后上面会出来一些选项。在Graph Template Items中添加一个item，Data Source选之前添加的，color选择一个图片的颜色，Graph Item Type选AREA，也就是区域，也可以选其他的线条，Text Format设置说明。然后再添加一个，Graph Item Type选GPRINT，Consolidation Function选LAST，也就是当前的值，Text Format输入current。你还可以添加一些Graph Item Type为COMMENT的注释说明等。</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>最后，可以把graph加进host templates，或者直接在device中加graph。过一会就能看到图啦~~~</p>
+
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2010/03/24/diff-of-error_page-between-squid-nginx" title="squid和nginx的error_page差别">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2010/03/25/cacti-optimization" title="cacti优化">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+

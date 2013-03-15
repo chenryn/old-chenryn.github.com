@@ -1,0 +1,358 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>通过lua统计nginx内部变量数据</title>
+    
+    <meta name="author" content="陈子">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+    <div class="row">
+
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>通过lua统计nginx内部变量数据 <small></small></h1>
+    <div class="date"><span>08 May 2012</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
+    	<li><a href="/tags.html#lua-ref">lua <span>2</span></a></li>
+    
+  
+
+
+
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>统计nginx的请求数据，一般有几个办法，一个是logrotate，通过access.log计算，这个很详细，但是实时性差一些；一个是Tengine提供的pipe，这个实时性更好，但是管道如果出现堵塞，麻烦就多了～这两种办法，归根结底都是把日志记录在本地(pipe方式如果要长期保留依然要记磁盘)然后由脚本完成计算。今天这里说另一种方法：在nginx内部，随着每次请求完成一些基础的数据统计，然后输出到存储里供长期调用。  <br />
+代码如下：</p>
+
+<div class="highlight"><pre><code class="nginx"><span class="k">server</span> <span class="p">{</span>
+    <span class="kn">listen</span> <span class="mi">80</span><span class="p">;</span>
+    <span class="kn">server_name</span> <span class="s">photo.domain.com</span><span class="p">;</span>
+
+    <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
+        <span class="kn">set</span> <span class="nv">$str</span> <span class="nv">$uri</span><span class="p">;</span>
+        <span class="kn">content_by_lua</span> <span class="s">&#39;</span>
+            <span class="s">local</span> <span class="s">url</span> <span class="p">=</span> <span class="s">ngx.var.uri</span>
+            <span class="s">local</span> <span class="s">res</span> <span class="p">=</span> <span class="s">ngx.location.capture(&quot;/proxy&quot;,</span> <span class="p">{</span><span class="kn">vars</span> <span class="p">=</span> <span class="p">{</span> <span class="kn">str</span> <span class="p">=</span> <span class="s">url</span> <span class="err">}}</span><span class="s">)</span>
+            <span class="s">ngx.print(res.body)</span>
+
+            <span class="s">ngx.shared.log_dict:set(&quot;url&quot;,</span> <span class="s">url)</span>
+
+            <span class="s">local</span> <span class="s">upstream_stat</span> <span class="p">=</span> <span class="s">ngx.var.status</span>
+            <span class="s">local</span> <span class="s">upstream_time</span> <span class="p">=</span> <span class="s">tonumber(ngx.var.upstream_response_time)</span>
+            <span class="s">local</span> <span class="s">redis</span> <span class="p">=</span> <span class="s">require</span> <span class="s">&quot;resty.redis&quot;</span>
+            <span class="s">local</span> <span class="s">red</span> <span class="p">=</span> <span class="s">redis:new()</span>
+            <span class="s">local</span> <span class="s">ok,</span> <span class="s">err</span> <span class="p">=</span> <span class="s">red:connect(&quot;127.0.0.1&quot;,</span> <span class="mi">6379</span><span class="s">)</span>
+            <span class="s">if</span> <span class="s">upstream_stat</span> <span class="p">~</span><span class="sr">=</span> <span class="s">&quot;200&quot;</span> <span class="s">then</span>
+                <span class="s">red:sadd(&quot;url&quot;,url)</span>
+                <span class="s">red:incr(url)</span>
+                <span class="s">red:incr(url..&quot;:time&quot;,</span> <span class="s">upstream_time)</span>
+            <span class="s">end</span>
+         <span class="s">&#39;</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="kn">location</span> <span class="s">/dict_status</span> <span class="p">{</span>
+        <span class="kn">content_by_lua</span> <span class="s">&#39;</span>
+            <span class="s">local</span> <span class="s">url</span> <span class="p">=</span> <span class="s">ngx.shared.log_dict:get(&quot;url&quot;)</span>
+            <span class="s">ngx.say(url)</span>
+         <span class="s">&#39;</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="kn">location</span> <span class="s">/redis_status</span> <span class="p">{</span>
+        <span class="kn">content_by_lua</span> <span class="s">&#39;</span>
+            <span class="s">local</span> <span class="s">redis</span> <span class="p">=</span> <span class="s">require</span> <span class="s">&quot;resty.redis&quot;</span>
+            <span class="s">local</span> <span class="s">red</span> <span class="p">=</span> <span class="s">redis:new()</span>
+            <span class="s">local</span> <span class="s">ok,err</span> <span class="p">=</span> <span class="s">red:connect(&quot;127.0.0.1&quot;,</span> <span class="mi">6379</span><span class="s">)</span>
+            <span class="s">local</span> <span class="s">urlist,err</span> <span class="p">=</span> <span class="s">red:sort(&quot;url&quot;,&quot;limit&quot;,&quot;0&quot;,&quot;1&quot;,&quot;desc&quot;,&quot;by&quot;,&quot;*&quot;)</span>
+            <span class="s">if</span> <span class="s">not</span> <span class="s">urlist</span> <span class="s">then</span>
+                <span class="s">ngx.say(err)</span>
+                <span class="s">return</span>
+            <span class="s">end</span>
+            <span class="s">for</span> <span class="s">i</span> <span class="p">=</span> <span class="mi">1</span><span class="s">,</span> <span class="c1">#urlist do</span>
+                <span class="s">local</span> <span class="s">avg</span> <span class="p">=</span> <span class="s">red:get(urlist[i])</span>
+                <span class="s">local</span> <span class="s">sum</span> <span class="p">=</span> <span class="s">red:get(urlist[i]..&quot;:time&quot;)</span>
+                <span class="s">ngx.say(urlist[i],&quot;\tavg_time:&quot;,avg/sum,</span> <span class="s">&quot;\tsum:&quot;,sum)</span>
+            <span class="s">end</span>
+         <span class="s">&#39;</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+
+    <span class="kn">location</span> <span class="s">/proxy</span> <span class="p">{</span>
+        <span class="kn">proxy_pass</span> <span class="s">http://backend_fmn_xnimg_cn</span><span class="nv">$str</span><span class="p">;</span>
+        <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="s">&#39;fmn.rrimg.com&#39;</span><span class="p">;</span> 
+        <span class="kn">include</span> <span class="s">conf.d/proxy.conf</span><span class="p">;</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>ngx_lua里的指令有set/rewrite/header_filter/log/content/access_by_lua等，它们各自处于nginx处理流程中的某一步，所以有些日志变量可能不一定都能读取到。还有header_filter和log两个不能调用subrequest和output的API(也就是只能使用上例代码中的ngx.shared.DICT方式，但只支持简单的key-value),content不能和proxy_pass在一起等等……</p>
+
+<p>不过content里可以调用ngx.location.capture()来subrequest其他location，比如这里利用/proxy来完成原来的proxy_pass的功能。  <br />
+因为subrequest后$uri有变化，所以pass必须写对真正的url的全路径。这就靠之前的set $str来传递变量了。    </p>
+
+<p>最终运行结果：</p>
+
+<pre><code># curl http://fmn.rrimg.cn/redis_status    
+/test avg_time:0.73 sum:12
+</code></pre>
+
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2012/04/30/reading-notes-about-linux-system" title="Linux系统调优读书笔记">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2012/05/10/quick-start-for-puppet-facter-erb" title="【puppet系列】puppet安装／Facter插件和puppet模板编写">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+
+
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+
+
+
+
+
+
+  </div>
+</div>
+  
+
+
+      </div>
+
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+
+    </div> <!-- /container -->
+
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
+
