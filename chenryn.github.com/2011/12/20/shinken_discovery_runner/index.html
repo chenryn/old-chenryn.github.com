@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>OMD系列(三)shinken的discovery配置与运行</title>
+    
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>OMD系列(三)shinken的discovery配置与运行 <small></small></h1>
+    <div class="date"><span>20 December 2011</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+  
+     
+    	<li><a href="/tags.html#nagios-ref">nagios <span>13</span></a></li>
+     
+    	<li><a href="/tags.html#shinken-ref">shinken <span>1</span></a></li>
+    
+  
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>上篇说到OMD的可以通过omd config选择core，有nagios和shinken两个选项。shinken是一个完全重写的监控系统，但是在外部接口上，又是nagios-like的，甚至可以单纯的只用shinken的WebUI给nagios使。所以OMD作为nagios周边的项目，也就把shinken加入到core选项里了。
+不过经过试验发现，虽然omd的rpm是针对centos5.5的，代码中调用的有些命令版本却比较高，比如nmap命令使用了&ndash;traceroute选项，查ChangeLog发现是4.76版才加上的，而centos5上面的还是4.11版，所以要重新安装：</p>
+<div class="highlight"><pre><code class="bash">wget http://nmap.org/dist/nmap-5.51-1.x86_64.rpm
+yum remove nmap
+yum install --nogpgcheck nmap-5.51-1.x86_64.rpm
+</code></pre></div>
+<p>又比如python，centos5默认安装的是2.4版，而nmap_parser中调用了2.5版才有的xml.tree.elementtree模块，所以也要升级。</p>
+<div class="highlight"><pre><code class="bash">wget http://www.python.org/ftp/python/2.7.2/Python-2.7.2.tgz
+tar zxvf Python-2.7.2.tgz
+<span class="nb">cd </span>Python-2.7.2
+./configure --prefix<span class="o">=</span>/usr/local/python2.7
+make -j
+make install
+rm -f /usr/bin/python
+<span class="c">#alternatives命令之前博客有介绍，其实就是文雅一点的替你做软连接和版本路径记录。</span>
+<span class="c">#切换的时候用alternatives --config python命令选择就可以了。</span>
+alternatives --install /usr/bin/python python /usr/local/python2.7/bin/python 1000
+alternatives --install /usr/bin/python python /usr/bin/python2.4 500
+wget http://peak.telecommunity.com/dist/ez_setup.py
+python ez_setup.py
+/usr/local/python2.7/bin/easy_install ElementTree
+</code></pre></div>
+<p>然后就可以试试nmap_discovery_runner.py和vmware_discovery_runner.py了。
+命令行方式运行如下：</p>
+<div class="highlight"><pre><code class="bash">/opt/omd/sites/dyxmonitor/lib/shinken/libexec/nmap_discovery_runner.py -t 127.0.0.1
+Got our target <span class="o">[</span><span class="s1">&#39;127.0.0.1&#39;</span><span class="o">]</span>
+propose a tmppath /tmp/tmppTYexK
+Launching <span class="nb">command</span>, sudo nmap 127.0.0.1 -T4 -O --traceroute -oX /tmp/tmppTYexK
+Try to communicate
+Got it <span class="o">(</span><span class="s1">&#39;\nStarting Nmap 5.51 ( http://nmap.org ) at 2011-12-20 15:45 CST\nNmap scan report for localhost (127.0.0.1)\nHost is up (0.000030s latency).\nNot shown: 995 closed ports\nPORT     STATE SERVICE\n22/tcp   open  ssh\n80/tcp   open  http\n111/tcp  open  rpcbind\n631/tcp  open  ipp\n3306/tcp open  mysql\nDevice type: general purpose\nRunning: Linux 2.6.X\nOS details: Linux 2.6.15 - 2.6.31\nNetwork Distance: 0 hops\n\nOS detection performed. Please report any incorrect results at http://nmap.org/submit/ .\nNmap done: 1 IP address (1 host up) scanned in 2.05 seconds\n&#39;</span>, <span class="s1">&#39;&#39;</span><span class="o">)</span>
+Can be <span class="o">(</span><span class="s1">&#39;Linux&#39;</span>, <span class="s1">&#39;2.6.X&#39;</span>, <span class="s1">&#39;100&#39;</span><span class="o">)</span>
+Try to match <span class="o">(</span><span class="s1">&#39;Linux&#39;</span>, <span class="s1">&#39;2.6.X&#39;</span><span class="o">)</span>
+localhost::isup<span class="o">=</span>1
+localhost::os<span class="o">=</span>linux
+localhost::osversion<span class="o">=</span>2.6.X
+localhost::macvendor<span class="o">=</span>
+localhost::openports<span class="o">=</span>22,80,111,631,3306
+localhost::fqdn<span class="o">=</span>localhost
+localhost::ip<span class="o">=</span>127.0.0.1
+</code></pre></div>
+<p>从输出中可以看到使用的nmap运行参数，主要是-O扫描操作系统，-T4指定快速，-oX指定输出成xml，然后用python去解析xml文件就是了。
+然后运行omd的命令：</p>
+<div class="highlight"><pre><code class="bash">su - monitor
+mkdir -p etc/shinken/objects/discovery
+shinken-discovery -o /omd/sites/monitor/etc/shinken/objects/discovery -r nmap -c /omd/sites/monitor/etc/shinken/shinken-discovery.d/discovery.cfg
+</code></pre></div>
+<p>然后发现新错误：在import shinken和multiprocessing的时候有问题。
+因为etc/environment中需要定义PYTHONPATH=/omd/sites/monitor/lib/python:/omd/sites/monitor/lib/shinken:/usr/local/py2.7/lib/python2.7
+而且，因为在/omd/sites/monitor/lib/python中有multiprocessing-2.6.2.1-py2.4-linux-x86_64.egg的存在，所以导致python2.7加载py2.4的multiprocessing失败，删除掉这个目录后，让python自动加载python2.7/lib下的multiprocessing，就可以了——当然，需要先easy_install multiprocessing才有。
+等一会，在objects/discovery目录下给每个live的ip创建了一个文件夹，里面是host和service的cfg配置——但是因为~/bin/shinken-discovery脚本里的写法比较简单，生成的cfg里直接指定了template就是generic-host/service，然后除了description、command和host_name之外啥都木有……所以必须提前自己定义好一个模板。
+OMD的监控配置文件指定位置是~/etc/nagios/conf.d/，所以扫描之后，还需要整合cfg到这个目录下。</p>
+<hr />
+<p>最后，shinken里有bottle框架的一个webui，但是我一直没找到如何运行……shinken-specific.d/module_webui.cfg里倒是有module定义：</p>
+<div class="highlight"><pre><code class="bash">define module<span class="o">{</span>
+    module_name      WebUI
+    module_type      webui
+    host             0.0.0.0       ; mean all interfaces
+    port             7767
+    auth_secret      CHANGE_ME
+    modules          Apache_passwd
+<span class="o">}</span>
+define module<span class="o">{</span>
+    module_name      Apache_passwd
+    module_type      passwd_webui
+    passwd           /omd/sites/dyxmonitor/etc/htpasswd
+<span class="o">}</span>
+</code></pre></div>
+<p>但是启动后没有看到7767端口，也没有看到任何报错——这是最让我郁闷的一点，折腾三天，全部排错都靠strace而木有log。。。
+所以最后还是用另一个nagios界面，trunk来启动web。trunk是一个基于perl的catalyst框架完成的页面。而omd自带了一个不小的perl5lib……这里又需要注意了：</p>
+<ol>
+  <li>OMD安装时，会自动配置一个$PERL5LIB变量，但是不知道为啥会把**/x86<em>64-linux-thread-multi记成**/x86</em>64-linux，所以需要在~/etc/environment中自己重新写一次PERL5LIB。</li>
+  <li>因为centos5.4自带的perl版本是5.8.8；如果像我这样自己又另外安装了更高版本的perl，比如5.14.2，那么omd自带的这些perl5lib会有&rdquo;undefined symbol: Perl_Gthr_key_ptr&rdquo;的错误。所以老老实实用perl5.8.8好了……</li>
+</ol>
+<p>说老实话，觉得trunk跟classic nagios的页面没什么不同……</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2011/12/20/omd_configurations_basic" title="OMD系列(二)基础配置和目录介绍">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2011/12/27/conf_run_mod_gearman" title="OMD系列(四)mod_gearman配置与运行">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+  
+      </div>
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>

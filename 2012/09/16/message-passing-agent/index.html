@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>【Message::Passing系列】客户端收集脚本</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,8 +163,6 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#perl-ref">perl <span>52</span></a></li>
@@ -183,15 +170,11 @@
     	<li><a href="/tags.html#message-passing-ref">message-passing <span>4</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>最后编写一段日志收集的agent：</p>
-
 <div class="highlight"><pre><code class="perl">    <span class="c1">#!/usr/bin/perl</span>
     <span class="nb">package</span> <span class="n">NginxLogCollector</span><span class="p">;</span>
     <span class="k">use</span> <span class="n">Moo</span><span class="p">;</span>
@@ -253,32 +236,25 @@
     <span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">start</span> <span class="k">unless</span> <span class="nb">caller</span><span class="p">;</span>
     <span class="mi">1</span><span class="p">;</span>
 </code></pre></div>
-
 <p>目前就做到这步，之后从rabbitmq里往elasticsearch写的还没搞。从上面的chain可以很清除的看到和logstash一样的管道思想，input-&gt;decoder-&gt;filter-&gt;encoder-&gt;output。巧的是两种写法中，decode/encode那个写法跟puppet的DSL定义特别的像。哈哈～</p>
-
 <p>继续贴汇总入库的agent代码：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl</span>
 <span class="k">use</span> <span class="n">Moo</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">MooX::</span><span class="n">Options</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">Message::Passing::</span><span class="n">DSL</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">MooX::Types::MooseLike::</span><span class="n">Base</span> <span class="sx">qw/ Str /</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">namespace::</span><span class="n">clean</span> <span class="o">-</span><span class="n">except</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw( meta _options_data _options_config )</span><span class="p">];</span>
-
 <span class="n">with</span> <span class="s">&#39;Message::Passing::Role::Script&#39;</span><span class="p">;</span>
-
 <span class="n">option</span> <span class="n">elasticsearch_servers</span> <span class="o">=&gt;</span> <span class="p">(</span>
     <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
     <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span><span class="p">,</span>
     <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="s">&#39;10.3.18.199:9200&#39;</span> <span class="p">},</span>
 <span class="p">);</span>
-
 <span class="n">option</span> <span class="n">rabbitmq</span> <span class="o">=&gt;</span> <span class="p">(</span>
     <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
     <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span><span class="p">,</span>
     <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="s">&#39;10.3.18.199&#39;</span> <span class="p">},</span>
 <span class="p">);</span>
-
 <span class="k">sub </span><span class="nf">build_chain</span> <span class="p">{</span>
     <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
     <span class="n">message_chain</span> <span class="p">{</span>
@@ -304,11 +280,8 @@
 <span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">start</span> <span class="k">unless</span> <span class="nb">caller</span><span class="p">;</span>
 <span class="mi">1</span><span class="p">;</span>
 </code></pre></div>
-
 <p>总的来说，原有模块相互之间都有些不太协调，用的时候还是要自己改改。比如这里，原版的Output::ElasticSearch是吧之前传递过来的整个message放进@fields里的，这跟Filter::ToLogstash的message结构是完全冲突的。所以需要修改Output::ElasticSearch里的bulk_index()的data=&gt;$data,就可以了，不要多改动。</p>
-
 <p>整个代码变动，参加个人github:<a href="https://github.com/chenryn/Message-Passing.git">https://github.com/chenryn/Message-Passing.git</a></p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -323,30 +296,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -364,8 +328,6 @@
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -382,16 +344,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -402,4 +361,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

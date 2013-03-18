@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>perl函数返回值引起的误会</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,38 +163,26 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>在微博上偶然看到有位<a href="http://weibo.com/iheartbeat" title="南唐古韵">@南唐古韵</a>童鞋发了一条关于perl的：</p>
-
 <pre><code>发现perl的一个bug：（2**3）**2=8
 </code></pre>
-
 <p>显然perl不可能真的犯这么白痴的错误，那么问题在哪呢？我们先看看下面这个判断：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="p">[</span><span class="n">root</span><span class="nv">@localhost</span> <span class="o">~</span><span class="p">]</span><span class="c1"># perl -e &#39;print &quot;OK&quot; if (2**3)**2 == 8&#39;</span>
 <span class="p">[</span><span class="n">root</span><span class="nv">@localhost</span> <span class="o">~</span><span class="p">]</span><span class="c1"># perl -e &#39;print &quot;OK&quot; if (2**3)**2 == 64&#39;</span>
 <span class="n">OK</span>
 <span class="p">[</span><span class="n">root</span><span class="nv">@localhost</span> <span class="o">~</span><span class="p">]</span><span class="c1">#</span>
 </code></pre></div>
-
 <p>一目了然，运算肯定是正确的。那上面那位童鞋的话是怎么得出来的呢？稍微想想，猜他可能是这样：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="p">[</span><span class="n">root</span><span class="nv">@localhost</span> <span class="o">~</span><span class="p">]</span><span class="c1"># perl -e &#39;print (2**3)**2&#39;</span>
 <span class="mi">8</span>
 </code></pre></div>
-
 <p>哇，真的变成8啦？！</p>
-
 <p>其实都是因为print搞的鬼啦~print作为内置的命令，我们在书写的时候经常用空格分隔开参数，而不记得其实标准的应该用中括号括起来的~
 也就是说，其实上面那行命令应该是：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="p">[</span><span class="n">root</span><span class="nv">@localhost</span> <span class="o">~</span><span class="p">]</span><span class="c1"># perl -e &#39;print(2**3) **2&#39;</span>
 </code></pre></div>
-
 <p>然后下一个问题：在print之后还有一个**2啊，既然前面已经执行完成一个print命令，后面再加个东西，咋不会报错呢？</p>
-
 <p>这就是涉及到关键了，perl的print执行也是有返回值的，真为1，假为0。也就是说，上面的命令其实是先执行了2的3次方得到8，然后执行print输出&rdquo;8&rdquo;到STDOUT并且返回1；然后执行1的2次方得到1；程序结束。</p>
-
 <p>我们可以这样验证一下：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="p">[</span><span class="n">root</span><span class="nv">@AY110907102215177d47d</span> <span class="o">~</span><span class="p">]</span><span class="c1"># perl -e &#39;print (2**3)**2&#39;</span>
 <span class="mi">8</span><span class="p">[</span><span class="n">root</span><span class="nv">@AY110907102215177d47d</span> <span class="o">~</span><span class="p">]</span><span class="c1"># perl -e &#39;$r=print (2**3)**2;print $r&#39;</span>
 <span class="mi">81</span><span class="p">[</span><span class="n">root</span><span class="nv">@AY110907102215177d47d</span> <span class="o">~</span><span class="p">]</span><span class="c1"># perl -e &#39;$r=print (2**3)*2;print $r&#39;</span>
@@ -214,10 +191,7 @@
 <span class="mi">8</span>
 <span class="mi">2</span><span class="p">[</span><span class="n">root</span><span class="nv">@AY110907102215177d47d</span> <span class="o">~</span><span class="p">]</span><span class="c1"># </span>
 </code></pre></div>
-
 <p>因为要给print造一个返回值为假的示例不太容易，所以举一个1*2=2/0*2=0来证明咯~至于加上的&rdquo;\n&rdquo;测试，更进一步证明它跟print无关啦~~</p>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -232,30 +206,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -273,8 +238,6 @@
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -291,16 +254,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -311,4 +271,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>squid刷新缓存</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,16 +163,11 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#squid-ref">squid <span>24</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
@@ -194,25 +178,16 @@ http://a.b.com/index.jsp?pid=123456&amp;id=654321”。结果硬是刷不掉…�
 直到同事提醒。才赫然发现其实我一直在purge和wget的，不是http://a.b.com/index.jsp?pid=123456&amp;id=654321，而是http://a.b.com/index.jsp?pid=123456。linux把url里的&amp;当作后台运行的命令执行了……而access.log中为了安全又没记录?后的具体参数，于是傻傻的跟客户客服扯皮了N久……
 “squidclient -p 80  -m purge &lsquo;http://a.b.com/index.jsp?pid=123456&amp;amp;id=654321&rsquo;”这么一刷立刻就好了~~
 由此告诫自己，以后一定要严谨行事，引号最好还是要养成习惯都给带上~~</p>
-
 <p>以下具体总结摘录squid缓存刷新的几种办法，随便感谢百度，悼念谷歌：</p>
-
 <p>第一种——当squid的refresh_pattern未使用任何options，即squid缓存遵循http协议精神时有效。原理是模拟no-cache头的request（即ctrl+F5刷新）：
 【nnd，一帖就错误，单独放一个帖子，大家看下一贴吧】</p>
-
 <p>第二种，采用PURGE方式刷新，request的header如下：</p>
-
 <p>PURGE http://www.lrrr.org/junk HTTP/1.0
 Accept: <em>/</em></p>
-
 <p>脚本类似第一种方法，修改其中的HEAD为PURGE即可：</p>
-
 <p>$head = &ldquo;PURGE $url_component[&lsquo;path&rsquo;] HTTP/1.1\r\n&rdquo;;</p>
-
 <p>按照《squid中文权威指南》的说法，当squid收到purge指令的时候，也是采用head和get的方式去处理请求，然后找到cache的文件进行删除的。</p>
-
 <p>第三种，采用多播HTCP包。这是 MediaWiki 目前正在使用的方法，当wiki 更新时用于更新全球的 Squid缓存服务器，实现原理为：发送 PURGE 请求到特定的多播组，所有Squid服务器通过订阅该多播组信息完成删除操作，这种实现方式非常高效，避免了 Squid 服务器处理响应和建立 TCP连接的开销。参考资料： Multicast HTCP purging。</p>
-
 <p>第五种，小工具：<a href="http://www.wa.apana.org.au/~dean/squidpurge/">http://www.wa.apana.org.au/~dean/squidpurge/</a>
 wget http://www.wa.apana.org.au/~dean/sources/purge-20040201-src.tar.gz
 tar zxvf purge-20040201-src.tar.gz
@@ -251,18 +226,14 @@ make
     starting.
     -v show more information about the file, e.g. MD5, timestamps and
     flags.</p>
-
 <p>使用示例：</p>
-
 <ol>
   <li>清除URL中包含jackbillow.com的所有缓存
  ./purge -p 127.0.0.1:80 -P 1 -se &lsquo;jackbillow.com&rsquo;</li>
   <li>清除 URL 以“.mp3”结尾的缓存文件，例如：http://www.dzend.com/abc/test.mp3
  ./purge -p 127.0.0.1:80 -P 1 -se &lsquo;.mp3$&rsquo;</li>
 </ol>
-
 <p>第五种，张宴的脚本clear_squid_cache.sh。（老小注：还是这个熟悉，呵呵）</p>
-
 <div class="highlight"><pre><code class="bash"><span class="c">#!/bin/sh</span>
 <span class="nv">squidcache_path</span><span class="o">=</span><span class="s2">&quot;/data1/squid/var/cache&quot;</span>
 <span class="nv">squidclient_path</span><span class="o">=</span><span class="s2">&quot;/usr/local/squid/bin/squidclient&quot;</span>
@@ -271,10 +242,8 @@ grep -a -r <span class="nv">$1</span> <span class="nv">$squidcache_path</span>/*
     <span class="nv">$squidclient_path</span> -m PURGE -p 80 <span class="nv">$url</span>
 <span class="k">done</span>
 </code></pre></div>
-
 <p>据说：经测试，在DELL 2950上清除26000个缓存文件用时2分钟左右。平均每秒可清除缓存文件177个。
 看到了吧，网上流传的这个脚本里，$url也没有用&rdquo;&ldquo;引起来，所以用这个sh刷新的时候，也失败了……</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -289,30 +258,21 @@ grep -a -r <span class="nv">$1</span> <span class="nv">$squidcache_path</span>/*
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -330,8 +290,6 @@ grep -a -r <span class="nv">$1</span> <span class="nv">$squidcache_path</span>/*
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -348,16 +306,13 @@ grep -a -r <span class="nv">$1</span> <span class="nv">$squidcache_path</span>/*
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -368,4 +323,3 @@ grep -a -r <span class="nv">$1</span> <span class="nv">$squidcache_path</span>/*
     <!-- UJian Button END -->
   </body>
 </html>
-

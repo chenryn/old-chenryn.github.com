@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>squid自动配置脚本</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,8 +163,6 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#squid-ref">squid <span>24</span></a></li>
@@ -185,9 +172,6 @@
     	<li><a href="/tags.html#bash-ref">bash <span>7</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
@@ -195,7 +179,6 @@
     <p>公司刚重新规定了squid服务的标准配置。以后，客户的配置要求，统一安排。这样，除了一些有特殊要求（比如加密／防盗链等）的以外，普通客户就可以逐步实现简洁明了的规范化自动化配置。
 目前squid的初始化准备还在慢慢进行中，趁有点空闲，先把自动化配置脚本搞出来。
 主程序do.sh如下：</p>
-
 <div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
 <span class="k">if</span> <span class="o">[</span> <span class="s2">&quot;$#&quot;</span> -ne 2 <span class="o">]</span>;<span class="k">then</span>
 <span class="nb">echo</span> <span class="s2">&quot;Usage: ./do.sh [command][customer]&quot;</span>
@@ -211,9 +194,7 @@ ping -c 5 <span class="nv">$ip</span>
 expect ssh.exp <span class="nv">$ip</span> <span class="nv">$1</span> <span class="nv">$2</span>
 <span class="k">done</span>
 </code></pre></div>
-
 <p>ssh.exp如下：</p>
-
 <div class="highlight"><pre><code class="tcl"><span class="c">#!/usr/bin/expect -f</span>
 <span class="nv">log_file</span> exp.log
 <span class="k">set</span> ipaddr <span class="k">[</span><span class="nb">lindex</span> <span class="nv">$argv</span> <span class="mi">0</span><span class="k">]</span>
@@ -238,9 +219,7 @@ expect ssh.exp <span class="nv">$ip</span> <span class="nv">$1</span> <span clas
 <span class="k">}</span>
 <span class="k">}</span>
 </code></pre></div>
-
 <p>conf.sh如下：</p>
-
 <div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
 <span class="nv">NR</span><span class="o">=</span><span class="k">$(</span>cat <span class="nv">$2</span>|wc -l<span class="k">)</span>
 <span class="nv">CONF</span><span class="o">=</span>/etc/squid.conf
@@ -259,16 +238,13 @@ killall -9 squid
 <span class="nb">ulimit</span> -HSn 655360
 /sbin/squid -s
 </code></pre></div>
-
 <p>然后我们模拟一个叫做abc的客户来测试CDN了。那么我只要在/squid.config/下创建一个叫做abc的文本，内容是针对性的配置部分字段，假设如下：</p>
-
 <div class="highlight"><pre><code class="bash"><span class="o">[</span>root@center /squid.config<span class="o">]</span><span class="c"># cat abc</span>
 <span class="c">#abc</span>
 refresh_pattern -i http://www.abc.com/.*.<span class="o">(</span>jpg|gif|js|css|swf|xml<span class="o">)</span><span class="nv">$ </span>1440 50% 4320 ignore-reload
 acl abc url_regex -i ^http://www.abc.com/.*.<span class="o">(</span>html|do|jsp|asp|aspx|axd|asmx<span class="o">)</span>
 cache deny abc
 </code></pre></div>
-
 <p>然后运行./do.sh add abc，就可以自动在ip.lst里所有的服务器的squid.conf中的“#config”字段下面，添上abc的配置文件了。
 过一段时间，要是abc这个客户流失了，就运行./do.sh del abc就行了。
 之前的思路，局限在一句句往配置文件里插句子。于是用下面这个办法
@@ -281,8 +257,6 @@ squid.conf
 而这样配置句段的顺序就反过来了，还得用sed -n &ldquo;1!G;h;$!d&rdquo;命令倒序读取——最开始用cat命令，结果cat在读取abc这个文件的时候会自动把空格前后的内容分段读出，于是改用sed。至于倒序之后，再怎么插入，就没有研究了。因为当时我发现了可以直接将文件a插入文件b的方法～～
 del的时候，其实在操作上还有一个办法。就是每次的配置不单以#abc开头，还用一个#abcEND结尾。这样，ENDNR就不用计算，直接取echo $CFNR|awk &lsquo;{print $NF}&rsquo;就行了。
 说到这个CFNR，让人很郁闷的一点是，这个sed -n -e出来的几个数字，我本意是作一个数组的，但怎么试验，shell都把这一串数字存在${CFNR[0]}一个元素里……数组到底怎么输入，还得研究～～</p>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -297,30 +271,21 @@ del的时候，其实在操作上还有一个办法。就是每次的配置不�
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -338,8 +303,6 @@ del的时候，其实在操作上还有一个办法。就是每次的配置不�
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -356,16 +319,13 @@ del的时候，其实在操作上还有一个办法。就是每次的配置不�
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -376,4 +336,3 @@ del的时候，其实在操作上还有一个办法。就是每次的配置不�
     <!-- UJian Button END -->
   </body>
 </html>
-

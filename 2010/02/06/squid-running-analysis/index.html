@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>squid运行分析</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -212,11 +201,9 @@ $ squidclient -p 80 mgr:info
     Storage Swap size: 4640308 KB
     Storage Mem size: 1048588 KB
     Mean Object Size: 9.08 KB</p>
-
 <p>看起来差不多的样子。
 因为确认mem没怎么用上，下一步看disk的I/O。
 采用diskd的parent如下：</p>
-
 <pre><code>[root@tinysquid2 ~]# iostat -x /dev/xvdb2 5 5
 Linux 2.6.18-128.el5xen (tinysquid2)
 02/06/2010
@@ -226,9 +213,7 @@ Device: rrqm/s wrqm/s r/s w/s rsec/s   wsec/s avgrq-sz avgqu-sz await  svctm�
 xvdb2
 0.00 5.00  8.60 46.60 81.60 412.80 8.96 0.32 5.80 1.75   9.68
 </code></pre>
-
 <p>采用aufs的parent如下：</p>
-
 <pre><code>[root@tinysquid3 ~]# iostat -x /dev/xvdb2 5 5
 Linux 2.6.18-128.el5xen (tinysquid3)
 02/06/2010
@@ -238,9 +223,7 @@ Device: rrqm/s wrqm/s r/s w/s rsec/s   wsec/s avgrq-sz avgqu-sz await  svctm�
 xvdb2
 0.00 8.58  3.19 6.19 25.55 118.16 15.32 0.02 2.47 1.70   1.60
 </code></pre>
-
 <p>以上结果的解释如下：</p>
-
 <p>rrqm/s: 每秒进行 merge 的读操作数目。即 delta(rmerge)/s  <br />
 wrqm/s: 每秒进行 merge 的写操作数目。即 delta(wmerge)/s  <br />
 r/s: 每秒完成的读 I/O 设备次数。即 delta(rio)/s  <br />
@@ -254,16 +237,12 @@ avgqu-sz: 平均I/O队列长度。即 delta(aveq)/s/1000(因为aveq的单位为�
 await: 平均每次设备I/O操作的等待时间 (毫秒)。即delta(ruse+wuse)/delta(rio+wio)  <br />
 svctm: 平均每次设备I/O操作的服务时间 (毫秒)。即 delta(use)/delta(rio+wio)  <br />
 %util: 一秒中有百分之多少的时间用于 I/O 操作，或者说一秒中有多少时间 I/O 队列是非空的。即 delta(use)/s/1000(因为use的单位为毫秒)    </p>
-
 <p>从上面的运行情况看，都是w操作为主，但diskd比aufs每秒w的次数要大，而每次w的服务时间也大——大的同时波动性也不太稳定——由此导致rw时的等待时间也延长——进一步的结果就是I/O非空时间变少——最后的结果就是disk的I/O压力变大！
 因为现在已经双parent，loadavg降低，所以不好看出之前的高loadavg问题关键。不过至少从现在的运行来看，aufs比diskd要好。</p>
-
 <p>————————————————————————————————————————
 3月25日补充：</p>
-
 <p>aufs虽然是异步io，但某些文件默认的写操作并不如此。需要在编译时修改src/fs/aufs/store_asyncufs.h中的#define ASYNC_WRIT值为1。
 对于aufs，可以使用squidclient mgr:squidaio_counts查看，其中queue一项，据说不应该超过线程数量的5倍。而线程数量跟cache_dir数量的关系如下：</p>
-
 <p>cache_dirs Threads
 1               16
 2               26
@@ -271,8 +250,6 @@ svctm: 平均每次设备I/O操作的服务时间 (毫秒)。即 delta(use)/delt
 4               36
 5               40
 6               44</p>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -287,30 +264,21 @@ svctm: 平均每次设备I/O操作的服务时间 (毫秒)。即 delta(use)/delt
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -328,8 +296,6 @@ svctm: 平均每次设备I/O操作的服务时间 (毫秒)。即 delta(use)/delt
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -346,16 +312,13 @@ svctm: 平均每次设备I/O操作的服务时间 (毫秒)。即 delta(use)/delt
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -366,4 +329,3 @@ svctm: 平均每次设备I/O操作的服务时间 (毫秒)。即 delta(use)/delt
     <!-- UJian Button END -->
   </body>
 </html>
-

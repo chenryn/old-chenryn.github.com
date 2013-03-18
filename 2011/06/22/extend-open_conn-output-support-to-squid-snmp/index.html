@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>给squid的snmp增加open_conn输出</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,26 +163,20 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#squid-ref">squid <span>24</span></a></li>
      
-    	<li><a href="/tags.html#C-ref">C <span>3</span></a></li>
+    	<li><a href="/tags.html#C-ref">C <span>4</span></a></li>
      
     	<li><a href="/tags.html#snmp-ref">snmp <span>5</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>做反向代理的squid集群监控，在单机维护时，squidclient mgr:server_list里的OPEN CONNS是经常看的一项数据，不过在开启snmp支持后，在mib里却没有找到相关的数据。还一度怀疑是不是cachePeerKeepAlRecv或者cachePeerKeepSent。今天想起来去src里grep了一把源码，顺利的在squid/src/neighbors.c里看到了OPEN CONNS等数据的来源，如下：</p>
-
 <div class="highlight"><pre><code class="c"><span class="k">static</span> <span class="kt">void</span>
 <span class="nf">dump_peers</span><span class="p">(</span><span class="n">StoreEntry</span> <span class="o">*</span> <span class="n">sentry</span><span class="p">,</span> <span class="n">peer</span> <span class="o">*</span> <span class="n">peers</span><span class="p">)</span>
 <span class="p">{</span>
@@ -206,9 +189,7 @@
         <span class="n">storeAppendPrintf</span><span class="p">(</span><span class="n">sentry</span><span class="p">,</span> <span class="s">&quot;keep-alive ratio: %d%%</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span>
             <span class="n">percent</span><span class="p">(</span><span class="n">e</span><span class="o">-&gt;</span><span class="n">stats</span><span class="p">.</span><span class="n">n_keepalives_recv</span><span class="p">,</span> <span class="n">e</span><span class="o">-&gt;</span><span class="n">stats</span><span class="p">.</span><span class="n">n_keepalives_sent</span><span class="p">));</span>
 </code></pre></div>
-
 <p>然后在squid/src/snmp_agent.c里看到了这些数据的snmp输出，如下：</p>
-
 <div class="highlight"><pre><code class="c"><span class="n">variable_list</span> <span class="o">*</span>
 <span class="nf">snmp_meshPtblFn</span><span class="p">(</span><span class="n">variable_list</span> <span class="o">*</span> <span class="n">Var</span><span class="p">,</span> <span class="n">snint</span> <span class="o">*</span> <span class="n">ErrP</span><span class="p">)</span>
 <span class="p">{</span>
@@ -241,11 +222,9 @@
     <span class="k">return</span> <span class="n">Answer</span><span class="p">;</span>
 <span class="p">}</span>
 </code></pre></div>
-
 <p>一对比，发现确实没有stats.conn_open输出……
 好在这个比较简单，稍微改一下，就能搞出来：
 1、修改squid/include/cache_snmp.h如下：</p>
-
 <div class="highlight"><pre><code class="c"><span class="k">enum</span> <span class="p">{</span>                          <span class="cm">/* cachePeerTable */</span>
 <span class="err">……</span>
     <span class="n">MESH_PTBL_CONN_OPEN</span><span class="p">,</span>   <span class="cm">/*新增这个*/</span>
@@ -253,9 +232,7 @@
     <span class="n">MESH_PTBL_END</span>
 <span class="p">};</span>
 </code></pre></div>
-
 <p>2、修改squid/src/snmp_core.c如下：</p>
-
 <div class="highlight"><pre><code class="c"><span class="kt">void</span>
 <span class="nf">snmpInit</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
 <span class="p">{</span>
@@ -269,9 +246,7 @@
                                                 <span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="cm">/*新增这个16*/</span>
                                                     <span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">snmp_meshPtblFn</span><span class="p">,</span> <span class="n">peer_InstIndex</span><span class="p">,</span> <span class="mi">0</span><span class="p">))),</span>
 </code></pre></div>
-
 <p>3、修改squid/src/snmp_agent.c如下：</p>
-
 <div class="highlight"><pre><code class="c"><span class="err">……</span>
     <span class="k">case</span> <span class="n">MESH_PTBL_INDEX</span>:
         <span class="n">Answer</span> <span class="o">=</span> <span class="n">snmp_var_new_integer</span><span class="p">(</span><span class="n">Var</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">Var</span><span class="o">-&gt;</span><span class="n">name_length</span><span class="p">,</span>
@@ -286,9 +261,7 @@
         <span class="k">break</span><span class="p">;</span>
  
 </code></pre></div>
-
 <p>4、重新编译squid，然后用snmpwalk获取数据观察：</p>
-
 <div class="highlight"><pre><code class="bash"><span class="o">[</span>root@naigos myops<span class="o">]</span><span class="c"># snmpwalk -v 2c -c cacti_china 10.168.168.69 .1.3.6.1.4.1.3495.1.5.1.2  -Cc  | tail</span>
 SNMPv2-SMI::enterprises.3495.1.5.1.2.13.3 <span class="o">=</span> Counter32: 0
 SNMPv2-SMI::enterprises.3495.1.5.1.2.14.1 <span class="o">=</span> INTEGER: 1
@@ -301,9 +274,7 @@ SNMPv2-SMI::enterprises.3495.1.5.1.2.16.1 <span class="o">=</span> STRING: <span
 SNMPv2-SMI::enterprises.3495.1.5.1.2.16.2 <span class="o">=</span> STRING: <span class="s2">&quot;10.168.168.73&quot;</span>
 SNMPv2-SMI::enterprises.3495.1.5.1.2.16.3 <span class="o">=</span> STRING: <span class="s2">&quot;10.168.168.122&quot;</span>
 </code></pre></div>
-
 <p>原来的SNMPv2-SMI::enterprises.3495.1.5.1.2.15.1 = STRING: &ldquo;10.168.170.43&rdquo;变成了SNMPv2-SMI::enterprises.3495.1.5.1.2.16.1 = STRING: &ldquo;10.168.170.43&rdquo;，而SNMPv2-SMI::enterprises.3495.1.5.1.2.15.1 = INTEGER: 3就是需要的open_conn数据了！</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -318,30 +289,21 @@ SNMPv2-SMI::enterprises.3495.1.5.1.2.16.3 <span class="o">=</span> STRING: <span
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -359,8 +321,6 @@ SNMPv2-SMI::enterprises.3495.1.5.1.2.16.3 <span class="o">=</span> STRING: <span
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -377,16 +337,13 @@ SNMPv2-SMI::enterprises.3495.1.5.1.2.16.3 <span class="o">=</span> STRING: <span
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -397,4 +354,3 @@ SNMPv2-SMI::enterprises.3495.1.5.1.2.16.3 <span class="o">=</span> STRING: <span
     <!-- UJian Button END -->
   </body>
 </html>
-

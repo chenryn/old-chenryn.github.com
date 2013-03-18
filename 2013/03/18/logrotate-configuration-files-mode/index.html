@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>logrotate 配置文件强制为 0644 属性</title>
+    
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>logrotate 配置文件强制为 0644 属性 <small></small></h1>
+    <div class="date"><span>18 March 2013</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+  
+     
+    	<li><a href="/tags.html#C-ref">C <span>4</span></a></li>
+    
+  
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>在一次包更新后，发现 Nginx 服务器的每晚日志切割不再进行了。找遍了各种地方，最后在一次偶然的<code>ls -l</code>中发现：</p>
+<div class="highlight"><pre><code class="bash"><span class="c"># ll /etc/logrotate.d/</span>
+total 64
+-rw-r--r-- 1 root root  326 2012-08-04 06:08 apache2
+-rw-r--r-- 1 root root   84 2009-02-08 05:18 apt
+-rw-r--r-- 1 root root   79 2008-12-05 17:15 aptitude
+-rw-r--r-- 1 root root  330 2008-03-08 05:36 atop
+-rw-r--r-- 1 root root  232 2011-11-10 14:33 dpkg
+-rw-r--r-- 1 root root  267 2013-01-31 13:20 foreman-proxy
+-rw-r--r-- 1 root root  151 2007-09-29 19:23 iptraf
+-rw-r--r-- 1 root root  880 2012-10-29 17:10 mysql-server
+-rwxr-xr-x 1 root root  356 2012-08-05 00:17 nginx
+-rw-r--r-- 1 root root 1061 2008-03-08 05:36 psaccs_atop
+-rw-r--r-- 1 root root  512 2008-03-08 05:36 psaccu_atop
+-rw-r--r-- 1 root root  260 2012-06-23 00:52 rabbitmq-server
+-rw-r--r-- 1 root root  126 2012-06-09 00:22 redis-server
+-rw-r--r-- 1 root root  515 2012-09-27 02:40 rsyslog
+-rw-r--r-- 1 root root  285 2008-11-18 21:20 stunnel4
+</code></pre></div>
+<p>这里的nginx多了可执行权限。于是我尝试性的执行了<code>chmod -x nginx</code>；结果居然真的恢复了。</p>
+<p>这事儿说起来蛮奇怪了。于是去 <a href="https://fedorahosted.org/logrotate">https://fedorahosted.org/logrotate</a> 找来 logrotate 的源码看，结果在<code>logrotate-3.8.3/config.c</code> 里发现这么一段：</p>
+<div class="highlight"><pre><code class="c"> <span class="mi">661</span>                 <span class="nf">if</span> <span class="p">((</span><span class="n">sb</span><span class="p">.</span><span class="n">st_mode</span> <span class="o">&amp;</span> <span class="mo">07533</span><span class="p">)</span> <span class="o">!=</span> <span class="mo">0400</span><span class="p">)</span> <span class="p">{</span>
+ <span class="mi">662</span>                         <span class="n">message</span><span class="p">(</span><span class="n">MESS_DEBUG</span><span class="p">,</span>
+ <span class="mi">663</span>                                 <span class="s">&quot;Ignoring %s because of bad file mode.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span>
+ <span class="mi">664</span>                                 <span class="n">configFile</span><span class="p">);</span>
+ <span class="mi">665</span>                         <span class="n">close</span><span class="p">(</span><span class="n">fd</span><span class="p">);</span>
+ <span class="mi">666</span>                         <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+ <span class="mi">667</span>                 <span class="p">}</span>
+</code></pre></div>
+<p>只有文件权限是 0644 的时候，配置文件才会被读取！0755 的与结果是 0511，不等于 0400。相关 <code>st_mode</code> 的内容可以通过 <code>man 2 stat</code> 查看。</p>
+<p>可以写一小段 perl 代码来验证：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl</span>
+<span class="k">my</span> <span class="nv">$mode</span> <span class="o">=</span> <span class="p">(</span><span class="nb">stat</span><span class="p">(</span><span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">]))[</span><span class="mi">2</span><span class="p">];</span>
+<span class="nb">printf</span> <span class="s">&quot;Permissions are %04o\n&quot;</span><span class="p">,</span> <span class="nv">$mode</span> <span class="o">&amp;</span> <span class="mo">07533</span><span class="p">;</span>
+</code></pre></div>
+<p>在 <a href="https://fedorahosted.org/logrotate/browser/tags/r3-8-3/CHANGES">ChangeLog</a> 里，看到如下一段话：</p>
+<pre><code>2.1 -&gt; 2.2:
+    - ignore nonnormal files when reading config files from a directory
+    - (these were suggested and originally implemented by
+      Henning Schmiedehausen)
+</code></pre>
+<p>不过比较早了，就懒得从历史堆里再翻为什么当初会有这么个提议了…………</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2013/03/15/puppet-provider-development" title="Puppet 自定义 Provider">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next disabled"><a>Next &rarr;</a>
+      
+      </ul>
+    </div>
+    <hr>
+    
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+  
+      </div>
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>

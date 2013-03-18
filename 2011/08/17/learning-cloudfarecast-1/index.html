@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>CloudForecast学习笔记(一)</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -181,11 +170,9 @@ http://editnuki.info:5000/
 下载地址：
 https://github.com/kazeburo/cloudforecast
 粗略的看了主要文件，主要是用Class::<em>完成的OO，Plack::MiddleWare::</em>完成的web，Gearman::Worker调用Data::*里的具体模块完成对服务器的监控抓取，然后调用RRDs完成监控数据图像的更新，在启动分布式的情况下，则用Gearman::Client传输监控数据给调用RRDs的worker。</p>
-
 <p>第一篇主要记录一下监控数据在服务器上流程，cloudforecast是怎么去抓取数据，怎么传递给rrd的。
 不过，先看看Class::*的用法：
 在CloudForecast::Data中，有如下一段代码：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="n">base</span> <span class="sx">qw/Class::Data::Inheritable Class::Accessor::Fast/</span><span class="p">;</span>
 <span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">mk_accessors</span><span class="p">(</span><span class="sx">qw/hostname address details args</span>
 <span class="sx">                             component_config _component_instance</span>
@@ -197,46 +184,30 @@ https://github.com/kazeburo/cloudforecast
 <span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">mk_classdata</span><span class="p">(</span><span class="s">&#39;title_func&#39;</span><span class="p">);</span>
 <span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">mk_classdata</span><span class="p">(</span><span class="s">&#39;sysinfo_func&#39;</span><span class="p">);</span>
 </code></pre></div>
-
 <p>这里，先用use base()加载两个父类继承关系。然后用Class::Accessor::Fast的mk_accessors方法创建了一堆可读写的变量，这里有另一种写法，看起来更舒服一些：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Class::</span><span class="n">Accessor</span> <span class="s">&quot;moose-like&quot;</span><span class="p">;</span>
 <span class="n">has</span> <span class="n">hostname</span> <span class="o">=&gt;</span> <span class="p">(</span> <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;rw&#39;</span><span class="p">,</span> <span class="n">isa</span> <span class="o">=&gt;</span> <span class="s">&#39;Str&#39;</span> <span class="p">);</span>
 </code></pre></div>
-
 <p>然后是Class::Data::Inheritable的mk_classdata方法创建了一堆可继承的方法。
 在CPAN上看到另外有一个模块叫Class::Data::Accessor的，是上面这两个模块的合集，不过作者声明说已经废弃，推荐大家使用Moose了……</p>
-
 <p>现在来跟踪一下fetch_worker的流程：
 先看cf_fetcher_worker脚本里new一个worker出来后，执行的是fetcher_worker()；</p>
-
 <p>然后看lib/CloudForecast/Gearman/Worker.pm里的fetcher_worker()，在连接上gearmand上的fetcher任务后，执行的是$self-&gt;load_resource();</p>
-
 <p>然后看lib/CloudForecast/Gearman/Worker.pm里的load_resource()，其实就是根据具体监控项require并且new一个CloudFarecast::Data::*（这个new方法是通过use base和SUPER::new最终到的CloudFarecast.pm上的）。</p>
-
 <p>然后看fetcher_worker()的下一句&rdquo;$resource-&gt;exec_fetch;&rdquo;，先去找CloudFarecast::Data::*，发现没有exec_fetch()，那往base的CloudFarecast::Data上看，果然有了。其中的主要两行&rdquo;$ret = $self-&gt;do_fetch();&rdquo;和&rdquo;$self-&gt;call_updater($ret);&rdquo;。</p>
-
 <p>然后看do_fetch()。其中主要两行&rdquo;my $ret = $self-&gt;fetcher_func-&gt;($self);&rdquo;和&rdquo;my $schema = $self-&gt;rrd_schema;&rdquo;。这两个fetcher_func和rrd_schema都是前面mk_classdata出来的方法。而这里的$self，则一直追溯到最前面Worker.pm里的$resource，即CloudForecast::Data::*。</p>
-
 <p>选一个CloudForecast::Data::Basic看，其中分别调用了Data.pm里的rrds/graph/title/fetcher函数。</p>
-
 <p>返回Data.pm看fetcher()函数如下：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="k">sub </span><span class="nf">fetcher</span><span class="p">(&amp;) {</span>
     <span class="k">my</span> <span class="nv">$class</span> <span class="o">=</span> <span class="nb">caller</span><span class="p">;</span>
     <span class="nn">Carp::</span><span class="n">croak</span><span class="p">(</span><span class="s">&quot;already seted fetcher_func&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="nv">$class</span><span class="o">-&gt;</span><span class="n">fetcher_func</span><span class="p">;</span>
     <span class="nv">$class</span><span class="o">-&gt;</span><span class="n">fetcher_func</span><span class="p">(</span><span class="nb">shift</span><span class="p">);</span>
 <span class="p">}</span>
 </code></pre></div>
-
 <p>学习一下，这里新出现的一个caller函数，这是perl自带的函数，可以使用perldoc -f caller查看详细说明。默认返回三个值，分别是调用的package/file/linenumber。显然这里就是获取package，也就是$class = &lsquo;CloudFarecast::Data::Basic&rsquo;了。然后返回的&rdquo;$class-&gt;fetcher_func(shift);&rdquo;，这个shift也就是(&amp;)里的内容，即Basic.pm里的{my $c = shift;my @map = &hellip;;my $ret = $c-&gt;component(&lsquo;SNMP&rsquo;)-&gt;get(@map);return $ret;}这个匿名函数。
 这样前面Worker里的$resource就有了自己的fetcher_func函数了，就此执行并且返回$ret。完成！</p>
-
 <p>然后把$ret传递给call_updater()函数。这个函数中先对配置文件做一次判断，是否enable了gearmand。如果没有，直接调用exec_updater()完成本地rrd图像的初始化init_rrd()或更新update_rrd()。如果有，则连接上gearmand，new一个CloudForecast::Gearman对象，使用updater方法提交数据。</p>
-
 <p>然后看Gearman.pm中的updater()，其实就是Gearman::Client的dispatch_background()连接上updater任务，发送数据。</p>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -251,30 +222,21 @@ https://github.com/kazeburo/cloudforecast
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -292,8 +254,6 @@ https://github.com/kazeburo/cloudforecast
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -310,16 +270,13 @@ https://github.com/kazeburo/cloudforecast
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -330,4 +287,3 @@ https://github.com/kazeburo/cloudforecast
     <!-- UJian Button END -->
   </body>
 </html>
-

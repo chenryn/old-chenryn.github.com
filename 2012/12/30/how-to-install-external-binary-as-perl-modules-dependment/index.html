@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>perl 模块打包加入外部依赖程序</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,42 +163,28 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#CPAN-ref">CPAN <span>1</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>Perl 社区并不是所有的东西都发布在 CPAN 上。甚至专门有一个 <code>Module::ThirdParty</code> 模块记录这些非 CPAN 的 perl 项目列表。其中最有名的应该就属写博客的 <code>Movable Type</code> 和做监控的 <code>SmokePing</code> 了。</p>
-
 <p>但是如果个人图方便又想把 smokeping 打包方便部署使用的时候，就会发现一点小问题：打包成rpm，很多 perl 的依赖模块不一定在系统 repo 里存在；打包成 perl 的模块，smokeping 最常用的几个 probe 比如 fping、curl 什么的，又是非 perl 程序，cpanm 没法解决这个 <code>requires_external_bin</code> ，最多只能报错退出。</p>
-
 <p>其实这里可以采取一些别的办法，虽然笨一些，但是解决问题。</p>
-
 <p>首先还是让我们创建一个示例模块：</p>
-
 <div class="highlight"><pre><code class="bash">    cpanm Module::Starter Module::Build
     module-starter --module Alien::FPing --author<span class="o">=</span><span class="s2">&quot;Jeff Rao&quot;</span> --email<span class="o">=</span><span class="s2">&quot;myname@gmail.com&quot;</span> --mb
 </code></pre></div>
-
 <p>然后就会在本目录下创建一个 Alien-FPing 目录，自带好了 <code>Build.PL</code> 等模块文件。这里使用了 <code>Alien::</code> 的名字空间，是一个潜规则，有些项目依赖 C 源码的库和头文件，就用 perl 包一层来安装，都放在这个空间下，比如 <code>Alien::V8</code>, <code>Alien::Gearmand</code>, <code>Alien::IE7</code> 等等。</p>
-
 <p>现在让我们下载 fping 的源码放到模块里：</p>
-
 <div class="highlight"><pre><code class="bash">    mkdir Alien-FPing/src
     wget http://www.fping.org/dist/fping-3.4.tar.gz -O Alien-FPing/src/fping-3.4.tar.gz
 </code></pre></div>
-
 <p>接下来应该就是编写 <code>Build.PL</code> 了。不过为了尽量让 <code>Build.PL</code> 看起来简洁而且一眼看出目的。我们最好把编译操作单独定义一个模块来使用：</p>
-
 <div class="highlight"><pre><code class="perl">    <span class="nb">package</span> <span class="nn">Alien::FPing::</span><span class="n">Build</span><span class="p">;</span>
     <span class="k">use</span> <span class="n">base</span> <span class="sx">qw(Module::Build)</span><span class="p">;</span>
     <span class="k">use</span> <span class="nn">File::</span><span class="n">Spec</span><span class="p">;</span>
@@ -235,11 +210,8 @@
     <span class="p">};</span>
     <span class="mi">1</span><span class="p">;</span>
 </code></pre></div>
-
 <p>几乎就是调用 shell 而已，唯一需要讲一下的就是这个 <code>ACTION_build</code>。这是 <code>Module::Build</code> 定义好的提供给 <code>subclass</code> 用的方法，事实上 <code>./Build help</code> 看得到的所有 action 都有类似的方法可以用。</p>
-
 <p>然后稍微修改一下 Build.PL 如下：</p>
-
 <div class="highlight"><pre><code class="perl">    <span class="k">use</span> <span class="mf">5.006</span><span class="p">;</span>
     <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
     <span class="k">use</span> <span class="n">warnings</span> <span class="n">FATAL</span> <span class="o">=&gt;</span> <span class="s">&#39;all&#39;</span><span class="p">;</span>
@@ -266,25 +238,18 @@
     <span class="p">);</span>
     <span class="nv">$builder</span><span class="o">-&gt;</span><span class="n">create_build_script</span><span class="p">();</span>
 </code></pre></div>
-
 <p>把 <code>Module::Build</code> 替换成 <code>Alien::FPing::Build</code> 而已，其他都不用动。</p>
-
 <p>然后试一下吧：</p>
-
 <div class="highlight"><pre><code class="bash">    <span class="nb">cd </span>Alien-FPing
     perl Build.PL
     ./Build
 </code></pre></div>
-
 <p>看到编译输出，并且成功安装有 <code>/usr/sbin/fping</code> 了吧。现在可以打包了。注意默认生成的 ignore.txt 里，是排除掉了 inc 目录的，需要去除掉，然后修改 <code>MANIFEST</code> 文件加入 inc 和 src 里的文件，然后再打包出来的 perl 模块就可以直接用了。</p>
-
 <div class="highlight"><pre><code class="bash">    sed -i <span class="s1">&#39;/inc/d&#39;</span> ignore.txt
     <span class="nb">echo</span> <span class="s1">&#39;inc/Alien/FPing/Build.pm&#39;</span> &gt;&gt; MANIFEST
     <span class="nb">echo</span> <span class="s1">&#39;src/fping-3.4.tar.gz&#39;</span> &gt;&gt; MANIFEST
     ./Build dist
 </code></pre></div>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -299,30 +264,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -340,8 +296,6 @@
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -358,16 +312,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -378,4 +329,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

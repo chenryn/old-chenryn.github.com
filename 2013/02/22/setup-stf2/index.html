@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>STF 2.0 安装测试</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,22 +163,18 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>STF 更新到 2.0 版本，支持使用 redis 队列做任务分发，比原先的 Q4M 容易上手多了；新增了 cluster 概念，虽然目前看没什么用，不过估计以后肯定要在这方面做文章的。</p>
-
 <p>部署步骤如下：</p>
-
 <div class="highlight"><pre><code class="bash">    <span class="c"># 因为 stf 要求在 Perl5.12 以上运行，CentOS6 还是 5.10 的老版本，所以直接用 Debian 测试了</span>
     apt-get install -y memcached redis-server libmysqlclient-dev libdbd-mysql-perl
     <span class="c"># 设置 mysql-server 包安装时需要的问答</span>
     <span class="nb">echo </span>mysql-server-5.5 mysql-server/root_password <span class="k">select </span>123456 | debconf-set-selections
     <span class="nb">echo </span>mysql-server-5.5 mysql-server/root_password_again <span class="k">select </span>123456 | debconf-set-selections
     apt-get install mysql-server-5.5
-
     <span class="c"># 系统依赖解决，开始 perl 部分</span>
     git clone git://github.com/stf-storage/stf.git
     <span class="nb">cd </span>stf
     cpanm Redis Data::Dumper::Concise
     cpanm --installdeps .
-
     <span class="c"># 创建 mysql 库和用户</span>
     mysql -uroot -p -e <span class="s1">&#39;create database stf&#39;</span>
     mysql -uroot -p -e <span class="s1">&#39;grant all privileges on stf.* to stf@&quot;%&quot; identified by &quot;654321&quot;&#39;</span>
@@ -198,26 +183,21 @@
     service mysql restart
     <span class="c"># 导入 sql 建表</span>
     mysql -ustf -p stf &lt; misc/stf.sql
-
     <span class="c"># 给 worker 和 dispatcher 设置队列使用 redis</span>
     <span class="nb">export </span><span class="nv">STF_QUEUE_TYPE</span><span class="o">=</span>Redis
     <span class="nb">export </span><span class="nv">STF_REDIS_HOSTPORT</span><span class="o">=</span>192.168.0.101:6379
     <span class="c"># 所有的角色都要有自己独有的 hostid</span>
     <span class="nb">export </span><span class="nv">STF_HOST_ID</span><span class="o">=</span>1
     <span class="nb">export </span><span class="nv">STF_HOME</span><span class="o">=</span>/root/stf
-
     <span class="c"># 启动 dispatcher，这里目前还只会用 plack，不知道怎么用 nginx/apache</span>
     <span class="nb">export </span><span class="nv">USE_PLACK_REPROXY</span><span class="o">=</span>1
     <span class="c"># 研究阶段可以打开 debug 看系统是怎么分发怎么平衡怎么确定使用哪个storage的file的过程</span>
     <span class="nb">export </span><span class="nv">STF_DEBUG</span><span class="o">=</span>1
     plackup -a etc/dispatcher.psgi
-
     <span class="c"># 启动 worker</span>
     ./bin/stf-worker
-
     <span class="c"># 启动管理界面网站，可以通过 web 添加 cluster 和 storage</span>
     plackup -a etc/admin.psgi -p 9000 &amp;
-
     <span class="c"># 一个 cluster 下至少需要有 3 个 storage，这里用三个目录三个端口来模拟</span>
     mkdir -p /data<span class="o">{</span>1,2,3<span class="o">}</span>
     <span class="nb">export </span><span class="nv">STF_STORAGE_ROOT</span><span class="o">=</span>/data1
@@ -227,15 +207,10 @@
     <span class="nb">export </span><span class="nv">STF_STORAGE_ROOT</span><span class="o">=</span>/data3
     plackup -a etc/storage.psgi -p 8890 &amp;
 </code></pre></div>
-
 <p>然后上 9000 端口的 web 添加 cluster 和 storage，如下截图：</p>
-
 <p><img src="/images/uploads/stf-admin1.png" alt="cluster" /></p>
-
 <p><img src="/images/uploads/stf-admin.png" alt="storage" /></p>
-
 <p>最后测试一下上传下载，如果上面 psgi 是 DEBUG 运行的，就可以看到详细的过程了。</p>
-
 <div class="highlight"><pre><code class="bash">    lwp-request -m PUT http://192.168.0.101/bucket
     ^D
     lwp-request -m PUT http://192.168.0.101:5000/bucket/test.txt
@@ -245,8 +220,6 @@
     ls /data1/p/e/g/k/pegkuclninhsyqxftuzpwcuhgughpa.txt
     ls /data2/p/e/g/k/pegkuclninhsyqxftuzpwcuhgughpa.txt
 </code></pre></div>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -261,30 +234,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -302,8 +266,6 @@
                
                  <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
                
-                 <li> <a href="/2012/12/30/report-of-this-year">2012 年个人总结</a></li>
-               
             </ul>
           </div>
         
@@ -320,16 +282,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -340,4 +299,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

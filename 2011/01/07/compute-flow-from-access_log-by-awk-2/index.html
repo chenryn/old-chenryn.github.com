@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>日志计算(awk进阶)</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,16 +163,11 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#awk-ref">awk <span>19</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
@@ -197,9 +181,7 @@
     </tr>
   </tbody>
 </table>
-
 <p>设想了很多方法来加快运算，比如舍弃awk改用perl来完成，如下：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl</span>
 <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
@@ -223,36 +205,22 @@
 <span class="p">}</span>
 <span class="k">print</span> <span class="nv">$result</span> <span class="o">*</span> <span class="mi">8</span> <span class="sr">/ 300 /</span> <span class="mi">1024</span> <span class="o">/</span> <span class="mi">1024</span><span class="p">;</span>
 </code></pre></div>
-
 <p>好吧，这个正则太过垃圾，请无视，但至少在管道和系统sort上浪费的时间还是大大的节省了的。</p>
-
 <p>然后在CU上翻到一个老帖子，提供一个比较不错的awk思路，命令如下：</p>
-
 <div class="highlight"><pre><code class="bash">awk <span class="s1">&#39;!b[substr($4,14,5)]++{print v,a[v]}{v=substr($4,14,5);a[v]+=$10}END{print v,a[v]}&#39;</span>
 </code></pre></div>
-
 <p>这里用substr()跟指定FS相比那个效率高未知，不过采用!b++的方式来判断某时间刻度结束，输出该时刻总和，在顺序输入日志的前提下，运算速度极快（就剩下一个加法和赋值了）。</p>
-
 <p>注意：此处b[]内不能偷懒写v，!b[v]++永远只会输出时刻的第一行数值。</p>
-
 <p>不过真实使用时不尽如人意。逻辑上推导了很久没发现问题，结果在重新运行前面的perl时看了看while中的print，发现这个日志因为是从各节点合并出来的日志，其时间并不是顺序排列的！！</p>
-
 <p>另，刚知道gawk3.1以上提供了asort()和asorti()函数，可以研究一下~</p>
-
 <p>采用time命令测试一下</p>
-
 <div class="highlight"><pre><code class="bash">gawk <span class="s1">&#39;{a[substr($4,14,5)]+=$10}END{n=asorti(a,b);for(i=1;i&lt;=n;i++){print b[i],a[b[i]]*8/60/1024/1024}}&#39;</span> example.com_log | awk <span class="s1">&#39;{if($2&gt;a){a=$2;b=$1}}END{print b,a}&#39;</span>
 </code></pre></div>
-
 <p>一个35G的日志文件只用了6分钟。</p>
-
 <p>然后更简单的</p>
-
 <div class="highlight"><pre><code class="bash">gawk <span class="s1">&#39;{a[substr($4,14,5)]+=$10}END{n=asort(a);print a[n]*8/60/1024/1024}&#39;</span> example.com_log
 </code></pre></div>
-
 <p>不过简单的运行发现只比前一种快不到10秒钟。而前一种还能输出峰值的时间，可读性更好一些~</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -267,30 +235,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -308,8 +267,6 @@
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -326,16 +283,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -346,4 +300,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

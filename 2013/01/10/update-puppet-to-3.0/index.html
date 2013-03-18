@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>升级 Puppet 到 3.0 及其他附件简介</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,11 +163,8 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>今天把 puppet 从2.7 升级到了 3.0。同时放弃了之前通过 ENC 定义所有 top scope variable 的做法，改成只定义一个 role 变量，然后在各个 module 里根据 $role 加载不同的module::role ，把变量都写在 module::role 里。</p>
-
 <p>经历过上次事故后，我对全局变量已经大大的有不安全感，包括 puppet 3.0 新进内核的 hiera (<a href="http://docs.puppetlabs.com/puppet/3/reference/lang_classes.html#using-hierainclude">官网介绍文档</a>中也说是&rdquo;like a lightweight ENC&rdquo;)。虽然 module::role 看起来很多是重复内容，还是让人工的操作多经过一些检测才放心。</p>
-
 <p>从 2.7 升级到 3.0 没有太多的不适应。官网上列了很多<a href="http://docs.puppetlabs.com/puppet/3/reference/release_notes.html">不同</a>。不过实际上基本没改动什么。</p>
-
 <ul>
   <li>运行命令统一成 <code>puppet command</code> 的形式，2.7的时候还保留的一堆命令都没有了。</li>
   <li><code>--apply</code> 改成 <code>--catalog</code>  了。不过这个其实我没用过。</li>
@@ -188,60 +174,39 @@
   <li><code>include</code> 可以传递数组</li>
   <li>agent 的 lockfile 把 fork running 和 disabled 区分成两个文件了。不知道能不能消灭掉原先 agent 跑着跑着僵死的情况。</li>
 </ul>
-
 <p>以上是官网列举的主要内容。以下还有我__实际测试中发现的问题__：</p>
-
 <ul>
   <li>agent 的 puppet.conf 里需要添加一行 <code>preferred_serialization_format = yaml</code>，否则默认使用 pson 会直接报错。</li>
 </ul>
-
 <hr />
-
 <p>今天重温了一下 github 在 puppetconf 上的讲演<a href="https://speakerdeck.com/jnewland/chatops">《chatops》</a>。当然对其中的 hubot 不是重点关注。主要是其中提到的 rodjek 的几个 puppet 相关的项目觉得蛮有用的。</p>
-
 <ul>
   <li>puppet-lint </li>
 </ul>
-
 <p>地址：<a href="https://github.com/rodjek/puppet-lint.git">https://github.com/rodjek/puppet-lint.git</a></p>
-
 <p>这是一个语法格式检查器，如果 ERROR 会 <code>exit 1</code>。之前两天我还刚在 CPAN 上发现过一个 <a href="https://metacpan.org/module/Puppet::Tidy">Puppet::Tidy</a> 模块。不过目前为止，这两个都不是很满意：</p>
-
 <ol>
   <li>puppet-lint 只能检查格式而不会替你修改格式。</li>
   <li>puppet-tidy 可以修改格式但是它对格式的检查太简陋了。</li>
 </ol>
-
 <p>当然比 puppet-tidy 稍微好一些的 puppet-lint 也不是很精准，比如他会对所有用双引号定义的变量报 &ldquo;WARNING: double quoted string containing no variables&rdquo;；而 puppet-tidy 更奇怪的给我 ip 地址的最后一段再加上了一个单引号变成了下面这个样子：</p>
-
 <div class="highlight"><pre><code class="perl">    <span class="nv">$iplist</span> <span class="o">=</span> <span class="p">[</span><span class="s">&quot;192.168.1.&#39;2&#39;&quot;</span><span class="p">,</span><span class="s">&quot;192.168.1.&#39;3&#39;&quot;</span><span class="p">]</span>
 </code></pre></div>
-
 <p>只能说规范化任重道远。</p>
-
 <ul>
   <li>puppet-profiler</li>
 </ul>
-
 <p>地址：<a href="https://github.com/rodjek/puppet-profiler.git">https://github.com/rodjek/puppet-profiler.git</a></p>
-
 <p>这是一个 agent 执行的调试器，不过至今为止功能也还很简单：就是执行一次 </p>
-
 <div class="highlight"><pre><code class="bash">    puppet agent --test --evaltrace --nocolor
 </code></pre></div>
-
 <p>排序各个 Resource 的执行耗时，并打印前十名。</p>
-
 <ul>
   <li>rspec-puppet</li>
 </ul>
-
 <p>地址：<a href="https://github.com/rodjek/rspec-puppet">https://github.com/rodjek/rspec-puppet</a></p>
-
 <p>这是一个 puppet 的 rspec 测试工具扩展。注意他依赖于 <code>puppetlabs_spec_helper</code> 但是 gem 里却没写。。。</p>
-
 <p>使用方法看 github 上的说明比较详细了，稍后我再单写一篇介绍。</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -256,30 +221,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -297,8 +253,6 @@
                
                  <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
                
-                 <li> <a href="/2012/12/30/report-of-this-year">2012 年个人总结</a></li>
-               
             </ul>
           </div>
         
@@ -315,16 +269,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -335,4 +286,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

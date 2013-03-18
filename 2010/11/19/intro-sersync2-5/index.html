@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>sersync2.5试用~</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,61 +163,38 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#inotify-ref">inotify <span>4</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>之前采用inotify-tools来触发purge，实际运行中碰上一些问题：</p>
-
 <p>1、因为一个文件的更新，可能伴随着create、modify、close_write等等过程，而文件稍大一些，甚至就有连续的modify出现。于是一个文件的更新，通过管道发送的purge请求经常可以看到三四个！如果量不大的情况下，倒也没什么，可如果更新比较频繁的情况下，再翻上三四倍，任务就比较拥挤了。</p>
-
 <p>2、cms程序通常是通过ftp等方式，将页面上传的文件move到指定位置。而ftp本身在接受过程中也会产生名叫.pureftpd-upload.<em>**</em>的临时文件。</p>
-
 <p>第二个倒可以在管道后面再grep一次解决，但第一个问题在管道这种流形式的简单处理中就没办法了。预想了几个办法，先一个是记录日志，然后每次管道接受时比对日志中最近十条是否有重复，不过这么频繁的读写日志文件，也会很郁闷~；后一个是把日志文件转进内存去，即管道获取的信息push进一个hash，然后sleep后再poll这个hash出来，不过shell没有hash，就得把简单的shell重写成比较复杂的perl了……</p>
-
 <p>今天刚想起来半年前曾经看到过金山逍遥运维部开源的一个项目，也是基于inotify完成的。去翻来看看，很好很强大，感觉完全能满足我目前的想法。</p>
-
 <p>项目网址：<a href="http://code.google.com/p/sersync/">http://code.google.com/p/sersync/</a></p>
-
 <p>提供了bin和src两个版本，直接下bin来用：</p>
-
 <p>wget http://sersync.googlecode.com/files/sersync2.5<em>64bit_binary_stable_final.tar.gz
 tar zxvf sersync2.5</em>64bit_binary_stable_final.tar.gz
 cd GNU-Linux-x86/</p>
-
 <p>很简单，只有两个文件，一个是程序，一个是xml配置文件。配置包括debug模式、xfs支持、过滤器配置（默认已过滤^.和~$）、inotify监听（推荐是创建目录、完成输入和移动）、本地监听路径和rsync远程主机（ip，rsync模块名、用户名密码）、失败重试及日志、多次失败后的定时任务、插件（通过socket向远程主机传输inotify日志、通过http向cdn的api发送purge请求、调用外部命令处理文件）。</p>
-
 <p>本来直接就有purge功能，可惜我的环境下域名比较多，目前的功能上只能对url做regex，不能反引用到domain上。所以是写个shell，然后采用command插件传递参数~</p>
-
 <p>先最简单的实验，写个write.sh如下：</p>
-
 <h1 id="binsh">!/bin/sh</h1>
 <p>echo $1&nbsp;&raquo; $0.log</p>
-
 <p>然后修改xml如下句：<param prefix="GNU-Linux-x86/write.sh" suffix="" ignoreerror="true" /></p>
-
 <p>运行GNU-Linux-x86/sersync2 -d -m command即可后台运行command插件且不启用rsync。</p>
-
 <p>然后tailf write.sh.log看，果然每条url都不重复了~~</p>
-
 <p>（看了作者周洋的blog，其中提到文件如果比较大，更新完成时间超过一定值，也会导致队列重复，我猜估计思路和我的第二种想法应该是类似的。）</p>
-
 <p>另，sersync -h可以看到其固定修改sysctl如下：
 echo 50000000 &gt; /proc/sys/fs/inotify/max_user_watches
 echo 327679 &gt; /proc/sys/fs/inotify/max_queued_events</p>
-
 <p>据周洋的说法是inotify最多只能监听到五千万个文件夹~~在我的环境下，1300万inode，add watch就花了1个多小时……</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -243,30 +209,21 @@ echo 327679 &gt; /proc/sys/fs/inotify/max_queued_events</p>
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -284,8 +241,6 @@ echo 327679 &gt; /proc/sys/fs/inotify/max_queued_events</p>
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -302,16 +257,13 @@ echo 327679 &gt; /proc/sys/fs/inotify/max_queued_events</p>
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -322,4 +274,3 @@ echo 327679 &gt; /proc/sys/fs/inotify/max_queued_events</p>
     <!-- UJian Button END -->
   </body>
 </html>
-

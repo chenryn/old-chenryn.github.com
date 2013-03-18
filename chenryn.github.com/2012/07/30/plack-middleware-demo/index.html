@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>一个Plack::Middleware的实例</title>
+    
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>一个Plack::Middleware的实例 <small></small></h1>
+    <div class="date"><span>30 July 2012</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+  
+     
+    	<li><a href="/tags.html#perl-ref">perl <span>52</span></a></li>
+    
+  
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>做一个文件上传的网页，想稍微华丽一点，显示进度条出来。在Apache和Catalyst下都有现成的模块，不过Dancer上还没有。看了一下代码，Dancer::Request里没有像Catalyst那样暴露prepare_body_chunk方法。所以需要在plack上利用psgi.input来做。尽量重用现有代码，所以progress.css和progress.js都直接从Catalyst/Plugin/UploadProgress/example/Upload/root/static/里复制。</p>
+<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="nn">Plack::Middleware::</span><span class="n">UploadProgress</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">CHI</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">Carp</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">HTTP::</span><span class="n">Body</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Plack::</span><span class="n">Request</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Plack::</span><span class="n">TempBuffer</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">parent</span> <span class="sx">qw(Plack::Middleware)</span><span class="p">;</span>
+<span class="k">sub </span><span class="nf">call</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="p">(</span> <span class="nv">$self</span><span class="p">,</span> <span class="nv">$env</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$rm</span> <span class="o">=</span> <span class="nv">$env</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">REQUEST_METHOD</span><span class="p">};</span>
+    <span class="k">my</span> <span class="nv">$ct</span> <span class="o">=</span> <span class="nv">$env</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">CONTENT_TYPE</span><span class="p">};</span>
+    <span class="k">my</span> <span class="nv">$cl</span> <span class="o">=</span> <span class="nv">$env</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">CONTENT_LENGTH</span><span class="p">};</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="nv">$rm</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^post$#i and (</span>
+         <span class="nv">$ct</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^application/x-www-form-urlencoded#i or</span>
+         <span class="nv">$ct</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^multipart/form-data#i )</span>
+     <span class="p">)</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="nv">$cache</span> <span class="o">=</span> <span class="n">CHI</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">driver</span> <span class="o">=&gt;</span> <span class="s">&#39;Memory&#39;</span><span class="p">,</span> <span class="n">global</span> <span class="o">=&gt;</span> <span class="mi">1</span> <span class="p">);</span>
+        <span class="k">my</span> <span class="nv">$req</span> <span class="o">=</span> <span class="nn">Plack::</span><span class="n">Request</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="nv">$env</span><span class="p">);</span>
+        <span class="k">my</span> <span class="nv">$id</span> <span class="o">=</span> <span class="nv">$req</span><span class="o">-&gt;</span><span class="n">param</span><span class="p">(</span><span class="s">&#39;progress_id&#39;</span><span class="p">);</span>
+        <span class="k">my</span> <span class="nv">$body</span> <span class="o">=</span> <span class="nn">HTTP::</span><span class="n">Body</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="nv">$ct</span><span class="p">,</span> <span class="nv">$cl</span><span class="p">);</span>
+        <span class="nv">$env</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;plack.request.http.body&#39;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$body</span><span class="p">;</span>
+        <span class="nv">$body</span><span class="o">-&gt;</span><span class="n">cleanup</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+        <span class="k">my</span> <span class="nv">$input</span> <span class="o">=</span> <span class="nv">$env</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;psgi.input&#39;</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$buffer</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nv">$env</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;psgix.input.buffered&#39;</span><span class="p">})</span> <span class="p">{</span>
+            <span class="nv">$input</span><span class="o">-&gt;</span><span class="nb">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="nv">$buffer</span> <span class="o">=</span> <span class="nn">Plack::</span><span class="n">TempBuffer</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="nv">$cl</span><span class="p">);</span>
+        <span class="p">}</span>
+        <span class="k">my</span> <span class="nv">$spin</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="k">while</span> <span class="p">(</span><span class="nv">$cl</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nv">$input</span><span class="o">-&gt;</span><span class="nb">read</span><span class="p">(</span><span class="k">my</span> <span class="nv">$chunk</span><span class="p">,</span> <span class="nv">$cl</span> <span class="o">&lt;</span> <span class="mi">8192</span> <span class="p">?</span> <span class="nv">$cl</span> <span class="p">:</span> <span class="mi">8192</span><span class="p">);</span>
+            <span class="k">my</span> <span class="nv">$read</span> <span class="o">=</span> <span class="nb">length</span> <span class="nv">$chunk</span><span class="p">;</span>
+            <span class="nv">$cl</span> <span class="o">-=</span> <span class="nv">$read</span><span class="p">;</span>
+            <span class="nv">$body</span><span class="o">-&gt;</span><span class="n">add</span><span class="p">(</span><span class="nv">$chunk</span><span class="p">);</span>
+            <span class="nv">$buffer</span><span class="o">-&gt;</span><span class="k">print</span><span class="p">(</span><span class="nv">$chunk</span><span class="p">)</span> <span class="k">if</span> <span class="nv">$buffer</span><span class="p">;</span>
+            <span class="k">my</span> <span class="nv">$progress</span> <span class="o">=</span> <span class="nv">$cache</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;upload_progress_&#39;</span> <span class="o">.</span> <span class="nv">$id</span><span class="p">);</span>
+            <span class="k">if</span> <span class="p">(</span> <span class="o">!</span><span class="nb">defined</span> <span class="nv">$progress</span> <span class="p">)</span> <span class="p">{</span>
+                <span class="nv">$progress</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="n">size</span>     <span class="o">=&gt;</span> <span class="nv">$body</span><span class="o">-&gt;</span><span class="n">content_length</span><span class="p">,</span>
+                    <span class="n">received</span> <span class="o">=&gt;</span> <span class="nb">length</span> <span class="nv">$chunk</span><span class="p">,</span>
+                <span class="p">};</span>
+                <span class="nv">$cache</span><span class="o">-&gt;</span><span class="n">set</span><span class="p">(</span> <span class="s">&#39;upload_progress_&#39;</span> <span class="o">.</span> <span class="nv">$id</span><span class="p">,</span> <span class="nv">$progress</span> <span class="p">);</span>
+            <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+                <span class="nv">$progress</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">received</span><span class="p">}</span> <span class="o">+=</span> <span class="nv">$read</span><span class="p">;</span>
+                <span class="nv">$cache</span><span class="o">-&gt;</span><span class="n">set</span><span class="p">(</span> <span class="s">&#39;upload_progress_&#39;</span> <span class="o">.</span> <span class="nv">$id</span><span class="p">,</span> <span class="nv">$progress</span> <span class="p">);</span>
+            <span class="p">};</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nv">$read</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="nv">$spin</span><span class="o">++</span> <span class="o">&gt;</span> <span class="mi">2000</span><span class="p">)</span> <span class="p">{</span>
+                <span class="nn">Carp::</span><span class="n">croak</span> <span class="s">&quot;Bad Content-Length: maybe client disconnect? ($cl bytes remaining)&quot;</span><span class="p">;</span>
+            <span class="p">}</span>
+        <span class="p">};</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nv">$buffer</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">env</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;psgix.input.buffered&#39;</span><span class="p">}</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+            <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">env</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;psgi.input&#39;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$buffer</span><span class="o">-&gt;</span><span class="n">rewind</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="nv">$input</span><span class="o">-&gt;</span><span class="nb">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+        <span class="p">}</span>
+    <span class="p">};</span>
+    <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">app</span><span class="o">-&gt;</span><span class="p">(</span><span class="nv">$env</span><span class="p">);</span>
+    <span class="k">return</span> <span class="nv">$res</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="n">true</span><span class="p">;</span>
+</code></pre></div>
+<p>上面的代码，progress部分基本摘抄自Catalyst::Plugin::UploadProgress模块，chunk部分基本摘抄自Plack::Middleware::CSRFBlock模块，当然它也基本摘抄自Plack::Request模块~~
+上面写的不全，没有关于GET /progress?progress_id=*的json输出处理。不过这部分也可以在DancerApp.pm里直接写get &lsquo;/progress&rsquo; =&gt; sub {};，最后申明，这代码刚写完，没测……CHI或许应该用memcached而不是memory~</p>
+<p>在DancerApp/bin/app.pl里这么配置：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="n">Dancer</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">DancerApp</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Plack::</span><span class="n">Builder</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$app</span> <span class="o">=</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$env</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$req</span> <span class="o">=</span> <span class="nn">Dancer::</span><span class="n">Request</span><span class="o">-</span><span class="k">new</span><span class="p">(</span> <span class="n">env</span> <span class="o">=&gt;</span> <span class="nv">$env</span> <span class="p">);</span>
+<span class="p">};</span>
+<span class="n">builder</span> <span class="p">{</span>
+    <span class="n">enable</span> <span class="s">&quot;Plack::Middleware::UploadProgress&quot;</span><span class="p">;</span>
+    <span class="nv">$app</span><span class="p">;</span>
+<span class="p">};</span>
+<span class="n">dance</span><span class="p">;</span>
+</code></pre></div>
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2012/07/30/dancer-plugin-demo" title="一个Dancer::Plugin的实例">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2012/08/20/coro-async-pool-demo" title="Coro::Semaphore和async_pool示例">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+  
+      </div>
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>

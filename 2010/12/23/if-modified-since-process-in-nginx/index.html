@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>ims在nginx上的处理（无责任猜测）</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,11 +163,8 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>最近得知CDN方面默认配置了reload-into-ims，而我们的html因为采用了ssi的include方式的原因，是没有last-modified的。在这种情况下的处理结果，让人好奇~</p>
-
 <p>因为手头没测试机器，仅从我一知半解的nginx代码上推测一下：</p>
-
 <p>1、之前博客里已经写过，nginx的ssi_module，在ngx_ssi_header_filter中简单的采用了ngx_http_clear_last_modified(r)抹去了last-modified的输出。</p>
-
 <p>2、在nginx的module定义中，各filter的顺序如下：
 <code>ngx_module_t *ngx_modules[] = {</code><code>
 </code><code>...............................................
@@ -199,9 +185,7 @@
 越后面的越先处理。也就是说，一个带有ims请求，会先经过not_modified_filter，然后才是ssi_filter。
 而在ssi抹掉last-modified之前，文件是应该存在last-modified的。
 nginx默认情况下，对一个ims请求的处理流程，参见淘宝核心系统部雕梁童鞋的博客《<a href="http://www.pagefault.info/?p=66">nginx中处理http header详解(1)</a>》。大体上，是nginx获得这个请求文件的Mtime，存为变量last_modified_time；然后通过ngx_http_parse_time()换算IMS中的时间。如果ims!=last_modified_time，读取文件内容成response-body，否则clear掉content-length/content-type/content-encoding/accept-ranges等，进入下一步。</p>
-
 <p>那么，如果一个html页本身没有修改，其中含有<!--#include virtual="/ssi/test.html"-->，而这个/ssi/test.html却变动了，那么在向这个html页发送ims的时候，就应该会是返回一个Not Modified，但在ssi_filter里又把last-modified也clear了……</p>
-
 <p>3、在ssi_filter里如果要输出last-modified的话，如果单纯只是注释掉clear，并不起作用。不过在ngx_http_ssi_filter_module.c中，看到ngx_http_ssi_include()中调用了ngx_http_ssi_stub_output()这个handler，对virtual或file的拼接时处理header中的content-type如下：
 if (!r-&gt;header_sent) {
 r-&gt;headers_out.content_type_len =
@@ -212,12 +196,9 @@ return NGX_ERROR;
 }
 }
 return ngx_http_output_filter(r, out);</p>
-
 <p>或许在这里加上
 对r-&gt;parent-&gt;headers_out.last_modified_time和r-&gt;child-&gt;headers_out.last_modified_time的大小判断，然后赋值给r-&gt;headers_out.last_modified_time，然后把ssi_filter优先到not_modified_filter之前来？</p>
-
 <p>C盲睡觉去也~~找时间写几个shtml测一下就知道自己对next_header_filter的理解对不对了~</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -232,30 +213,21 @@ return ngx_http_output_filter(r, out);</p>
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -273,8 +245,6 @@ return ngx_http_output_filter(r, out);</p>
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -291,16 +261,13 @@ return ngx_http_output_filter(r, out);</p>
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -311,4 +278,3 @@ return ngx_http_output_filter(r, out);</p>
     <!-- UJian Button END -->
   </body>
 </html>
-

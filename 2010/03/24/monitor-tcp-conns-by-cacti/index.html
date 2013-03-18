@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>cacti自建tcp80连接数监控</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,25 +163,18 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#cacti-ref">cacti <span>7</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>同样作为提供web服务的机器，因为不同业务的关系，除了流量以外，还需要参考TCP80连接数来分析服务器性能状况。下面就试试cacti对连接数的监控。
 最简单的方法，利用snmpnetstat这个命令，自动搞定一切。cactiuser.org上提供一个现成的模板，只要import就能直接用。下载地址如右：<a href="http://www.iammecn.com/wp-content/uploads/2009/12/cacti_graph_template_snmp_connections.zip" target="_blank">http://www.iammecn.com/wp-content/uploads/2009/12/cacti_graph_template_snmp_connections.zip</a></p>
-
 <p>不过这个snmpnetstat用起来精准度不太好保证，比如我在测试机上运行如下：</p>
-
 <pre><code>[root@BeiJingBGP-Dns-02 ~]# snmpnetstat  -c 'public' -v 2c 10.10.10.43:161
 Active Internet (udp) Connections
 Proto Local Address
@@ -207,16 +189,13 @@ udp   localhost.ntp
 udp   211.151.65.53.ntp
 udp   211.151.67.80.domain
 </code></pre>
-
 <p>居然一个tcp都没显示出来。我汗~~
 所以采用一个自建脚本模板的方法来完成吧~~
 首先在host上新建/etc/snmp/tcpconn.sh，内容如下：</p>
-
 <div class="highlight"><pre><code class="bash"><span class="c">#!/bin/sh</span>
 <span class="nv">conn</span><span class="o">=</span><span class="sb">`</span>netstat -s -t | grep connections established |awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
 <span class="nb">echo</span> <span class="nv">$conn</span>
 </code></pre></div>
-
 <table>
   <tbody>
     <tr>
@@ -226,27 +205,22 @@ udp   211.151.67.80.domain
     </tr>
   </tbody>
 </table>
-
 <p>三种方法测试如下：
     [root@BeiJingBGP-Dns-02 ~]# time netstat -s -t|awk &lsquo;/connections established/{print $1}&rsquo;
     3</p>
-
 <pre><code>real    0m0.008s
 user    0m0.000s
 sys    0m0.008s
 [root@BeiJingBGP-Dns-02 ~]# time netstat -plna|awk '/:80/{a++}END{print a}'
 1
-
 real    0m0.065s
 user    0m0.000s
 sys    0m0.048s
 [root@BeiJingBGP-Dns-02 ~]# time awk '$4=="01"{a++}END{print a}' /proc/net/tcp
-
 real    0m0.023s
 user    0m0.000s
 sys    0m0.024s
 </code></pre>
-
 <table>
   <tbody>
     <tr>
@@ -257,16 +231,11 @@ sys    0m0.024s
     </tr>
   </tbody>
 </table>
-
 <p>然后在/etc/snmp/snmpd.cong里添加如下句：</p>
-
 <pre><code>exec .1.3.6.1.4.1.2021.18 tcpCurrEstab /etc/snmp/tcpconn.sh
 </code></pre>
-
 <p>重启snmpd服务即可。</p>
-
 <p>回cacti服务器端，运行如下命令，可以看到相关输出即可。</p>
-
 <pre><code>[root@BeiJingBGP-Dns-02 ~]# snmpwalk -c 'public' -v 2c 10.10.10.43 .1.3.6.1.4.1.2021.18
 UCD-SNMP-MIB::ucdavis.18.1.1 = INTEGER: 1
 UCD-SNMP-MIB::ucdavis.18.2.1 = STRING: "tcpCurrEstab"
@@ -276,10 +245,8 @@ UCD-SNMP-MIB::ucdavis.18.101.1 = STRING: "3"
 UCD-SNMP-MIB::ucdavis.18.102.1 = INTEGER: 0
 UCD-SNMP-MIB::ucdavis.18.103.1 = ""
 </code></pre>
-
 <p>这个string:&rdquo;3&rdquo;就是真正的tcp80连接数。
 然后进入cacti的web页面进行设置吧：</p>
-
 <table>
   <tbody>
     <tr>
@@ -289,7 +256,6 @@ UCD-SNMP-MIB::ucdavis.18.103.1 = ""
     </tr>
   </tbody>
 </table>
-
 <table>
   <tbody>
     <tr>
@@ -299,10 +265,7 @@ UCD-SNMP-MIB::ucdavis.18.103.1 = ""
     </tr>
   </tbody>
 </table>
-
 <p>最后，可以把graph加进host templates，或者直接在device中加graph。过一会就能看到图啦~~~</p>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -317,30 +280,21 @@ UCD-SNMP-MIB::ucdavis.18.103.1 = ""
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -358,8 +312,6 @@ UCD-SNMP-MIB::ucdavis.18.103.1 = ""
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -376,16 +328,13 @@ UCD-SNMP-MIB::ucdavis.18.103.1 = ""
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -396,4 +345,3 @@ UCD-SNMP-MIB::ucdavis.18.103.1 = ""
     <!-- UJian Button END -->
   </body>
 </html>
-

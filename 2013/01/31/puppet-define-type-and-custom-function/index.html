@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>Puppet 自定义 type 和 function</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,26 +163,18 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#ruby-ref">ruby <span>9</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>Puppet 除了原有 DSL 以外，还提供了不少接口方便大家开发插件来更简单的完成一些高级功能。</p>
-
 <h1 id="define-type">Define Type</h1>
-
 <p>比如我们要维护一个上千域名组成的 ProxyServer 集群，其域名配置是相近的。那么我们就可以提炼出 template 里会变化的部分作为参数。由此定义出一个 type 如下：</p>
-
 <div class="highlight"><pre><code class="ruby">    <span class="n">define</span> <span class="ss">nginx</span><span class="p">:</span><span class="ss">:vhost4proxy</span><span class="p">(</span>
         <span class="vg">$iplist</span> <span class="o">=</span> <span class="o">[]</span><span class="p">,</span>
         <span class="vg">$domainlist</span> <span class="o">=</span> <span class="o">[]</span><span class="p">,</span>
@@ -212,9 +193,7 @@
         <span class="p">}</span>
     <span class="p">}</span>
 </code></pre></div>
-
 <p>然后在 template 里使用参数来生成结果：</p>
-
 <div class="highlight"><pre><code class="ruby">    <span class="n">upstream</span> <span class="o">&lt;</span><span class="sx">%= nginx_proxy_name %&gt; {</span>
 <span class="sx">            consistent_hash $request_uri;</span>
 <span class="sx">    &lt;% nginx_proxy_servers.each do |ip| -%&gt;</span>
@@ -234,22 +213,16 @@
     <span class="o">&lt;</span><span class="sx">% end </span><span class="o">%&gt;</span>
     <span class="p">}</span>
 </code></pre></div>
-
 <p>这样我们只需要在 puppet 中这样调用，就可以直接生成对应的配置了：</p>
-
 <div class="highlight"><pre><code class="ruby">    <span class="ss">nginx</span><span class="p">:</span><span class="ss">:vhost4proxy</span><span class="p">(</span><span class="s1">&#39;server1&#39;</span><span class="p">:</span>
         <span class="o">[</span><span class="s1">&#39;1.1.1.1 weight=2&#39;</span><span class="p">,</span> <span class="s1">&#39;2.2.2.2 weight=3&#39;</span><span class="o">]</span><span class="p">,</span>
         <span class="o">[</span><span class="s1">&#39;server1.domain&#39;</span><span class="p">,</span> <span class="s1">&#39;server1.alias.domain&#39;</span><span class="o">]</span><span class="p">,</span>
         <span class="s1">&#39;access_log /path/to/other_log format&#39;</span>
     <span class="p">)</span>
 </code></pre></div>
-
 <h1 id="custom-function">Custom Function</h1>
-
 <p>不过用上面 define type 还不能完全解决我们提出的问题。因为在 puppet 配置里写几千行 nginx::vhost4proxy 也是一件很可怕的事情！</p>
-
 <p>这时候可以更进一步，把 vhost4proxy 的调用过程隐藏成一个 function，如下：</p>
-
 <div class="highlight"><pre><code class="ruby">    <span class="nb">require</span> <span class="s1">&#39;yaml&#39;</span>
     <span class="k">module</span> <span class="nn">Puppet::Parser::Functions</span>
       <span class="n">newfunction</span><span class="p">(</span><span class="ss">:gen_proxy_confd</span><span class="p">,</span> <span class="ss">:type</span> <span class="o">=&gt;</span> <span class="ss">:statement</span><span class="p">)</span> <span class="k">do</span> <span class="o">|</span><span class="n">args</span><span class="o">|</span>
@@ -265,9 +238,7 @@
       <span class="k">end</span>
     <span class="k">end</span>
 </code></pre></div>
-
 <p>然后只要把原先传递给 vhost4proxy 的参数写成 yaml 文件放好就行了。</p>
-
 <div class="highlight"><pre><code class="yaml">    <span class="l-Scalar-Plain">---</span> 
     <span class="l-Scalar-Plain">server1</span><span class="p-Indicator">:</span> 
       <span class="l-Scalar-Plain">iplist</span><span class="p-Indicator">:</span> 
@@ -284,20 +255,13 @@
         <span class="no">}</span>
         <span class="no">access_log /path/to/other_log format;</span>
 </code></pre></div>
-
 <p>大家看起来是不是有点眼熟？没错，这个 yaml 的思路完全是借鉴了 hiera 的写法。但是 hiera 的设计是垂直继承的，不适合这里假设的平面式的情况 —— 当然，如果你觉得把这几千个 yaml 都写在一个大 yaml 文件里也不费劲的话。就不用上我这么折腾了~~</p>
-
 <p>最后在 puppet 配置中只用一行就搞定全部：</p>
-
 <div class="highlight"><pre><code class="ruby">    <span class="n">gen_proxy_confd</span><span class="p">(</span><span class="s1">&#39;nginx::vhost4proxy&#39;</span><span class="p">,</span><span class="s2">&quot;${modulepath}/nginx/yaml&quot;</span><span class="p">)</span>
 </code></pre></div>
-
 <h1 id="section">要点</h1>
-
 <p>type 基本没有什么难度，因为他还是属于 puppet DSL 的运用。可以在其他配置文件内部直接写 define type，不过 puppet-lint 工具会报一个 warnings，所以建议还是单独拆分出来。</p>
-
 <p>function 首先是路径和命名问题。</p>
-
 <ol>
   <li>要把写 function 的文件放在 <code>${modulepath}/yourmodule/lib/puppet/parser/functions/</code> 路径下；</li>
   <li>和其他 type、class 一样，文件名必须和 function 一致，puppet 才能 autoload；</li>
@@ -306,17 +270,11 @@
   <li>示例中最关键的一个是调用了 <code>function_create_resources</code> 。<code>create_resources</code> 用来批量创建资源。直接在 puppet 配置文件里使用的时候，接收的是列表参数。但是在 Ruby 里直接使用 <code>function_create_resources</code> 的话，接收的是一个匿名数组作为唯一参数。</li>
   <li>function 和 type 在 puppet 中可以认为是 class 的一种，所以它们也是有自己的作用域的。所以看到传递参数时写的是 &ldquo;nginx::vhost4proxy&rdquo;。</li>
 </ol>
-
 <h1 id="section-1">参考内容</h1>
-
 <p>关于 Facts 在 function 中的运用，rvalue 的示例等更多内容见官网：<a href="http://docs.puppetlabs.com/guides/custom_functions.html">http://docs.puppetlabs.com/guides/custom_functions.html</a>。</p>
-
 <p>关于 puppet 自带的各种 function 的说明，见官网(很多也没写)：<a href="http://docs.puppetlabs.com/references/latest/function.html">http://docs.puppetlabs.com/references/latest/function.html</a>。</p>
-
 <h1 id="section-2">鸣谢</h1>
-
 <p>感谢 <a href="http://weibo.com/liucy1983">@liu.cy</a> 童鞋提醒我变量作用域的问题。function 的调试过程很痛苦。</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -331,30 +289,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -372,8 +321,6 @@
                
                  <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
                
-                 <li> <a href="/2012/12/30/report-of-this-year">2012 年个人总结</a></li>
-               
             </ul>
           </div>
         
@@ -390,16 +337,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -410,4 +354,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

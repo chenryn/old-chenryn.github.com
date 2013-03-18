@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>OMD系列(三)shinken的discovery配置与运行</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,8 +163,6 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#nagios-ref">nagios <span>13</span></a></li>
@@ -183,23 +170,17 @@
     	<li><a href="/tags.html#shinken-ref">shinken <span>1</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>上篇说到OMD的可以通过omd config选择core，有nagios和shinken两个选项。shinken是一个完全重写的监控系统，但是在外部接口上，又是nagios-like的，甚至可以单纯的只用shinken的WebUI给nagios使。所以OMD作为nagios周边的项目，也就把shinken加入到core选项里了。
 不过经过试验发现，虽然omd的rpm是针对centos5.5的，代码中调用的有些命令版本却比较高，比如nmap命令使用了&ndash;traceroute选项，查ChangeLog发现是4.76版才加上的，而centos5上面的还是4.11版，所以要重新安装：</p>
-
 <div class="highlight"><pre><code class="bash">wget http://nmap.org/dist/nmap-5.51-1.x86_64.rpm
 yum remove nmap
 yum install --nogpgcheck nmap-5.51-1.x86_64.rpm
 </code></pre></div>
-
 <p>又比如python，centos5默认安装的是2.4版，而nmap_parser中调用了2.5版才有的xml.tree.elementtree模块，所以也要升级。</p>
-
 <div class="highlight"><pre><code class="bash">wget http://www.python.org/ftp/python/2.7.2/Python-2.7.2.tgz
 tar zxvf Python-2.7.2.tgz
 <span class="nb">cd </span>Python-2.7.2
@@ -215,10 +196,8 @@ wget http://peak.telecommunity.com/dist/ez_setup.py
 python ez_setup.py
 /usr/local/python2.7/bin/easy_install ElementTree
 </code></pre></div>
-
 <p>然后就可以试试nmap_discovery_runner.py和vmware_discovery_runner.py了。
 命令行方式运行如下：</p>
-
 <div class="highlight"><pre><code class="bash">/opt/omd/sites/dyxmonitor/lib/shinken/libexec/nmap_discovery_runner.py -t 127.0.0.1
 Got our target <span class="o">[</span><span class="s1">&#39;127.0.0.1&#39;</span><span class="o">]</span>
 propose a tmppath /tmp/tmppTYexK
@@ -235,24 +214,19 @@ localhost::openports<span class="o">=</span>22,80,111,631,3306
 localhost::fqdn<span class="o">=</span>localhost
 localhost::ip<span class="o">=</span>127.0.0.1
 </code></pre></div>
-
 <p>从输出中可以看到使用的nmap运行参数，主要是-O扫描操作系统，-T4指定快速，-oX指定输出成xml，然后用python去解析xml文件就是了。
 然后运行omd的命令：</p>
-
 <div class="highlight"><pre><code class="bash">su - monitor
 mkdir -p etc/shinken/objects/discovery
 shinken-discovery -o /omd/sites/monitor/etc/shinken/objects/discovery -r nmap -c /omd/sites/monitor/etc/shinken/shinken-discovery.d/discovery.cfg
 </code></pre></div>
-
 <p>然后发现新错误：在import shinken和multiprocessing的时候有问题。
 因为etc/environment中需要定义PYTHONPATH=/omd/sites/monitor/lib/python:/omd/sites/monitor/lib/shinken:/usr/local/py2.7/lib/python2.7
 而且，因为在/omd/sites/monitor/lib/python中有multiprocessing-2.6.2.1-py2.4-linux-x86_64.egg的存在，所以导致python2.7加载py2.4的multiprocessing失败，删除掉这个目录后，让python自动加载python2.7/lib下的multiprocessing，就可以了——当然，需要先easy_install multiprocessing才有。
 等一会，在objects/discovery目录下给每个live的ip创建了一个文件夹，里面是host和service的cfg配置——但是因为~/bin/shinken-discovery脚本里的写法比较简单，生成的cfg里直接指定了template就是generic-host/service，然后除了description、command和host_name之外啥都木有……所以必须提前自己定义好一个模板。
 OMD的监控配置文件指定位置是~/etc/nagios/conf.d/，所以扫描之后，还需要整合cfg到这个目录下。</p>
 <hr />
-
 <p>最后，shinken里有bottle框架的一个webui，但是我一直没找到如何运行……shinken-specific.d/module_webui.cfg里倒是有module定义：</p>
-
 <div class="highlight"><pre><code class="bash">define module<span class="o">{</span>
     module_name      WebUI
     module_type      webui
@@ -267,17 +241,13 @@ define module<span class="o">{</span>
     passwd           /omd/sites/dyxmonitor/etc/htpasswd
 <span class="o">}</span>
 </code></pre></div>
-
 <p>但是启动后没有看到7767端口，也没有看到任何报错——这是最让我郁闷的一点，折腾三天，全部排错都靠strace而木有log。。。
 所以最后还是用另一个nagios界面，trunk来启动web。trunk是一个基于perl的catalyst框架完成的页面。而omd自带了一个不小的perl5lib……这里又需要注意了：</p>
-
 <ol>
   <li>OMD安装时，会自动配置一个$PERL5LIB变量，但是不知道为啥会把**/x86<em>64-linux-thread-multi记成**/x86</em>64-linux，所以需要在~/etc/environment中自己重新写一次PERL5LIB。</li>
   <li>因为centos5.4自带的perl版本是5.8.8；如果像我这样自己又另外安装了更高版本的perl，比如5.14.2，那么omd自带的这些perl5lib会有&rdquo;undefined symbol: Perl_Gthr_key_ptr&rdquo;的错误。所以老老实实用perl5.8.8好了……</li>
 </ol>
-
 <p>说老实话，觉得trunk跟classic nagios的页面没什么不同……</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -292,30 +262,21 @@ define module<span class="o">{</span>
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -333,8 +294,6 @@ define module<span class="o">{</span>
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -351,16 +310,13 @@ define module<span class="o">{</span>
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -371,4 +327,3 @@ define module<span class="o">{</span>
     <!-- UJian Button END -->
   </body>
 </html>
-

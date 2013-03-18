@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>nagios的add-ons安装小抄~</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,35 +163,26 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#nagios-ref">nagios <span>13</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>给nagios安装几个add-ons，碰到一些一般安装教程上不会提及的问题，记录一下：</p>
-
 <p>1、ndoutils：
 在./configure通过后make一直error，因为不管是否&ndash;with-mysql-lib，也不管&ndash;with-mysql-lib=/usr/local/mysql/lib还是/usr/local/mysql/lib/mysql，甚至使用LDFLAGS=-I/usr/local/mysql/lib等等，最后在make的时候总还是会报出如下错误：
 ../include/config.h:261:25: error: mysql/mysql.h: No such file or  directory
 ../include/config.h:262:26: error: mysql/errmsg.h: No such file or  directory
 解决办法：编辑config.h文件的261和262行，把mysql/*.h的mysql/删除掉即可。</p>
-
 <p>make完成后，将相应文件cp到指定目录，启动ndomod会报错libmysqlclient.so.6.0.0动态链接库无法找到。网上一般都说ln -s /usr/local/mysql/lib/* /usr/lib;echo &lsquo;/usr/lib&rsquo;&nbsp;&raquo; /etc/ld.so.conf;ldconfig即可。其实还不行。
 解决办法：echo &lsquo;/usr/local/mysql/lib/mysql&rsquo; &gt; /etc/ld.so.conf.d/mysql.conf;ldconfig即可。因为通用办法的目录不够深。</p>
-
 <p>2、pnp4nagios：
 之前使用的pnp0.4.<em>版本，今天下的是pnp0.6.</em>版本。整个url设计发生了较大变化。各监控项页面的url从pnp4nagios/index.php?host=&amp;service=变成了/pnp4nagios/graph?host=&amp;service=。而这个graph（rrd图像的url是/pnp4nagios/image?***）则通过apache的mod_rewrite实现。
 pnp自己编译时可以make出来一个httpd.conf。其中相关Rewrite的包括：</p>
-
 <div class="highlight"><pre><code class="apache"><span class="nt">&lt;Directory</span> <span class="s">&#39;&quot;/usr/local/pnp4nagios/share/&quot;</span><span class="nt">&gt;</span>
 <span class="nb">RewriteEngine</span> <span class="k">On</span>
 <span class="nb">RewriteBase</span> <span class="sx">/pnp4nagios/</span>
@@ -212,21 +192,17 @@ pnp自己编译时可以make出来一个httpd.conf。其中相关Rewrite的包�
 <span class="nb">RewriteRule</span> .* index.php$0 [PT,L]
 <span class="nt">&lt;/Directory&gt;</span>
 </code></pre></div>
-
 <p>因为pnp编译时没有具体区分etc和share的路径，所以之后apache的发布路径也不同，为了方便，不再写directory。最后经过反复试验，可用配置如下：</p>
-
 <div class="highlight"><pre><code class="apache"><span class="nb">RewriteEngine</span> <span class="k">On</span>
 <span class="nb">RewriteRule</span> ^(application|modules|system) - [F,L]
 <span class="nb">RewriteCond</span> %{DOCUMENT_ROOT}/%{REQUEST_FILENAME} !-d
 <span class="nb">RewriteCond</span> %{DOCUMENT_ROOT}/%{REQUEST_FILENAME} !-f
 <span class="nb">RewriteRule</span> ^/nagios/pnp4nagios/(.*) <span class="sx">/nagios/pnp4nagios/index.php</span>$1 [PT,L]
 </code></pre></div>
-
 <p>试验中发现几个apache与nginx的不同：
 1、rewriterule的转向url不能用^标记起始端！
 2、PT的强制进入下一个处理器相当有用，不然会形成回环rewrite！
 3、rewritecond里德%{REQUEST_FILENAME}默认是在rewritebase下的——而rewritebase只能在directory里使用。</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -241,30 +217,21 @@ pnp自己编译时可以make出来一个httpd.conf。其中相关Rewrite的包�
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -282,8 +249,6 @@ pnp自己编译时可以make出来一个httpd.conf。其中相关Rewrite的包�
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -300,16 +265,13 @@ pnp自己编译时可以make出来一个httpd.conf。其中相关Rewrite的包�
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -320,4 +282,3 @@ pnp自己编译时可以make出来一个httpd.conf。其中相关Rewrite的包�
     <!-- UJian Button END -->
   </body>
 </html>
-

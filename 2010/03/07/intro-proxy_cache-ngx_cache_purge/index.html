@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>nginx的proxy_cache和cache_purge模块试用记录</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,41 +163,30 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>nginx的类squid哈希式cache功能，据张宴说是基本稳定可用了，昨天找个机会和时间，试着测用了一把，把要点记录一下：</p>
-
 <p>首先是编译nginx，方便起见，把一些心仪的模块统统加上了，version如下：</p>
-
 <pre><code>built by gcc 4.1.2 20080704 (Red Hat 4.1.2-44)
 TLS SNI support disabled
 configure arguments: --prefix=/home/nginx --with-pcre --add-module=../ngx_http_consistent_hash --add-module=../ngx_max_connections --add-module=../ngx_cache_purge --add-module=../ngx_mp4_streaming_public --with-cc-opt=-O3 --with-http_stub_status_module --with-http_ssl_module --with-http_flv_module --without-http_memcached_module --without-http_fastcgi_module --with-google_perftools_module
 </code></pre>
-
 <p>编译过程中几个注意事项：</p>
-
 <ol>
   <li>必须采用&ndash;with-pcre，而不要偷懒采用&ndash;without-http_rewrite_module，否则配置文件里将不支持if判断；</li>
   <li>加载mp4_streaming，必须采用&ndash;with-cc-opt=-O3方式进行编译。</li>
   <li>max_connections模块默认支持nginx最新版本是0.8.32，需要vi修改其DIR，然后path -p0，但千万不要看见有个Makefile就执行make &amp;&amp; make install了，因为它会毫无道理的把整个nginx安装到当前目录的.nginx下隐藏起来……</li>
 </ol>
-
 <p>话说我add这个max_connections模块能怎么用自己也没想好，反正官方有limit_zone和limit_req限制client，再add个限制nginx2oringin的也不在乎吧……汗~~</p>
-
 <p>比较囧的一点是，经过我折腾的nginx，虽然去除了debug -g模式编译，还是有4M多大……</p>
-
 <p>sina的ncache模块，在我下载的最新的nginx0.8.34src上无法使用，而且ncache作者介绍说ncache的缓存不用内存，且其purge方式为标记为过期但并不更改文件内容直到下次访问请求以节省磁盘IO的负担；但根据我的试验，nginx的cache_purge模块则是采用了删除过期文件的方式进行（当然，proxy_cache的过期还是标记而不删除的，不然太耗IO了……）。</p>
-
 <p>然后贴一下，实验完成后的配置文件：</p>
-
 <div class="highlight"><pre><code class="nginx"><span class="k">user</span> <span class="s">nobody</span> <span class="s">nobody</span><span class="p">;</span>
 <span class="k">worker_processes</span> <span class="mi">1</span><span class="p">;</span>
 <span class="k">google_perftools_profiles</span> <span class="s">/tmp/tcmalloc</span><span class="p">;</span>
 <span class="k">worker_rlimit_nofile</span> <span class="mi">65535</span><span class="p">;</span>
-
 <span class="k">events</span>
 <span class="p">{</span>
     <span class="kn">use</span> <span class="s">epoll</span><span class="p">;</span>
     <span class="kn">worker_connections</span> <span class="mi">65535</span><span class="p">;</span>
 <span class="p">}</span>
-
 <span class="k">http</span>
 <span class="p">{</span>
     <span class="kn">include      </span> <span class="s">mime.types</span><span class="p">;</span>
@@ -308,7 +286,6 @@ configure arguments: --prefix=/home/nginx --with-pcre --add-module=../ngx_http_c
     <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
-
 <p>配置完成。测试如下：
 wget http://www.test.com/List/j.Html -S -O /dev/null -e http_proxy=127.0.0.1
     &ndash;13:17:48&ndash;  http://www.test.com/List/j.Html
@@ -329,12 +306,9 @@ wget http://www.test.com/List/j.Html -S -O /dev/null -e http_proxy=127.0.0.1
     Accept-Ranges: bytes
     Length: 25126 (25K) [text/html]
     Saving to: `/dev/null&rsquo;</p>
-
 <pre><code>100%[====================================================================================================================&gt;] 25,126      --.-K/s   in 0s
 </code></pre>
-
 <p>13:17:48 (521 MB/s) - `/dev/null&rsquo; saved [25126/25126]</p>
-
 <p>[root@sdl4 ~ 13:17:48]#
 wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.ASP?KeyWord=整形视频&rdquo;
     &ndash;13:17:50&ndash;  http://www.test.com/Search.ASP?KeyWord=%D5%FB%D0%CE%CA%D3%C6%B5
@@ -353,12 +327,9 @@ wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.A
     X-Cache: MISS from cache_test
     Length: 24987 (24K) [text/html]
     Saving to: `/dev/null&rsquo;</p>
-
 <pre><code>100%[====================================================================================================================&gt;] 24,987      25.6K/s   in 1.0s
-
 13:17:52 (25.6 KB/s) - `/dev/null' saved [24987/24987] 完成。 至于？的问题，目前针对需要，倒有另一个办法： 在location / {}中，根据请求参数判断进行传递。即写成如下：
 </code></pre>
-
 <div class="highlight"><pre><code class="nginx"><span class="k">location</span> <span class="s">/</span> <span class="p">{</span>
     <span class="kn">……</span>
     <span class="s">if</span> <span class="s">(</span><span class="nv">$is_args</span><span class="s">)</span><span class="p">{</span>
@@ -374,14 +345,11 @@ wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.A
     <span class="kn">proxy_pass</span> <span class="s">http://backend</span><span class="p">;</span>
 <span class="p">}</span>
 </code></pre></div>
-
 <p>不过依然有问题：</p>
-
 <ol>
   <li>nginx的if不支持&amp;&amp;或者||，万一有些类型（比如htm和jpg）又要求带？的也缓存，显然又和这个$is_args冲突；
 或许采用下面的办法能继续区分？（未试验）</li>
 </ol>
-
 <div class="highlight"><pre><code class="nginx"><span class="k">set</span> <span class="nv">$yn</span> <span class="nv">$is_args</span><span class="p">;</span>
 <span class="k">if</span> <span class="s">(</span><span class="nv">$uri</span> <span class="p">~</span><span class="sr">*</span> <span class="s">.(htm|jpg))</span><span class="p">{</span>
     <span class="kn">set</span> <span class="nv">$yn</span> <span class="s">&quot;&quot;</span><span class="p">;</span>
@@ -390,11 +358,8 @@ wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.A
     <span class="kn">proxy_pass</span> <span class="s">http://backend</span><span class="p">;</span>
 <span class="p">}</span>
 </code></pre></div>
-
 <p>；
 2. nginx的if中不单不支持proxy_cache，居然也不支持proxy_set_header等定义，只能单纯的proxy_pass。</p>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -409,30 +374,21 @@ wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.A
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -450,8 +406,6 @@ wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.A
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -468,16 +422,13 @@ wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.A
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -488,4 +439,3 @@ wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.A
     <!-- UJian Button END -->
   </body>
 </html>
-

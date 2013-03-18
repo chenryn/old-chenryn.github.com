@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>用 systemtap 调试 kmsg dump</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,49 +163,32 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#systemtap-ref">systemtap <span>3</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>google 之前推出了一个 netoops 的 patch，可以让 linux kernel 在崩溃的时候通过 udp 协议把信息发送到远端主机上。我之前在 CentOS6.2 的内核上做过测试，详细做法可以参见淘宝内核组 wiki 的<a href="http://kernel.taobao.org/index.php/Documents/Kernel_build">编译使用淘宝内核</a>和 <a href="kernel.taobao.org/index.php/Documents/Kernel_netoops_howto">netoops 使用指南</a>。唯一有区别的地方就是淘宝使用的 RedHat6 的内核在 CentOS6 上有签名问题，需要自己从 CentOS 官网 ftp 下载 src.rpm 来用 —— 当然如果要自己搞定编译那步，少不了就要自己修改 config-genaric 和 kernel.spc 文件了。</p>
-
 <p>昨天同事升级修改到 CentOS6.3 内核( 2.6.32.220 -&gt; 2.6.32.279 )上。结果发现修改冲突代码编译通过后，再使用 soft dump 方式测试，远端主机 nc 收不到结果了。</p>
-
 <p>稍微 grep 一下代码，发现是在 <code>kernel/printk.c</code> 里定义 <code>void kmsg_dump()</code> 的。好了，使用 systemtap 来检查这里： </p>
-
 <div class="highlight"><pre><code class="c">    <span class="n">stap</span> <span class="o">-</span><span class="n">ve</span> <span class="err">&#39;</span><span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">function</span><span class="p">(</span><span class="s">&quot;kmsg_dump&quot;</span><span class="p">){</span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="err">$$</span><span class="n">vars</span><span class="err">$$</span><span class="p">)}</span><span class="err">&#39;</span>
 </code></pre></div>
-
 <p>结果发现在 soft dump 的时候有输出，也就是说调用了 <code>kmsg_dump()</code>。</p>
-
 <p>比较 2.6.32.220 和 2.6.32.279 的代码，发现在 <code>kmsg_dump()</code> 里，新内核多了一点判断，如果reason 低于 <code>KERNEL_OOPS</code> 而且没有设置 <code>always_kmsg_dump</code> 变量，那么直接返回不再 <code>dumper-&gt;dump()</code> 了。</p>
-
 <div class="highlight"><pre><code class="c"><span class="mi">1546</span>    <span class="k">if</span> <span class="p">((</span><span class="n">reason</span> <span class="o">&gt;</span> <span class="n">KMSG_DUMP_OOPS</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">always_kmsg_dump</span><span class="p">)</span>
 <span class="mi">1547</span>            <span class="k">return</span><span class="p">;</span> 
 </code></pre></div>
-
 <p>我们验证一下是不是这个原因：</p>
-
 <div class="highlight"><pre><code class="c">    <span class="n">stap</span> <span class="o">-</span><span class="n">gve</span> <span class="err">&#39;</span><span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">statement</span><span class="p">(</span><span class="s">&quot;*@kernel/printk.c:1548&quot;</span><span class="p">)</span>  <span class="p">{</span> <span class="n">printf</span><span class="p">(</span><span class="s">&quot;%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="err">$$</span><span class="n">parms</span><span class="err">$$</span><span class="p">)</span> <span class="p">}</span><span class="err">&#39;</span>
 </code></pre></div>
-
 <p>显然测试的时候 reason 是 <code>KERNEL_SOFT</code>，这个是不好调的，那么我们可以调整这个变量，找了一下没发现这个可以在 sysctl 什么的里面，所以继续用 systemtap 搞定：</p>
-
 <div class="highlight"><pre><code class="c">    <span class="n">stap</span> <span class="o">-</span><span class="n">gve</span> <span class="err">&#39;</span><span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">statement</span><span class="p">(</span><span class="s">&quot;*@kernel/printk.c:1545&quot;</span><span class="p">)</span>  <span class="p">{</span> <span class="err">$</span><span class="n">always_kmsg_dump</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span> <span class="n">printf</span><span class="p">(</span><span class="s">&quot;%d&quot;</span><span class="p">,</span><span class="err">$</span><span class="n">always_kmsg_dump</span><span class="p">);</span> <span class="n">printf</span><span class="p">(</span><span class="s">&quot;%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="err">$$</span><span class="n">parms</span><span class="err">$$</span><span class="p">)</span> <span class="p">}</span><span class="err">&#39;</span>
 </code></pre></div>
-
 <p>果然搞定。</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -231,30 +203,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -272,8 +235,6 @@
                
                  <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
                
-                 <li> <a href="/2012/12/30/report-of-this-year">2012 年个人总结</a></li>
-               
             </ul>
           </div>
         
@@ -290,16 +251,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -310,4 +268,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

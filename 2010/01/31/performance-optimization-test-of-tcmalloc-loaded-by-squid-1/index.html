@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>squid加载tcmalloc性能优化测试(原理)</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,8 +163,6 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#squid-ref">squid <span>24</span></a></li>
@@ -183,9 +170,6 @@
     	<li><a href="/tags.html#tcmalloc-ref">tcmalloc <span>3</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
@@ -194,7 +178,6 @@
 TCMalloc的实现原理和测试报告请见一篇文章：《<a href="http://shiningray.cn/tcmalloc-thread-caching-malloc.html">TCMalloc：线程缓存的Malloc</a>》
 那么让我们赶紧给squid加载上tcmalloc，提高cache服务器在高并发情况下的性能，降低系统负载吧。
 因为服务器是64位OS，所以要先安装libunwind库。libunwind库为基于64位CPU和操作系统的程序提供了基本的堆栈辗转开解功能，其中包括用于输出堆栈跟踪的API、用于以编程方式辗转开解堆栈的API以及支持C++异常处理机制的API。（又cp一句话，^=^）</p>
-
 <div class="highlight"><pre><code class="bash">wget http://download.savannah.gnu.org/releases/libunwind/libunwind-0.99.tar.gz
 tar zxvf libunwind-0.99.tar.gz
 <span class="nb">cd </span>libunwind-0.99/
@@ -202,26 +185,20 @@ tar zxvf libunwind-0.99.tar.gz
 make <span class="nv">CFLAGS</span><span class="o">=</span>-fPIC
 make <span class="nv">CFLAGS</span><span class="o">=</span>-fPIC install
 </code></pre></div>
-
 <p>普通的./configure&amp;&amp;make&amp;&amp;make install可不行哟~
 然后开始安装tcmalloc:</p>
-
 <div class="highlight"><pre><code class="bash">wget http://google-perftools.googlecode.com/files/google-perftools-1.8.1.tar.gz
 tar zxvf google-perftools-1.8.1.tar.gz
 <span class="nb">cd </span>google-perftools-1.8.1/
 ./configure --disable-cpu-profiler --disable-heap-profiler --disable-heap-checker --enable-minimal --disable-dependency-tracking
 make <span class="o">&amp;&amp;</span> make install
 </code></pre></div>
-
 <p>然后配置动态链接库，因为是之前是默认安装，这里自然就是/usr/local/lib了。</p>
-
 <div class="highlight"><pre><code class="bash"><span class="nb">echo</span> <span class="s2">&quot;/usr/local/lib&quot;</span> &gt; /etc/ld.so.conf.d/usr_local_lib.conf
 /sbin/ldconfig
 </code></pre></div>
-
 <p>然后给squid加载tcmalloc。官方推荐是重新编译：
 先./configure，然后vi src/Makefile，修改如下：</p>
-
 <div class="highlight"><pre><code class="c"><span class="p">....</span>
 <span class="n">squid_LDADD</span> <span class="o">=</span>
 <span class="o">-</span><span class="n">L</span><span class="p">..</span><span class="o">/</span><span class="n">lib</span> \
@@ -237,7 +214,6 @@ make <span class="o">&amp;&amp;</span> make install
 <span class="n">EXTRA_DIST</span> <span class="o">=</span>
 <span class="p">....</span>
 </code></pre></div>
-
 <p>保存，make&amp;&amp;make install，OK！
 如果不愿意重新编译，那么动态加载吧。在/home/squid/sbin/squid -s之前执行export
 LD_PRELOAD=/usr/local/lib/libtcmalloc_minimal.so就可以了。
@@ -247,7 +223,6 @@ squid 3813  squid mem REG 202,1 1364560 446102 /usr/local/lib/libtcmalloc.so.0.
 这样的输出，加载成功。效果如何，跑上几天再说咯~
 另：
 据网上说，如果squid的configure参数中，有&ndash;with-large-files的话，是没法加载tcmalloc的。</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -262,30 +237,21 @@ squid 3813  squid mem REG 202,1 1364560 446102 /usr/local/lib/libtcmalloc.so.0.
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -303,8 +269,6 @@ squid 3813  squid mem REG 202,1 1364560 446102 /usr/local/lib/libtcmalloc.so.0.
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -321,16 +285,13 @@ squid 3813  squid mem REG 202,1 1364560 446102 /usr/local/lib/libtcmalloc.so.0.
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -341,4 +302,3 @@ squid 3813  squid mem REG 202,1 1364560 446102 /usr/local/lib/libtcmalloc.so.0.
     <!-- UJian Button END -->
   </body>
 </html>
-

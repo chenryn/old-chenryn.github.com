@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>OMD系列(四)mod_gearman配置与运行</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,8 +163,6 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#nagios-ref">nagios <span>13</span></a></li>
@@ -183,9 +170,6 @@
     	<li><a href="/tags.html#gearman-ref">gearman <span>4</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
@@ -197,31 +181,22 @@
 嗯，从原理上来讲，hosts/services/eventhandlers的队列，属于load balance范围，而hostgroups/servicegroups的队列，属于distribute范围。
 （mod_gearman还有send_gearman程序用来load balance接收NSCA分布式监控程序的数据，这里就不说了）</p>
 <hr />
-
 <p>概念讲完了，现在说配置。
 要启用mod_gearman，方法和上篇启用shinken一样简单，运行omd config命令，在Distribute选项中选择Mod_gearman为on，然后omd start即可。
 注意，omd分发中只带了mod_gearman.so和client/worker/init脚本，你必须自己yum install gearmand安装jobserver才行。
 在配置完成重启动的时候，OMD就会自动的修改nagios.cfg里的broker_module配置为：</p>
-
 <div class="highlight"><pre><code class="bash"> <span class="nv">broker_module</span><span class="o">=</span>.../mod_gearman.o <span class="nv">server</span><span class="o">=</span>localhost:4730 <span class="nv">eventhandler</span><span class="o">=</span>yes <span class="nv">services</span><span class="o">=</span>yes <span class="nv">hosts</span><span class="o">=</span>yes
 </code></pre></div>
-
 <p>同时启动1个</p>
-
 <div class="highlight"><pre><code class="bash"> /omd/sites/monitor/version/sbin/gearmand --port<span class="o">=</span>4730 --pid-file<span class="o">=</span>/omd/sites/monitor/tmp/run/gearmand.pid --daemon --job-retries<span class="o">=</span>0 --threads<span class="o">=</span>10 --log-file<span class="o">=</span>/omd/sites/monitor/var/log/gearman/gearmand.log --verbose<span class="o">=</span>2 --listen<span class="o">=</span>localhost
 </code></pre></div>
-
 <p>老文章里写的gearmand默认端口都是7003，因为跟AFS冲突，所以现在的版本默认都是4730了；
 同时启动3个</p>
-
 <div class="highlight"><pre><code class="bash">/omd/sites/monitor/bin/mod_gearman_worker -d --config<span class="o">=</span>/omd/sites/monitor/etc/mod-gearman/worker.cfg --pidfile<span class="o">=</span>/omd/sites/monitor/tmp/run/gearman_worker.pid
 </code></pre></div>
-
 <p>OK，现在这5个worker，会由gearmand平均分配hosts/services/eventhandlers任务。一个基础的load balance就完成了。</p>
 <hr />
-
 <p>下一步就是前面命令里用到了的~/etc/mod-gearman/worker.cfg配置文件了。</p>
-
 <div class="highlight"><pre><code class="bash">    <span class="nv">debug</span><span class="o">=</span>0
     <span class="nv">config</span><span class="o">=</span>/omd/sites/monitor/etc/mod-gearman/port.conf
     <span class="nv">eventhandler</span><span class="o">=</span>yes
@@ -241,10 +216,8 @@
     <span class="nv">show_error_output</span><span class="o">=</span>yes
     <span class="nv">workaround_rc_25</span><span class="o">=</span>off
 </code></pre></div>
-
 <p>以上是默认生成的配置文件。主要是定义最小的worker数量，最大的worker数量，最多运行的任务数量，等待超时时间，有等待任务时派生新worker的速度，是否为每个插件采用fork方式执行（这里注释写的是默认yes，但是OMD生成配置默认却是no，不知为何）；另一部分配置就是关于lb和dist的了：hosts/services/eventhandlers的yes/no控制是否lb，hostgroups/servicegroups控制dist哪些group到具体的worker上。
 假设我们现在有3个servicegroup，分别叫name1/name2/name3，那么开启选项后运行omd reload命令。查看gearmand的状态如下：</p>
-
 <div class="highlight"><pre><code class="bash">    OMD<span class="o">[</span>monitor<span class="o">]</span>:~<span class="nv">$ </span>telnet 127.0.0.1 4730
     Trying 127.0.0.1...
     Connected to localhost <span class="o">(</span>127.0.0.1<span class="o">)</span>.
@@ -261,10 +234,8 @@
     dummy	0	0	5
     .
 </code></pre></div>
-
 <p>表示有3个worker注册在gearman的这几个任务下了。
 （如果不用OMD，那么上面这些修改配置，分别启动worker指定不同配置等等动作，都要自己完成，参见github里的Installation章节From Source部份）</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -279,30 +250,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -320,8 +282,6 @@
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -338,16 +298,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -358,4 +315,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

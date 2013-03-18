@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>网络监控与/proc/net/tcp文件</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,33 +163,23 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#procfs-ref">procfs <span>1</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>nagios自带的check_antp太过简约，除了状态统计输出外，什么参数都不提供。在面对不同应用服务器时，报警就成了很大问题。于是决定自己写一个check脚本。作脚本运行，与命令操作时一个不同，就是要考虑一下效率问题。在高并发的机器上定期运行netstat -ant命令去统计，显然不太合适，可以直接从proc系统中取数据，这就快多了。</p>
-
 <p>先介绍/proc/net/tcp文件，这里记录的是ipv4下所有tcp连接的情况，包括下列数值：</p>
-
 <pre><code>sl  local_address rem_address   st tx_queue rx_queue tr tm-&gt;when retrnsmt   uid  timeout inode
 0: 00000000:3241 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 22714864 1 ffff88004f918740 750 0 0 2 -1
 </code></pre>
-
 <p>最主要的，就是local_address本地地址:端口、rem_address远程地址:端口、st连接状态。</p>
-
 <p>注1：文件中都是用的16进制，所以HTTP的80端口记录为0050。  <br />
 注2：状态码对应如下</p>
-
 <pre><code>00  "ERROR_STATUS",
 01  "TCP_ESTABLISHED",
 02  "TCP_SYN_SENT",
@@ -214,23 +193,18 @@
 0A  "TCP_LISTEN",
 0B  "TCP_CLOSING",
 </code></pre>
-
 <p>然后介绍nrpe的check脚本。脚本不管怎么写都行，对于nagios服务器端来说，它除了接受脚本的输出结果外，只认脚本运行的退出值（测试时可以运行后用echo $?看），包括OK的exit 0、WARNING的exit 1、CRITICAL的exit 2、未知的exit 3。</p>
-
 <p>最后一个简单的检查http端口连接数的脚本如下：</p>
-
 <div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
 <span class="c">#Written by Gemmy.Rao</span>
 <span class="c">#Email to: &lt;a href=&quot;mailto:chenlin.rao@bj.china.com&quot;&gt;chenlin.rao@bj.china.com&lt;/a&gt;</span>
 <span class="c">#Version 0.2</span>
 <span class="c">#CHANGES</span>
 <span class="c">#Add -p option for checking other service&#39;s port</span>
-
 <span class="c">#Init</span>
 <span class="nv">PORT</span><span class="o">=</span>80
 <span class="nv">WARNING</span><span class="o">=</span>5000
 <span class="nv">CRITICAL</span><span class="o">=</span>20000
-
 <span class="c">#get options</span>
 <span class="k">while </span><span class="nb">getopts</span> <span class="s2">&quot;w:c:p:hs&quot;</span> OPT;do
     <span class="k">case</span> <span class="nv">$OPT</span> in
@@ -258,10 +232,8 @@
         ;;
     <span class="k">esac</span>
 <span class="k">done</span>
-
 <span class="c">#经过time测试，取值速度netstat &gt; awk &#39;//{a++}END{print a}&#39; &gt; cat|grep|wc &gt; cat|awk|wc，在2w连接下，netstat要20s，最快的方式不到5s（一般nagios到10s就该直接报timeout了）</span>
 <span class="nv">PORT_CONN</span><span class="o">=</span><span class="sb">`</span>cat /proc/net/tcp*|awk <span class="s1">&#39;$2~/:(&#39;</span><span class="nv">$PORT_16</span><span class="s1">&#39;)$/&#39;</span>|wc -l<span class="sb">`</span>
-
 <span class="k">if</span> <span class="o">[[</span> <span class="s2">&quot;$SILENT&quot;</span> <span class="o">==</span> 1 <span class="o">]]</span>;<span class="k">then</span>
     <span class="o">[[</span> -d /usr/local/nagios <span class="o">]]</span> <span class="o">||</span> mkdir -p /usr/local/nagios
     <span class="nb">echo</span> <span class="s2">&quot;Silent log write OK | Port ${PORT}=${PORT_CONN};${WARNING};${CRITICAL};0;0&quot;</span>
@@ -278,9 +250,7 @@
     <span class="nb">exit </span>1
 <span class="k">fi</span>
 </code></pre></div>
-
 <p>之后有必要的话，可以再取$4去统计st。</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -295,30 +265,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -336,8 +297,6 @@
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -354,16 +313,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -374,4 +330,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>apache防盗链（mod_perl试用二）</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,8 +163,6 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#apache-ref">apache <span>7</span></a></li>
@@ -183,58 +170,56 @@
     	<li><a href="/tags.html#perl-ref">perl <span>52</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
-    <p>上回提到的防盗链方式是在strings上加上key和time，uri本身是不变的，这种方式其实现在不是很主流，主流的方式是将计算得出的加密串直接改在uri的路径里。比如下面将要提到的例子。要求其实和早先那个<a href="http://raocl.spaces.live.com/blog/cns!3F6CFF93FD0E3B79!198.entry" target="_blank">squid防盗链</a>的一模一样，就是改成用apache来跑。
-Test.pm内容如下：
-package Test;
-use strict;
-use warnings;
-use Socket qw(inet_aton);
-use POSIX qw(difftime mktime);
-use Digest::MD5 qw(md5_hex);
-use Apache2::RequestRec ();
-use Apache2::Connection ();
-use Apache2::RequestUtil ();
-use Apache2::ServerUtil ();
-use Apache2::Log ();
-use Apache2::Request ();
-use Apache2::Const qw(DECLINED FORBIDDEN);
-sub handler &#123;
-    my $r = shift;
-    my $s = Apache2::ServerUtil-&gt;server;
-    my $secret = $r-&gt;dir_config(&lsquo;Secret&rsquo;) || &lsquo;&rsquo;;
-    my $uri = $r-&gt;uri() || &lsquo;&rsquo;;
-    my $expire = 2 * 3600;
-    if ($uri =~ m#^/(d&#123;4&#125;)(d&#123;2&#125;)(d&#123;2&#125;)(d&#123;2&#125;)(d&#123;2&#125;)/(w&#123;32&#125;)(/S+.mp3)$#oi)&#123;
- my ($year, $mon, $mday, $hour, $min, $md5, $path) = ($1, $2, $3, $4, $5, $6, $7);
- my $str = md5_hex($secret . $year . $mon . $mday . $hour . $min . $path);
- my $reqtime = mktime(00, $min, $hour, $mday, $mon - 1, $year - 1900);
- my $now = time;
- if ( $now - $reqtime &lt; $expire)&#123;
-  if ($str eq $md5) &#123;
-   $r-&gt;uri(&quot;$path&quot;);
-   return Apache2::Const::DECLINED;
-  &#125;
- &#125;
-&#125;
-&#125;
-1;
-然后在httpd.conf中加上如下配置：
-PerlPostConfigRequire /home/apache2/perl/start.pl
-SetHandler modperl
-PerlTransHandler Test
-PerlSetVar Secret abcdef
-这里需要注意几点，根据modperl的处理流程，修改uri的时候，handler还没有走到对文件进行寻址，所以无法区分文件路径等信息，故而PerlTransHandler配置不能在<directory>和<location>里面。
-而在<a href="http://raocl.spaces.live.com/blog/cns!3F6CFF93FD0E3B79!865.entry" target="_blank">试用一</a>里，核对strings是用的PerlAccessHandler，当时已经确认了uri的文件路径，故而可以在<location>里。
-另，上面的pm，对错误访问返回的是404，如果需要403，return FORBIDDEN就可以了。
-如果想同时根据referer来防盗链，可能要在PerlHeaderParserHandler阶段在进行一次判定了，这个还在研究，不知道怎么取request-header的信息……</location></location></directory></p>
-
+    <p>上回提到的防盗链方式是在strings上加上key和time，uri本身是不变的，这种方式其实现在不是很主流，主流的方式是将计算得出的加密串直接改在uri的路径里。比如下面将要提到的例子。要求其实和早先那个<a href="/2010/01/30/anti-hotlinking-in-nginx-lighttpd-squid">squid防盗链</a>的一模一样，就是改成用apache来跑。
+Test.pm内容如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="n">Test</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">Socket</span> <span class="sx">qw(inet_aton)</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(difftime mktime)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestRec</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Connection</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Log</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Request</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Const</span> <span class="sx">qw(DECLINED FORBIDDEN)</span><span class="p">;</span>
+<span class="k">sub </span><span class="nf">handler</span> <span class="p">{</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span><span class="o">-&gt;</span><span class="n">server</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$secret</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">dir_config</span><span class="p">(</span><span class="s">&#39;Secret&#39;</span><span class="p">)</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">()</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$expire</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">if</span> <span class="p">(</span><span class="nv">$uri</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^/(d{4})(d{2})(d{2})(d{2})(d{2})/(w{32})(/S+.mp3)$#oi) {</span>
+       <span class="err"> </span><span class="k">my</span> <span class="p">(</span><span class="nv">$year</span><span class="p">,</span> <span class="nv">$mon</span><span class="p">,</span> <span class="nv">$mday</span><span class="p">,</span> <span class="nv">$hour</span><span class="p">,</span> <span class="nv">$min</span><span class="p">,</span> <span class="nv">$md5</span><span class="p">,</span> <span class="nv">$path</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$1</span><span class="p">,</span> <span class="nv">$2</span><span class="p">,</span> <span class="nv">$3</span><span class="p">,</span> <span class="nv">$4</span><span class="p">,</span> <span class="nv">$5</span><span class="p">,</span> <span class="nv">$6</span><span class="p">,</span> <span class="nv">$7</span><span class="p">);</span>
+       <span class="err"> </span><span class="k">my</span> <span class="nv">$str</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$secret</span> <span class="o">.</span> <span class="nv">$year</span> <span class="o">.</span> <span class="nv">$mon</span> <span class="o">.</span> <span class="nv">$mday</span> <span class="o">.</span> <span class="nv">$hour</span> <span class="o">.</span> <span class="nv">$min</span> <span class="o">.</span> <span class="nv">$path</span><span class="p">);</span>
+       <span class="err"> </span><span class="k">my</span> <span class="nv">$reqtime</span> <span class="o">=</span> <span class="n">mktime</span><span class="p">(</span><span class="mo">00</span><span class="p">,</span> <span class="nv">$min</span><span class="p">,</span> <span class="nv">$hour</span><span class="p">,</span> <span class="nv">$mday</span><span class="p">,</span> <span class="nv">$mon</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="nv">$year</span> <span class="o">-</span> <span class="mi">1900</span><span class="p">);</span>
+       <span class="err"> </span><span class="k">my</span> <span class="nv">$now</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
+       <span class="err"> </span><span class="k">if</span> <span class="p">(</span> <span class="nv">$now</span> <span class="o">-</span> <span class="nv">$reqtime</span> <span class="o">&lt;</span> <span class="nv">$expire</span><span class="p">){</span>
+          <span class="err">  </span><span class="k">if</span> <span class="p">(</span><span class="nv">$str</span> <span class="ow">eq</span> <span class="nv">$md5</span><span class="p">)</span> <span class="p">{</span>
+          <span class="err">  </span>   <span class="err"> </span><span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">(</span><span class="s">&quot;$path&quot;</span><span class="p">);</span>
+          <span class="err">   </span>   <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">DECLINED</span><span class="p">;</span>
+          <span class="err">  </span><span class="p">}</span>
+       <span class="err"> </span><span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="mi">1</span><span class="p">;</span>
+</code></pre></div>
+<p>然后在httpd.conf中加上如下配置：</p>
+<div class="highlight"><pre><code class="apache"><span class="nb">PerlPostConfigRequire</span> <span class="sx">/home/apache2/perl/start.pl</span>
+<span class="nb">SetHandler</span> modperl
+<span class="nb">PerlTransHandler</span> Test
+<span class="nb">PerlSetVar</span> Secret abcdef
+</code></pre></div>
+<p>这里需要注意几点，根据modperl的处理流程，修改uri的时候，handler还没有走到对文件进行寻址，所以无法区分文件路径等信息，故而 <code>PerlTransHandler</code> 配置不能在 <code>&lt;Directory&gt;</code> 和 <code>&lt;Location&gt;</code> 里面。</p>
+<p>而在<a href="/2010/04/15/anti_hotlinking-in-apache-by-mod_perl">试用一</a>里，核对strings是用的 <code>PerlAccessHandler</code>，当时已经确认了uri的文件路径，故而可以在 <code>&lt;Location&gt;</code> 里。</p>
+<p>另，上面的pm，对错误访问返回的是404，如果需要403，<code>return FORBIDDEN</code> 就可以了。</p>
+<p>如果想同时根据referer来防盗链，可能要在 <code>PerlHeaderParserHandler</code> 阶段在进行一次判定了，这个还在研究，不知道怎么取request-header的信息……</p>
     <hr>
     <div class="pagination">
       <ul>
@@ -249,30 +234,21 @@ PerlSetVar Secret abcdef
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -290,8 +266,6 @@ PerlSetVar Secret abcdef
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -308,16 +282,13 @@ PerlSetVar Secret abcdef
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -328,4 +299,3 @@ PerlSetVar Secret abcdef
     <!-- UJian Button END -->
   </body>
 </html>
-

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>用Devel::NYTProf模块排查优化perl脚本性能</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -173,38 +162,34 @@
     
   </div>
   <div style='background-color: #FFF;'>
-    <p>缓存服务器上有一个perl写的日志分析脚本，记录所有不重复的url。之后对squid进行目录刷新时，从记录下来的文件中查找匹配的url即可。
-不过这些天服务器老是出现负载报警，用top观察，这个url_parser.pl脚本一旦执行时，就占用了高达90%的CPU和40%的MEM。wc看存储的url.list文件，有大概4,000,000行；url.<code>date</code>.list当前有140,000行。
-于是上CU去请教perl执行效率的查找思路。
-回复有：1、正则精准度；2、文件读取效率；3、全局变量数；4、频繁打开句柄；5、流程优化
-比如读取文件不要用@line=FILE用while(<file>)；正则^句首带上/oi；注意哈希表与内存交换区等等；最后推荐给我Devel::NYTProf，进行测试。</file></p>
-
+    <p>缓存服务器上有一个perl写的日志分析脚本，记录所有不重复的url。之后对squid进行目录刷新时，从记录下来的文件中查找匹配的url即可。</p>
+<p>不过这些天服务器老是出现负载报警，用top观察，这个 <code>url_parser.pl</code> 脚本一旦执行时，就占用了高达90%的CPU和40%的MEM。wc看存储的url.list文件，有大概4,000,000行；<code>url.$(date).list</code> 当前有140,000行。</p>
+<p>于是上CU去请教perl执行效率的查找思路。</p>
+<p>回复有：1、正则精准度；2、文件读取效率；3、全局变量数；4、频繁打开句柄；5、流程优化</p>
+<p>比如读取文件不要用 <code>@line=FILE</code> 用 <code>while(&lt;FILE&gt;)</code> ；正则<code>^</code> 句首，带上 <code>/oi</code> ；注意哈希表与内存交换区等等；最后推荐给我 <code>Devel::NYTProf</code> ，进行测试。</p>
 <div class="highlight"><pre><code class="perl"><span class="n">perl</span> <span class="o">-</span><span class="n">MCPAN</span> <span class="o">-</span><span class="n">e</span> <span class="n">shell</span>
 <span class="o">&gt;</span><span class="n">install</span> <span class="nn">JSON::</span><span class="n">Any</span><span class="err">（不安这个东东，在</span><span class="n">nyt</span><span class="err">生成</span><span class="n">html</span><span class="err">的时候会报</span><span class="n">warning</span><span class="err">，不过不安也可以）</span>
 <span class="o">&gt;</span><span class="n">install</span> <span class="nn">Devel::</span><span class="n">NYTProf</span>
 </code></pre></div>
-
-<p>然后采用perl -d:NYTProf /home/purge/url_parser.pl运行脚本，会在当前路径下生成nytprof.out。
-再用nytprofhtml nytprof.out生成web页面。
-另开一个apache，将生成的nytprof目录发布出来。用ie打开即可看到了，如下：
-<img src="http://raocl.files.wordpress.com/2010/05/index.jpg?w=300" alt="" />
-下面还有载入模块的时间。之前我用strace跟踪了一下脚本的运行，发现在载入pm的时候，perl会搜索好多乱七八糟的目录，最后才正确，还一度担心是因为这个原因浪费了时间和资源呢。不过根据测试结果来看，载入模块总共花了不到30ms，不是什么可怕的事情。
-然后点击/home/purge/url_parser.pl的reports（line·block·sub），可以看到具体每个语句的执行情况：
-<img src="/images/uploads/devel-nytprof-time.jpg" alt="" />
-打开十四万行的url文件花了2.14s，然后再用2.09s将它们载入哈希表中；
-<img src="/images/uploads/devel-nytprof-time1.jpg" alt="" />
-打开正在运行的access.log（5分钟截取一次，squidclient mgr:5min里rps为17.65，即大概该有5000行以下；结果显示是3306 calls）并截取其中的url，花了141ms，然后再用42.6ms载入哈希表中；
-<img src="/images/uploads/devel-nytprof-time2.jpg" alt="" />
-最后，用919ms对哈希表排序，用1.58s重记录整个url文件。
-(143677-143579=98，即3306条日志中有98条是新增url)
-注意到第二张图中，对access.log分析时，match那步，<span style="color:#ff0000;">每行花了30us</span>！而在对urllist和tmplog分析时，每行只花3-4us的样子。看来是这一步的正则写的不好了，如右：
-&lt;div class="highlight"&gt;&lt;pre&gt;<code class="perl"><span class="k">my</span> <span class="nv">$log_pattern</span><span class="err">  </span> <span class="o">=</span> <span class="sx">qr &#39;^.*?d+s+w+s+(http://.+?)s+.+&#39;; </span>
-</code>&lt;/pre&gt;&lt;/div&gt;</p>
-
-<p>根据日志的格式和需求，改成这样my $log_pattern   = qr &lsquo;s(http://.+?)s&rsquo;;其他不变，再次测试，该部分的测试结果如下：
-<img src="/images/uploads/devel-nytprof-time3.jpg" alt="" />
-<span style="color:#ff0000;">降低成7us每行</span>啦！效果明显呀~~</p>
-
+<p>然后采用 <code>perl -d:NYTProf /home/purge/url_parser.pl</code> 运行脚本，会在当前路径下生成nytprof.out。</p>
+<p>再用 <code>nytprofhtml nytprof.out</code> 生成web页面。</p>
+<p>另开一个apache，将生成的nytprof目录发布出来。用ie打开即可看到了，如下：</p>
+<p><img src="/images/uploads/nytprof-index.jpg" alt="nytprof" /></p>
+<p>下面还有载入模块的时间。之前我用strace跟踪了一下脚本的运行，发现在载入pm的时候，perl会搜索好多乱七八糟的目录，最后才正确，还一度担心是因为这个原因浪费了时间和资源呢。不过根据测试结果来看，载入模块总共花了不到30ms，不是什么可怕的事情。</p>
+<p>然后点击 <code>/home/purge/url_parser.pl</code> 的 <code>reports（line·block·sub）</code>，可以看到具体每个语句的执行情况：</p>
+<p><img src="/images/uploads/devel-nytprof-time.jpg" alt="nytprof-0" /></p>
+<p>打开十四万行的url文件花了2.14s，然后再用2.09s将它们载入哈希表中；</p>
+<p><img src="/images/uploads/devel-nytprof-time1.jpg" alt="nytprof-1" /></p>
+<p>打开正在运行的access.log（5分钟截取一次，squidclient mgr:5min里rps为17.65，即大概该有5000行以下；结果显示是3306 calls）并截取其中的url，花了141ms，然后再用42.6ms载入哈希表中；</p>
+<p><img src="/images/uploads/devel-nytprof-time2.jpg" alt="nytprof-2" /></p>
+<p>最后，用919ms对哈希表排序，用1.58s重记录整个url文件。</p>
+<p>(143677-143579=98，即3306条日志中有98条是新增url)</p>
+<p>注意到第二张图中，对access.log分析时，match那步，<strong>每行花了30us</strong>！而在对urllist和tmplog分析时，每行只花3-4us的样子。看来是这一步的正则写的不好了，如下:</p>
+<div class="highlight"><pre><code class="perl">    <span class="k">my</span> <span class="nv">$log_pattern</span><span class="err">  </span> <span class="o">=</span> <span class="n">qr</span> <span class="s">&#39;^.*?d+s+w+s+(http://.+?)s+.+&#39;</span><span class="p">;</span>
+</code></pre></div>
+<p>根据日志的格式和需求，改成这样 <code>my $log_pattern   = qr 's(http://.+?)s';</code> 其他不变，再次测试，该部分的测试结果如下：</p>
+<p><img src="/images/uploads/devel-nytprof-time3.jpg" alt="nytprof-3" /></p>
+<p>__降低成7us每行__啦！效果明显呀~~</p>
     <hr>
     <div class="pagination">
       <ul>
@@ -219,30 +204,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -260,8 +236,6 @@
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -278,16 +252,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -298,4 +269,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

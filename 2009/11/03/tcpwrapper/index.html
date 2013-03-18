@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>tcpwrapper</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,9 +163,7 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>今天去新浪面试。有一道笔试题，考的是tcpwrapper的用法。因为没见过这个东东，所以百度一下，选几篇文章总结一下。</p>
-
 <p>首先，tcpwrapper是unix上的工具，1990年就诞生了。至于它和iptables的不同，看到有人说是TCP/IP层的不同。说iptables是网络层的，tcpwrapper是应用层的。对不对，且看tcpwrapper的使用先：</p>
-
 <ol>
   <li>
     <p>部署：首选当然是用安装包，要是编译源码，参见如下文：http://echo.sharera.com/blog/BlogTopic/9379.htm，虽然作者说自己笨笨的乱写，那也比我强多了</p>
@@ -185,20 +172,14 @@
     <p>开启日志：在/etc/syslog.conf里添加如下字段即可</p>
   </li>
 </ol>
-
 <p>tcpwrapper loglocal3.info /var/log/tcplog</p>
-
 <p>这个时候要记得重启日志服务。可以使用kill -HUP syslogd进程号的方法（nnd，这也是今天的笔试题之一）。</p>
-
 <ol>
   <li>配置文件：/etc/hosts.allow</li>
 </ol>
-
 <p>（本来还有个hosts.deny的）
 编写规则是“servicename:hostname[:shellcmd]”</p>
-
 <p>tcpwrapper监控的是inetd里的启动服务，用telnet举例如下</p>
-
 <div class="highlight"><pre><code class="bash">telnet:ALL
 EXCEPT LOCAL, .M-gtuiw.com
 <span class="nb">echo</span> <span class="s2">&quot;request from %d@%h:&quot;</span> &gt;&gt; /var/log/telnet.log;
@@ -206,45 +187,31 @@ EXCEPT LOCAL, .M-gtuiw.com
 <span class="k">    </span>finge -l @%h &gt;&gt; /var/log/telnet.log
 <span class="k">fi</span>
 </code></pre></div>
-
 <p>意即允许除了本机和M-gtuiw.com域下主机以外的所有telnet请求，并以“请求来自服务名@主机名”的方式记录进日志。（注意：EXCEPT也可以用在servicename后面）</p>
-
 <p>和iptables一样（好像说反了，其实应该是iptables和tcpd一样），这个allow和deny的规则也是讲究先来后到的，所以会有个ALL:ALL:deny收尾（如果单有deny文件，就在里头写ALL:ALL就可以了）。</p>
-
 <ol>
   <li>调试</li>
 </ol>
-
 <p>tcpdchk -v可以看到tcpd的全部规则设置和错误提示
 tcpdmatch servicename hostname可以具体查询某条规则</p>
-
 <ol>
   <li>inetd服务配置</li>
 </ol>
-
 <p>相关的有两个文件，一个是/etc/services，这里定义了各种服务使用的协议和占用的端口（本文中出现的第三个新浪笔试考题了哦~~）；一个是/etc/inetd.conf，这里定义了各项服务的类型、协议、监听方式、用户、程序、参数——如果启用tcpwrapper的话，程序就都是/usr/sbin/tcpd了。比如telnet的配置行如下：</p>
-
 <p>telnet    stream    tcp    nowait    root    /usr/sbin/tcpd    in.telnetd</p>
-
 <ol>
   <li>日志结果，直接摘抄一段如下：</li>
 </ol>
-
 <div class="highlight"><pre><code class="bash">Jul 31 22:00:52 <span class="o">[</span>url<span class="o">]</span>www.test.org<span class="o">[</span>/url<span class="o">]</span> in.telnetd<span class="o">[</span>4365<span class="o">]</span>: connect from 10.68.32.1
 Jul 31 22:02:10 <span class="o">[</span>url<span class="o">]</span>www.test.org<span class="o">[</span>/url<span class="o">]</span> in.telnetd<span class="o">[</span>4389<span class="o">]</span>: connect from 10.68.32.5
 Jul 31 22:04:58 <span class="o">[</span>url<span class="o">]</span>www.test.org<span class="o">[</span>/url<span class="o">]</span> in.ftpd<span class="o">[</span>4429<span class="o">]</span>: connect from 10.68.32.3
 </code></pre></div>
-
 <p>以上说了这么多，都是unix上的，最后来一句，在linux上，xinetd就是这个inetd+tcpwrapper了。何况还有强大的iptables……它可不像tcpwrapper只能管tcp协议的服务哦~~</p>
-
 <p>参考文章：</p>
-
 <p><a href="http://jianjian.blog.51cto.com/35031/41949">http://jianjian.blog.51cto.com/35031/41949</a>
 <a href="http://echo.sharera.com/blog/BlogTopic/9379.htm">http://echo.sharera.com/blog/BlogTopic/9379.htm</a>
 <a href="http://blog.chinaunix.net/u/26264/showart_971334.html">http://blog.chinaunix.net/u/26264/showart_971334.html</a>
 http://www.linuxdiyf.com/viewarticle.php?id=18335</p>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -259,30 +226,21 @@ http://www.linuxdiyf.com/viewarticle.php?id=18335</p>
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -300,8 +258,6 @@ http://www.linuxdiyf.com/viewarticle.php?id=18335</p>
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -318,16 +274,13 @@ http://www.linuxdiyf.com/viewarticle.php?id=18335</p>
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -338,4 +291,3 @@ http://www.linuxdiyf.com/viewarticle.php?id=18335</p>
     <!-- UJian Button END -->
   </body>
 </html>
-

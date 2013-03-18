@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>perl的Expect模块</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,18 +163,14 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>手头一批机器，因为历史的原因，有些密码登录、有些密钥登录，有些wheel组免密码su - root、有些又不行。为了统一管理操作，得想办法找一个能适应这四种情况的自动登录方法。</p>
-
 <p>先看的Net::SSH2模块，用户、主机、密钥都支持列表，也有$ssh-&gt;exec();，但是最后这步su - root密码还是没法完成；
 然后看的Net::SSH::Expect模块，其实就是在Expect模块外面加一层shell调用ssh命令。没有独立的参数指定密钥等，而是写在ssh_option=&gt;&rsquo; -i id_rsa &lsquo;里，更糟糕的情况是：在无密码登陆时，只能使用$ssh-&gt;run_ssh();而不能用$ssh-&gt;login();——但关于初次登陆的(yes/no)?的问题，却只在login()里有处理，run_ssh()里没有！可以修改Net/SSH/Expect.pm文件，在sub run_ssh()的return之前添加相关处理的语句：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="nv">$exp</span><span class="o">-&gt;</span><span class="n">expect</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span>
 <span class="p">[</span><span class="err"> </span><span class="sx">qr/\(yes\/</span><span class="nb">no</span><span class="o">\</span><span class="p">)</span><span class="o">\</span><span class="p">?</span><span class="o">\</span><span class="n">s</span><span class="o">*</span><span class="vg">$/</span><span class="err"> </span><span class="o">=&gt;</span><span class="err"> </span><span class="n">sub</span><span class="err"> </span><span class="p">{</span><span class="err"> </span><span class="nv">$exp</span><span class="o">-&gt;</span><span class="nb">send</span><span class="p">(</span><span class="s">&quot;yes\n&quot;</span><span class="p">);</span><span class="err"> </span><span class="n">exp_continue</span><span class="p">;</span><span class="err"> </span><span class="p">}</span><span class="err"> </span><span class="p">],</span>
 <span class="p">);</span>
 </code></pre></div>
-
 <p>但运行的时候，一台内网机器，完成一次su -后ls的操作，居然平均需要消耗3s的时间。
 于是干脆使用原版的Expect模块，平均单次运行时间缩短到了1.3s，如下：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
 <span class="k">use</span><span class="err"> </span><span class="n">Expect</span><span class="p">;</span>
 <span class="c1">#本来还打算用cgi模块改成web界面的，但运行时不时爆出“(70007)The timeout specified has expired:</span>
@@ -242,8 +227,6 @@
 <span class="nv">$exp</span><span class="o">-&gt;</span><span class="nb">send</span><span class="p">(</span><span class="s">&quot;exit\n&quot;</span><span class="p">)</span><span class="err"> </span><span class="k">if</span><span class="err"> </span><span class="p">(</span><span class="nv">$exp</span><span class="o">-&gt;</span><span class="n">expect</span><span class="p">(</span><span class="nb">undef</span><span class="p">,</span><span class="s">&#39;#&#39;</span><span class="p">));</span>
 <span class="nv">$exp</span><span class="o">-&gt;</span><span class="nb">send</span><span class="p">(</span><span class="s">&quot;exit\n&quot;</span><span class="p">)</span><span class="err"> </span><span class="k">if</span><span class="err"> </span><span class="p">(</span><span class="nv">$exp</span><span class="o">-&gt;</span><span class="n">expect</span><span class="p">(</span><span class="nb">undef</span><span class="p">,</span><span class="s">&#39;$&#39;</span><span class="p">));</span>
 </code></pre></div>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -258,30 +241,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -299,8 +273,6 @@
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -317,16 +289,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -337,4 +306,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

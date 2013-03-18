@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>郁闷的last-modified和etag试验</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,8 +163,6 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#nginx-ref">nginx <span>11</span></a></li>
@@ -183,19 +170,13 @@
     	<li><a href="/tags.html#SSI-ref">SSI <span>1</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>手上有一个伪静态的论坛bbs.example.com，每当有用户回复帖子的时候，提交到r.bbs.example.com，然后由r.bbs.example.com的提示页面replyautojump.jsp延迟3000后调用window.location.href函数返回原来的帖子——期间即完成对该帖的静态化。</p>
-
 <p>为了实效性，之前的配置，将这类html都设定为no-cache。现在考虑到流量和IO的问题，计划希望能够将这类html尽可能的缓存在browser和proxy上，但每次都能采用304的方式，确认帖子的最新情况。对于不太热门的板块，不太热点的帖子，应该能缓存一段时间，减轻webserver的压力；就算是热门，哪怕几十秒钟的缓存，对于全网流量，也是积腋成裘。。。</p>
-
 <p>因为论坛页面上，用SSI方式include了一些广告、点击排名等挂件。所以nginx上设定了ssi on，导致response-header中，没有了last-modified——按照常规，一般是在长期不变的html里include经常改变的shtml，而每次在解析SSI时去读取所有shtml的MTIME然后计算最后一个MTIME来设定成总页面的last-modified，是个比较繁琐且耗资源的做法（网上有lighttpd的patch，就是这么做的），所以包括nginx在内的多数webserver采取了比较简便的方法，即取消掉last-modified输出。参见nginx/src/http/module/ngx_http_ssi_filter_module.c第361行：</p>
-
 <div class="highlight"><pre><code class="c"><span class="k">static</span> <span class="n">ngx_int_t</span>
 <span class="nf">ngx_http_ssi_header_filter</span><span class="p">(</span><span class="n">ngx_http_request_t</span> <span class="o">*</span><span class="n">r</span><span class="p">)</span>
 <span class="p">{</span>
@@ -208,24 +189,17 @@
     <span class="k">return</span> <span class="n">ngx_http_next_header_filter</span><span class="p">(</span><span class="n">r</span><span class="p">);</span>
 <span class="p">}</span>
 </code></pre></div>
-
 <p>而我这系统的情况，可能广告1天一变，排行15分钟一变，都远远慢于页面本身的更新速度，完全可以将html的MTIME认定为总页面的last-modified。
 注释掉相应源码，重新编译nginx后进行试验，在使用F5刷新的时候，果然发送了IMS，这一步成功了；可是回复帖子后，因为是跳转方式，浏览器直接采用本地cache，而不会发送IMS，所以还是看到旧页面。。。</p>
 <hr />
-
 <p>因为测试平台上正好有另一个端口运行着httpd，不小心发现在跳转时如果有etag的话，还是会发送INM确认。于是今天开始试验往nginx上加etag。
 从git上下载etag模块源码，采用add-module方式重编译nginx，启动后先试验直接从nginx访问。确认其在回复跳转时发送了INM，然后加上前段squid，怪事出现了——虽然response-header中确实有etag，刷新网页时request-header中却一直没有出现if-none-match！！</p>
-
 <p>返回查看squid和nginx的日志。squid中一直记录的是TCP_REFRESH_MISS/200，nginx上更离谱！304时传输的文件大小居然比200时还大！见下：
     127.0.0.1 - - [01/Aug/2010:15:18:18 +0800] &ldquo;GET /data/thread/1011/2716/14/71/9<em>1.html HTTP/1.0&rdquo; 200 14823 &ldquo;-&ldquo; &ldquo;Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)&rdquo; &ldquo;124.200.241.143&rdquo;
     124.200.241.143 - - [01/Aug/2010:15:18:57 +0800] &ldquo;GET /data/thread/1011/2716/14/71/9</em>1.html HTTP/1.1&rdquo; 304 23459 &ldquo;-&ldquo; &ldquo;Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)&rdquo; &ldquo;-&ldquo;</p>
 <hr />
-
 <p>最后作为尝试，再打开SSI的last-modified同时加载etag编译了一次，试验结果，发现和没etag时一模一样，只见IMS不见INM。可是squid明明在2.6.1开始就支持etag了，怪哉~~</p>
-
 <p>下次有时间，再试试lighttpd的etag吧~</p>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -240,30 +214,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -281,8 +246,6 @@
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -299,16 +262,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -319,4 +279,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

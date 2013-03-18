@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>用Devel::NYTProf模块排查优化perl脚本性能</title>
+    
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>用Devel::NYTProf模块排查优化perl脚本性能 <small></small></h1>
+    <div class="date"><span>07 May 2010</span></div>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>缓存服务器上有一个perl写的日志分析脚本，记录所有不重复的url。之后对squid进行目录刷新时，从记录下来的文件中查找匹配的url即可。
+不过这些天服务器老是出现负载报警，用top观察，这个url_parser.pl脚本一旦执行时，就占用了高达90%的CPU和40%的MEM。wc看存储的url.list文件，有大概4,000,000行；url.<code>date</code>.list当前有140,000行。
+于是上CU去请教perl执行效率的查找思路。
+回复有：1、正则精准度；2、文件读取效率；3、全局变量数；4、频繁打开句柄；5、流程优化
+比如读取文件不要用@line=FILE用while(<file>)；正则^句首带上/oi；注意哈希表与内存交换区等等；最后推荐给我Devel::NYTProf，进行测试。</file></p>
+<div class="highlight"><pre><code class="perl"><span class="n">perl</span> <span class="o">-</span><span class="n">MCPAN</span> <span class="o">-</span><span class="n">e</span> <span class="n">shell</span>
+<span class="o">&gt;</span><span class="n">install</span> <span class="nn">JSON::</span><span class="n">Any</span><span class="err">（不安这个东东，在</span><span class="n">nyt</span><span class="err">生成</span><span class="n">html</span><span class="err">的时候会报</span><span class="n">warning</span><span class="err">，不过不安也可以）</span>
+<span class="o">&gt;</span><span class="n">install</span> <span class="nn">Devel::</span><span class="n">NYTProf</span>
+</code></pre></div>
+<p>然后采用perl -d:NYTProf /home/purge/url_parser.pl运行脚本，会在当前路径下生成nytprof.out。
+再用nytprofhtml nytprof.out生成web页面。
+另开一个apache，将生成的nytprof目录发布出来。用ie打开即可看到了，如下：
+<img src="http://raocl.files.wordpress.com/2010/05/index.jpg?w=300" alt="" />
+下面还有载入模块的时间。之前我用strace跟踪了一下脚本的运行，发现在载入pm的时候，perl会搜索好多乱七八糟的目录，最后才正确，还一度担心是因为这个原因浪费了时间和资源呢。不过根据测试结果来看，载入模块总共花了不到30ms，不是什么可怕的事情。
+然后点击/home/purge/url_parser.pl的reports（line·block·sub），可以看到具体每个语句的执行情况：
+<img src="/images/uploads/devel-nytprof-time.jpg" alt="" />
+打开十四万行的url文件花了2.14s，然后再用2.09s将它们载入哈希表中；
+<img src="/images/uploads/devel-nytprof-time1.jpg" alt="" />
+打开正在运行的access.log（5分钟截取一次，squidclient mgr:5min里rps为17.65，即大概该有5000行以下；结果显示是3306 calls）并截取其中的url，花了141ms，然后再用42.6ms载入哈希表中；
+<img src="/images/uploads/devel-nytprof-time2.jpg" alt="" />
+最后，用919ms对哈希表排序，用1.58s重记录整个url文件。
+(143677-143579=98，即3306条日志中有98条是新增url)
+注意到第二张图中，对access.log分析时，match那步，<span style="color:#ff0000;">每行花了30us</span>！而在对urllist和tmplog分析时，每行只花3-4us的样子。看来是这一步的正则写的不好了，如右：
+&lt;div class="highlight"&gt;&lt;pre&gt;<code class="perl"><span class="k">my</span> <span class="nv">$log_pattern</span><span class="err">  </span> <span class="o">=</span> <span class="sx">qr &#39;^.*?d+s+w+s+(http://.+?)s+.+&#39;; </span>
+</code>&lt;/pre&gt;&lt;/div&gt;</p>
+<p>根据日志的格式和需求，改成这样my $log_pattern   = qr &lsquo;s(http://.+?)s&rsquo;;其他不变，再次测试，该部分的测试结果如下：
+<img src="/images/uploads/devel-nytprof-time3.jpg" alt="" />
+<span style="color:#ff0000;">降低成7us每行</span>啦！效果明显呀~~</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2010/05/06/intro-httping" title="web服务监控小工具httping">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2010/05/07/purge-cache-by-perl-script-2" title="perl边学边练（purge脚本进阶）">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+  
+      </div>
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>

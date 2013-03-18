@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>升级 Puppet 到 3.0 及其他附件简介</title>
+    
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>升级 Puppet 到 3.0 及其他附件简介 <small></small></h1>
+    <div class="date"><span>10 January 2013</span></div>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>今天把 puppet 从2.7 升级到了 3.0。同时放弃了之前通过 ENC 定义所有 top scope variable 的做法，改成只定义一个 role 变量，然后在各个 module 里根据 $role 加载不同的module::role ，把变量都写在 module::role 里。</p>
+<p>经历过上次事故后，我对全局变量已经大大的有不安全感，包括 puppet 3.0 新进内核的 hiera (<a href="http://docs.puppetlabs.com/puppet/3/reference/lang_classes.html#using-hierainclude">官网介绍文档</a>中也说是&rdquo;like a lightweight ENC&rdquo;)。虽然 module::role 看起来很多是重复内容，还是让人工的操作多经过一些检测才放心。</p>
+<p>从 2.7 升级到 3.0 没有太多的不适应。官网上列了很多<a href="http://docs.puppetlabs.com/puppet/3/reference/release_notes.html">不同</a>。不过实际上基本没改动什么。</p>
+<ul>
+  <li>运行命令统一成 <code>puppet command</code> 的形式，2.7的时候还保留的一堆命令都没有了。</li>
+  <li><code>--apply</code> 改成 <code>--catalog</code>  了。不过这个其实我没用过。</li>
+  <li><code>pluginsync</code> 默认开启了。这个是替代 <code>factsync</code> 的。2.7 的时候默认还是关闭。给 facter 写插件应该是很容易而且很必要的事情。</li>
+  <li>master 内置 webserver 取消了。也就是说原先各种优化文档里的 <code>--servertype=mongrel</code> 没用了。但是 3.0 变成了标准 Rack 应用。直接在 <code>/etc/puppet/rack</code> 下运行 <code>rackup -s thin -p 18140 -D -P /tmp/puppetmaster.pid</code> 就可以了。</li>
+  <li>自然对应的 rack 配置文件 <code>config.ru</code> 改了，看 example 就好。</li>
+  <li><code>include</code> 可以传递数组</li>
+  <li>agent 的 lockfile 把 fork running 和 disabled 区分成两个文件了。不知道能不能消灭掉原先 agent 跑着跑着僵死的情况。</li>
+</ul>
+<p>以上是官网列举的主要内容。以下还有我__实际测试中发现的问题__：</p>
+<ul>
+  <li>agent 的 puppet.conf 里需要添加一行 <code>preferred_serialization_format = yaml</code>，否则默认使用 pson 会直接报错。</li>
+</ul>
+<hr />
+<p>今天重温了一下 github 在 puppetconf 上的讲演<a href="https://speakerdeck.com/jnewland/chatops">《chatops》</a>。当然对其中的 hubot 不是重点关注。主要是其中提到的 rodjek 的几个 puppet 相关的项目觉得蛮有用的。</p>
+<ul>
+  <li>puppet-lint </li>
+</ul>
+<p>地址：<a href="https://github.com/rodjek/puppet-lint.git">https://github.com/rodjek/puppet-lint.git</a></p>
+<p>这是一个语法格式检查器，如果 ERROR 会 <code>exit 1</code>。之前两天我还刚在 CPAN 上发现过一个 <a href="https://metacpan.org/module/Puppet::Tidy">Puppet::Tidy</a> 模块。不过目前为止，这两个都不是很满意：</p>
+<ol>
+  <li>puppet-lint 只能检查格式而不会替你修改格式。</li>
+  <li>puppet-tidy 可以修改格式但是它对格式的检查太简陋了。</li>
+</ol>
+<p>当然比 puppet-tidy 稍微好一些的 puppet-lint 也不是很精准，比如他会对所有用双引号定义的变量报 &ldquo;WARNING: double quoted string containing no variables&rdquo;；而 puppet-tidy 更奇怪的给我 ip 地址的最后一段再加上了一个单引号变成了下面这个样子：</p>
+<div class="highlight"><pre><code class="perl">    <span class="nv">$iplist</span> <span class="o">=</span> <span class="p">[</span><span class="s">&quot;192.168.1.&#39;2&#39;&quot;</span><span class="p">,</span><span class="s">&quot;192.168.1.&#39;3&#39;&quot;</span><span class="p">]</span>
+</code></pre></div>
+<p>只能说规范化任重道远。</p>
+<ul>
+  <li>puppet-profiler</li>
+</ul>
+<p>地址：<a href="https://github.com/rodjek/puppet-profiler.git">https://github.com/rodjek/puppet-profiler.git</a></p>
+<p>这是一个 agent 执行的调试器，不过至今为止功能也还很简单：就是执行一次 </p>
+<div class="highlight"><pre><code class="bash">    puppet agent --test --evaltrace --nocolor
+</code></pre></div>
+<p>排序各个 Resource 的执行耗时，并打印前十名。</p>
+<ul>
+  <li>rspec-puppet</li>
+</ul>
+<p>地址：<a href="https://github.com/rodjek/rspec-puppet">https://github.com/rodjek/rspec-puppet</a></p>
+<p>这是一个 puppet 的 rspec 测试工具扩展。注意他依赖于 <code>puppetlabs_spec_helper</code> 但是 gem 里却没写。。。</p>
+<p>使用方法看 github 上的说明比较详细了，稍后我再单写一篇介绍。</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2013/01/10/rspec-puppet-intro" title="给 puppet 写 Rspec 测试用例">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2013/01/11/systemtap-to-debug-kmsg-dump" title="用 systemtap 调试 kmsg dump">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+  
+      </div>
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+                 <li> <a href="/2012/12/30/report-of-this-year">2012 年个人总结</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>

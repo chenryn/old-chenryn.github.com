@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>限速进阶</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,8 +163,6 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#nginx-ref">nginx <span>11</span></a></li>
@@ -183,17 +170,12 @@
     	<li><a href="/tags.html#php-ref">php <span>10</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>继续横向比较，之前有squid的限速配置，现在说nginx限速，nginx关于限速的模块有三个：HTTPLimitZoneModule、HTTPCoreModule和HTTPLimitReqModule，详见官方wiki，就不再贴链接了，能不能上天知道，真是地上芙蓉姐，天上绿坝娘呀……</p>
-
 <h1 id="limitzone">limit_zone配置</h1>
-
 <div class="highlight"><pre><code class="nginx"><span class="k">http</span> <span class="p">{</span>
     <span class="kn">limit_zone</span> <span class="no">on</span><span class="s">e</span> <span class="nv">$binary_remote_addr</span> <span class="mi">10m</span><span class="p">;</span> <span class="c1">#每个clientIP定义一个10m大的session容器，根据32bytes/session，可以处理320000个session；</span>
     <span class="kn">server</span> <span class="p">{</span>
@@ -204,11 +186,8 @@
     <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
-
 <p>目前网上的情况来看，zone方式的限速用的比较多，或许是较早的版本就支持这个模块吧。</p>
-
 <h1 id="limitreq">limit_req配置</h1>
-
 <div class="highlight"><pre><code class="nginx"><span class="k">http</span> <span class="p">{</span>
     <span class="kn">limit_req_zone</span> <span class="nv">$binary_remote_addr</span> <span class="s">zone=one:10m</span> <span class="s">rate=1r/s</span><span class="p">;</span><span class="c1">#限制速率</span>
     <span class="kn">server</span> <span class="p">{</span>
@@ -218,16 +197,11 @@
     <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
-
 <p>这个模块是nginx0.7.22以后加上的，目前网上基本没什么实际说明，单就这个定义方式来看，感觉和之前的方式也没什么区别，a*b=c，一个定义a和b，一个定义b和c……
 或许只能去wiki死磕英文才能搞清楚一点点吧~~</p>
-
 <p>然后是lighttpd的限速：</p>
-
 <p>lighttpd限速也是有两个方式，server.kbytes-per-second（对域名路径限制）和connection.kbytes-per-second（对单一连接限制），问题在于没有对并发连接数的限制（也就是上面我写的算式里的b）。而且是kbytes不是kbits，根据网友的说法，当期望限制在60Mb的时候，配置成：server.kbytes-per-second = 1800就差不多了……</p>
-
 <h1 id="section">限速配置</h1>
-
 <div class="highlight"><pre><code class="lighttpd"><span class="k">connection.kbytes-per-second</span> <span class="o">=</span> <span class="m">30</span> <span class="c1">#单个连接不能超过30KB/s</span>
 <span class="nb">$HTTP</span><span class="p">[</span><span class="s2">&quot;host&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;download.linuxfly.org&quot;</span> <span class="p">{</span>
     <span class="k">server.name</span> <span class="o">=</span> <span class="s2">&quot;download.linuxfly.org&quot;</span>
@@ -240,12 +214,9 @@
     <span class="k">server.kbytes-per-second</span> <span class="o">=</span> <span class="m">200</span> <span class="c1">#除/download路径外，该域可用的最大带宽是200KB/s</span>
 <span class="p">}</span>
 </code></pre></div>
-
 <p>最后，不要忘记lighttpd的单线程程序，还要受限于linux系统的单线程打开文件数限制。</p>
-
 <p>lighttpd官方，还提供一个plugin方式，见http://redmine.lighttpd.net/projects/lighttpd/wiki/Docs:TrafficShaping。
 这个需要在php代码中定制header来配合lighttpd。总的来说，lighttpd限速功能是不咋的……</p>
-
 <div class="highlight"><pre><code class="bash"><span class="c">#打补丁</span>
 wget http://redmine.lighttpd.net/attachments/697/mod_speed.c
 mv mod_speed.c lighttpd_1.5/src/
@@ -257,22 +228,16 @@ cat &gt;&gt;Makefile.am
 <span class="s">mod_speed_la_LIBADD = $(common_libadd)</span>
 <span class="s">EOF</span>
 </code></pre></div>
-
 <h1 id="plugin">plugin配置参数</h1>
-
 <div class="highlight"><pre><code class="lighttpd"><span class="k">speed.just-copy-header</span> <span class="o">=</span> <span class="s2">&quot;enable&quot;</span>
 <span class="k">speed.use-request</span> <span class="o">=</span> <span class="s2">&quot;enable&quot;</span>
 </code></pre></div>
-
 <p>//php定制header代码//</p>
-
 <div class="highlight"><pre><code class="php"><span class="cp">&lt;?php</span>
 <span class="nx">header</span><span class="p">(</span><span class="s2">&quot;X-LIGHTTPD-KBytes-per-second: 50&quot;</span><span class="p">);</span>
 <span class="nx">header</span><span class="p">(</span><span class="s2">&quot;X-Sendfile: /path/to/file&quot;</span><span class="p">);</span>
 <span class="cp">?&gt;</span><span class="x"></span>
 </code></pre></div>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -287,30 +252,21 @@ cat &gt;&gt;Makefile.am
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -328,8 +284,6 @@ cat &gt;&gt;Makefile.am
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -346,16 +300,13 @@ cat &gt;&gt;Makefile.am
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -366,4 +317,3 @@ cat &gt;&gt;Makefile.am
     <!-- UJian Button END -->
   </body>
 </html>
-

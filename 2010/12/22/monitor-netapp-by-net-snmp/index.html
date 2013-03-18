@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>通过snmp协议监控NetApp</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,8 +163,6 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#snmp-ref">snmp <span>5</span></a></li>
@@ -183,50 +170,31 @@
     	<li><a href="/tags.html#NetApp-ref">NetApp <span>2</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>NetApp作为专业存储，用起来还是比较让人放心的，不过放心不代表放手不管，一些重要的监控还是要做的。比如基本的CPU负载、网卡流量、磁盘使用率，作为数据存储特别关注的IOPS、DiskIO（因为有cache的原因，所以NetIO和DiskIO是不同时的，单从网卡进出不能判定磁盘的真实读写）。</p>
-
 <p>从google中找到了NetApp的MIBtree，见<a href="https://support.ipmonitor.com/mibs/NETWORK-APPLIANCE-MIB/tree.aspx">https://support.ipmonitor.com/mibs/NETWORK-APPLIANCE-MIB/tree.aspx</a>或<a href="http://www.mibdepot.com/cgi-bin/getmib3.cgi?abc=0&amp;n=NETWORK-APPLIANCE-MIB&amp;r=netapp&amp;f=netapp_1_4.mib&amp;t=tree&amp;v=v1&amp;i=0&amp;obj=cp">http://www.mibdepot.com/cgi-bin/getmib3.cgi?abc=0&amp;n=NETWORK-APPLIANCE-MIB&amp;r=netapp&amp;f=netapp<em>1</em>4.mib&amp;t=tree&amp;v=v1&amp;i=0&amp;obj=cp</a></p>
-
 <p>（多贴一个，省的万一哪个站挂了……）</p>
-
 <p>CPU等项没什么问题，问题在于IO的获取。
 与普通服务器的流量一样，很明显的看到了miscNfsOps、miscNetRcvdKB和miscNetSentKB三个值。我们可以很简单的通过后个值的差值运算出速率。但如果单取一个值的时候，会发现一个很诡异的情况，见下：</p>
-
 <h1 id="snmpwalk--v-1--c-public-101010118-1361417891223--awk-print-nf">snmpwalk -v 1 -c public 10.10.10.118 .1.3.6.1.4.1.789.1.2.2.3 | awk &lsquo;{print $NF}&rsquo;</h1>
 <p>-1948753579</p>
-
 <p>居然是个负值！</p>
-
 <p>难道是对这个MIB的理解有问题？可通过如下命令计算的结果，和通过交换机端口获取的流量却基本符合了：</p>
-
 <p>a=<code>snmpwalk -v 1 -c public 10.10.10.118 .1.3.6.1.4.1.789.1.2.2.3 | awk '{print $NF}'</code>;sleep 10;snmpwalk -v 1 -c public 10.10.10.118 .1.3.6.1.4.1.789.1.2.2.3 | awk &lsquo;{print ($NF-&ldquo;&lsquo;$a&rsquo;&rdquo;)*8/10&rdquo;Kbps&rdquo;}&rsquo;
 12364.8Kbps</p>
-
 <p>虽然数值都变负了，但差量还是对的……汗，如果通过AVERAGE方式取这个差值绘图，倒不要紧，如果通过普通的流量Counter方式，这个图全反过X轴去了应该~</p>
-
 <p>这个情况很容易让我想到用cacti获取网卡流量时的配置，如果选用默认的32bits绘图时，在流量较大时也会出现这类负值或者干脆画不出来的情况。</p>
-
 <p>其次，DiskIO没有和Net一样的MIB；但net、disk和ops都有一对miscHigh<strong><em>/miscLow</em></strong>的数值。</p>
-
 <p>这对值怎么用？MIB上的解释看起来超级茫然：
 miscLowNfsOps：The total number of Server side NFS calls since the last boot.  This object returns the least significant 32 bits of the value.
 miscHighNfsOps：The total number of Server side NFS calls since the last boot.  This object returns the most significant 32 bits of the value.</p>
-
 <p>通过度娘了解了一下least significant bit和most significant bit的概念，原来LSB和MSB是在底层开发时的概念，因为2进制的字串比较长，所以通过MSB和LSB的命名方式来标明字串的高位（普通PC和MAC在存数据的时候顺序是反的，所以必须标记，还有其他原因，比如用MSB的1、0来表示正负数等）</p>
-
 <p>那么这个most significant 32bits也就理解了~~就是从高位开始往低算的32位。least反过来……合并起来就是64位的完成数据了……2进制数的合并，也就是说用$MSBs * 2**32 + $LSBs。My God~</p>
-
 <p>最后在zenoss的maillist上看到了相同的问题，其中网友的回答是：NetApp使用的snmp协议是v1版本，无法直接提供64bits的计数，只能变通一下，改用这种拆分方式了。</p>
-
 <p>最后，举例一个监控ops的perl脚本。原脚本是centreon项目提供的，删除了一些和ops无关的语句。从中也可以学到Net::SNMP模块的使用，hash的解引用等~</p>
-
 <div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
 <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">Net::</span><span class="n">SNMP</span><span class="p">;</span>
@@ -348,8 +316,6 @@ miscHighNfsOps：The total number of Server side NFS calls since the last boot. 
 <span class="nb">printf</span><span class="p">(</span><span class="s">&quot;|nfsOps=&quot;</span><span class="o">.</span><span class="nv">$nfs_ops</span><span class="o">.</span><span class="s">&quot;\n&quot;</span><span class="p">);</span>
 <span class="nb">exit</span><span class="p">(</span><span class="nv">$ERRORS</span><span class="p">{</span><span class="s">&quot;OK&quot;</span><span class="p">});</span>
 </code></pre></div>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -364,30 +330,21 @@ miscHighNfsOps：The total number of Server side NFS calls since the last boot. 
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -405,8 +362,6 @@ miscHighNfsOps：The total number of Server side NFS calls since the last boot. 
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -423,16 +378,13 @@ miscHighNfsOps：The total number of Server side NFS calls since the last boot. 
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -443,4 +395,3 @@ miscHighNfsOps：The total number of Server side NFS calls since the last boot. 
     <!-- UJian Button END -->
   </body>
 </html>
-

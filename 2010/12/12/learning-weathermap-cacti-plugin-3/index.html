@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>weathermap-cacti-plugin学习(3)</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,8 +163,6 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#cacti-ref">cacti <span>7</span></a></li>
@@ -183,66 +170,49 @@
     	<li><a href="/tags.html#php-ref">php <span>10</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
-    <p>今天继续啃weathermap的php代码，因为lib的readdata里return了$inbw和$outbw，尝试在之前理解的ReadConfig()相应match处加上了一段if($inbw==&rsquo;0&rsquo;){$this-&gt;width=0;$linematched++;}elseif……等几分钟后cache过期，一看weathermap效果，所有的链路曲线箭头图都变成了一根直线~~然后仔细看了看这串if之前的while，发现原来weathermap不是每次针对数据进行config匹配，而是统一读取一次config。也就是说ReadConfig()里的任何修改都会对全局起作用。</p>
-
-<p>既然在源头的配置参数无法修改，那么就只能在末端的绘图的时候做出改变了，找到draw_curve()函数，这个函数就是画线的。最终由Draw()函数分别调用calc_curve描点，draw_curve连线，drawlabel画框。Draw()内容是一个顺序处理过程，在最后的drawlabel()前面，可以很清晰的看到$task[*]是怎么取出的：</p>
-
+    <p>今天继续啃weathermap的php代码，因为lib的readdata里return了$inbw和$outbw，尝试在之前理解的ReadConfig()相应match处加上了一段 <code>if($inbw=='0'){$this-&gt;width=0;$linematched++;}elseif</code>……等几分钟后cache过期，一看weathermap效果，所有的链路曲线箭头图都变成了一根直线~~然后仔细看了看这串if之前的while，发现原来weathermap不是每次针对数据进行config匹配，而是统一读取一次config。也就是说ReadConfig()里的任何修改都会对全局起作用。</p>
+<p>既然在源头的配置参数无法修改，那么就只能在末端的绘图的时候做出改变了，找到 <code>draw_curve()</code> 函数，这个函数就是画线的。最终由 <code>Draw()</code> 函数分别调用 <code>calc_curve</code> 描点，<code>draw_curve</code> 连线，<code>drawlabel</code> 画框。<code>Draw()</code> 内容是一个顺序处理过程，在最后的 <code>drawlabel()</code> 前面，可以很清晰的看到 <code>$task[*]</code> 是怎么取出的：</p>
 <div class="highlight"><pre><code class="php"><span class="x">$outbound=array($q1_x,$q1_y,0,0,$this-&gt;outpercent,$this-&gt;bandwidth_out,$q1_angle);</span>
 <span class="x">$inbound=array($q3_x,$q3_y,0,0,$this-&gt;inpercent,$this-&gt;bandwidth_in,$q3_angle);</span>
 </code></pre></div>
-
 <p>那么在draw_curve()前面，依葫芦画瓢来上一段就好了：</p>
-
 <div class="highlight"><pre><code class="php"><span class="x">if(($this-&gt;bandwidth_out == &#39;0&#39;) &amp;&amp; ($this-&gt;bandwidth_in == &#39;0&#39;))</span>
 <span class="x">{</span>
-<span class="x">$link_width=&#39;0&#39;;</span>
+<span class="x">    $link_width=&#39;0&#39;;</span>
 <span class="x">}</span>
 <span class="x">else</span>
 <span class="x">{</span>
-<span class="x">$link_width=$this-&gt;width;</span>
+<span class="x">    $link_width=$this-&gt;width;</span>
 <span class="x">}</span>
 <span class="x">draw_curve($im, $this-&gt;curvepoints, $link_width, $outline_colour, $comment_colour, array($link_in_colour, $link_out_colour), $this-&gt;name, $map);</span>
 </code></pre></div>
-
 <p>这个改完当然不能看到效果，看到就该排障去了~不过可以采用一点变通的方法来验证一下，比如某些线路现在比较空闲，我们就把预定的阀值0（断网的流量）改大一些，刚好超过某个空载线路即可了：</p>
-
-<p>比如改成if ( $this-&gt;bandwidth_out &lt; &lsquo;1000&rsquo; )的话，weathermap效果变成如下：</p>
-
-<p><a href="http://chenlinux.com/wp-content/uploads/2010/12/qqe688aae59bbee69caae591bde5908d.jpg"><img class="alignnone size-full wp-image-2108" title="weathermap" src="http://chenlinux.com/wp-content/uploads/2010/12/qqe688aae59bbee69caae591bde5908d.jpg" alt="" width="581" height="324" /></a></p>
-
+<p>比如改成 <code>if ( $this-&gt;bandwidth_out &lt; '1000' )</code> 的话，weathermap效果变成如下：</p>
+<p><img src="/images/uploads/qqe688aae59bbee69caae591bde5908d.jpg" alt="wethermap" /></p>
 <p>其中两条流量小于1000bits的线路，其width就变成了0，只留下一条直线了~~</p>
-
-<p>至于为了width==0却还留下了一条线，这就跟weathermap的绘图方式有关了。draw_curve中是这么利用gd画图的：</p>
-
-<p>1、根据node的位置，获取在二维空间上的x轴、y轴坐标，在两个node之间通过打点的方式进行矢量连线；
-2、获取设定的width，将之前的坐标点平移相应的位置，再次打点；
-3、在连线的中点处绘制箭头；
-4、填充颜色。</p>
-
-<p>如果要完全去除掉这根连线，或许可以在draw_curve中设定其连线长度为0？在draw_curve()中有一个变量叫$totaldistance，指的是两个node之间的距离，之后包括箭头、文字等，都是以这个变量*50%来计算的。添加if($this-&gt;bandwidth_out&lt;1000){$totaldistance=0}，等了十分钟再刷新，可图片依然没有更新！</p>
-
-<p>继续看$totaldistance是怎么得出的，看到了$this-&gt;curvepoints，而$this-&gt;curvepoints是通过calc_curve($xpoints, $ypoints)返回的。那么在Draw()中继续修改$this-&gt;curvepoints即可。变通一下上面的测试代码如下：</p>
-
+<p>至于为了 <code>width==0</code> 却还留下了一条线，这就跟weathermap的绘图方式有关了。<code>draw_curve</code> 中是这么利用gd画图的：</p>
+<ol>
+  <li>根据node的位置，获取在二维空间上的x轴、y轴坐标，在两个node之间通过打点的方式进行矢量连线；</li>
+  <li>获取设定的width，将之前的坐标点平移相应的位置，再次打点；</li>
+  <li>在连线的中点处绘制箭头；</li>
+  <li>填充颜色。</li>
+</ol>
+<p>如果要完全去除掉这根连线，或许可以在 <code>draw_curve</code> 中设定其连线长度为0？在 <code>draw_curve()</code> 中有一个变量叫 <code>$totaldistance</code>，指的是两个node之间的距离，之后包括箭头、文字等，都是以这个变量*50%来计算的。添加 <code>if($this-&gt;bandwidth_out&lt;1000){$totaldistance=0}</code>，等了十分钟再刷新，可图片依然没有更新！</p>
+<p>继续看 <code>$totaldistance</code> 是怎么得出的，看到了 <code>$this-&gt;curvepoints</code>，而 <code>$this-&gt;curvepoints</code> 是通过 <code>calc_curve($xpoints, $ypoints)</code> 返回的。那么在 <code>Draw()</code> 中继续修改 <code>$this-&gt;curvepoints</code> 即可。变通一下上面的测试代码如下：</p>
 <div class="highlight"><pre><code class="php"><span class="x">$link_width=$this-&gt;width;</span>
 <span class="x">$this-&gt;curvepoints = calc_curve($xpoints, $ypoints);</span>
 <span class="x">if ( $this-&gt;bandwidth_out &lt; &#39;2000&#39; )</span>
 <span class="x">{</span>
-<span class="x">$link_width=0; //没有连线的话，宽度设啥都一样了~</span>
-<span class="x">$this-&gt;curvepoints = array( );</span>
+<span class="x">    $link_width=0; //没有连线的话，宽度设啥都一样了~</span>
+<span class="x">    $this-&gt;curvepoints = array( );</span>
 <span class="x">}</span>
 </code></pre></div>
-
 <p>稍后刷新页面，看到原来的连线已经不见了~ 不过从效果图来看，少了连线反而不起眼了，还不如留着一根线容易引起警觉……</p>
-
-<p><a href="http://chenlinux.com/wp-content/uploads/2010/12/qqe688aae59bbee69caae591bde5908d1.jpg"><img class="alignnone size-full wp-image-2112" title="weathermap-no-line" src="http://chenlinux.com/wp-content/uploads/2010/12/qqe688aae59bbee69caae591bde5908d1.jpg" alt="" width="511" height="272" /></a></p>
-
+<p><img src="/images/uploads/qqe688aae59bbee69caae591bde5908d1.jpg" alt="new-weathermap" /></p>
     <hr>
     <div class="pagination">
       <ul>
@@ -257,30 +227,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -298,8 +259,6 @@
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -316,16 +275,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -336,4 +292,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

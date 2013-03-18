@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>syslog实时报警"说出来"</title>
+    
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>syslog实时报警"说出来" <small></small></h1>
+    <div class="date"><span>19 November 2012</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+  
+     
+    	<li><a href="/tags.html#websocket-ref">websocket <span>3</span></a></li>
+     
+    	<li><a href="/tags.html#perl-ref">perl <span>52</span></a></li>
+     
+    	<li><a href="/tags.html#syslog-ref">syslog <span>3</span></a></li>
+    
+  
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>syslog应该是大家最常用的，也基本可以说是最重要的服务器监控信息来源了。</p>
+<p>syslog的传输，应该不用再说，哪怕在百度里搜都有足够多的靠谱结果。而关于报警的问题，之前我也写了好几篇，比如<a href="/2012/10/17/juggernaut-for-syslog-check">《用Juggernaut实时推送syslog分析结果》</a>讲了如何用websocket推送结果，<a href="/2012/11/09/chrome-app-demo">《Chrome的APP简单用法》</a>讲了如何利用chrome后台页面开机自动运行进行桌面提示。</p>
+<p>那么，如果我既不想开网页看，也不好安装chrome浏览器，有没有够简便的办法接收呢？有！Linux社区从来不缺乏各种神奇工具。下面介绍两个同样强大的提示办法。</p>
+<p>第一个，非chrome型的桌面通知notify-send命令，依发行版不同，可能属于libnotify-tools或者libnotify-bin包，自己搜索即可；</p>
+<p>第二个，Espeak命令，著名Text To Speech软件，虽然电子音怪了点，但是支持中文而且文件很小，同样直接在源里安装即可。</p>
+<p>下面就是如何把这两个强大的工具和server结合起来的问题了，出动胶水语言代表perl。代码如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Mojo::</span><span class="n">UserAgent</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">JSON</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$ua</span> <span class="o">=</span> <span class="nn">Mojo::</span><span class="n">UserAgent</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">();</span>
+<span class="k">my</span> <span class="p">(</span> <span class="nv">$sid</span><span class="p">,</span> <span class="nv">$ws</span> <span class="p">);</span>
+<span class="c1"># 本来用Protocol::WebSocket::Handshake::Client模块，指定IP和端口，自动会获取sid拼ws地址的，不过测试发现open后没反应。奇怪</span>
+<span class="n">LABEL:</span>
+<span class="nv">$sid</span> <span class="o">=</span> <span class="p">(</span><span class="o">+</span><span class="nb">split</span><span class="p">(</span><span class="sr">/:/</span><span class="p">,</span> <span class="nv">$ua</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;http://syslog.domain.com:8080/socket.io/1/&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">res</span><span class="o">-&gt;</span><span class="n">body</span><span class="p">))[</span><span class="mi">0</span><span class="p">];</span>
+<span class="nv">$ws</span> <span class="o">=</span> <span class="s">&quot;ws://syslog.domain.com:8080/socket.io/1/websocket/${sid}&quot;</span><span class="p">;</span>
+<span class="nv">$ua</span><span class="o">-&gt;</span><span class="n">websocket</span><span class="p">(</span> <span class="nv">$ws</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="k">my</span> <span class="p">(</span><span class="nv">$ua</span><span class="p">,</span> <span class="nv">$tx</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+    <span class="nv">$tx</span><span class="o">-&gt;</span><span class="nb">send</span><span class="p">(</span><span class="s">&#39;3:::{&quot;type&quot;:&quot;subscribe&quot;,&quot;channel&quot;:&quot;syslog&quot;}&#39;</span><span class="p">);</span>
+    <span class="nv">$tx</span><span class="o">-&gt;</span><span class="n">on</span><span class="p">(</span><span class="n">finish</span>  <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+        <span class="c1"># 很怪的是，mojo::useragent的websocket client总是在不到一分钟内就进入on_finish状态，所以这里只好返回重连</span>
+        <span class="nn">Mojo::</span><span class="n">IOLoop</span><span class="o">-&gt;</span><span class="n">stop</span><span class="p">;</span>
+        <span class="nb">goto</span> <span class="n">LABEL</span><span class="p">;</span>
+    <span class="p">});</span>
+    <span class="nv">$tx</span><span class="o">-&gt;</span><span class="n">on</span><span class="p">(</span><span class="n">message</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+        <span class="k">my</span> <span class="p">(</span><span class="nv">$tx</span><span class="p">,</span> <span class="nv">$msg</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span> <span class="nb">length</span><span class="p">(</span> <span class="nv">$msg</span> <span class="p">)</span> <span class="o">&gt;</span> <span class="mi">5</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="k">my</span> <span class="nv">$syslog</span> <span class="o">=</span> <span class="n">from_json</span><span class="p">(</span> <span class="nb">substr</span><span class="p">(</span> <span class="nv">$msg</span><span class="p">,</span> <span class="mi">3</span> <span class="p">)</span> <span class="p">);</span>
+            <span class="n">notify</span><span class="p">(</span> <span class="nv">$syslog</span> <span class="p">);</span>
+        <span class="p">};</span>
+    <span class="p">});</span>
+<span class="p">});</span>
+<span class="nn">Mojo::</span><span class="n">IOLoop</span><span class="o">-&gt;</span><span class="n">start</span> <span class="k">unless</span> <span class="nn">Mojo::</span><span class="n">IOLoop</span><span class="o">-&gt;</span><span class="n">is_running</span><span class="p">;</span>
+<span class="k">sub </span><span class="nf">notify</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="nv">$_</span><span class="p">;</span>
+    <span class="k">return</span> <span class="k">if</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="ow">eq</span> <span class="s">&#39;btn&#39;</span><span class="p">;</span>
+    <span class="nb">exec</span><span class="p">(</span><span class="s">&quot;notify-send \&quot;$data-&gt;[0] $data-&gt;[1]\&quot; \&quot;$data-&gt;[3] $data-&gt;[4]\&quot;&quot;</span><span class="p">);</span>
+    <span class="c1"># 注意设定-s 120，默认是175，念得飞快</span>
+    <span class="nb">exec</span><span class="p">(</span><span class="s">&quot;espeak -vzh+f2 -s 120 \&quot;$data-&gt;[1]\&quot;&quot;</span><span class="p">);</span> <span class="c1"># 指定中文报ip，不然很难听懂</span>
+    <span class="c1"># f是女生，m是男声，至于第几个声音，我没听出来多大差别，都跟九十年代初电影里的机器人一样</span>
+    <span class="nb">exec</span><span class="p">(</span><span class="s">&quot;espeak -ven+m2 -s 120 \&quot;$data-&gt;[3] $data-&gt;[4]\&quot;&quot;</span><span class="p">);</span> <span class="c1"># 指定英文报内容，不然用中文的声音念更难听懂</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>以上抛砖引玉，大家可以试试Ekho(余音)，这是国人开发的真人语音TTS开源软件，还支持粤语，文言文等选择，汗……</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2012/11/18/data-visualization-with-elasticsearch-and-protovis" title="【翻译】用ElasticSearch和Protovis实现数据可视化">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2012/11/22/gnuplot-to-draw-multi-graph" title="用gnuplot绘制多图">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+  
+      </div>
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>

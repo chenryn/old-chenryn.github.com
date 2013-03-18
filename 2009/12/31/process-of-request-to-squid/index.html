@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>squid请求处理流程（源站故障转向研究）</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,7 +163,6 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>今天继续想别的办法，第一，当然还是修改源代码，这个C++可惜俺不懂，只是大略的通过百大哥谷大婶知道了squid的请求处理流程：</p>
-
 <ol>
   <li>客户端和squid建立连接（client-side模块、clientBeginRequest()函数）；</li>
   <li>检查ACL访问控制；</li>
@@ -193,11 +181,9 @@ Communication模块），建立连接并处理异常（comm.c程序）；</li>
   <li>回源取完数据，标记StoreEntry为“完成”（client-side模块），socket关闭或保留到持久连接池；</li>
   <li>数据写入客户端socket完成，从StoreEntry注释掉client-side模块，同样，关闭或等待客户端连接请求。</li>
 </ol>
-
 <p>原先的想法就是在第3步，而缓存在第4步，所以不行。也就是说，必须在第4步以后操作，才能不影响CDN的命中率。很显然，我注意到一个词，第6步中“建立链接并处理异常”的comm.c程序；其次，第9步“响应被接受”，也就是说，可能建立链接但没响应，这里就应该是socket的存活过期时间来决定。<br />
 思路到此为止，往下就是编程开发能力的事儿了，哭ing~~<br />
 第二个办法，还在squid本身上做文章。我注意到，处理流程的4.2步上，squid是同时检查源站和cache_peer的。那么，在源站故障的时候，cache_peer可以设成其他服务器顶上。这样的情况，不单解决一个url跳转，还能做一个源站备份。配置如下：</p>
-
 <div class="highlight"><pre><code class="squid">nonhierarchical_direct<span class="w"> </span><span class="no">off</span><span class="w"></span>
 <span class="k">prefer_direct</span><span class="w"> </span><span class="no">on</span><span class="w"></span>
 <span class="k">cache_peer</span><span class="w"> </span><span class="mf">192.168.1.1</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="no">no-query</span><span class="w"> </span>originserver<span class="w"></span>
@@ -211,12 +197,9 @@ name=S1<span class="w"></span>
 <span class="k">cache_peer_access</span><span class="w"> </span>S2<span class="w"> </span><span class="no">allow</span><span class="w"> </span>myservice<span class="w"></span>
 <span class="k">cache_peer_access</span><span class="w"> </span>S3<span class="w"> </span><span class="no">allow</span><span class="w"> </span>myservice<span class="w"></span>
 </code></pre></div>
-
 <p>第一句的意思，就是当originserver挂了，不可层叠的请求（即hierarchy_stoplist定义的）就“可能”发往其他peer。<br />
 第二句的意思，就是所有优先originserver，只有挂了以后才去peer，这个配置针对的可cache的请求。<br />
 不过两句加起来，还有那些不再hierarchy_stoplist定义又不cache的（没实验，不知道这个可cache是指squid配置还是包括origin的header设置），可就没办法了，也不全面。</p>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -231,30 +214,21 @@ name=S1<span class="w"></span>
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -272,8 +246,6 @@ name=S1<span class="w"></span>
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -290,16 +262,13 @@ name=S1<span class="w"></span>
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -310,4 +279,3 @@ name=S1<span class="w"></span>
     <!-- UJian Button END -->
   </body>
 </html>
-

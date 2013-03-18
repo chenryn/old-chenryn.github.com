@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>用systemtap调试文件描述符限制</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,34 +163,23 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#systemtap-ref">systemtap <span>3</span></a></li>
      
-    	<li><a href="/tags.html#C-ref">C <span>3</span></a></li>
+    	<li><a href="/tags.html#C-ref">C <span>4</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>在运行一些非root用户进程的时候，我们都习惯要在前面加上一个ulimit -HSn 65535的命令。而且我们还知道关于文件描述符的限制，不止这一个地方，还有limits.conf，sysctl -w fs.file-max等等。但是到底这些是什么个关系呢？而且，如果是一个已经在运行的程序，有没有可能在更改他的文件描述符限制呢？</p>
-
 <p>以最经常碰到这种情况的squid为例。我们可以在squid/src/comm.c里看到<code>comm_openex()</code>是如何发现超出限制的，嗯，可以说没有&rdquo;自己发现&rdquo;，直接判断socket()是否成功而已。所以接下来的事情是看socket创建过程怎么判断的。</p>
-
 <p>关于socket过程，主要看kernel/net/socket.c和kernel/fs/file.c，作为C菜鸟，如下系列博文在这方面说的非常清楚，我就不详细说了：</p>
-
 <p><a href="http://blog.chinaunix.net/uid-23629988-id-3080166.html">TCP/IP源码学习(47)——socket与VFS的关联(1)</a></p>
-
 <p><a href="http://blog.chinaunix.net/uid-23629988-id-3083376.html">TCP/IP源码学习(48)——socket与VFS的关联(2)</a></p>
-
 <p>大体来说，就是socket本身是不触及这个限制的，但是创建出来的socket必须和文件描述符关联起来(<code>sock_map_fd()</code> &ndash; <code>sock_alloc_file()</code> &ndash; <code>get_unused_fd_flags()</code> &ndash; <code>alloc_fd()</code>)，这就相关了。在<code>alloc_fd()</code>中会读取当前进程(current)的fdtable，fdtable的结构由&rdquo;linux/fdtable.h&rdquo;定义如下：</p>
-
 <div class="highlight"><pre><code class="c">    <span class="k">struct</span> <span class="n">fdtable</span> <span class="p">{</span>
         <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">max_fds</span><span class="p">;</span>
         <span class="k">struct</span> <span class="n">file</span> <span class="o">**</span> <span class="n">fd</span><span class="p">;</span>      <span class="cm">/* current fd array */</span>
@@ -222,9 +200,7 @@
     <span class="p">};</span>
     <span class="err">#</span><span class="n">define</span> <span class="n">files_fdtable</span><span class="p">(</span><span class="n">files</span><span class="p">)</span> <span class="p">(</span><span class="n">rcu_dereference</span><span class="p">((</span><span class="n">files</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">fdt</span><span class="p">))</span>
 </code></pre></div>
-
 <p>打开fd的过程如下：</p>
-
 <ol>
   <li>如果有files-&gt;next_fd，直接使用;</li>
   <li>否则从fdtable-&gt;open_fds-&gt;fds_bits[]找到fdtable-&gt;max_fds，到找到一个可用的为止;</li>
@@ -232,17 +208,13 @@
   <li>完成后把获得的fd+1赋值给files-&gt;next_fd，这样下次就可以直接用;</li>
   <li>最后把这个fd加入fdtable-&gt;open_fds里。</li>
 </ol>
-
 <p>那么涉及max open files的显然就是这个<code>expand_files()</code>了。继续看，可以发现其中的判断分三部分：</p>
-
 <ol>
   <li>if (nr &gt;= current-&gt;signal-&gt;rlim[RLIMIT_NOFILE].rlim_cur)</li>
   <li>if (nr &lt; fdt-&gt;max_fds)</li>
   <li>if (nr &gt;= sysctl_nr_open)</li>
 </ol>
-
 <p>都逃过之后才进入<code>expand_fdtable()</code>真正扩展。很好，现在我们看到之前就知道的ulimit/sysctl神马的是怎么限定的了。那么这第二个呢？我们可以找到files这个结构的init，如下：</p>
-
 <div class="highlight"><pre><code class="c">    <span class="k">struct</span> <span class="n">files_struct</span> <span class="n">init_files</span> <span class="o">=</span> <span class="p">{</span>
         <span class="p">.</span><span class="n">count</span>          <span class="o">=</span> <span class="n">ATOMIC_INIT</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
         <span class="p">.</span><span class="n">fdt</span>            <span class="o">=</span> <span class="o">&amp;</span><span class="n">init_files</span><span class="p">.</span><span class="n">fdtab</span><span class="p">,</span>
@@ -256,20 +228,13 @@
         <span class="p">.</span><span class="n">file_lock</span>      <span class="o">=</span> <span class="n">__SPIN_LOCK_UNLOCKED</span><span class="p">(</span><span class="n">init_task</span><span class="p">.</span><span class="n">file_lock</span><span class="p">),</span>
     <span class="p">};</span>
 </code></pre></div>
-
 <p>这个<code>NR_OPEN_DEFAULT</code>可以在fdtable.h里看到就是<code>BITS_PER_LONG</code>。<code>BITS_PER_LONG</code>应该是32或者64，取决于CPU是32还是64位的了。</p>
-
 <p>其实这里还可以继续看<code>alloc_fdtable()</code>中怎么确定新扩展的<code>fdt-&gt;max_fds</code>的，如果nr大于sysctl的设定，那么nr会计算成</p>
-
 <div class="highlight"><pre><code class="c">    <span class="p">((</span><span class="n">sysctl_nr_open</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">BITS_PER_LONG</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span>
 </code></pre></div>
-
 <p>然后<code>copy_fdtable()</code>转移数据，奇怪的是看到转移完后，还判断了原有<code>fdt-&gt;max_fds &gt; NR_OPEN_DEFAULT</code>才释放，我不清楚什么情况下会有<code>fdt-&gt;max_fds</code>小于init值了&hellip;</p>
-
 <p>回到主题。三个条件里后两个条件都很明白了。现在就是第一个，这是根据current不同有不同的，我们可以试试看如果修改这个值会怎么样？</p>
-
 <p>修改工具我用到了systemtap大神器，不过我是菜鸟啦～脚本如下：</p>
-
 <div class="highlight"><pre><code class="c">    <span class="err">#</span><span class="o">!/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="n">stap</span>
     <span class="o">%</span><span class="p">{</span>
     <span class="err">#</span><span class="n">include</span> <span class="o">&lt;</span><span class="n">linux</span><span class="o">/</span><span class="n">sched</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
@@ -312,32 +277,22 @@
         <span class="n">CATCH_DEREF_FAULT</span><span class="p">();</span>
     <span class="o">%</span><span class="p">}</span>
 </code></pre></div>
-
 <p>systemtap自己提供了一系列tapset函数，比如这里的execname(),task_*都是。注意systemtap是脚本语言的，所以这些函数直接在/usr/share/systemtap/下面可以看怎么写的。比如我上面定义的两个function就是仿照里面<code>task_max_file_handles()</code>写的。</p>
-
 <p>用%和{}标记的是内嵌C代码，systemtap在编译成C的时候直接插入进去，可以stap -k保留在/tmp/stap123456下查看的到。</p>
-
 <p>kread/kwrite是systemtap-runtime提供的函数，封装的是put_user/get_user指令。</p>
-
 <p>现在我们启动squid进程和stap脚本：</p>
-
 <div class="highlight"><pre><code class="bash">    <span class="nb">ulimit</span> -HSn 256;squid -D
     stap -g max_fds.stp 1024
 </code></pre></div>
-
 <p>注意要加-g，否则不会加载内嵌C的。
 另开窗口发起一次请求，然后看到stap输出：</p>
-
 <pre><code>begin...
 [Fri Oct 26 19:20:34 2012 CST] squid fdt:64, task:16, rlim:256
         args_nr: 12
         set rlim: 0
 </code></pre>
-
 <p>额，这个set是返回值0。function里如果把kwrite的返回值赋给<code>THIS-&gt;retvalue</code>会报void的错误。挺奇怪的。</p>
-
 <p>再运行stap，发起请求，就可以看到squid的rlim变成1024了：</p>
-
 <pre><code>begin...
 [Fri Oct 26 19:24:40 2012 CST] squid fdt:64, task:16, rlim:1024
         args_nr: 12
@@ -346,49 +301,32 @@
         args_nr: 17
         return: 0
 </code></pre>
-
 <p>不过我的虚拟机跑不出这么大的并发，没法超过<code>BITS_PER_LONG</code>的64。所以我们可以换一个思路来验证<code>expand_files()</code>的执行。</p>
-
 <ul>
   <li>先ulimit -HSn 16启动squid，然后stap修改到1024</li>
 </ul>
-
 <p>这个时候，搞笑而现实的事情发生了。nr越过了1024的判断，却越不过<code>BITS_PER_LONG</code>的判断，于是<code>expand_files</code>永远过不去。squid的max open files只能停留在16。这一步的return是0。所以看到stap里.return{}打印的是0。</p>
-
 <ul>
   <li>先ulimit -HSn 1024启动squid，然后stap修改到16</li>
 </ul>
-
 <p>这个时候，由之前的测试可以看到，squid本身就要用掉十多个fd来维护运行的。所以基本一接请求nr就超过16了。squid完全无法响应请求。这一步的return是-EMFILE，于是屏幕上开始出现一行行squid call fdtable {.n}&hellip;&hellip;&hellip;</p>
-
 <p>附注：使用systemtap需要debuginfo。内核调试需要kernel-debuginfo/kernel-devel，程序也需要。如果是自己编译的，没问题直接probe process(&ldquo;${path}/command&rdquo;)即可，如果是rpm安装的，那就必须得把debuginfo包安装上，比如nginx-debuginfo.rpm这样子。</p>
-
 <p>2012年12月3日更新：</p>
-
 <p>采用tc延时的办法，可以达到在虚拟机上获取squid高连接的模拟环境。然后作出如下修正：</p>
-
 <ul>
   <li>在修改<code>rlim_cur</code>的时候也需要修改<code>rlim_max</code></li>
 </ul>
-
 <p>在上面的缩小测试里不会触发问题，不过在增大的测试中，问题来了——<code>setrlimit()</code>函数会很诧异为毛自己参数里那个<code>&amp;rl</code>的<code>rlim_cur</code>比<code>rlim_max</code>还大？然后悲剧的报出&rdquo;etrlimit(RLIMIT_NOFILE) failed: Invalid argument (22)&rdquo;的错误……</p>
-
 <div class="highlight"><pre><code class="c">    <span class="n">kwrite</span><span class="p">(</span><span class="o">&amp;</span><span class="p">(</span><span class="n">ss</span><span class="o">-&gt;</span><span class="n">rlim</span><span class="p">[</span><span class="n">RLIMIT_NOFILE</span><span class="p">].</span><span class="n">rlim_max</span><span class="p">),</span> <span class="n">THIS</span><span class="o">-&gt;</span><span class="n">val</span><span class="p">);</span>
 </code></pre></div>
-
 <ul>
   <li>对于squid还需要修改<code>Squid_MaxFD</code>全局变量</li>
 </ul>
-
 <p>上面都是对kernel里的socket和file的修改，在实际运用中，用户程序本身也会有各种判断。squid维护了一堆全局变量，比如<code>Squid_MaxFD</code>，<code>Biggest_FD</code>和<code>Number_FD</code>，这就是squidclient mgr:info里看到的关于文件描述符的那几个值。其中<code>Squid_MaxFD</code>是在init的时候根据主进程启动时的ulimit情况一次性设定的，即便child进程重启也不会变。而<code>Biggest_FD</code>则是由<code>fdUpdateBiggest()</code>函数每次更新。不巧的是，里面有这么一句判断：</p>
-
 <div class="highlight"><pre><code class="c">    <span class="n">assert</span><span class="p">(</span><span class="n">fd</span> <span class="o">&lt;</span> <span class="n">Squid_MaxFD</span><span class="p">);</span>
 </code></pre></div>
-
 <p>所以，光修改kernel里的限制，socket返回后在更新<code>Biggest_FD</code>时squid会直接挂掉……</p>
-
 <p>下面是修改squid进程里全局变量的办法，和修改kernel其实很类似：</p>
-
 <div class="highlight"><pre><code class="c"><span class="n">probe</span> <span class="nf">process</span><span class="p">(</span><span class="s">&quot;/usr/sbin/squid&quot;</span><span class="p">).</span><span class="n">function</span><span class="p">(</span><span class="s">&quot;fdUpdateBiggest@src/fd.c&quot;</span><span class="p">)</span>        
 <span class="p">{</span>                                                                            
     <span class="k">if</span> <span class="p">(</span> <span class="err">$</span><span class="n">Squid_MaxFD</span> <span class="o">&lt;</span> <span class="mi">65535</span> <span class="p">)</span> <span class="p">{</span>                                            
@@ -396,10 +334,7 @@
     <span class="p">}</span>                                                                        
 <span class="p">}</span> 
 </code></pre></div>
-
 <p>把上面两个修改加入到之前的文件，然后测试增大ulimit限制(记住ulimit要大于64，否则不起作用哟)，就没问题了。</p>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -414,30 +349,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -455,8 +381,6 @@
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -473,16 +397,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -493,4 +414,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

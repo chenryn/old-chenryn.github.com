@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>bash_syslog_history</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,23 +163,17 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#bash-ref">bash <span>7</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>@钚钉钬影 童鞋要试验系统日志收集处理，采用rsyslog+loganalyzer做界面，因为需求有把bash_history也带上，所以采用修改bash源码的方式。最先采用了bash4.2（bash4.2已经带了这个功能，但是默认不开启，删掉哪个/**/就行了），不过因为这个bash4.+跟redhat的network-functions脚本有点小矛盾，重启的时候报个错——虽然改起来也很简单，就是加一个./的事情——不过本着尽量改动少的原则，换回bash3.1。
 bash3.1里默认没有记录syslog的代码，所以从bash4.2/bashhist.c里复制有关bash_syslog_history代码段到bash3.1中——注意不是原样复制到bashhist.c，那样不顶用——需要复制到lib/readline/history.c中，如下：</p>
-
 <div class="highlight"><pre><code class="c"><span class="o">+</span>   <span class="err">#</span><span class="n">include</span> <span class="o">&lt;</span><span class="n">syslog</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
 <span class="err">……</span>
 <span class="kt">void</span>
@@ -198,7 +181,6 @@ bash3.1里默认没有记录syslog的代码，所以从bash4.2/bashhist.c里复�
      <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">string</span><span class="p">;</span>
 <span class="p">{</span>
 <span class="n">HIST_ENTRY</span> <span class="o">*</span><span class="n">temp</span><span class="p">;</span>
-
 <span class="o">+</span><span class="k">if</span> <span class="p">(</span><span class="n">strlen</span><span class="p">(</span><span class="n">string</span><span class="p">)</span><span class="o">&lt;</span><span class="mi">600</span><span class="p">)</span> <span class="p">{</span>
 <span class="o">+</span>   <span class="n">syslog</span><span class="p">(</span><span class="n">LOG_LOCAL5</span> <span class="o">|</span> <span class="n">LOG_INFO</span><span class="p">,</span> <span class="s">&quot;%s %s %s %s&quot;</span><span class="p">,</span><span class="n">getenv</span><span class="p">(</span><span class="s">&quot;LOGNAME&quot;</span><span class="p">),</span><span class="n">getlogin</span><span class="p">(),</span><span class="n">ttyname</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span><span class="n">string</span><span class="p">);</span>
 <span class="o">+</span>    <span class="p">}</span>
@@ -208,17 +190,13 @@ bash3.1里默认没有记录syslog的代码，所以从bash4.2/bashhist.c里复�
 <span class="o">+</span>      <span class="n">trunc</span><span class="p">[</span><span class="k">sizeof</span><span class="p">(</span><span class="n">trunc</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">=</span><span class="sc">&#39;\0&#39;</span><span class="p">;</span>
 <span class="o">+</span>    <span class="n">syslog</span><span class="p">(</span><span class="n">LOG_LOCAL5</span><span class="p">,</span> <span class="n">LOG_INFO</span><span class="p">,</span> <span class="s">&quot;%s %s %s %s(++TRUNC)&quot;</span><span class="p">,</span><span class="n">getenv</span><span class="p">(</span><span class="s">&quot;LOGNAME&quot;</span><span class="p">),</span><span class="n">getlogin</span><span class="p">(),</span><span class="n">ttyname</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">trunc</span><span class="p">);</span>
 <span class="o">+</span>    <span class="p">}</span>
-
 <span class="k">if</span> <span class="p">(</span><span class="n">history_stifled</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">history_length</span> <span class="o">==</span> <span class="n">history_max_entries</span><span class="p">))</span>
 </code></pre></div>
-
 <p>上面的LOG_LOCAL5和LOG_INFO都是syslog.h里的定义，所以要include进来。
 然后编译使用，就能记录进/var/log/messages里了。</p>
 <hr />
-
 <p>话说网上关于上面的说明中，大多数没有提到需要include<syslog.h>，但是make的时候居然只报LOG_INFO和LOG_LOCAL5的未定义错误，随便把这两个改成一个已经defined过的变量，比如HISTORY，编译一样成功；而且也一样记录系统日志。唯一体现不同的地方就是loganalyzer页面上看到所有的history操作都是alert级别。
 之前没了解过程的时候，还采用了mysql触发器，自动修改这个报警级别，也记录一下，毕竟是自己第一次用触发器~~</syslog.h></p>
-
 <div class="highlight"><pre><code class="mysql"><span class="k">USE</span> <span class="n">Syslog</span><span class="p">;</span>
 <span class="k">DROP</span> <span class="k">TRIGGER</span> <span class="k">IF</span> <span class="k">EXISTS</span> <span class="n">trig_bash_prior</span><span class="p">;</span>
 <span class="n">DELIMITER</span> <span class="o">|</span>
@@ -230,9 +208,7 @@ bash3.1里默认没有记录syslog的代码，所以从bash4.2/bashhist.c里复�
  <span class="n">END</span>
 <span class="o">|</span>
 </code></pre></div>
-
 <p>这个库很简单，基本数据就是记在这个单表里~~</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -247,30 +223,21 @@ bash3.1里默认没有记录syslog的代码，所以从bash4.2/bashhist.c里复�
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -288,8 +255,6 @@ bash3.1里默认没有记录syslog的代码，所以从bash4.2/bashhist.c里复�
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -306,16 +271,13 @@ bash3.1里默认没有记录syslog的代码，所以从bash4.2/bashhist.c里复�
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -326,4 +288,3 @@ bash3.1里默认没有记录syslog的代码，所以从bash4.2/bashhist.c里复�
     <!-- UJian Button END -->
   </body>
 </html>
-

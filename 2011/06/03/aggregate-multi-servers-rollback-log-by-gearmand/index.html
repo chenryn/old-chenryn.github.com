@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>用gearman汇总多台服务器的回滚日志</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,8 +163,6 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#gearman-ref">gearman <span>4</span></a></li>
@@ -183,9 +170,6 @@
     	<li><a href="/tags.html#perl-ref">perl <span>52</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
@@ -193,54 +177,40 @@
     <p>gearman其实不是重点，因为我就是抄了一遍perldoc的样例而已。关键在服务器上的log4j日志是回滚的，所以需要配合回滚（猜测log4j的DailyRollingFile回滚方式类似mv resin.log resin.log-ymd &amp;&amp; reload，这样在回滚后，FH还在resin.log-ymd上，就读不到新日志了）重启FH。
 另：tail命令有个参数-F/&ndash;follow=name，可以锁定文件名而不是文件描述符，不知道这个功能是怎么做到的？
 一步一步来：</p>
-
 <ul>
   <li>jobserver</li>
 </ul>
-
 <div class="highlight"><pre><code class="bash">cpan -i Gearman::Server
 gearmand -d -L 10.168.170.25 -p 7003
 </code></pre></div>
-
 <ul>
   <li>worker</li>
 </ul>
-
 <div class="highlight"><pre><code class="bash">cpan -i Gearman::Worker
 </code></pre></div>
-
 <p>然后看日志的脚本，其实也就是样例：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
 <span class="k">use</span> <span class="nn">Gearman::</span><span class="n">Worker</span><span class="p">;</span>
-
 <span class="k">my</span> <span class="nv">$worker</span> <span class="o">=</span> <span class="nn">Gearman::</span><span class="n">Worker</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
 <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">job_servers</span><span class="p">(</span><span class="s">&#39;10.1.1.25:7003&#39;</span><span class="p">);</span>
 <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">register_function</span><span class="p">(</span> <span class="n">watchlog</span> <span class="o">=&gt;</span> <span class="o">\&amp;</span><span class="n">watchlog</span> <span class="p">);</span>
 <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">work</span> <span class="k">while</span> <span class="mi">1</span><span class="p">;</span>
-
 <span class="k">sub </span><span class="nf">watchlog</span> <span class="p">{</span>
     <span class="k">my</span> <span class="nv">$job</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
     <span class="k">print</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">arg</span><span class="p">,</span><span class="s">&quot;\n&quot;</span><span class="p">;</span>
 <span class="p">}</span>
 </code></pre></div>
-
 <ul>
   <li>client（也就是多台resin服务器上）</li>
 </ul>
-
 <div class="highlight"><pre><code class="bash">cpan -i Gearman::Client
 </code></pre></div>
-
 <p>然后是脚本：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
 <span class="k">use</span> <span class="nn">Gearman::</span><span class="n">Client</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(strftime)</span><span class="p">;</span>
-
 <span class="k">my</span> <span class="nv">$client</span> <span class="o">=</span> <span class="nn">Gearman::</span><span class="n">Client</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
 <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">job_servers</span><span class="p">(</span><span class="s">&#39;10.1.1.25:7003&#39;</span><span class="p">);</span>
-
 <span class="o">&amp;</span><span class="nb">read</span><span class="p">;</span>
 <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
     <span class="nb">open</span> <span class="n">FH1</span><span class="p">,</span><span class="s">&#39;&lt;&#39;</span><span class="p">,</span><span class="s">&#39;/tmp/pid.txt&#39;</span><span class="p">;</span>
@@ -253,7 +223,6 @@ gearmand -d -L 10.168.170.25 -p 7003
         <span class="o">&amp;</span><span class="nb">read</span><span class="p">;</span>   
     <span class="p">}</span>
 <span class="p">}</span>
-
 <span class="k">sub </span><span class="nf">read</span> <span class="p">{</span>
 <span class="k">my</span> <span class="nv">$pid</span> <span class="o">=</span> <span class="nb">fork</span><span class="p">();</span>
 <span class="k">if</span> <span class="p">(</span><span class="nv">$pid</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
@@ -272,8 +241,6 @@ gearmand -d -L 10.168.170.25 -p 7003
     <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -288,30 +255,21 @@ gearmand -d -L 10.168.170.25 -p 7003
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -329,8 +287,6 @@ gearmand -d -L 10.168.170.25 -p 7003
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -347,16 +303,13 @@ gearmand -d -L 10.168.170.25 -p 7003
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -367,4 +320,3 @@ gearmand -d -L 10.168.170.25 -p 7003
     <!-- UJian Button END -->
   </body>
 </html>
-

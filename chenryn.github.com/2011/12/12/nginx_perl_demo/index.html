@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>nginx_perl试用</title>
+    
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+            
+            
+            
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/archive.html">Archive</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/categories.html">Categories</a></li>
+      	
+      
+    
+  
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">Tags</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+        
+<div class="row">
+  <div class="page-header">
+    <h1>nginx_perl试用 <small></small></h1>
+    <div class="date"><span>12 December 2011</span></div>
+  
+    <ul class="tag_box pull-right">
+    
+    
+  
+     
+    	<li><a href="/tags.html#perl-ref">perl <span>52</span></a></li>
+     
+    	<li><a href="/tags.html#nginx-ref">nginx <span>11</span></a></li>
+    
+  
+    </ul>
+    
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>因为空闲时间比较多，所以在CPAN上乱翻，看到了nginx_perl这个项目(原名Nginx::Engine)，现在托管在github.com上。地址见：
+https://github.com/zzzcpan/nginx-perl
+这个模块的目的，是在nginx内置官方perl模块的基础上，实现一系列异步非阻塞的api。用connector/writer/reader完成类似proxy的功能（这里因为是交给perl完成，所以不单单局限在http上了），用take_connection/give_connection完成类似websocket的功能，用ssl_handshaker完成ssl的解析，用timer完成定时器，用resolver完成域名解析…使用方法简单来说，就是用main_count_inc/finalize_request控制计数器，用NGX_READ/NGX_WRITE/NGX_CLOSE等控制callback。
+其他内容和apache的mod_perl，或者nginx.org的perl类似。最新版的POD地址如下：
+http://zzzcpan.github.com/nginx-perl/Nginx.html
+最后举例一个自己写的简单的例子：</p>
+<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="n">HelloWorld</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">Nginx</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="c1">#用来在nginx启动的时候做的事情，这里单纯显示一下</span>
+<span class="k">sub </span><span class="nf">init_worker</span> <span class="p">{</span>
+    <span class="nb">warn</span> <span class="s">&#39;nginx_perl start [OK]&#39;</span><span class="p">;</span>
+<span class="p">};</span>
+<span class="c1">#这里是nginx的http模块中调用的handler，alexander有计划改成tcp级别的</span>
+<span class="k">sub </span><span class="nf">handler</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+<span class="c1">#增加主循环的计数器</span>
+    <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">main_count_inc</span><span class="p">;</span>
+<span class="c1">#使用非阻塞的连接器连接127.0.0.1的80端口，10秒超时</span>
+    <span class="n">ngx_connector</span> <span class="s">&#39;127.0.0.1&#39;</span><span class="p">,</span> <span class="mi">80</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+<span class="c1">#如果连接出问题，会记录在$!中</span>
+        <span class="k">if</span> <span class="p">(</span><span class="vg">$!</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">send_http_header</span><span class="p">(</span><span class="s">&#39;text/html&#39;</span><span class="p">);</span>
+            <span class="nv">$r</span><span class="o">-&gt;</span><span class="k">print</span><span class="p">(</span><span class="s">&quot;Connection failed, $!\n&quot;</span><span class="p">);</span>
+            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">send_special</span><span class="p">(</span><span class="n">NGX_HTTP_LAST</span><span class="p">);</span>
+<span class="c1">#不管怎么处理这次连接，最后一定要记得用$r-&gt;finalize_request()，会decrease之前$r-&gt;main_count_inc;里加上的计数。</span>
+            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">finalize_request</span><span class="p">(</span><span class="n">NGX_OK</span><span class="p">);</span>
+            <span class="k">return</span> <span class="n">NGX_CLOSE</span><span class="p">;</span>
+        <span class="p">};</span>
+<span class="c1">#返回$c是建立的连接</span>
+        <span class="k">my</span> <span class="nv">$c</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">$req_buf</span> <span class="o">=</span> <span class="s">&quot;GET /index.php HTTP/1.0\x0d\x0a&quot;</span><span class="o">.</span>
+              <span class="s">&quot;Host: chenlinux.com\x0d\x0a&quot;</span><span class="o">.</span>
+              <span class="s">&quot;Connection: close\x0d\x0a&quot;</span><span class="o">.</span>
+              <span class="s">&quot;\x0d\x0a&quot;</span><span class="p">;</span>
+<span class="c1">#这里记住定义buffer的时候不要搞成undef了，会报段错误的，不过俄国佬回信说他修复了</span>
+        <span class="k">my</span> <span class="nv">$res_buf</span> <span class="o">=</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="c1">#非阻塞写入，超时10秒</span>
+        <span class="n">ngx_writer</span> <span class="nv">$c</span><span class="p">,</span> <span class="nv">$req_buf</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+            <span class="k">if</span> <span class="p">(</span><span class="vg">$!</span><span class="p">)</span> <span class="p">{</span>
+                 <span class="o">......</span>
+            <span class="p">};</span>
+            <span class="nv">$req_buf</span> <span class="o">=</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="c1">#之前的buffer测试就是这里，如果加一个warn，就不会报错……汗</span>
+<span class="c1">#warn &quot;$req_buf\n$res_buf\n&quot;;</span>
+<span class="c1">#写入完成后，开始调用读取</span>
+            <span class="k">return</span> <span class="n">NGX_READ</span><span class="p">;</span>
+        <span class="p">};</span>
+<span class="c1">#读取到buffer，最短0字节，最长8000字节，超时10秒</span>
+        <span class="n">ngx_reader</span> <span class="nv">$c</span><span class="p">,</span> <span class="nv">$res_buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">8000</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+            <span class="k">if</span> <span class="p">(</span><span class="vg">$!</span><span class="p">)</span> <span class="p">{</span>
+            <span class="o">......</span>
+            <span class="p">}</span>
+            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">send_http_header</span><span class="p">(</span><span class="s">&#39;text/html&#39;</span><span class="p">);</span>
+            <span class="nv">$r</span><span class="o">-&gt;</span><span class="k">print</span><span class="p">(</span><span class="nv">$res_buf</span><span class="p">);</span>
+            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">send_special</span><span class="p">(</span><span class="n">NGX_HTTP_LAST</span><span class="p">);</span>
+            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">finalize_request</span><span class="p">(</span><span class="n">NGX_OK</span><span class="p">);</span>
+            <span class="k">return</span> <span class="n">NGX_CLOSE</span><span class="p">;</span>
+        <span class="p">};</span>
+<span class="c1">#这个是connector的语句，表示连接成功后调用写入</span>
+        <span class="k">return</span> <span class="n">NGX_WRITE</span><span class="p">;</span>
+    <span class="p">};</span>
+<span class="c1">#各个非阻塞调用完成后的返回，NGX_DONE只能用在http的handler里，不能在ngx_*r里用，里面请用NGX_CLOSE。</span>
+    <span class="k">return</span> <span class="n">NGX_DONE</span><span class="p">;</span>
+<span class="p">};</span>
+<span class="mi">1</span><span class="p">;</span>
+</code></pre></div>
+<p>另：源码中带有一个真正的反向http的例子Nginx::Util和一个Redis的例子。并且与nodejs读取redis的性能做了对比。可以参见~~
+<strong style="display:block;margin:12px 0 4px"><a href="http://www.slideshare.net/chenryn/perlnginx" title="Perl在nginx里的应用" target="_blank">Perl在nginx里的应用</a></strong></p>
+    <hr>
+    <div class="pagination">
+      <ul>
+      
+        <li class="prev"><a href="/2011/11/04/test_websocket_with_dancer" title="websocket体验">&larr; Previous</a></li>
+      
+        <li><a href="/archive.html">Archive</a></li>
+      
+        <li class="next"><a href="/2011/12/15/learning_dancer_plugin_simplecrud" title="Dancer::Plugin::SimpleCRUD模块学习">Next &rarr;</a></li>
+      
+      </ul>
+    </div>
+    <hr>
+    
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+  
+      </div>
+      <div class="span4">
+          
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+               
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+               
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+               
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+               
+                 <li> <a href="/2013/01/31/puppet-define-type-and-custom-function">Puppet 自定义 type 和 function</a></li>
+               
+                 <li> <a href="/2013/01/11/systemtap-to-debug-kmsg-dump">用 systemtap 调试 kmsg dump</a></li>
+               
+                 <li> <a href="/2013/01/10/update-puppet-to-3.0">升级 Puppet 到 3.0 及其他附件简介</a></li>
+               
+                 <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
+               
+                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
+               
+            </ul>
+          </div>
+        
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>【Logstash系列】用rabbitmq和elasticsearch搭建分布式日志收集存储系统</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,8 +163,6 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#rabbitmq-ref">rabbitmq <span>1</span></a></li>
@@ -183,29 +170,21 @@
     	<li><a href="/tags.html#elasticsearch-ref">elasticsearch <span>8</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>上上篇讲到怎样用MRI的ruby在客户端收集日志。今天主要注意服务器端，考虑grok、elastic、web这几个功能在JRuby上才好。所以服务器端可以再开一个JRuby的进程。</p>
-
 <ul>
   <li>首先安装RabbitMQ的过程</li>
 </ul>
-
 <p>最简单的办法，采用epel的yum，或者apt安装。其次简单的办法，从rabbitmq上下载bin的tar.gz。 <br />
 这里需要注意一下，rabbitmq-server启动的时候，默认node启动在rabbit@${hostname}上。而且这个hostname不是fqdn的，是第一个主机名。比方说你的hostname是MyHome-1.mydomain.com.，那node就是rabbit@MyHome-1。这个时候很容易报Connect MyHome-1 timeout。所以/etc/hosts一定要写好。  <br />
 rabbitmq-server起来之后，可以用rabbitmyctl来具体的创建user啊，vhost啊之类的东西，作为测试，我们就直接使用默认的guest用户和/了。</p>
-
 <ul>
   <li>然后安装elasticsearch的过程</li>
 </ul>
-
 <p>这一步在logstash的docs里讲的很清楚了，就是下载tar.gz，解压然后java运行起来即可：    </p>
-
 <div class="highlight"><pre><code class="bash"><span class="nv">ES_PACKAGE</span><span class="o">=</span>elasticsearch-0.18.7.zip
 <span class="nv">ES_DIR</span><span class="o">=</span><span class="k">${</span><span class="nv">ES_PACKAGE</span><span class="p">%%.zip</span><span class="k">}</span>
 <span class="nv">SITE</span><span class="o">=</span>https://github.com/downloads/elasticsearch/elasticsearch
@@ -214,13 +193,10 @@ rabbitmq-server起来之后，可以用rabbitmyctl来具体的创建user啊，vh
   unzip <span class="nv">$ES_PACKAGE</span>
 <span class="k">fi</span>
 </code></pre></div>
-
 <ul>
   <li>部署一个logstash的采集节点</li>
 </ul>
-
 <p>和上篇所述一样，传输一个删减版的Gemfile到采集节点。然后使用bundle安装这些模块：    </p>
-
 <div class="highlight"><pre><code class="bash">mkdir -p /usr/local/logstash/etc /usr/local/logstash/bin /usr/local/logstash/lib
 scp <span class="k">${</span><span class="nv">logstashmaster</span><span class="k">}</span>:/usr/local/logstash/Gemfile /usr/local/logstash/
 scp -rf <span class="k">${</span><span class="nv">logstashmaster</span><span class="k">}</span>:/usr/local/logstash/lib/* /usr/local/logstash/lib/
@@ -229,16 +205,13 @@ gem install bundler
 <span class="nb">cd</span> /usr/local/logstash/
 bundle install
 </code></pre></div>
-
 <p>然后编写一个使用rabbitmq的配置文件：</p>
-
 <div class="highlight"><pre><code class="ruby"><span class="n">input</span> <span class="p">{</span>
   <span class="n">file</span> <span class="p">{</span>
     <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;syslog&quot;</span>
     <span class="n">path</span> <span class="o">=&gt;</span> <span class="o">[</span><span class="s2">&quot;/var/log/syslog.log&quot;</span><span class="p">,</span> <span class="s2">&quot;/var/log/messages&quot;</span> <span class="o">]</span>
   <span class="p">}</span> 
 <span class="p">}</span>
-
 <span class="n">output</span> <span class="p">{</span>
   <span class="n">amqp</span> <span class="p">{</span>
     <span class="n">host</span> <span class="o">=&gt;</span> <span class="s2">&quot;MyHome-1&quot;</span>
@@ -247,16 +220,12 @@ bundle install
   <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
-
 <p>OK，用ruby /usr/local/logstash/bin/logstash agent -f /usr/local/logstash/etc/agent.conf启动即可。</p>
-
 <ul>
   <li>部署一个logstash的汇聚节点</li>
 </ul>
-
 <p>这一步因为用到的模块大多是JRuby的，所以可以直接使用jar包的方式简单搞定。
 编写一个使用rabbitmq和elasticsearch的配置文件：</p>
-
 <div class="highlight"><pre><code class="ruby"><span class="n">input</span> <span class="p">{</span>
   <span class="n">amqp</span> <span class="p">{</span>
     <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;syslog&quot;</span>
@@ -265,7 +234,6 @@ bundle install
     <span class="nb">name</span> <span class="o">=&gt;</span> <span class="s2">&quot;rawlogs_consumer&quot;</span>
   <span class="p">}</span>
 <span class="p">}</span>
-
 <span class="n">filter</span> <span class="p">{</span>
   <span class="n">grok</span> <span class="p">{</span>
     <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;syslog&quot;</span>
@@ -274,26 +242,18 @@ bundle install
 <span class="p">}</span>
 <span class="n">output</span> <span class="p">{</span>
   <span class="n">elasticsearch</span> <span class="p">{</span> <span class="p">}</span>
-
 <span class="p">}</span>
 </code></pre></div>
-
 <p>这里比较讨厌的还是rabbitmq的部分。假如前面的步骤rabbitmq-server压根启动失败了，这里amqp不会返回报错说连接失败或者连接node超时什么的，而是说你试图连接一个私有的被锁定的队列……</p>
-
 <ul>
   <li>部署一个logstash的展示节点</li>
 </ul>
-
 <p>这个节点就没必要再单开一台了，就用上面的jar包再启动一个web即可：java -jar logstash-1.1.0-monolithic.jar agent -f server.conf &ndash; web &ndash;backend &lsquo;elasticsearch:///?local&rsquo;</p>
-
 <ul>
   <li>测试</li>
 </ul>
-
 <p>现在可以打开浏览器访问web查看了。很简单的页面，顶上一个搜索栏，中间一个按时间轴显示的柱状图，下面是具体的日志记录。点具体的某条日志，会有浮框显示该条记录的详细信息(host/date/event/message等)</p>
-
 <p>下一步研究grok正则匹配的编写，然后stated实时绘图，lucene查询语法。</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -308,30 +268,21 @@ bundle install
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -349,8 +300,6 @@ bundle install
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -367,16 +316,13 @@ bundle install
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -387,4 +333,3 @@ bundle install
     <!-- UJian Button END -->
   </body>
 </html>
-

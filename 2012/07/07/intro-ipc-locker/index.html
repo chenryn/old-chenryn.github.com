@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>IPC::Locker模块介绍</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,51 +163,34 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>当你需要给一个集群的某项服务做简单的排他性管理的时候，强力推荐Veripool公司的一系列模块：IPC::Locker、Schedule::Load。</p>
-
 <p>今天先说IPC::Locker模块。部署很简单，直接在集群所有节点上运行cpanm IPC::Locker即可。该模块依赖几个都是perl的核心模块比如IO::Socket::INET、IO::Poll和POSIX。所以理论上你也可以把代码打个包分发。</p>
-
 <p>随包分发的还有几个现成的脚本程序lockerd、lockersh、pidstat、pidstatd和pidwatch。</p>
-
 <p>后面三个关注的remote设备上的pid是否存在等，但是相信一般情况下，我们不会自己来通过pid管理集群，所以在使用上只要理解lockerd和lockersh其实也是用pidstatd来解决pid问题的就够了。</p>
-
 <p>其实代码很简单，看看就明白，无非就是lockerd用的IPC::Locker::Server是启动了一个IO::Socket::INET做tcp server，主要维护几个东西，一个是@{$self-&gt;{lock}}列表，一个是@{$self-&gt;{host}}列表，一个是$self-&gt;{locked}的Bool值。</p>
-
 <p>而lockersh用的IPC::Locker则是连接上lockerd的端口，检查$self-&gt;{locked}状态，如果没locked就发送LOCK请求，然后fork一个进行exec你定义的shell命令，执行完成后，unlock发送UNLOCK请求给lockerd。</p>
-
 <p>做个简单实验：</p>
-
 <ol>
   <li>在serverA上运行lockerd &amp;     </li>
   <li>在serverB上运行lockersh &ndash;dhost serverA &ndash;lock test_task &lsquo;while true;do echo &ldquo;OK&rdquo;;done&rsquo;</li>
   <li>在serverC上运行lockersh &ndash;dhost serverA &ndash;lock test_task &lsquo;while true;do echo &ldquo;OK&rdquo;;done&rsquo;</li>
   <li>在serverD上运行lockersh &ndash;dhost serverA &ndash;lock other_task &lsquo;while true;do echo &ldquo;OK&rdquo;;done&rsquo;</li>
 </ol>
-
 <p>观察一下，结果是在serverB和serverD上同时在执行echo &ldquo;OK&rdquo;。而serverC被lock住了。继续：</p>
-
 <ol>
   <li>在serverB的session上按下Ctrl+C终止程序，然后再次运行上述命令</li>
   <li>在serverC的session上按下Ctrl+C终止程序</li>
 </ol>
-
 <p>观察一下，结果是停止B时C的即开始，停止C的后B的继续。这些都不影响serverD的运行。</p>
-
 <ol>
   <li>终止serverD的程序，改为运行lockersh &ndash;dhost serverA &ndash;lock test_task &lsquo;while true;do echo &ldquo;OK&rdquo;;done&rsquo;</li>
 </ol>
-
 <p>观察一下，发现B、C、D是按照lockersh的执行次序解锁的。因为hostlist是一个列表，在server上是用for循环的。</p>
-
 <p>注意：必须要先运行lockerd并且保证不中途退出。经过测试，如果lockerd中途退出再重新运行的话，因为locklist是保存在内存里会丢失的。结果就会出现之前的lockersh还在执行(他已经获得了lock，在unlock之前不会再和server通信的)，之后再启动的新lockersh会在新lockerd上又获得一次lock的情况……</p>
-
 <p>后一个Schedule::Load则可以根据集群设备的loadavg，top等，决定在哪台设备上运行job。还没测试。之后再记录。</p>
-
 <p>补充：贴一个脚本，仿照lockersh改写的squid集群重启及报警控制：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
 <span class="k">use</span> <span class="n">FindBin</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">lib</span> <span class="s">&quot;$FindBin::Bin/../lib&quot;</span><span class="p">;</span>
-
 <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">autodie</span><span class="p">;</span>
@@ -226,20 +198,14 @@
 <span class="sx">use </span><span class="n">Furl</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">IO::</span><span class="n">File</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">Getopt::</span><span class="n">Long</span><span class="p">;</span>
-
 <span class="k">use</span> <span class="nn">IPC::</span><span class="n">Locker</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">IPC::</span><span class="n">PidStat</span><span class="p">;</span>
-
 <span class="c1">#======================================================================</span>
-
 <span class="k">my</span> <span class="nv">$pscount</span> <span class="o">=</span> <span class="sb">`ps aux|grep -v grep|grep $0|wc -l`</span><span class="p">;</span>
 <span class="k">print</span> <span class="s">&quot;Already run, waiting for lock now&quot;</span> <span class="ow">and</span> <span class="nb">exit</span> <span class="k">unless</span> <span class="nv">$pscount</span> <span class="o">==</span> <span class="mi">1</span><span class="p">;</span>
-
 <span class="c1">#======================================================================</span>
-
 <span class="k">my</span> <span class="nv">%server_params</span> <span class="o">=</span> <span class="p">(</span><span class="n">lock</span><span class="o">=&gt;[]</span><span class="p">);</span>
 <span class="k">my</span> <span class="nv">$cluserv</span><span class="p">;</span>
-
 <span class="nv">$Debug</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
 <span class="nn">Getopt::Long::</span><span class="n">config</span> <span class="p">(</span><span class="s">&quot;require_order&quot;</span><span class="p">);</span>
 <span class="k">if</span> <span class="p">(</span><span class="o">!</span> <span class="n">GetOptions</span> <span class="p">(</span>
@@ -253,12 +219,9 @@
                   <span class="p">))</span> <span class="p">{</span>
     <span class="nb">die</span> <span class="s">&quot;%Error: Bad usage, see lockersh --help\n&quot;</span><span class="p">;</span>
 <span class="p">}</span>
-
 <span class="nv">$#</span><span class="p">{</span><span class="nv">$server_params</span><span class="p">{</span><span class="n">lock</span><span class="p">}}</span><span class="o">&gt;=</span><span class="mi">0</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;%Error: --cluster not specified; see lockersh --help\n&quot;</span><span class="p">;</span>
-
 <span class="c1"># Fork once to start parent process</span>
 <span class="k">my</span> <span class="nv">$foreground_pid</span> <span class="o">=</span> <span class="vg">$$</span><span class="p">;</span>  <span class="c1"># Unlike most forks, the job goes in the parent</span>
-
 <span class="c1"># Do this while we still have STDERR.</span>
 <span class="k">my</span> <span class="nv">$lock</span>  <span class="o">=</span> <span class="k">new</span> <span class="nn">IPC::</span><span class="n">Locker</span> <span class="p">(</span><span class="n">verbose</span><span class="o">=&gt;</span><span class="mi">0</span><span class="p">,</span>
                              <span class="n">timeout</span><span class="o">=&gt;</span><span class="mi">0</span><span class="p">,</span>
@@ -268,7 +231,6 @@
                              <span class="p">);</span>
 <span class="nv">$lock</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;%Error: Did not connect to lockerd,&quot;</span><span class="p">;</span>
 <span class="nv">$lock</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">;</span>
-
 <span class="k">if</span> <span class="p">(</span><span class="k">my</span> <span class="nv">$pid</span> <span class="o">=</span> <span class="nb">fork</span><span class="p">())</span> <span class="p">{</span>  <span class="c1"># Parent process, foreground job</span>
     <span class="k">print</span> <span class="s">&quot;\tForeground: $cluserv\n&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
     <span class="c1"># The child forks again quickly.  Sometimes, SIG_CHLD leaks to us and</span>
@@ -279,15 +241,12 @@
     <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="vg">$?</span><span class="p">)</span> <span class="p">{</span>
         <span class="nb">die</span> <span class="s">&quot;%Error: Child process died with status $?,&quot;</span><span class="p">;</span>
     <span class="p">}</span>
-
     <span class="k">print</span> <span class="s">&quot;Exec in $$\n&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
     <span class="o">&amp;</span><span class="n">service</span><span class="p">(</span><span class="nv">$cluserv</span><span class="p">);</span>
 <span class="p">}</span>
 <span class="c1">#else, rest is for child process.</span>
-
 <span class="c1"># Disassociate from controlling terminal</span>
 <span class="nn">POSIX::</span><span class="n">setsid</span><span class="p">()</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;%Error: Can&#39;t start a new session: $!&quot;</span><span class="p">;</span>
-
 <span class="c1"># Change working directory</span>
 <span class="nb">chdir</span> <span class="s">&quot;/&quot;</span><span class="p">;</span>
 <span class="nb">open</span><span class="p">(</span><span class="bp">STDIN</span><span class="p">,</span>  <span class="s">&quot;+&gt;/dev/null&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;%Error: Can&#39;t re-open STDIN: $!&quot;</span><span class="p">;</span>
@@ -297,20 +256,16 @@
 <span class="p">}</span>
 <span class="c1"># Prevent possibility of acquiring a controlling terminal</span>
 <span class="nb">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="nb">fork</span><span class="p">();</span>
-
 <span class="c1"># Wait for child to complete.  We can&#39;t waitpid, as we&#39;re not the parent</span>
 <span class="k">while</span> <span class="p">(</span><span class="nn">IPC::PidStat::</span><span class="n">local_pid_exists</span><span class="p">(</span><span class="nv">$foreground_pid</span><span class="p">))</span> <span class="p">{</span> <span class="nb">sleep</span> <span class="mi">1</span><span class="p">;</span> <span class="p">}</span>
 <span class="k">print</span> <span class="s">&quot;Parent $foreground_pid completed\n&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
-
 <span class="c1"># Unlock</span>
 <span class="nv">$lock</span><span class="o">-&gt;</span><span class="n">unlock</span><span class="p">;</span> <span class="nv">$lock</span><span class="o">=</span><span class="nb">undef</span><span class="p">;</span>
 <span class="k">print</span> <span class="s">&quot;Child exiting\n&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
-
 <span class="k">sub </span><span class="nf">debug</span> <span class="p">{</span>
     <span class="nv">$Debug</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
     <span class="nv">$</span><span class="nn">IPC::Locker::</span><span class="nv">Debug</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
 <span class="p">}</span>
-
 <span class="k">sub </span><span class="nf">service</span> <span class="p">{</span>
     <span class="k">my</span> <span class="nv">$cluserv</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
     <span class="nb">die</span> <span class="s">&quot;Only support squid now!&quot;</span> <span class="k">unless</span> <span class="nv">$cluserv</span> <span class="ow">eq</span> <span class="s">&quot;squid&quot;</span><span class="p">;</span>
@@ -322,7 +277,6 @@
         <span class="nb">sleep</span> <span class="mi">300</span><span class="p">;</span>
     <span class="p">};</span>
 <span class="p">}</span>
-
 <span class="k">sub </span><span class="nf">squid_check</span> <span class="p">{</span>
     <span class="k">my</span> <span class="nv">$hit_rate</span><span class="p">;</span>
     <span class="k">print</span> <span class="s">&quot;Run squid_check&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
@@ -337,24 +291,19 @@
     <span class="nb">close</span> <span class="nv">$fh</span><span class="p">;</span>
     <span class="k">return</span> <span class="nv">$hit_rate</span><span class="p">;</span>
 <span class="p">}</span>
-
 <span class="k">sub </span><span class="nf">squid_reload</span> <span class="p">{</span>
     <span class="k">print</span> <span class="s">&quot;Reload squid daemon. Do not reload within 10 mins of squid start&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
     <span class="nb">system</span><span class="p">(</span><span class="s">&quot;squid&quot;</span><span class="p">,</span> <span class="s">&quot;-k&quot;</span><span class="p">,</span> <span class="s">&quot;reconfigure&quot;</span><span class="p">);</span>
     <span class="k">return</span> <span class="vg">$?</span><span class="p">;</span>
 <span class="p">}</span>
-
 <span class="k">sub </span><span class="nf">notify</span> <span class="p">{</span>
     <span class="k">my</span> <span class="nv">$furl</span> <span class="o">=</span> <span class="n">Furl</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="n">agent</span> <span class="o">=&gt;</span> <span class="s">&quot;Clustrol/0.1&quot;</span><span class="p">);</span>
     <span class="nv">$furl</span><span class="o">-&gt;</span><span class="n">post</span><span class="p">(</span><span class="s">&quot;http://monitor.domain.com/eml/&quot;</span><span class="p">,</span>
         <span class="p">[</span> <span class="n">data</span> <span class="o">=&gt;</span> <span class="s">&quot;$_&quot;</span> <span class="p">],</span>
     <span class="p">);</span>
 <span class="p">}</span>
-
 <span class="cp">__END__</span>
 </code></pre></div>
-
-
     <hr>
     <div class="pagination">
       <ul>
@@ -369,30 +318,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -410,8 +350,6 @@
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -428,16 +366,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -448,4 +383,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,17 +5,14 @@
     <title>用AnyEvent和ForkManager写一个http协议的压测工具</title>
     
     <meta name="author" content="陈子">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
     <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
     <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
-
     <!-- Le fav and touch icons -->
   <!-- Update these with your own images
     <link rel="shortcut icon" href="images/favicon.ico">
@@ -25,9 +21,7 @@
     <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
   -->
   </head>
-
   <body>
-
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container">
@@ -36,8 +30,6 @@
             
             
             
-
-
   
     
       
@@ -87,10 +79,6 @@
   
     
       
-    
-  
-    
-      
       	
       	<li><a href="/tags.html">Tags</a></li>
       	
@@ -98,8 +86,6 @@
     
   
     
-      
-    
   
     
       
@@ -149,9 +135,14 @@
       
     
   
-
-
-
+    
+      
+    
+  
+    
+      
+    
+  
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
             <li><a href="/links.html">友情链接</a></li>
             <li><a href="/projects.html">学习记录</a></li>
@@ -160,10 +151,8 @@
         </div>
       </div>
     </div>
-
     <div class="container">
     <div class="row">
-
       <div class="span7">
         
 <div class="row">
@@ -174,27 +163,20 @@
     <ul class="tag_box pull-right">
     
     
-
-
   
      
     	<li><a href="/tags.html#perl-ref">perl <span>52</span></a></li>
     
   
-
-
-
     </ul>
     
   </div>
   <div style='background-color: #FFF;'>
     <p>话不多说，先上第一版的代码：</p>
-
 <div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Time::</span><span class="n">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">AnyEvent::</span><span class="n">HTTP</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">AnyEvent</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">Coro</span><span class="p">;</span>
-
 <span class="k">my</span> <span class="nv">%code</span><span class="p">;</span>
 <span class="k">my</span> <span class="nv">$count</span> <span class="o">=</span> <span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
 <span class="k">my</span> <span class="nv">$url</span> <span class="o">=</span> <span class="s">&quot;https://10.10.10.10/&quot;</span><span class="p">;</span>
@@ -217,17 +199,11 @@
 <span class="nv">$_</span><span class="o">-&gt;</span><span class="nb">join</span> <span class="k">for</span> <span class="nv">@coro</span><span class="p">;</span>
 <span class="k">print</span> <span class="nv">$cpus</span><span class="o">*</span><span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="nb">time</span><span class="o">-</span><span class="nv">$begin</span><span class="p">);</span>
 </code></pre></div>
-
 <p>上面这段脚本，作用是在每个进程中运行事件驱动的协程，以达到尽可能大的并发请求。</p>
-
 <p>初步的测试，在单核Coro的情况下可以每秒发送1000+的https请求。</p>
-
 <p>注意：如果使用的是AnyEvent::HTTP::LWP::UserAgent模块，虽然POD里写它用的其实就是AnyEvent::HTTP的代码套LWP的API格式，但实际只能用到30%的CPU，单核情况下的qps也就不到350的样子。</p>
-
 <p>注意：本例测试的是HTTPS，AnyEvent::HTTP在TLS模式(即https请求)下，无法开启persistent连接。如果是普通http请求，开启persistent参数的qps应该会更高！</p>
-
 <p>然后上第二版的代码，改用了EV循环，性能比Coro协程提高了大概5%的样子。使用了fork多进程，并且绑定到不同的CPU核上。</p>
-
 <div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl</span>
 <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
@@ -238,19 +214,16 @@
 <span class="k">use</span> <span class="nn">AnyEvent::</span><span class="n">HTTP</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">AE</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">EV</span><span class="p">;</span>
-
 <span class="k">my</span> <span class="nv">$cpus</span> <span class="o">=</span> <span class="nn">Sys::CpuAffinity::</span><span class="n">getNumCpus</span><span class="p">();</span>
 <span class="k">my</span> <span class="nv">$pm</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">Parallel::</span><span class="n">ForkManager</span><span class="p">(</span><span class="nv">$cpus</span><span class="p">,</span> <span class="s">&quot;/tmp/&quot;</span><span class="p">);</span>
 <span class="k">my</span> <span class="nv">@urls</span> <span class="o">=</span> <span class="sx">qw(https://10.11.19.35/ https://10.11.21.121/)</span><span class="p">;</span>
 <span class="k">my</span> <span class="nv">$res</span><span class="p">;</span>
-
 <span class="nv">$pm</span><span class="o">-&gt;</span><span class="n">run_on_finish</span><span class="p">(</span> <span class="k">sub </span><span class="p">{</span>
     <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="nv">$_</span><span class="p">[</span><span class="mi">5</span><span class="p">];</span>
     <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$_</span><span class="p">}</span> <span class="o">+=</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$_</span><span class="p">}</span> <span class="k">for</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}};</span>
     <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;size&#39;</span><span class="p">}</span> <span class="o">+=</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;size&#39;</span><span class="p">};</span>
     <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;time&#39;</span><span class="p">}</span> <span class="o">+=</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;time&#39;</span><span class="p">};</span>
 <span class="p">});</span>
-
 <span class="k">my</span> <span class="nv">$begin</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
 <span class="k">foreach</span> <span class="k">my</span> <span class="nv">$cpu</span> <span class="p">(</span><span class="mi">1</span> <span class="o">..</span> <span class="nv">$cpus</span><span class="p">)</span> <span class="p">{</span>
     <span class="k">my</span> <span class="nv">$pid</span> <span class="o">=</span> <span class="nv">$pm</span><span class="o">-&gt;</span><span class="n">start</span> <span class="ow">and</span> <span class="k">next</span><span class="p">;</span>
@@ -260,12 +233,10 @@
 <span class="p">}</span>
 <span class="nv">$pm</span><span class="o">-&gt;</span><span class="n">wait_all_children</span><span class="p">;</span>
 <span class="k">my</span> <span class="nv">$use</span> <span class="o">=</span> <span class="nb">time</span> <span class="o">-</span> <span class="nv">$begin</span><span class="p">;</span>
-
 <span class="nb">printf</span> <span class="s">&quot;%d fetches, %d max processes, in %.03f seconds\n&quot;</span><span class="p">,</span> <span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="nv">$cpus</span><span class="p">,</span> <span class="nv">$cpus</span><span class="p">,</span> <span class="nv">$use</span><span class="p">;</span>
 <span class="nb">printf</span> <span class="s">&quot;%.03f fetches/sec, %.03f bytes/sec\n&quot;</span><span class="p">,</span> <span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="nv">$cpus</span> <span class="sr">/ $use, $res-&gt;{&#39;size&#39;} /</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;time&#39;</span><span class="p">};</span>
 <span class="nb">printf</span> <span class="s">&quot;HTTP response codes:\n&quot;</span><span class="p">;</span>
 <span class="nb">printf</span> <span class="s">&quot;       %d - %d\n&quot;</span><span class="p">,</span> <span class="nv">$_</span><span class="p">,</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$_</span><span class="p">}</span> <span class="k">for</span> <span class="nb">sort</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}};</span>
-
 <span class="k">sub </span><span class="nf">ae_get</span> <span class="p">{</span>
     <span class="k">my</span> <span class="p">(</span><span class="nv">$count</span><span class="p">,</span> <span class="nv">$urls</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
     <span class="k">my</span> <span class="nv">$data</span><span class="p">;</span>
@@ -293,10 +264,8 @@
     <span class="k">return</span> <span class="nv">$data</span><span class="p">;</span>
 <span class="p">}</span>
 </code></pre></div>
-
 <p>增加了简单的统计功能，包括每秒请求数、平均下载速度，状态码汇总等。因为不好计算header的长度，所以只计算body部分的下载速度。
 增加了url列表功能，每次请求会随机的抽取其中的一个url。</p>
-
     <hr>
     <div class="pagination">
       <ul>
@@ -311,30 +280,21 @@
     </div>
     <hr>
     
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
   
-
-
       </div>
-
       <div class="span4">
           
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                
@@ -352,8 +312,6 @@
                
                  <li> <a href="/2013/01/10/rspec-puppet-intro">给 puppet 写 Rspec 测试用例</a></li>
                
-                 <li> <a href="/2013/01/06/limit-bandwidth-of-one-process">限制单个进程的带宽</a></li>
-               
             </ul>
           </div>
         
@@ -370,16 +328,13 @@
         </div>
       </div>
     </div> <!-- row -->
-
       <footer>
         <p>&copy; 陈子 2012 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
       </footer>
-
     </div> <!-- /container -->
-
     
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
@@ -390,4 +345,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-
