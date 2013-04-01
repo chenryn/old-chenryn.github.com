@@ -44,6 +44,31 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/08/01/test-last_modified-etag-of-nginx" title="郁闷的last-modified和etag试验" rel="bookmark">郁闷的last-modified和etag试验</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-08-01 00:00:00 +0800">01 Aug 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#CDN-ref" title="CDN" rel="category tag">CDN</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <html><body>
+<p>手上有一个伪静态的论坛bbs.example.com，每当有用户回复帖子的时候，提交到r.bbs.example.com，然后由r.bbs.example.com的提示页面replyautojump.jsp延迟3000后调用window.location.href函数返回原来的帖子——期间即完成对该帖的静态化。</p>
+<p>为了实效性，之前的配置，将这类html都设定为no-cache。现在考虑到流量和IO的问题，计划希望能够将这类html尽可能的缓存在browser和proxy上，但每次都能采用304的方式，确认帖子的最新情况。对于不太热门的板块，不太热点的帖子，应该能缓存一段时间，减轻webserver的压力；就算是热门，哪怕几十秒钟的缓存，对于全网流量，也是积腋成裘。。。</p>
+<p>因为论坛页面上，用SSI方式include了一些广告、点击排名等挂件。所以nginx上设定了ssi on，导致response-header中，没有了last-modified——按照常规，一般是在长期不变的html里include经常改变的shtml，而每次在解析SSI时去读取所有shtml的MTIME然后计算最后一个MTIME来设定成总页面的last-modified，是个比较繁琐且耗资源的做法（网上有lighttpd的patch，就是这么做的），所以包括nginx在内的多数webserver采取了比较简便的方法，即取消掉last-modified输出。参见nginx/src/http/module/ngx_http_ssi_filter_module...</p>
+</body></html>
+      <a href="/2010/08/01/test-last_modified-etag-of-nginx" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/07/28/monitor-netflow-by-proc_net_tcp" title="网络监控与/proc/net/tcp文件" rel="bookmark">网络监控与/proc/net/tcp文件</a>
     </h1>
     <p class="alt-font tight">
@@ -732,37 +757,6 @@ print LIST_FH “$_n”;}</p>
 </code></pre>
 </body></html>
       <a href="/2010/05/11/performance-optimization-of-perl-script-2" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/05/07/purge-cache-by-perl-script-2" title="perl边学边练（purge脚本进阶）" rel="bookmark">perl边学边练（purge脚本进阶）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-05-07 00:00:00 +0800">07 May 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#CDN-ref" title="CDN" rel="category tag">CDN</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>之前的purge脚本usage是./purge.pl “url1” “url2”。如果url变成成百上千个那么多的时候，这样就不行了。也需要在脚本中处理成文件句柄。修改如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="k">use</span> <span class="nn">IO::</span><span class="n">Socket</span><span class="p">;</span>
-<span class="k">unless</span> <span class="p">(</span><span class="nv">@ARGV</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span> <span class="nb">die</span> <span class="s">"usage: $0 ip.list url.list"</span> <span class="p">}</span>
-<span class="nb">open</span><span class="p">(</span><span class="n">HOST</span><span class="p">,</span><span class="s">"&lt;$ARGV[0]"</span><span class="p">)</span><span class="o">||</span><span class="nb">die</span> <span class="s">"cannot open the ip list"</span><span class="p">;</span>
-<span class="nb">open</span><span class="p">(</span><span class="n">URL</span><span class="p">,</span><span class="s">"&lt;$ARGV[1]"</span><span class="p">)</span><span class="o">||</span><span class="nb">die</span> <span class="s">"cannot open the url list"</span><span class="p">;</span>
-<span class="nv">$EOL</span> <span class="o">=</span> <span class="s">"15121512"</span><span class="p">;</span>
-<span class="k">while</span> <span class="p">(</span><span class="nb">defined</span><span class="p">(</span><span class="nv">$ip</span><span class="o">=</span><span class="sr">&lt;HOST&gt;</span><span class="p">)){</span>
-    <span class="nb">seek</span> <span class="n">URL...</span></code></pre></div>
-</body></html>
-      <a href="/2010/05/07/purge-cache-by-perl-script-2" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
