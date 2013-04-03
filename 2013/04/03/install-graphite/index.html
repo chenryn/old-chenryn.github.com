@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Graphite 安装</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive.html">Archive</a></li>
+      	<li><a href="/categories.html">Categories</a></li>
+      	<li><a href="/pages.html">Pages</a></li>
+      	<li><a href="/tags.html">Tags</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>Graphite 安装 <small></small></h1>
+    <div class="date"><span>03 April 2013</span></div>
+    <ul class="tag_box pull-right">
+    	<li><a href="/tags.html#python-ref">python <span>2</span></a></li>
+    	<li><a href="/tags.html#graphite-ref">graphite <span>1</span></a></li>
+    </ul>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>Graphite 是近来比较流行的类 rrd tool 系统。不过官网的安装文档真的很烂，特记录一下自己的步骤。</p>
+<p>由于是事后追忆，同样不保证好用……</p>
+<div class="highlight"><pre><code class="bash">apt-get install python-pip libapache2-mod-wsgi subversion git
+git clone https://github.com/graphite-project/graphite-web.git
+git clone https://github.com/graphite-project/carbon.git
+git clone https://github.com/graphite-project/whisper.git
+<span class="c"># 这两个是直接通过 pip 安装的不顶用，只能另外下非标准的包安装</span>
+git clone https://github.com/graphite-project/ceres.git
+svn checkout http://django-tagging.googlecode.com/svn/trunk/ tagging-trunk
+<span class="nb">cd </span>whisper
+sudo python setup.py install
+<span class="nb">cd</span> ../carbon
+python setup.py install 
+<span class="nb">cd</span> ../graphite-web
+python check-dependencies.py
+<span class="c"># 很奇怪 python 居然不自动解决依赖，check 出来一个列表还得自己来</span>
+apt-get install python-memcache python-txamqp python-rrdtool python-pyparsing python-django
+python setup.py install
+<span class="nb">cd</span> ../ceres
+python setup.py install
+<span class="nb">cd</span> ../tagging-trunk
+python setup.py install
+groupadd graphite
+ln -s /opt/graphite/examples/example-graphite-vhost.conf /etc/apache2/conf.d/graphite.conf
+<span class="c"># 默认的 run/wsgi 会在 /etc/apache2/ 目录下，权限有问题</span>
+sed -i <span class="s1">&#39;s!^\(WSGISocketPrefix\) \(run/wsgi\)$!\1 /var/\2$!&#39;</span> /etc/apache2/conf.d/graphite.conf
+chown -R www-data:graphite /opt/graphite/storage/
+service apache2 restart
+<span class="nb">cd</span> /opt/graphite/webapp/graphite
+cp local_settings.py.example local_settings.py
+<span class="c"># 默认的 database 配置是针对 python2.4 的，需要开启针对 python2.5 以上版本的配置:</span>
+<span class="c"># DATABASES = {</span>
+<span class="c">#     &#39;default&#39;: {</span>
+<span class="c">#         &#39;NAME&#39;: &#39;/opt/graphite/storage/graphite.db&#39;,</span>
+<span class="c">#         &#39;ENGINE&#39;: &#39;django.db.backends.sqlite3&#39;,</span>
+<span class="c">#         &#39;USER&#39;: &#39;&#39;,</span>
+<span class="c">#         &#39;PASSWORD&#39;: &#39;&#39;,</span>
+<span class="c">#         &#39;HOST&#39;: &#39;&#39;,</span>
+<span class="c">#         &#39;PORT&#39;: &#39;&#39;</span>
+<span class="c">#     }</span>
+<span class="c"># }</span>
+sed -i <span class="s1">&#39;167,176s/^#//&#39;</span> local_settings.py
+python manage.py syncdb
+<span class="nb">cd</span> /opt/graphite/conf
+rename <span class="s1">&#39;s/.example//&#39;</span> *.conf.example
+<span class="nb">cd</span> /opt/graphite/
+<span class="c"># 会监听 2003 端口</span>
+./bin/carbon-cache.py start
+<span class="c"># 通过 socket 发送本机的 loadavg 到 2003 端口</span>
+python /opt/graphite/examples/example-client.py
+</code></pre></div>
+<p>效果如下：</p>
+<p><img src="/images/uploads/graphite-auto-refresh.png" alt="graphite" /></p>
+<p>还可以点击 plot 成下面这样，并且添加 event 以供查看：</p>
+<p><img src="/images/uploads/graphite-graphlot.png" alt="graphlot" /></p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2013/04/02/parse-puppet-dsl-using-perl6" title="用 Perl6 解析 puppet 的配置语法">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next disabled"><a>Next &rarr;</a>
+      </ul>
+    </div>
+    <hr>
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li> <a href="/2013/04/02/parse-puppet-dsl-using-perl6">用 Perl6 解析 puppet 的配置语法</a></li>
+                 <li> <a href="/2013/04/01/use-mojo-commandline-for-rpmbuild">用 Mojo 命令行抓取数据完成自动更新 rpm 构建</a></li>
+                 <li> <a href="/2013/03/28/intro-haml">Haml 简介</a></li>
+                 <li> <a href="/2013/03/27/distributed-nagios-by-mod-gearman">用 Mod_Gearman 实现 Nagios 分布式</a></li>
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+                 <li> <a href="/2013/02/22/setup-stf2">STF 2.0 安装测试</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>

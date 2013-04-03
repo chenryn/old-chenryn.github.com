@@ -4,13 +4,93 @@
  <title>三斗室</title>
  <link href="http://chenlinux.com/feed.xml" rel="self"/>
  <link href="http://chenlinux.com"/>
- <updated>2013-04-03T10:58:30+08:00</updated>
+ <updated>2013-04-03T20:24:51+08:00</updated>
  <id>http://chenlinux.com</id>
  <author>
    <name>陈子</name>
    <email>rao.chenlin@gmail.com</email>
  </author>
 
+ 
+ <entry>
+   <title>Graphite 安装</title>
+   <link href="http://chenlinux.com/2013/04/03/install-graphite"/>
+   <updated>2013-04-03T00:00:00+08:00</updated>
+   <id>http://chenlinux.com/2013/04/03/install-graphite</id>
+   <content type="html">&lt;p&gt;Graphite 是近来比较流行的类 rrd tool 系统。不过官网的安装文档真的很烂，特记录一下自己的步骤。&lt;/p&gt;
+
+&lt;p&gt;由于是事后追忆，同样不保证好用……&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;bash&quot;&gt;apt-get install python-pip libapache2-mod-wsgi subversion git
+git clone https://github.com/graphite-project/graphite-web.git
+git clone https://github.com/graphite-project/carbon.git
+git clone https://github.com/graphite-project/whisper.git
+&lt;span class=&quot;c&quot;&gt;# 这两个是直接通过 pip 安装的不顶用，只能另外下非标准的包安装&lt;/span&gt;
+git clone https://github.com/graphite-project/ceres.git
+svn checkout http://django-tagging.googlecode.com/svn/trunk/ tagging-trunk
+
+&lt;span class=&quot;nb&quot;&gt;cd &lt;/span&gt;whisper
+sudo python setup.py install
+
+&lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; ../carbon
+python setup.py install 
+
+&lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; ../graphite-web
+python check-dependencies.py
+&lt;span class=&quot;c&quot;&gt;# 很奇怪 python 居然不自动解决依赖，check 出来一个列表还得自己来&lt;/span&gt;
+apt-get install python-memcache python-txamqp python-rrdtool python-pyparsing python-django
+python setup.py install
+
+&lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; ../ceres
+python setup.py install
+
+&lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; ../tagging-trunk
+python setup.py install
+
+groupadd graphite
+ln -s /opt/graphite/examples/example-graphite-vhost.conf /etc/apache2/conf.d/graphite.conf
+&lt;span class=&quot;c&quot;&gt;# 默认的 run/wsgi 会在 /etc/apache2/ 目录下，权限有问题&lt;/span&gt;
+sed -i &lt;span class=&quot;s1&quot;&gt;&amp;#39;s!^\(WSGISocketPrefix\) \(run/wsgi\)$!\1 /var/\2$!&amp;#39;&lt;/span&gt; /etc/apache2/conf.d/graphite.conf
+chown -R www-data:graphite /opt/graphite/storage/
+service apache2 restart
+
+&lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; /opt/graphite/webapp/graphite
+cp local_settings.py.example local_settings.py
+&lt;span class=&quot;c&quot;&gt;# 默认的 database 配置是针对 python2.4 的，需要开启针对 python2.5 以上版本的配置:&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# DATABASES = {&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;#     &amp;#39;default&amp;#39;: {&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;#         &amp;#39;NAME&amp;#39;: &amp;#39;/opt/graphite/storage/graphite.db&amp;#39;,&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;#         &amp;#39;ENGINE&amp;#39;: &amp;#39;django.db.backends.sqlite3&amp;#39;,&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;#         &amp;#39;USER&amp;#39;: &amp;#39;&amp;#39;,&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;#         &amp;#39;PASSWORD&amp;#39;: &amp;#39;&amp;#39;,&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;#         &amp;#39;HOST&amp;#39;: &amp;#39;&amp;#39;,&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;#         &amp;#39;PORT&amp;#39;: &amp;#39;&amp;#39;&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;#     }&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# }&lt;/span&gt;
+sed -i &lt;span class=&quot;s1&quot;&gt;&amp;#39;167,176s/^#//&amp;#39;&lt;/span&gt; local_settings.py
+python manage.py syncdb
+
+&lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; /opt/graphite/conf
+rename &lt;span class=&quot;s1&quot;&gt;&amp;#39;s/.example//&amp;#39;&lt;/span&gt; *.conf.example
+
+&lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; /opt/graphite/
+&lt;span class=&quot;c&quot;&gt;# 会监听 2003 端口&lt;/span&gt;
+./bin/carbon-cache.py start
+
+&lt;span class=&quot;c&quot;&gt;# 通过 socket 发送本机的 loadavg 到 2003 端口&lt;/span&gt;
+python /opt/graphite/examples/example-client.py
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;效果如下：&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/uploads/graphite-auto-refresh.png&quot; alt=&quot;graphite&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;还可以点击 plot 成下面这样，并且添加 event 以供查看：&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/uploads/graphite-graphlot.png&quot; alt=&quot;graphlot&quot; /&gt;&lt;/p&gt;
+
+</content>
+ </entry>
  
  <entry>
    <title>用 Perl6 解析 puppet 的配置语法</title>
