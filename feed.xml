@@ -4,13 +4,57 @@
  <title>三斗室</title>
  <link href="http://chenlinux.com/feed.xml" rel="self"/>
  <link href="http://chenlinux.com"/>
- <updated>2013-04-03T20:24:51+08:00</updated>
+ <updated>2013-04-16T16:40:48+08:00</updated>
  <id>http://chenlinux.com</id>
  <author>
    <name>陈子</name>
    <email>rao.chenlin@gmail.com</email>
  </author>
 
+ 
+ <entry>
+   <title>使用 Foreman 来监控统计 puppet 的 reports 信息</title>
+   <link href="http://chenlinux.com/2013/04/16/install-foreman"/>
+   <updated>2013-04-16T00:00:00+08:00</updated>
+   <id>http://chenlinux.com/2013/04/16/install-foreman</id>
+   <content type="html">&lt;p&gt;foreman 是社区比较推荐的一款 puppet 辅助工具。可以用来实现 ENC 控制，class 编写，Facts 变量统计和 reports 分析查询等等。&lt;/p&gt;
+
+&lt;p&gt;鉴于我一直以来都是用 gem 安装 puppet，所以这里也就没法通过 yum/apt 来安装 foreman，只能源码操作了：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;bash&quot;&gt;    git clone https://github.com/theforeman/foreman.git -b develop
+    &lt;span class=&quot;nb&quot;&gt;cd &lt;/span&gt;foreman
+    bundle install --without postgresql mysql mysql2 
+    cp config/settings.yaml.example config/settings.yaml
+    cp config/database.yml.example config/database.yml
+    &lt;span class=&quot;nv&quot;&gt;RAILS_ENV&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;production bundle &lt;span class=&quot;nb&quot;&gt;exec &lt;/span&gt;rake db:migrate
+    rake puppet:import:hosts_and_facts &lt;span class=&quot;nv&quot;&gt;RAILS_ENV&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;production
+    ./script/rails server -p 3333 -e production -d
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;然后就可以通过3333端口访问并查看刚才导入的 Facts 变量了，默认的用户名密码是 admin/changeme。&lt;/p&gt;
+
+&lt;p&gt;新版本的 foreman，必须使用 smart-proxy 才能接收 reports。所以还要继续安装：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;bash&quot;&gt;    git clone git://github.com/theforeman/smart-proxy.git
+    &lt;span class=&quot;nb&quot;&gt;cd &lt;/span&gt;smart-proxy
+    sed -i &lt;span class=&quot;s1&quot;&gt;&amp;#39;s/^#:puppet:.*/:puppet: true/&amp;#39;&lt;/span&gt; config/settings.yml
+    ./bin/smart-proxy.rb
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;foreman 提供了一个 &lt;a href=&quot;https://raw.github.com/theforeman/puppet-foreman/master/templates/foreman-report.rb.erb&quot;&gt;ruby 脚本&lt;/a&gt;，用来扩充 puppet 的 reports 功能。下载放到对应的 &lt;code&gt;${GEM_PATH}/gems/puppet-${version}/lib/puppet/reports/&lt;/code&gt; 下，然后修改其中的 &lt;code&gt;$foreman_url&lt;/code&gt; 变量即可。&lt;/p&gt;
+
+&lt;p&gt;我们也可以在 puppet 自带的 http.rb 基础上稍微修改得到相同效果，总的来说，就是通过 POST 方法，提交 &lt;code&gt;report =&amp;gt; self.to_yaml&lt;/code&gt; 到 &lt;code&gt;$foreman_url/reports/create?format=yml&lt;/code&gt; 就可以了。&lt;/p&gt;
+
+&lt;p&gt;然后在 foreman 页面上配置 smart-proxy 地址。注意这里有个小坑：__如果你填写的是域名，那么解析出来的 ip 还要被反解验证一次。__我当初为了 puppet master 迁移方便，给 master 配置了一个单独的域名，包括 &lt;code&gt;puppet cert&lt;/code&gt; 生成证书时也特意指定用这个域名，但是默认的 hostname 其实是另一个域名的。于是在此悲剧了很久。。。&lt;/p&gt;
+
+&lt;p&gt;错误的现象是：采用 &lt;code&gt;puppet master&lt;/code&gt; 启动时，功能一切正常；采用 &lt;code&gt;rackup&lt;/code&gt; + Nginx 代理的方式启动时，默认的 store 功能正常，而采用 foreman 接收 reports 的话，可以在 &lt;code&gt;rackup&lt;/code&gt; 的访问日志中看到 POST 200 的记录，&lt;code&gt;foreman&lt;/code&gt; 里却没有接到请求。&lt;/p&gt;
+
+&lt;p&gt;目前还不清楚为什么两种不同方式启动 puppet 的 master 会对 smart-proxy 造成什么区别影响，但是修改 foreman 里配置的 smart-proxy 地址为默认 hostname 而不是单独的域名后，就成功了。&lt;/p&gt;
+
+&lt;p&gt;另外一个使用上的小问题。foreman 页面上的 Reports 标签的 &lt;code&gt;&amp;lt;a href=&quot;&quot;&amp;gt;&lt;/code&gt; 属性默认是带搜索参数 eventful 的。也就是说优先展示的是有事件发生的日志，比如 failed，restart 等等；而不是直接以日期排序。&lt;/p&gt;
+
+</content>
+ </entry>
  
  <entry>
    <title>Graphite 安装</title>
@@ -71,7 +115,7 @@ sed -i &lt;span class=&quot;s1&quot;&gt;&amp;#39;167,176s/^#//&amp;#39;&lt;/span
 python manage.py syncdb
 
 &lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; /opt/graphite/conf
-rename &lt;span class=&quot;s1&quot;&gt;&amp;#39;s/.example//&amp;#39;&lt;/span&gt; *.conf.example
+rename &lt;span class=&quot;s1&quot;&gt;&amp;#39;s/.example//&amp;#39;&lt;/span&gt; *.example
 
 &lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; /opt/graphite/
 &lt;span class=&quot;c&quot;&gt;# 会监听 2003 端口&lt;/span&gt;
@@ -9256,15 +9300,25 @@ Template::Toolkit提供的process()可以操作的template来源很多，可以�
    <link href="http://chenlinux.com/2012/05/18/puppet-external-nodes-classifier"/>
    <updated>2012-05-18T00:00:00+08:00</updated>
    <id>http://chenlinux.com/2012/05/18/puppet-external-nodes-classifier</id>
-   <content type="html">&lt;p&gt;今天研究puppet dashboard。主要有ENC和reports两个功能。其中ENC功能相当扯淡，因为你在web上点击添加的class/node/group，是没有任何依赖性检查(比如node命名是否符合fqdn，class是否存在)的，随便咋填绝无报错和拒绝！而且也没有提供类似report的导入工具，一旦启用就要完全重新手工输入所有配置……所以无论是从导入角度还是管理角度，自己实现一个靠谱点的ENC都是有必要的。  &lt;br /&gt;
-关于puppet的ENC配置，参见&lt;a href=&quot;http://docs.puppetlabs.com/guides/external_nodes.html&quot;&gt;ENC的文档&lt;/a&gt;  &lt;br /&gt;
-主要就是修改puppet.conf里两个配置：  &lt;br /&gt;
-node_terminus，由plain修改成exec；external_nodes，由none修改为ENC脚本的路径。  &lt;br /&gt;
-类似如下：
-    [master]  &lt;br /&gt;
-    node_terminus = exec  &lt;br /&gt;
-    external_nodes = /etc/puppet/webui/external_nodes  &lt;br /&gt;
-脚本输入输出的说明：    &lt;/p&gt;
+   <content type="html">&lt;p&gt;今天研究puppet dashboard。主要有ENC和reports两个功能。其中ENC功能相当扯淡，因为你在web上点击添加的class/node/group，是没有任何依赖性检查(比如node命名是否符合fqdn，class是否存在)的，随便咋填绝无报错和拒绝！而且也没有提供类似report的导入工具，一旦启用就要完全重新手工输入所有配置……所以无论是从导入角度还是管理角度，自己实现一个靠谱点的ENC都是有必要的。    &lt;/p&gt;
+
+&lt;p&gt;关于puppet的ENC配置，参见&lt;a href=&quot;http://docs.puppetlabs.com/guides/external_nodes.html&quot;&gt;ENC的文档&lt;/a&gt;    &lt;/p&gt;
+
+&lt;p&gt;主要就是修改puppet.conf里两个配置：    &lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;code&gt;node_terminus&lt;/code&gt;，由plain修改成exec；&lt;/li&gt;
+  &lt;li&gt;&lt;code&gt;external_nodes&lt;/code&gt;，由none修改为ENC脚本的路径。    &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;类似如下：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;[master]    
+node_terminus = exec    
+external_nodes = /etc/puppet/webui/external_nodes    
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;脚本输入输出的说明：    &lt;/p&gt;
 
 &lt;pre&gt;&lt;code&gt;Its only argument is the name of the node to be classified, and it returns a YAML document describing the node.
 &lt;/code&gt;&lt;/pre&gt;
@@ -9272,15 +9326,14 @@ node_terminus，由plain修改成exec；external_nodes，由none修改为ENC脚�
 &lt;p&gt;注意到此为止配置修改不算结束！文档中提到，puppet是支持同时开启ENC和site.pp配置的。puppet会自动merge两个配置。但是debug运行时可以看到，这个merge是按照node级别进行的。也就是说：    &lt;/p&gt;
 
 &lt;ol&gt;
-  &lt;li&gt;puppet master收到一个node的请求，如果node_terminus配置为exec，输出node的fqdn给external_nodes；    &lt;/li&gt;
-  &lt;li&gt;收到external_nodes的返回，为一个yaml体或者空；    &lt;/li&gt;
+  &lt;li&gt;puppet master收到一个node的请求，如果 &lt;code&gt;node_terminus&lt;/code&gt; 配置为exec，输出node的fqdn给 &lt;code&gt;external_nodes&lt;/code&gt;；    &lt;/li&gt;
+  &lt;li&gt;收到 &lt;code&gt;external_nodes&lt;/code&gt; 的返回，为一个yaml体或者空；    &lt;/li&gt;
   &lt;li&gt;加载site.pp，这是按照文本顺序进行的。如果都是import &amp;ldquo;module&amp;rdquo;，那么最后就进入module的parameter和template处理。    &lt;/li&gt;
-  &lt;li&gt;如果碰到import &amp;ldquo;node/&lt;em&gt;.pp&amp;rdquo;这样的配置，则开始加载node/&lt;/em&gt;.pp中的node配置；    &lt;/li&gt;
-  &lt;li&gt;如果node/*.pp中的node在当前的node object中不存在，那么新建这个object。    &lt;/li&gt;
-  &lt;li&gt;如果已经存在，那么覆盖为后来的这个node配置。    &lt;/li&gt;
+  &lt;li&gt;如果已经存在，检查是全局变量还是类，全局变量的话报错，类的话覆盖为site.pp中最后定义的类。  &lt;br /&gt;
+&lt;strong&gt;2013年4月10日更新：感谢&lt;a href=&quot;http://weibo.com/liucy1983&quot;&gt;@liu.cy&lt;/a&gt;指出这里变量和类的区别&lt;/strong&gt;&lt;/li&gt;
 &lt;/ol&gt;
 
-&lt;p&gt;所以为了方便起见，请删除掉site.pp中的import &amp;ldquo;node/*.pp&amp;rdquo;这行配置。我在这里就被郁闷了很久。&lt;/p&gt;
+&lt;p&gt;所以为了方便起见，请删除掉site.pp中的&lt;code&gt;import &quot;node/*.pp&quot;&lt;/code&gt; 这行配置。我在这里就被郁闷了很久。&lt;/p&gt;
 
 &lt;p&gt;然后是我这里的想法是尽量不更改pp的语法，只是提供一个把group里的ip到fqdn的转化然后查找cluster配置组合成yaml。  &lt;br /&gt;
 也就是说有一个group的配置目录，其配置文件为&amp;rdquo;groupname.pp&amp;rdquo;，内容如下：&lt;/p&gt;
@@ -9300,7 +9353,7 @@ node_terminus，由plain修改成exec；external_nodes，由none修改为ENC脚�
 
 &lt;p&gt;那么以后服务器组有啥变更，只需要修改一下iplist就好了，不用重启puppet进程。    &lt;/p&gt;
 
-&lt;p&gt;所以有两个脚本，一个是external_node脚本：    &lt;/p&gt;
+&lt;p&gt;所以有两个脚本，一个是 &lt;code&gt;external_node&lt;/code&gt; 脚本：&lt;/p&gt;
 
 &lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;&lt;span class=&quot;c1&quot;&gt;#!/bin/env perl&lt;/span&gt;
 &lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;warnings&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;

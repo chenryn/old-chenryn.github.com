@@ -50,27 +50,30 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>今天研究puppet dashboard。主要有ENC和reports两个功能。其中ENC功能相当扯淡，因为你在web上点击添加的class/node/group，是没有任何依赖性检查(比如node命名是否符合fqdn，class是否存在)的，随便咋填绝无报错和拒绝！而且也没有提供类似report的导入工具，一旦启用就要完全重新手工输入所有配置……所以无论是从导入角度还是管理角度，自己实现一个靠谱点的ENC都是有必要的。  <br />
-关于puppet的ENC配置，参见<a href="http://docs.puppetlabs.com/guides/external_nodes.html">ENC的文档</a>  <br />
-主要就是修改puppet.conf里两个配置：  <br />
-node_terminus，由plain修改成exec；external_nodes，由none修改为ENC脚本的路径。  <br />
-类似如下：
-    [master]  <br />
-    node_terminus = exec  <br />
-    external_nodes = /etc/puppet/webui/external_nodes  <br />
-脚本输入输出的说明：    </p>
+    <p>今天研究puppet dashboard。主要有ENC和reports两个功能。其中ENC功能相当扯淡，因为你在web上点击添加的class/node/group，是没有任何依赖性检查(比如node命名是否符合fqdn，class是否存在)的，随便咋填绝无报错和拒绝！而且也没有提供类似report的导入工具，一旦启用就要完全重新手工输入所有配置……所以无论是从导入角度还是管理角度，自己实现一个靠谱点的ENC都是有必要的。    </p>
+<p>关于puppet的ENC配置，参见<a href="http://docs.puppetlabs.com/guides/external_nodes.html">ENC的文档</a>    </p>
+<p>主要就是修改puppet.conf里两个配置：    </p>
+<ul>
+  <li><code>node_terminus</code>，由plain修改成exec；</li>
+  <li><code>external_nodes</code>，由none修改为ENC脚本的路径。    </li>
+</ul>
+<p>类似如下：</p>
+<pre><code>[master]    
+node_terminus = exec    
+external_nodes = /etc/puppet/webui/external_nodes    
+</code></pre>
+<p>脚本输入输出的说明：    </p>
 <pre><code>Its only argument is the name of the node to be classified, and it returns a YAML document describing the node.
 </code></pre>
 <p>注意到此为止配置修改不算结束！文档中提到，puppet是支持同时开启ENC和site.pp配置的。puppet会自动merge两个配置。但是debug运行时可以看到，这个merge是按照node级别进行的。也就是说：    </p>
 <ol>
-  <li>puppet master收到一个node的请求，如果node_terminus配置为exec，输出node的fqdn给external_nodes；    </li>
-  <li>收到external_nodes的返回，为一个yaml体或者空；    </li>
+  <li>puppet master收到一个node的请求，如果 <code>node_terminus</code> 配置为exec，输出node的fqdn给 <code>external_nodes</code>；    </li>
+  <li>收到 <code>external_nodes</code> 的返回，为一个yaml体或者空；    </li>
   <li>加载site.pp，这是按照文本顺序进行的。如果都是import &ldquo;module&rdquo;，那么最后就进入module的parameter和template处理。    </li>
-  <li>如果碰到import &ldquo;node/<em>.pp&rdquo;这样的配置，则开始加载node/</em>.pp中的node配置；    </li>
-  <li>如果node/*.pp中的node在当前的node object中不存在，那么新建这个object。    </li>
-  <li>如果已经存在，那么覆盖为后来的这个node配置。    </li>
+  <li>如果已经存在，检查是全局变量还是类，全局变量的话报错，类的话覆盖为site.pp中最后定义的类。  <br />
+<strong>2013年4月10日更新：感谢<a href="http://weibo.com/liucy1983">@liu.cy</a>指出这里变量和类的区别</strong></li>
 </ol>
-<p>所以为了方便起见，请删除掉site.pp中的import &ldquo;node/*.pp&rdquo;这行配置。我在这里就被郁闷了很久。</p>
+<p>所以为了方便起见，请删除掉site.pp中的<code>import "node/*.pp"</code> 这行配置。我在这里就被郁闷了很久。</p>
 <p>然后是我这里的想法是尽量不更改pp的语法，只是提供一个把group里的ip到fqdn的转化然后查找cluster配置组合成yaml。  <br />
 也就是说有一个group的配置目录，其配置文件为&rdquo;groupname.pp&rdquo;，内容如下：</p>
 <div class="highlight"><pre><code class="ruby"><span class="n">group</span> <span class="s2">&quot;groupname&quot;</span> <span class="p">{</span>
@@ -84,7 +87,7 @@ node_terminus，由plain修改成exec；external_nodes，由none修改为ENC脚�
 <span class="mf">2.3.4.5</span><span class="w"></span>
 </code></pre></div>
 <p>那么以后服务器组有啥变更，只需要修改一下iplist就好了，不用重启puppet进程。    </p>
-<p>所以有两个脚本，一个是external_node脚本：    </p>
+<p>所以有两个脚本，一个是 <code>external_node</code> 脚本：</p>
 <div class="highlight"><pre><code class="perl"><span class="c1">#!/bin/env perl</span>
 <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
@@ -235,6 +238,7 @@ node_terminus，由plain修改成exec；external_nodes，由none修改为ENC脚�
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+                 <li> <a href="/2013/04/16/install-foreman">使用 Foreman 来监控统计 puppet 的 reports 信息</a></li>
                  <li> <a href="/2013/04/03/install-graphite">Graphite 安装</a></li>
                  <li> <a href="/2013/04/02/parse-puppet-dsl-using-perl6">用 Perl6 解析 puppet 的配置语法</a></li>
                  <li> <a href="/2013/04/01/use-mojo-commandline-for-rpmbuild">用 Mojo 命令行抓取数据完成自动更新 rpm 构建</a></li>
@@ -243,7 +247,6 @@ node_terminus，由plain修改成exec；external_nodes，由none修改为ENC脚�
                  <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
                  <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
-                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

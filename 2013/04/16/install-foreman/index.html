@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>使用 Foreman 来监控统计 puppet 的 reports 信息</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive.html">Archive</a></li>
+      	<li><a href="/categories.html">Categories</a></li>
+      	<li><a href="/pages.html">Pages</a></li>
+      	<li><a href="/tags.html">Tags</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://feed.feedsky.com/chenlinux" rel="alternate" /><a href="http://feed.feedsky.com/chenlinux" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>使用 Foreman 来监控统计 puppet 的 reports 信息 <small></small></h1>
+    <div class="date"><span>16 April 2013</span></div>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>foreman 是社区比较推荐的一款 puppet 辅助工具。可以用来实现 ENC 控制，class 编写，Facts 变量统计和 reports 分析查询等等。</p>
+<p>鉴于我一直以来都是用 gem 安装 puppet，所以这里也就没法通过 yum/apt 来安装 foreman，只能源码操作了：</p>
+<div class="highlight"><pre><code class="bash">    git clone https://github.com/theforeman/foreman.git -b develop
+    <span class="nb">cd </span>foreman
+    bundle install --without postgresql mysql mysql2 
+    cp config/settings.yaml.example config/settings.yaml
+    cp config/database.yml.example config/database.yml
+    <span class="nv">RAILS_ENV</span><span class="o">=</span>production bundle <span class="nb">exec </span>rake db:migrate
+    rake puppet:import:hosts_and_facts <span class="nv">RAILS_ENV</span><span class="o">=</span>production
+    ./script/rails server -p 3333 -e production -d
+</code></pre></div>
+<p>然后就可以通过3333端口访问并查看刚才导入的 Facts 变量了，默认的用户名密码是 admin/changeme。</p>
+<p>新版本的 foreman，必须使用 smart-proxy 才能接收 reports。所以还要继续安装：</p>
+<div class="highlight"><pre><code class="bash">    git clone git://github.com/theforeman/smart-proxy.git
+    <span class="nb">cd </span>smart-proxy
+    sed -i <span class="s1">&#39;s/^#:puppet:.*/:puppet: true/&#39;</span> config/settings.yml
+    ./bin/smart-proxy.rb
+</code></pre></div>
+<p>foreman 提供了一个 <a href="https://raw.github.com/theforeman/puppet-foreman/master/templates/foreman-report.rb.erb">ruby 脚本</a>，用来扩充 puppet 的 reports 功能。下载放到对应的 <code>${GEM_PATH}/gems/puppet-${version}/lib/puppet/reports/</code> 下，然后修改其中的 <code>$foreman_url</code> 变量即可。</p>
+<p>我们也可以在 puppet 自带的 http.rb 基础上稍微修改得到相同效果，总的来说，就是通过 POST 方法，提交 <code>report =&gt; self.to_yaml</code> 到 <code>$foreman_url/reports/create?format=yml</code> 就可以了。</p>
+<p>然后在 foreman 页面上配置 smart-proxy 地址。注意这里有个小坑：__如果你填写的是域名，那么解析出来的 ip 还要被反解验证一次。__我当初为了 puppet master 迁移方便，给 master 配置了一个单独的域名，包括 <code>puppet cert</code> 生成证书时也特意指定用这个域名，但是默认的 hostname 其实是另一个域名的。于是在此悲剧了很久。。。</p>
+<p>错误的现象是：采用 <code>puppet master</code> 启动时，功能一切正常；采用 <code>rackup</code> + Nginx 代理的方式启动时，默认的 store 功能正常，而采用 foreman 接收 reports 的话，可以在 <code>rackup</code> 的访问日志中看到 POST 200 的记录，<code>foreman</code> 里却没有接到请求。</p>
+<p>目前还不清楚为什么两种不同方式启动 puppet 的 master 会对 smart-proxy 造成什么区别影响，但是修改 foreman 里配置的 smart-proxy 地址为默认 hostname 而不是单独的域名后，就成功了。</p>
+<p>另外一个使用上的小问题。foreman 页面上的 Reports 标签的 <code>&lt;a href=""&gt;</code> 属性默认是带搜索参数 eventful 的。也就是说优先展示的是有事件发生的日志，比如 failed，restart 等等；而不是直接以日期排序。</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2013/04/03/install-graphite" title="Graphite 安装">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next disabled"><a>Next &rarr;</a>
+      </ul>
+    </div>
+    <hr>
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li> <a href="/2013/04/03/install-graphite">Graphite 安装</a></li>
+                 <li> <a href="/2013/04/02/parse-puppet-dsl-using-perl6">用 Perl6 解析 puppet 的配置语法</a></li>
+                 <li> <a href="/2013/04/01/use-mojo-commandline-for-rpmbuild">用 Mojo 命令行抓取数据完成自动更新 rpm 构建</a></li>
+                 <li> <a href="/2013/03/28/intro-haml">Haml 简介</a></li>
+                 <li> <a href="/2013/03/27/distributed-nagios-by-mod-gearman">用 Mod_Gearman 实现 Nagios 分布式</a></li>
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
+                 <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
+                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
+                 <li> <a href="/2013/02/25/nginx-testing-10Gibps">Nginx 万兆网络环境测试</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
