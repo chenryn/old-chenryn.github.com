@@ -4,13 +4,43 @@
  <title>三斗室</title>
  <link href="http://chenlinux.com/feed.xml" rel="self"/>
  <link href="http://chenlinux.com"/>
- <updated>2013-04-23T16:21:54+08:00</updated>
+ <updated>2013-05-14T18:53:09+08:00</updated>
  <id>http://chenlinux.com</id>
  <author>
    <name>陈子</name>
    <email>rao.chenlin@gmail.com</email>
  </author>
 
+ 
+ <entry>
+   <title>用mojo抓取数据并gocr替换图片内容</title>
+   <link href="http://chenlinux.com/2013/05/14/mojo-and-gocr-for-buildhr-telephone"/>
+   <updated>2013-05-14T00:00:00+08:00</updated>
+   <id>http://chenlinux.com/2013/05/14/mojo-and-gocr-for-buildhr-telephone</id>
+   <content type="html">&lt;p&gt;现在的网站越来越狡猾，连招聘网站的信息都懂的把公司的联系方式动态图片化了。还好为了观看方便，没加什么干扰。所以写个脚本来识别还是可以的。虽然到目前为止没发现比较好的 OCR 工具——我指的是可以直接apt-get安装的，有朋友知道哪个比较好的话，欢迎告诉我~&lt;/p&gt;
+
+&lt;p&gt;尝试了一下 tesseract-ocr 和 gocr ，还是 gocr 靠谱一点点。所以 &lt;code&gt;apt-get install gocr&lt;/code&gt; 安装然后运行下面这个 Perl 脚本：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ojo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;mf&quot;&gt;5.010&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;g&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;http://search.buildhr.com/job/581968.html&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dom&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;charset&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;UTF-8&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;find&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;div .postjob .padding&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;find&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;p&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;each&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sub&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$line&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;shift&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$img_element&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$line&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;at&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;img&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;defined&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$img_element&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$img_url&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$img_element&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;src&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;g&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$img_url&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;content&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;asset&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;move_to&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;test.jpg&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$seem_str&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;sb&quot;&gt;`gocr test.jpg`&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;chomp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$seem_str&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;say&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;join&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$seem_str&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;split&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;sr&quot;&gt;/ /&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$line&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;text&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;));&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;});&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;不过老是把 &lt;code&gt;7&lt;/code&gt; 识别成 &lt;code&gt;_&lt;/code&gt;。&lt;/p&gt;
+
+&lt;p&gt;真是越来越觉得 ojo 好用啊~&lt;/p&gt;
+</content>
+ </entry>
  
  <entry>
    <title>给自己写个运维语言(Newbie::Gift 介绍)</title>
@@ -103,6 +133,78 @@
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;&lt;code&gt;import&lt;/code&gt; 和 &lt;code&gt;export_to_level&lt;/code&gt; 都是 &lt;code&gt;Exporter&lt;/code&gt; 模块的方法，&lt;code&gt;NG.pm&lt;/code&gt; 里继承了 &lt;code&gt;Exporter&lt;/code&gt;。&lt;/p&gt;
+
+&lt;h1 id=&quot;section&quot;&gt;2013 年 05 月 06 日更新&lt;/h1&gt;
+
+&lt;p&gt;借鉴了 CPAN 上 Rubyish、Perl6::&lt;em&gt;、Perl5i::&lt;/em&gt; 等模块的思路，也加上了 autobox ，不过为了不破坏原先的 Array、Hashtable 等的设计，autobox 只管理标量的操作。现在可以这样：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;Test::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;More&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;Test::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Deep&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;lib&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;../lib&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;NG&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;cmp_deeply&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;to&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;NG::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Array&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;new&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;is&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;test&amp;quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;length&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;string length&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;cmp_deeply&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;Hello World&amp;quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;lc&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;words&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;NG::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Array&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;new&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;hello&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;world&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;done_testing&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;关于 autobox 的用法也蛮有趣的，详见代码。&lt;/p&gt;
+
+&lt;h1 id=&quot;section-1&quot;&gt;2013 年 05 月 14 日更新&lt;/h1&gt;
+
+&lt;p&gt;实现了 &lt;code&gt;def_class&lt;/code&gt; 关键词。这是在许大师的 spec 里就规划好了的。正好用上了前几天和莫言，牛氓请教的符号表的知识。&lt;/p&gt;
+
+&lt;p&gt;新增了一个默认属性叫meta，所有用 &lt;code&gt;def_class&lt;/code&gt; 实现的类，会自动记录他们(包括他们的用 &lt;code&gt;def_class&lt;/code&gt; 实现的父类)的属性和方法到meta属性里。&lt;/p&gt;
+
+&lt;p&gt;原先想用 &lt;code&gt;def_class&lt;/code&gt; 实现 &lt;code&gt;NG::Object&lt;/code&gt; 类；但是又想让 &lt;code&gt;def_class&lt;/code&gt; 实现的类的默认基类为 &lt;code&gt;NG::Object&lt;/code&gt;。结果思路绕晕了，所以最后 &lt;code&gt;NG::Object&lt;/code&gt; 还是用 bless 直接实现的，所以也单独写了一个 &lt;code&gt;sub meta {}&lt;/code&gt;。&lt;/p&gt;
+
+&lt;p&gt;为此阅读了一下 &lt;code&gt;Moo&lt;/code&gt; 和 &lt;code&gt;Moos&lt;/code&gt; 的代码。原来他们都是把属性和方法也实现为类。然后再有 &lt;code&gt;*::Meta&lt;/code&gt; 类来记录这些属性和方法的类。我这里就只是存了一个 hash 到 默认 meta 属性里。&lt;/p&gt;
+
+&lt;p&gt;不过 meta 属性和 &lt;code&gt;def_class&lt;/code&gt; 的其他属性不同的是：其他属性是使用 &lt;code&gt;sub :lvalue {}&lt;/code&gt; 定义的，可以修改，meta 是普通 &lt;code&gt;sub {}&lt;/code&gt; 的。&lt;/p&gt;
+
+&lt;p&gt;lvalue 的说明见 &lt;code&gt;perldoc perlsub&lt;/code&gt; 文档。在这里还是个比较有趣的用法的，这个用法来自 &lt;code&gt;Newbie::Gift&lt;/code&gt; 项目另一位参与者 &lt;a href=&quot;https://github.com/fmpdceudy&quot;&gt;fmpdceudy&lt;/a&gt;。&lt;/p&gt;
+
+&lt;p&gt;目前 &lt;code&gt;def_class.t&lt;/code&gt; 设计并通过的测试如下：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;Test::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;More&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;Test::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Deep&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;lib&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;../lib&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;NG&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+ 
+&lt;span class=&quot;n&quot;&gt;def_class&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Animal&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;sex&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;leg_color&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;sound&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+         &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;run&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+         &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;100&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;def_class&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Dog&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Animal&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;head_color&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;eat&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;shift&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;head_color&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;shift&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;run&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;shift&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;head_color&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$y&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Animal&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;new&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;isa_ok&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$y&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;Animal&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;is&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$y&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;run&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;100&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;animal run ok&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$x&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Dog&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;new&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;isa_ok&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;Dog&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;$x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;eat&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;bone&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;is&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;run&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;bone&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;eat ok&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;is&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sound&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;parent sound ok&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;cmp_deeply&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;meta&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;methods&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;},&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;sx&quot;&gt;qw/dump run sound eat/&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;list all methods ok&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;done_testing&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
 </content>
  </entry>
  
@@ -10130,31 +10232,36 @@ ln -s /etc/puppet/ssl/certs/ca.pem /etc/pki/tls/certs/&lt;span class=&quot;k&quo
    <updated>2012-04-16T00:00:00+08:00</updated>
    <id>http://chenlinux.com/2012/04/16/configs-automatically-effective-for-elastic-monitor</id>
    <content type="html">&lt;p&gt;最近跟&lt;a href=&quot;http://weibo.com/fedoracore&quot;&gt;@画圈圈的星星&lt;/a&gt; 聊天，说到nagios在大规模集群运用中一个比较严重的瓶颈：修改配置需要重启进程。 &lt;br /&gt;
-听起来似乎不是什么问题，我个人之前对nagios的追求，也都放在怎么样提供一个及时高效的监控和数据展示上面&amp;mdash;-这两个问题在mod_gearman和pnp4nagios的协助下已经很给力了。  &lt;br /&gt;
-但是聊天中提到了一个新的场景，事实上早在两个月前，&lt;a href=&quot;http://weibo.com/tjpm&quot;&gt;@GNUer&lt;/a&gt; 就提到过类似的场景，就是当nagios监控的是这样一个弹性集群的时候：&lt;/p&gt;
+听起来似乎不是什么问题，我个人之前对nagios的追求，也都放在怎么样提供一个及时高效的监控和数据展示上面&amp;mdash;-这两个问题在 &lt;code&gt;mod_gearman&lt;/code&gt; 和 &lt;code&gt;pnp4nagios&lt;/code&gt; 的协助下已经很给力了。    &lt;/p&gt;
+
+&lt;p&gt;但是聊天中提到了一个新的场景，事实上早在两个月前，&lt;a href=&quot;http://weibo.com/tjpm&quot;&gt;@GNUer&lt;/a&gt; 就提到过类似的场景，就是当 nagios 监控的是这样一个弹性集群的时候：&lt;/p&gt;
 
 &lt;pre&gt;&lt;code&gt;集群设备数以千记，甚至是上万的规模；
 而且设备上运行着复杂的应用，每台设备都有几十上百的监控项需求；
 为了提供高可靠性，集群以资源池的方式运行，即设备随时可能更改当前应用角色，在idle/lb/cache/web/app/db/storage等之间切换；
 &lt;/code&gt;&lt;/pre&gt;
 
-&lt;p&gt;以上。  &lt;br /&gt;
-尤其是最后一条，假如这个更改频率快到了每分钟都有变更，那么nagios重启进程这点就足以打死它了。实际运行中我们可以知道，当nagios reload的时候，这个命令的执行本身就要花费远大于1分钟的时间。  &lt;br /&gt;
-临时的办法，就是在更改后不主动reload，而是在crond里定时去做。损失一些监控实时性。一般来说，还不至于真的同一台设备一分钟内连续更改角色并且需要分别监控的。    &lt;/p&gt;
+&lt;p&gt;以上。    &lt;/p&gt;
+
+&lt;p&gt;尤其是最后一条，假如这个更改频率快到了每分钟都有变更，那么 nagios 重启进程这点就足以打死它了。实际运行中我们可以知道，当 &lt;code&gt;nagios reload&lt;/code&gt; 的时候，这个命令的执行本身就要花费远大于1分钟的时间。    &lt;/p&gt;
+
+&lt;p&gt;临时的办法，就是在更改后不主动 reload，而是在 crontab 里定时去做。损失一些监控实时性。一般来说，还不至于真的同一台设备一分钟内连续更改角色并且需要分别监控的。    &lt;/p&gt;
 
 &lt;p&gt;但是真要做到实时，应该怎么做呢？    &lt;/p&gt;
 
-&lt;p&gt;首先想到的是mod_gearman的基础上进行改造。我们之前已经知道，mod_gearman上是可以分别有host_check/service_check/check_result几个jobs的。那么，我们可以跳过config阶段，自己写gearman client发送job。这一步很容易。难点是check_result被nagios回收后，我们自己发的job，其host/service在nagios的service_list结构里是不存在的&amp;hellip;&amp;hellip;所以还要自己写gearman worker来回收result，具体来说，必须要做的事情包括有：根据performance_data来create和update相应的rrds；根据exit status来启动notification。这个工作内容一下子达到自己重写一个比较完整的监控系统的地步了，而且你如果通过原版的cgi查看，这部分内容还查看不到&amp;hellip;&amp;hellip;    &lt;/p&gt;
+&lt;p&gt;首先想到的是 &lt;code&gt;mod_gearman&lt;/code&gt; 的基础上进行改造。我们之前已经知道，&lt;code&gt;mod_gearman&lt;/code&gt; 上是可以分别有 host_check/service_check/check_result 几个 jobs 的。那么，我们可以跳过 config 阶段，自己写 gearman client 发送 job 。这一步很容易。难点是 check_result 被 nagios 回收后，我们自己发的 job，其 host/service 在 nagios 的 service_list 结构里是不存在的&amp;hellip;&amp;hellip;所以还要自己写 gearman worker 来回收 result，具体来说，必须要做的事情包括有：根据 performance_data 来 create 和 update 相应的 rrds；根据 exit status 来启动 notification。这个工作内容一下子达到自己重写一个比较完整的监控系统的地步了，而且你如果通过原版的 cgi 查看，这部分内容还查看不到&amp;hellip;&amp;hellip;    &lt;/p&gt;
 
-&lt;p&gt;于是我在github上询问mod_gearman的作者&lt;a href=&quot;https://github.com/sni&quot;&gt;Sven Nierlein&lt;/a&gt; ，他回答说：&lt;/p&gt;
+&lt;p&gt;于是我在 github 上询问 &lt;code&gt;mod_gearman&lt;/code&gt; 的作者&lt;a href=&quot;https://github.com/sni&quot;&gt;Sven Nierlein&lt;/a&gt; ，他回答说：&lt;/p&gt;
 
 &lt;pre&gt;&lt;code&gt;There is no such feature right now and it would be very hard to implement such thing in nagios or icinga.
 It should be easier to implement something like that in shinken, but i guess it still takes 2-3 weeks of development.
 &lt;/code&gt;&lt;/pre&gt;
 
-&lt;p&gt;好吧，比较失望的回答。尝试去瞄一眼nagios-src，在base/events.c里可以看到，nagios是在读取完全部config之后，才进入loop，并提供eventbroker的api的。  &lt;br /&gt;
-shinken是完全重写过的披着nagios皮的监控系统，在&lt;a href=&quot;http://shinken.ideascale.com/&quot;&gt;shinken的suggestion征集页面&lt;/a&gt; 上，我看到也有一位提议：&lt;a href=&quot;http://shinken.ideascale.com/a/dtd/Arbiter-configuration-without-reloading-daemon/323455-10373&quot;&gt;Arbiter configuration without reloading daemon&lt;/a&gt;，不过应者寥寥，看来这种需求真的是极少数人才会碰到的。  &lt;br /&gt;
-既然说到用gearman，又说到监控，再回头看看去年提到的cloudforecast。在ConfigLoader.pm中，可以看到一个watchdog方法。具体代码如下：&lt;/p&gt;
+&lt;p&gt;好吧，比较失望的回答。尝试去瞄一眼 nagios-src，在 base/events.c 里可以看到，nagios 是在读取完全部 config 之后，才进入 loop，并提供 eventbroker 的 api 的。    &lt;/p&gt;
+
+&lt;p&gt;shinken 是完全重写过的披着 nagios 皮的监控系统，在 &lt;a href=&quot;http://shinken.ideascale.com/&quot;&gt;shinken 的 suggestion 征集页面&lt;/a&gt; 上，我看到也有一位提议：&lt;a href=&quot;http://shinken.ideascale.com/a/dtd/Arbiter-configuration-without-reloading-daemon/323455-10373&quot;&gt;Arbiter configuration without reloading daemon&lt;/a&gt;，不过应者寥寥，看来这种需求真的是极少数人才会碰到的。    &lt;/p&gt;
+
+&lt;p&gt;既然说到用 gearman，又说到监控，再回头看看去年提到的 cloudforecast。在 &lt;code&gt;ConfigLoader.pm&lt;/code&gt; 中，可以看到一个 &lt;code&gt;watchdog&lt;/code&gt; 方法。具体代码如下：&lt;/p&gt;
 
 &lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;    &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$watcher&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;Filesys::Notify::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Simple&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;new&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;\&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;@path&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
     &lt;span class=&quot;k&quot;&gt;while&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
@@ -10169,13 +10276,13 @@ shinken是完全重写过的披着nagios皮的监控系统，在&lt;a href=&quot
     &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
-&lt;p&gt;可以看到，其实现方法是通过另起进程，通过inotify监听文件修改的方式，&amp;rdquo;实时&amp;rdquo;的重启主进程。实质上与nagios并无区别，都是要重新加载内存中保存的整个监控项配置列表。虽然没有大压力运用，但是可以猜测在预设环境中，重启耗时也会是瓶颈。    &lt;/p&gt;
+&lt;p&gt;可以看到，其实现方法是通过另起进程，通过 inotify 监听文件修改的方式，&amp;rdquo;实时&amp;rdquo;的重启主进程。实质上与 nagios 并无区别，都是要重新加载内存中保存的整个监控项配置列表。虽然没有大压力运用，但是可以猜测在预设环境中，重启耗时也会是瓶颈。    &lt;/p&gt;
 
-&lt;p&gt;另外一个监控系统zabbix，与上面两个系统都不同，他的监控配置，不是通过文件方式存在监控服务器上，而是通过web操作保存在数据库里。整个host/item/template等等都是鼠标点击即可。  &lt;br /&gt;
-zabbix我的使用经验不多，只在三年前用它的预设步骤的方式监控过网页性能。印象中在create graph后需要等待一定时间后才能反映出结果。但不确定这个时间是监控项排队消耗的，还是监控进程重启消耗掉的。  &lt;br /&gt;
-和&lt;a href=&quot;http://weibo.com/frankymryao&quot;&gt;@超大杯摩卡星冰乐&lt;/a&gt; 询问了一下，只能猜测或许是通过循环scan table的方式&amp;rdquo;实时&amp;rdquo;的添加&amp;rdquo;新&amp;rdquo;监控项到监控进程的队列里。或许也得跟分析nagios一样看看代码才知道是否能在本文预设的弹性环境下适用了。&lt;/p&gt;
+&lt;p&gt;另外一个监控系统 zabbix，与上面两个系统都不同，他的监控配置，不是通过文件方式存在监控服务器上，而是通过 web 操作保存在数据库里。整个 host/item/template 等等都是鼠标点击即可。    &lt;/p&gt;
 
-&lt;p&gt;至于ganglia，彻底米用过，暂时就不讨论了。&lt;/p&gt;
+&lt;p&gt;zabbix 我的使用经验不多，只在三年前用它的预设步骤的方式监控过网页性能。印象中在 create graph 后需要等待一定时间后才能反映出结果。但不确定这个时间是监控项排队消耗的，还是监控进程重启消耗掉的。    &lt;/p&gt;
+
+&lt;p&gt;和&lt;a href=&quot;http://weibo.com/frankymryao&quot;&gt;@超大杯摩卡星冰乐&lt;/a&gt; 询问了一下，只能猜测或许是通过循环 scan table 的方式&amp;rdquo;实时&amp;rdquo;的添加&amp;rdquo;新&amp;rdquo;监控项到监控进程的队列里。或许也得跟分析 nagios 一样看看代码才知道是否能在本文预设的弹性环境下适用了。&lt;/p&gt;
 
 </content>
  </entry>

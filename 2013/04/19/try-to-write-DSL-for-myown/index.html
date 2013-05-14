@@ -106,12 +106,63 @@
     <span class="p">}</span>
 </code></pre></div>
 <p><code>import</code> 和 <code>export_to_level</code> 都是 <code>Exporter</code> 模块的方法，<code>NG.pm</code> 里继承了 <code>Exporter</code>。</p>
+<h1 id="section">2013 年 05 月 06 日更新</h1>
+<p>借鉴了 CPAN 上 Rubyish、Perl6::<em>、Perl5i::</em> 等模块的思路，也加上了 autobox ，不过为了不破坏原先的 Array、Hashtable 等的设计，autobox 只管理标量的操作。现在可以这样：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Test::</span><span class="n">More</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Test::</span><span class="n">Deep</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">lib</span> <span class="s">&#39;../lib&#39;</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">NG</span><span class="p">;</span>
+<span class="n">cmp_deeply</span> <span class="mi">2</span><span class="o">-&gt;</span><span class="n">to</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="nn">NG::</span><span class="n">Array</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">);</span>
+<span class="n">is</span> <span class="s">&quot;test&quot;</span><span class="o">-&gt;</span><span class="nb">length</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="s">&quot;string length&quot;</span><span class="p">;</span>
+<span class="n">cmp_deeply</span> <span class="s">&quot;Hello World&quot;</span><span class="o">-&gt;</span><span class="nb">lc</span><span class="o">-&gt;</span><span class="n">words</span><span class="p">,</span> <span class="nn">NG::</span><span class="n">Array</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="s">&#39;hello&#39;</span><span class="p">,</span> <span class="s">&#39;world&#39;</span><span class="p">);</span>
+<span class="n">done_testing</span><span class="p">;</span>
+</code></pre></div>
+<p>关于 autobox 的用法也蛮有趣的，详见代码。</p>
+<h1 id="section-1">2013 年 05 月 14 日更新</h1>
+<p>实现了 <code>def_class</code> 关键词。这是在许大师的 spec 里就规划好了的。正好用上了前几天和莫言，牛氓请教的符号表的知识。</p>
+<p>新增了一个默认属性叫meta，所有用 <code>def_class</code> 实现的类，会自动记录他们(包括他们的用 <code>def_class</code> 实现的父类)的属性和方法到meta属性里。</p>
+<p>原先想用 <code>def_class</code> 实现 <code>NG::Object</code> 类；但是又想让 <code>def_class</code> 实现的类的默认基类为 <code>NG::Object</code>。结果思路绕晕了，所以最后 <code>NG::Object</code> 还是用 bless 直接实现的，所以也单独写了一个 <code>sub meta {}</code>。</p>
+<p>为此阅读了一下 <code>Moo</code> 和 <code>Moos</code> 的代码。原来他们都是把属性和方法也实现为类。然后再有 <code>*::Meta</code> 类来记录这些属性和方法的类。我这里就只是存了一个 hash 到 默认 meta 属性里。</p>
+<p>不过 meta 属性和 <code>def_class</code> 的其他属性不同的是：其他属性是使用 <code>sub :lvalue {}</code> 定义的，可以修改，meta 是普通 <code>sub {}</code> 的。</p>
+<p>lvalue 的说明见 <code>perldoc perlsub</code> 文档。在这里还是个比较有趣的用法的，这个用法来自 <code>Newbie::Gift</code> 项目另一位参与者 <a href="https://github.com/fmpdceudy">fmpdceudy</a>。</p>
+<p>目前 <code>def_class.t</code> 设计并通过的测试如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Test::</span><span class="n">More</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Test::</span><span class="n">Deep</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">lib</span> <span class="s">&#39;../lib&#39;</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">NG</span><span class="p">;</span>
+<span class="n">def_class</span> <span class="n">Animal</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="s">&#39;sex&#39;</span><span class="p">,</span> <span class="s">&#39;leg_color&#39;</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="n">sound</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+         <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="p">},</span>
+    <span class="n">run</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+         <span class="k">return</span> <span class="mi">100</span><span class="p">;</span>
+    <span class="p">},</span>
+<span class="p">};</span>
+<span class="n">def_class</span> <span class="n">Dog</span> <span class="o">=&gt;</span> <span class="n">Animal</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="s">&#39;head_color&#39;</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="n">eat</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+        <span class="nb">shift</span><span class="o">-&gt;</span><span class="n">head_color</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="p">},</span>
+    <span class="n">run</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+        <span class="nb">shift</span><span class="o">-&gt;</span><span class="n">head_color</span><span class="p">;</span>
+    <span class="p">},</span>
+<span class="p">};</span>
+<span class="k">my</span> <span class="nv">$y</span> <span class="o">=</span> <span class="n">Animal</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
+<span class="n">isa_ok</span> <span class="nv">$y</span><span class="p">,</span> <span class="s">&#39;Animal&#39;</span><span class="p">;</span>
+<span class="n">is</span> <span class="nv">$y</span><span class="o">-&gt;</span><span class="n">run</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="s">&#39;animal run ok&#39;</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$x</span> <span class="o">=</span> <span class="n">Dog</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
+<span class="n">isa_ok</span> <span class="nv">$x</span><span class="p">,</span> <span class="s">&#39;Dog&#39;</span><span class="p">;</span>
+<span class="nv">$x</span><span class="o">-&gt;</span><span class="n">eat</span><span class="p">(</span><span class="s">&#39;bone&#39;</span><span class="p">);</span>
+<span class="n">is</span> <span class="nv">$x</span><span class="o">-&gt;</span><span class="n">run</span><span class="p">,</span> <span class="s">&#39;bone&#39;</span><span class="p">,</span> <span class="s">&#39;eat ok&#39;</span><span class="p">;</span>
+<span class="n">is</span> <span class="nv">$x</span><span class="o">-&gt;</span><span class="n">sound</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s">&#39;parent sound ok&#39;</span><span class="p">;</span>
+<span class="n">cmp_deeply</span> <span class="nv">$x</span><span class="o">-&gt;</span><span class="n">meta</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">methods</span><span class="p">},</span> <span class="p">[</span><span class="sx">qw/dump run sound eat/</span><span class="p">],</span> <span class="s">&#39;list all methods ok&#39;</span><span class="p">;</span>
+<span class="n">done_testing</span><span class="p">;</span>
+</code></pre></div>
     <hr>
     <div class="pagination">
       <ul>
         <li class="prev"><a href="/2013/04/16/install-foreman" title="使用 Foreman 来监控统计 puppet 的 reports 信息">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next disabled"><a>Next &rarr;</a>
+        <li class="next"><a href="/2013/05/14/mojo-and-gocr-for-buildhr-telephone" title="用mojo抓取数据并gocr替换图片内容">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -126,6 +177,7 @@
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+                 <li> <a href="/2013/05/14/mojo-and-gocr-for-buildhr-telephone">用mojo抓取数据并gocr替换图片内容</a></li>
                  <li> <a href="/2013/04/16/install-foreman">使用 Foreman 来监控统计 puppet 的 reports 信息</a></li>
                  <li> <a href="/2013/04/03/install-graphite">Graphite 安装</a></li>
                  <li> <a href="/2013/04/02/parse-puppet-dsl-using-perl6">用 Perl6 解析 puppet 的配置语法</a></li>
@@ -134,7 +186,6 @@
                  <li> <a href="/2013/03/27/distributed-nagios-by-mod-gearman">用 Mod_Gearman 实现 Nagios 分布式</a></li>
                  <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
                  <li> <a href="/2013/03/15/puppet-provider-development">Puppet 自定义 Provider</a></li>
-                 <li> <a href="/2013/03/14/JPush-example">极光推送demo</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">
