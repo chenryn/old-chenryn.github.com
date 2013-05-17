@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>ESI & CACHE</title>
+    <title>ESI & CACHE 介绍</title>
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -43,22 +43,41 @@
       <div class="span7">
 <div class="row">
   <div class="page-header">
-    <h1>ESI & CACHE <small></small></h1>
+    <h1>ESI & CACHE 介绍 <small></small></h1>
     <div class="date"><span>22 February 2010</span></div>
     <ul class="tag_box pull-right">
     	<li><a href="/tags.html#squid-ref">squid <span>24</span></a></li>
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>今天看到一个叫做ESI的东东，以此为线索，一路链接下去，颇为有趣，摘抄些新闻/博客段落来，算作长眼了：
-首先是《CSDN09大会见闻》，其中提到康神的讲演《网站的那些事儿》，介绍了大规模网站架构上的种种工具和技术“比如做数据切分的Mysql Proxy，分布式缓存的Memory Cached，Web服务器缓存的Squid，页面优化的Y!Slow，页面切分方面的js拼接和iframe拼接（呵呵，怪不得搜狐的页面都是js加载，对搜索引擎很不友好），前端服务器Lighttpd,Squid3,ESI等。也提到了架构设计中扩展性，可用性和一致性三者的关系，优化时应让让一致性延迟。提到目前网站系统一般都是三层结构DB层，逻辑层和前端层，而可扩展度方面DB&lt; 逻辑 &lt;前端，原因就是有状态的最难扩展，无状态的最容易扩展，所以主张优化时尽量减少DB中存储的状态，将逻辑前移，最后总结优化的大方向就是：逻辑前移，善用缓存（无处不在的缓存）和数据冗余（方便查询）。”
-从中得到几个信息——1、搜狐的架构康神插手了；2、squid对ESI的支持限于3.0版本以上（这点很重要，因为其他任何地方都没写明）；3、缓存无处不在~~
-然后是ESI的概念原理。“ESI（Edge Side Include）通过使用简单的标记语言来对那些可以加速和不能加速的网页中的内容片断进行描述，每个网页都被划分成不同的小部分分别赋予不同的缓存控制策略，使Cache服务器可以根据这些策略在将完整的网页发送给用户之前将不同的小部分动态地组合在一起。通过这种控制，可以有效地减少从服务器抓取整个页面的次数，而只用从原服务器中提取少量的不能缓存的片断，因此可以有效降低原服务器的负载，同时提高用户访问的响应时间”
-从中得到几个信息——1、ESI不是一门新语言，而只是嵌入在html里的一种标记，首先要求对网页进行模板式的规划，然后由支持ESI的cache服务器根据“HTTP请求标题或用户的cookie信息”自行组装返回给browser；2、我想到lighttpd和nginx的流媒体支持，也是根据cookie信息，获取拖拽的指定帧定位。不过没找到这两个对esi的cache处理文章，毕竟他们的主业还是webserver……
-然后是计算机世界网中关于ESI的介绍。内容较长，不贴了，要点如下：1、ESI最多支持三级递归，可以在包含文档中再嵌套进一步ESI标记；2、ESI支持基于布尔比较或者环境变量的条件处理；3、ESI支持cgi环境变量，比如cookie；4、ESI支持开发者定制失败动作（这不就是我梦寐以求的东东？呵呵，夸张鸟~）5、ESI提供内容无效规范进行内容管理（cache的purge不再头疼？）；5、ESI是基于XML语言的，现有一个java的定制标签库JESI帮助生成jsp代码，这个东东我想是ESI标准被诸多寡头接受的重要原因，不然去哪找来一大批专门写ESI的设计员呢；6、ESI的主要开发和推动者，是CDN老大akaimai和DB老大oracle！！再次验证康神的话，Optimization=Cache+Data。
-最后，说一下squid3如何支持ESI。
-src-configure参数如下：
-&ndash;enable-esi           
+    <p>今天看到一个叫做 ESI 的东东，以此为线索，一路链接下去，颇为有趣，摘抄些新闻/博客段落来，算作长眼了：</p>
+<p>首先是《CSDN09大会见闻》，其中提到康神的讲演《网站的那些事儿》，介绍了大规模网站架构上的种种工具和技术“比如做数据切分的 Mysql Proxy，分布式缓存的 MemoryCached，Web 服务器缓存的 Squid，页面优化的 Y!Slow，页面切分方面的 js 拼接和 iframe 拼接（呵呵，怪不得搜狐的页面都是 js 加载，对搜索引擎很不友好），前端服务器 Lighttpd, Squid3, ESI 等。也提到了架构设计中扩展性，可用性和一致性三者的关系，优化时应让让一致性延迟。提到目前网站系统一般都是三层结构 DB 层，逻辑层和前端层，而可扩展度方面DB &lt; 逻辑 &lt; 前端，原因就是有状态的最难扩展，无状态的最容易扩展，所以主张优化时尽量减少DB中存储的状态，将逻辑前移，最后总结优化的大方向就是：逻辑前移，善用缓存（无处不在的缓存）和数据冗余（方便查询）。”</p>
+<p>从中得到几个信息——</p>
+<ol>
+  <li>搜狐的架构康神插手了；</li>
+  <li>squid对ESI的支持限于3.0版本以上（这点很重要，因为其他任何地方都没写明）；</li>
+  <li>缓存无处不在~~</li>
+</ol>
+<p>然后是ESI的概念原理。</p>
+<p><strong>“ESI（Edge Side Include）通过使用简单的标记语言来对那些可以加速和不能加速的网页中的内容片断进行描述，每个网页都被划分成不同的小部分分别赋予不同的缓存控制策略，使Cache服务器可以根据这些策略在将完整的网页发送给用户之前将不同的小部分动态地组合在一起。通过这种控制，可以有效地减少从服务器抓取整个页面的次数，而只用从原服务器中提取少量的不能缓存的片断，因此可以有效降低原服务器的负载，同时提高用户访问的响应时间”</strong></p>
+<p>从中得到几个信息——</p>
+<ol>
+  <li>ESI不是一门新语言，而只是嵌入在html里的一种标记，首先要求对网页进行模板式的规划，然后由支持ESI的cache服务器根据“HTTP请求标题或用户的cookie信息”自行组装返回给browser；</li>
+  <li>我想到lighttpd和nginx的流媒体支持，也是根据cookie信息，获取拖拽的指定帧定位。不过没找到这两个对esi的cache处理文章，毕竟他们的主业还是webserver……</li>
+</ol>
+<p>然后是计算机世界网中关于ESI的介绍。内容较长，不贴了，要点如下：</p>
+<ol>
+  <li>ESI最多支持三级递归，可以在包含文档中再嵌套进一步ESI标记；</li>
+  <li>ESI支持基于布尔比较或者环境变量的条件处理；</li>
+  <li>ESI支持cgi环境变量，比如cookie；</li>
+  <li>ESI支持开发者定制失败动作（这不就是我梦寐以求的东东？呵呵，夸张鸟~）</li>
+  <li>ESI提供内容无效规范进行内容管理（cache的purge不再头疼？）；</li>
+  <li>ESI是基于XML语言的，现有一个java的定制标签库JESI帮助生成jsp代码，这个东东我想是ESI标准被诸多寡头接受的重要原因，不然去哪找来一大批专门写ESI的设计员呢；</li>
+  <li>ESI的主要开发和推动者，是CDN老大akaimai和DB老大oracle！！再次验证康神的话，Optimization=Cache+Data。</li>
+</ol>
+<p>最后，说一下squid3如何支持ESI。</p>
+<p>./configure参数如下：</p>
+<pre><code>--enable-esi           
 Enable ESI for accelerators. Requires libexpat.
 Enabling ESI will cause squid to follow the Edge
 Acceleration Specification (www.esi.org). This
@@ -66,61 +85,70 @@ causes squid to IGNORE client Cache-Control headers.
 DO NOT use this in a squid configured as a web
 proxy, ONLY use it in a squid configured for
 webserver acceleration.
-squid.conf参数如下：</p>
-<div class="highlight"><pre><code class="squid">httpd_accel_surrogate_id<span class="w"> </span>unset-id<span class="w"></span>
-http_accel_surrogate_remote<span class="w"> </span><span class="no">on</span><span class="w"></span>
-esi_parser<span class="w"> </span>custom<span class="w"></span>
+</code></pre>
+<p>squid.conf参数如下：</p>
+<div class="highlight"><pre><code class="squid"><span class="w">    </span>httpd_accel_surrogate_id<span class="w"> </span>unset-id<span class="w"></span>
+<span class="w">    </span>http_accel_surrogate_remote<span class="w"> </span><span class="no">on</span><span class="w"></span>
+<span class="w">    </span>esi_parser<span class="w"> </span>custom<span class="w"></span>
 </code></pre></div>
-<p>写到最后郁闷了一下，这个东东，为了cache而发明出来了，却是得写在web上的。那我这篇博文，该归哪个类别呢？——或者这也验证了工作中的一点郁闷吧，cache的问题，经常出在web上，我们做CDN的，能怎么办呢？
-ESI网站
-<a href="http://www.akamai.com/html/support/esi.html">http://www.akamai.com/html/support/esi.html</a>
+<p>写到最后郁闷了一下，这个东东，为了cache而发明出来了，却是得写在web上的。那我这篇博文，该归哪个类别呢？——或者这也验证了工作中的一点郁闷吧，cache的问题，经常出在web上，我们做CDN的，能怎么办呢？</p>
+<p>ESI网站:</p>
+<p><a href="http://www.akamai.com/html/support/esi.html">http://www.akamai.com/html/support/esi.html</a>
 <a href="http://www.w3.org/TR/esi-lang">http://www.w3.org/TR/esi-lang</a></p>
-<hr />
-<p> 2010年8月1日：
-ESI指令集
-<esi:include src="http://example.com/1.html" alt="http://bak.example.com/2.html" onerror="continue" />
-include页面1.html，如果不存在就显示2.html，如果还不存在，就忽略这条esi</p>
-<esi:choose> 
-    <esi:when test="$(HTTP_COOKIE{group})=='Advanced'"> 
-        <esi:include src="http://www.example.com/advanced.html" /> 
-    </esi:when> 
-    <esi:when test="$(HTTP_COOKIE{group})=='Basic User'">
-        <esi:include src="http://www.example.com/basic.html" />
-    </esi:when> 
-    <esi:otherwise> 
-        <esi:include src="http://www.example.com/new_user.html" /> 
-    </esi:otherwise>
-</esi:choose>
-<p>一个类似case的esi语句</p>
-<esi:try> 
-    <esi:attempt>
-        <esi:comment text="Include an ad" /> 
-        <esi:include src="http://www.example.com/ad1.html" /> 
-    </esi:attempt>
-    <esi:except> 
-        <esi:comment text="Just write some HTML instead" /> 
-        &lt;a href=www.akamai.com&gt;www.example.com
-    </esi:except> 
-</esi:try>
-<p>一个类似if-else的esi语句
-<esi:include src="http://www.example.com/ad.html" /> </p>
-<esi:remove> 
-  <a href="http://www.example.com">www.example.com</a>
-</esi:remove>
-<p>如果esi可执行，就只执行include；如果不可，正好识别href；</p>
-<esi:vars>
-  <img src="http://www.example.com/$(HTTP_COOKIE{type})/hello.gif" />
-</esi:vars>
-<p>设定esi变量。变量都是从request-header中获得的，squid只支持标准的esi协议，即只识别下列header。
-     addVariable (&ldquo;HTTP_ACCEPT_LANGUAGE&rdquo;, 20, new ESIVariableLanguage); 
-     addVariable (&ldquo;HTTP_COOKIE&rdquo;, 11, new ESIVariableCookie); 
-     addVariable (&ldquo;HTTP_HOST&rdquo;, 9, new ESIVariableHost); 
-     addVariable (&ldquo;HTTP_REFERER&rdquo;, 12, new ESIVariableReferer); 
-     addVariable (&ldquo;HTTP_USER_AGENT&rdquo;, 15, new ESIVariableUserAgent(*this)); 
-     addVariable (&ldquo;QUERY_STRING&rdquo;, 12, new ESIVariableQuery(uri)); 
-逻辑表达式:
-==&lt;&gt;!&amp;|，!&amp;|都只能用于表达式之间的关系，本身不具有真义，所以类似shell的(1 &amp; 2)是不成立的。
-ESI必须由web端在response-header中声明Surrogate-Control: content=&rdquo;ESI/1.0&rdquo;。启用ESI后，Set-Cookie、Cache-Control、Last-Modified无效。</p>
+<p><strong>2010年8月1日：</strong></p>
+<h1 id="esi">ESI指令集</h1>
+<h3 id="include-">include 标签</h3>
+<p>首先尝试 include 页面 <code>1.html</code>，如果不存在就显示 <code>2.html</code>，如果还不存在，就忽略这条 esi</p>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://example.com/1.html&quot;</span> <span class="na">alt=</span><span class="s">&quot;http://bak.example.com/2.html&quot;</span> <span class="na">onerror=</span><span class="s">&quot;continue&quot;</span><span class="nt">/&gt;</span>
+</code></pre></div>
+<h3 id="case-when-">case when 标签</h3>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:choose&gt;</span> 
+    <span class="nt">&lt;esi:when</span> <span class="na">test=</span><span class="s">&quot;$(HTTP_COOKIE{group})==&#39;Advanced&#39;&quot;</span><span class="nt">&gt;</span> 
+        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/advanced.html&quot;</span><span class="nt">/&gt;</span> 
+    <span class="nt">&lt;/esi:when&gt;</span> 
+    <span class="nt">&lt;esi:when</span> <span class="na">test=</span><span class="s">&quot;$(HTTP_COOKIE{group})==&#39;Basic User&#39;&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/basic.html&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;/esi:when&gt;</span> 
+    <span class="nt">&lt;esi:otherwise&gt;</span> 
+        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/new_user.html&quot;</span><span class="nt">/&gt;</span> 
+    <span class="nt">&lt;/esi:otherwise&gt;</span>
+<span class="nt">&lt;/esi:choose&gt;</span>
+</code></pre></div>
+<h3 id="try-catch-">try catch 标签</h3>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:try&gt;</span> 
+    <span class="nt">&lt;esi:attempt&gt;</span>
+        <span class="nt">&lt;esi:comment</span> <span class="na">text=</span><span class="s">&quot;Include an ad&quot;</span><span class="nt">/&gt;</span> 
+        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/ad1.html&quot;</span><span class="nt">/&gt;</span> 
+    <span class="nt">&lt;/esi:attempt&gt;</span>
+    <span class="nt">&lt;esi:except&gt;</span> 
+        <span class="nt">&lt;esi:comment</span> <span class="na">text=</span><span class="s">&quot;Just write some HTML instead&quot;</span><span class="nt">/&gt;</span> 
+        <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">www.akamai.com</span><span class="nt">&gt;</span>www.example.com<span class="nt">&lt;/a&gt;</span>
+    <span class="nt">&lt;/esi:except&gt;</span> 
+<span class="nt">&lt;/esi:try&gt;</span>
+</code></pre></div>
+<h3 id="remove-">remove 标签</h3>
+<p>如果服务器可执行 ESI，就只执行 include；如果不可，只好识别标准的HTML</p>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/ad.html&quot;</span><span class="nt">/&gt;</span> 
+<span class="nt">&lt;esi:remove&gt;</span> 
+  <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://www.example.com&quot;</span><span class="nt">&gt;</span>www.example.com<span class="nt">&lt;/a&gt;</span>
+<span class="nt">&lt;/esi:remove&gt;</span>
+</code></pre></div>
+<h3 id="esi-1">esi变量</h3>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:vars&gt;</span>
+  <span class="nt">&lt;img</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/$(HTTP_COOKIE{type})/hello.gif&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/esi:vars&gt;</span>
+</code></pre></div>
+<p>变量都是从request-header中获得的，squid只支持标准的esi协议，即只识别下列header。</p>
+<div class="highlight"><pre><code class="c"><span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_ACCEPT_LANGUAGE&quot;</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableLanguage</span><span class="p">);</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_COOKIE&quot;</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableCookie</span><span class="p">);</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_HOST&quot;</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableHost</span><span class="p">);</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_REFERER&quot;</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableReferer</span><span class="p">);</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_USER_AGENT&quot;</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableUserAgent</span><span class="p">(</span><span class="o">*</span><span class="n">this</span><span class="p">));</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;QUERY_STRING&quot;</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableQuery</span><span class="p">(</span><span class="n">uri</span><span class="p">));</span> 
+</code></pre></div>
+<h3 id="section">逻辑表达式</h3>
+<p><code>==</code>,<code>!=</code>,<code>&lt;</code>,<code>&gt;</code>,<code>&lt;=</code>,<code>&gt;=</code>,<code>!</code>,<code>&amp;</code>,<code>|</code>都只能用于表达式之间的关系，本身不具有真义，所以类似shell的(1 &amp; 2)是不成立的。</p>
+<p>ESI必须由web端在response-header中声明Surrogate-Control: content=&rdquo;ESI/1.0&rdquo;。启用ESI后，Set-Cookie、Cache-Control、Last-Modified无效。</p>
     <hr>
     <div class="pagination">
       <ul>
