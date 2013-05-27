@@ -4,13 +4,134 @@
  <title>三斗室</title>
  <link href="http://chenlinux.com/feed.xml" rel="self"/>
  <link href="http://chenlinux.com"/>
- <updated>2013-05-17T19:02:51+08:00</updated>
+ <updated>2013-05-27T19:59:49+08:00</updated>
  <id>http://chenlinux.com</id>
  <author>
    <name>陈子</name>
    <email>rao.chenlin@gmail.com</email>
  </author>
 
+ 
+ <entry>
+   <title>使用 Rex::Box 代替 Vagrant 的工作</title>
+   <link href="http://chenlinux.com/2013/05/27/use-rex-box-replace-vagrant"/>
+   <updated>2013-05-27T00:00:00+08:00</updated>
+   <id>http://chenlinux.com/2013/05/27/use-rex-box-replace-vagrant</id>
+   <content type="html">&lt;p&gt;Vagrant 是近来 devops 界内非常流行和火爆的工具，它和 puppet/chef 的结合，成为运维开发和测试，甚至预热部署的重要手段。比如在 cloudfoundry 官方放弃使用 &lt;code&gt;vcap_setup&lt;/code&gt; 脚本部署后，社区大多对其 &lt;code&gt;BOSH&lt;/code&gt; 不买账，转而研究使用 vagrant 部署了。&lt;/p&gt;
+
+&lt;p&gt;对于 perl 运维人员，使用 Rex 工具做集群管理的话，其实完全不用再使用 vagrant 了。因为 Rex 自带有 Box 功能。完全可以一体化工作。下面从 Rex 官网上半翻译半截取两篇文章，展示 Rex::Box 的使用。两篇原文分别是：&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;&lt;a href=&quot;http://box.rexify.org/guide&quot;&gt;http://box.rexify.org/guide&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;http://www.rexify.org/howtos/use_boxes_with_any_box_provider.html&quot;&gt;http://www.rexify.org/howtos/use_boxes_with_any_box_provider.html&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h1 id=&quot;section&quot;&gt;环境准备&lt;/h1&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;bash&quot;&gt;rexify &lt;span class=&quot;nv&quot;&gt;$project&lt;/span&gt;-name --template box
+&lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$project&lt;/span&gt;-name
+rex init --name&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$vm&lt;/span&gt;-name --url&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$url&lt;/span&gt;-to-prebuild-vm-image
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;h1 id=&quot;section-1&quot;&gt;虚拟机定义&lt;/h1&gt;
+
+&lt;p&gt;这里有两种方式，一种是类似 Vagrantfile 定义的 Rexfile 写法：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;&lt;span class=&quot;n&quot;&gt;set&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;box&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;VBox&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;task&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;mytask&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+   &lt;span class=&quot;n&quot;&gt;box&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+      &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$box&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;@_&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+      &lt;span class=&quot;nv&quot;&gt;$box&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;boxname&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+      &lt;span class=&quot;nv&quot;&gt;$box&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;url&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;http://box.rexify.org/box/base-image.box&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+      &lt;span class=&quot;nv&quot;&gt;$box&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;network&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;type&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;bridged&amp;quot;&lt;/span&gt;      &lt;span class=&quot;c1&quot;&gt;# 默认是 &amp;quot;nat&amp;quot;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;bridge&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;eth0&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;p&quot;&gt;});&lt;/span&gt;
+      &lt;span class=&quot;nv&quot;&gt;$box&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;forward_port&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ssh&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2222&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;22&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]);&lt;/span&gt;
+      &lt;span class=&quot;nv&quot;&gt;$box&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;share_folder&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;boxhome&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;/path/to/myuser&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+      &lt;span class=&quot;nv&quot;&gt;$box&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;auth&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;user&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;root&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;password&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;box&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+      &lt;span class=&quot;nv&quot;&gt;$box&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;setup&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;sx&quot;&gt;qw/setup_frontend/&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+   &lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;另一种是采用 YAML 配置：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;yaml&quot;&gt;&lt;span class=&quot;l-Scalar-Plain&quot;&gt;type&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;VBox&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;vms&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+   &lt;span class=&quot;l-Scalar-Plain&quot;&gt;fe01&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;l-Scalar-Plain&quot;&gt;url&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;http://box.rexify.org/box/ubuntu-server-12.10-amd64.ova&lt;/span&gt;
+      &lt;span class=&quot;l-Scalar-Plain&quot;&gt;network&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+         &lt;span class=&quot;l-Scalar-Plain&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;type&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;bridged&lt;/span&gt;
+            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;bridge&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;eth0&lt;/span&gt;
+      &lt;span class=&quot;l-Scalar-Plain&quot;&gt;setup&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;setup_frontend&lt;/span&gt;
+   &lt;span class=&quot;l-Scalar-Plain&quot;&gt;db01&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;l-Scalar-Plain&quot;&gt;url&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;http://box.rexify.org/box/ubuntu-server-12.10-amd64.ova&lt;/span&gt;
+      &lt;span class=&quot;l-Scalar-Plain&quot;&gt;network&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+         &lt;span class=&quot;l-Scalar-Plain&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;type&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;bridged&lt;/span&gt;
+            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;bridge&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;eth0&lt;/span&gt;
+      &lt;span class=&quot;l-Scalar-Plain&quot;&gt;setup&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;setup_db&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;h1 id=&quot;section-2&quot;&gt;虚拟机初始化&lt;/h1&gt;
+
+&lt;p&gt;在 Vagrant 中有一个概念叫 provision，也就是在虚拟机第一次运行时，通过 shell/puppet/chef 等进行初始化操作。Rex::Box 自然是通过 Rex 本身来进行这个任务。也就是上例中的 &lt;code&gt;setup&lt;/code&gt; 定义的 task 名称。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;&lt;span class=&quot;n&quot;&gt;task&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;setup_frontend&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;install&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;nginx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;file&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;/etc/nginx.conf&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;content&lt;/span&gt;   &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;template&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;template/httpd.conf.tpl&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;owner&lt;/span&gt;     &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;root&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;group&lt;/span&gt;     &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;root&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;on_change&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;service&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;nginx&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;restart&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;因为 rex 本身是通过 ssh 管理，所以在 setup 之前，必须定义好如何 auth，自己做的镜像不说了，通过 rexify.org 下载的默认镜像，就是默认的 root/box 了。&lt;/p&gt;
+
+&lt;p&gt;说到镜像，其实 vagrant 的 &lt;code&gt;.box&lt;/code&gt; 也就是 &lt;code&gt;.ova&lt;/code&gt; ，都是把 virtualbox 的 &lt;code&gt;.vmdk&lt;/code&gt; 和 &lt;code&gt;.ovf&lt;/code&gt; 打了个包而已。&lt;/p&gt;
+
+&lt;p&gt;当然，也可以在 task 写 shell，通过 &lt;code&gt;run&lt;/code&gt; 的方式，其实 run 应该也是 Rex 最常用的 task 了。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;&lt;span class=&quot;n&quot;&gt;task&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;setup_frontend&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;run&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;echo Hello, world&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;h1 id=&quot;section-3&quot;&gt;虚拟机使用&lt;/h1&gt;
+
+&lt;p&gt;定义完成后，就可以使用 init 配置虚拟机环境，然后 start/stop 管理虚拟机。&lt;/p&gt;
+
+&lt;p&gt;比如在使用 YAML 配置的时候，配置环境的 Rexfile 最后是这样的：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;Rex::Commands::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Box&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;init_file&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;box.yml&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;group&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;myboxes&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;map&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;get_box&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$_&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;})&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;list_boxes&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;task&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;box&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+   &lt;span class=&quot;n&quot;&gt;boxes&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;init&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;像要做成命令行管理也比较简单，比如启动和停止虚拟机的 task 这样写：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;&lt;span class=&quot;n&quot;&gt;task&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;stop&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$param&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;shift&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;boxes&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;stop&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$param&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;就可以在命令行直接这样启动某个虚拟机了：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;bash&quot;&gt;rex stop --name&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;myvbox
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;事实上，本文最开头的默认 box 模板生成的命令，就是通过前一步生成的 Rexfile 里定义的 &lt;code&gt;task &quot;init&quot;, sub {...};&lt;/code&gt; 实现的。&lt;/p&gt;
+</content>
+ </entry>
  
  <entry>
    <title>用mojo抓取数据并gocr替换图片内容</title>
@@ -27988,8 +28109,7 @@ neighbor.    &lt;/p&gt;
 4.1. 命中（client-side模块）；
 4.2. 未命中（rotoDispatch()函数启动peer算法，算法检查never|always_direct）；&lt;/li&gt;
   &lt;li&gt;收到ICP响应，选择中止，转发请求（protoStart()函数）；&lt;/li&gt;
-  &lt;li&gt;打开到源站或peer的连接（HTTP模块），发起请求（Network
-Communication模块），建立连接并处理异常（comm.c程序）；&lt;/li&gt;
+  &lt;li&gt;打开到源站或peer的连接（HTTP模块），发起请求（NetworkCommunication模块），建立连接并处理异常（comm.c程序）；&lt;/li&gt;
   &lt;li&gt;建立写缓存（HTTP模块），将请求写入socket；&lt;/li&gt;
   &lt;li&gt;建立相应的socket读缓存，接受处理HTTP响应（即，如果已有socket，可以跳过6、7步）；&lt;/li&gt;
   &lt;li&gt;响应被接受，squid接收到header信息，并在被读取时把data追加进StoreEntry，同时通知client-side模块，这个过程的速度取决于delay_pools；&lt;/li&gt;
@@ -27999,27 +28119,28 @@ Communication模块），建立连接并处理异常（comm.c程序）；&lt;/li
   &lt;li&gt;数据写入客户端socket完成，从StoreEntry注释掉client-side模块，同样，关闭或等待客户端连接请求。&lt;/li&gt;
 &lt;/ol&gt;
 
-&lt;p&gt;原先的想法就是在第3步，而缓存在第4步，所以不行。也就是说，必须在第4步以后操作，才能不影响CDN的命中率。很显然，我注意到一个词，第6步中“建立链接并处理异常”的comm.c程序；其次，第9步“响应被接受”，也就是说，可能建立链接但没响应，这里就应该是socket的存活过期时间来决定。&lt;br /&gt;
-思路到此为止，往下就是编程开发能力的事儿了，哭ing~~&lt;br /&gt;
-第二个办法，还在squid本身上做文章。我注意到，处理流程的4.2步上，squid是同时检查源站和cache_peer的。那么，在源站故障的时候，cache_peer可以设成其他服务器顶上。这样的情况，不单解决一个url跳转，还能做一个源站备份。配置如下：&lt;/p&gt;
+&lt;p&gt;原先的想法就是在第3步，而缓存在第4步，所以不行。也就是说，必须在第4步以后操作，才能不影响CDN的命中率。很显然，我注意到一个词，第6步中“建立链接并处理异常”的comm.c程序；其次，第9步“响应被接受”，也就是说，可能建立链接但没响应，这里就应该是socket的存活过期时间来决定。&lt;br /&gt;&lt;/p&gt;
+
+&lt;p&gt;思路到此为止，往下就是编程开发能力的事儿了，哭ing~~&lt;/p&gt;
+
+&lt;p&gt;第二个办法，还在squid本身上做文章。我注意到，处理流程的4.2步上，squid是同时检查源站和cache_peer的。那么，在源站故障的时候，cache_peer可以设成其他服务器顶上。这样的情况，不单解决一个url跳转，还能做一个源站备份。配置如下：&lt;/p&gt;
 
 &lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;squid&quot;&gt;nonhierarchical_direct&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;off&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
 &lt;span class=&quot;k&quot;&gt;prefer_direct&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;on&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;cache_peer&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;192.168.1.1&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;parent&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;80&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;no-query&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;originserver&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
-name=S1&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;cache_peer&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;192.168.1.2&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;parent&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;80&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
-&lt;span class=&quot;no&quot;&gt;no-query&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;name=S2&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;cache_peer&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;192.168.1.3&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;parent&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;80&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
-&lt;span class=&quot;no&quot;&gt;no-query&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;name=S3&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;cache_peer&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;192.168.1.1&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;parent&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;80&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;no-query&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;originserver&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;name=S1&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;cache_peer&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;192.168.1.2&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;parent&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;80&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;no-query&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;name=S2&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;cache_peer&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;192.168.1.3&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;parent&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;80&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;no-query&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;name=S3&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
 &lt;span class=&quot;k&quot;&gt;acl&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;myservice&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;dstdomain&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;.site.com&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
 &lt;span class=&quot;k&quot;&gt;cache_peer_access&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;S1&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;allow&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;myservice&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
 &lt;span class=&quot;k&quot;&gt;cache_peer_access&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;S2&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;allow&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;myservice&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
 &lt;span class=&quot;k&quot;&gt;cache_peer_access&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;S3&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;allow&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;myservice&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
-&lt;p&gt;第一句的意思，就是当originserver挂了，不可层叠的请求（即hierarchy_stoplist定义的）就“可能”发往其他peer。&lt;br /&gt;
-第二句的意思，就是所有优先originserver，只有挂了以后才去peer，这个配置针对的可cache的请求。&lt;br /&gt;
-不过两句加起来，还有那些不再hierarchy_stoplist定义又不cache的（没实验，不知道这个可cache是指squid配置还是包括origin的header设置），可就没办法了，也不全面。&lt;/p&gt;
+&lt;p&gt;第一句的意思，就是当originserver挂了，不可层叠的请求（即hierarchy_stoplist定义的）就“可能”发往其他peer。&lt;/p&gt;
+
+&lt;p&gt;第二句的意思，就是所有优先originserver，只有挂了以后才去peer，这个配置针对的可cache的请求。&lt;/p&gt;
+
+&lt;p&gt;不过两句加起来，还有那些不再hierarchy_stoplist定义又不cache的（没实验，不知道这个可cache是指squid配置还是包括origin的header设置），可就没办法了，也不全面。&lt;/p&gt;
 
 </content>
  </entry>
@@ -31690,95 +31811,110 @@ awk &lt;span class=&quot;s1&quot;&gt;&amp;#39;BEGIN{bs=4000000}/access/{if($1&am
    <link href="http://chenlinux.com/2009/11/03/automate-configure-squid"/>
    <updated>2009-11-03T00:00:00+08:00</updated>
    <id>http://chenlinux.com/2009/11/03/automate-configure-squid</id>
-   <content type="html">&lt;p&gt;公司刚重新规定了squid服务的标准配置。以后，客户的配置要求，统一安排。这样，除了一些有特殊要求（比如加密／防盗链等）的以外，普通客户就可以逐步实现简洁明了的规范化自动化配置。
-目前squid的初始化准备还在慢慢进行中，趁有点空闲，先把自动化配置脚本搞出来。
-主程序do.sh如下：&lt;/p&gt;
+   <content type="html">&lt;p&gt;公司刚重新规定了squid服务的标准配置。以后，客户的配置要求，统一安排。这样，除了一些有特殊要求（比如加密／防盗链等）的以外，普通客户就可以逐步实现简洁明了的规范化自动化配置。&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;bash&quot;&gt;&lt;span class=&quot;c&quot;&gt;#!/bin/bash&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;$#&amp;quot;&lt;/span&gt; -ne 2 &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;;&lt;span class=&quot;k&quot;&gt;then&lt;/span&gt;
-&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;Usage: ./do.sh [command][customer]&amp;quot;&lt;/span&gt;
-&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;For example:./do.sh add abc&amp;quot;&lt;/span&gt;
-&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;                            ./do.sh del abc&amp;quot;&lt;/span&gt;
-&lt;span class=&quot;nb&quot;&gt;exit &lt;/span&gt;1
-&lt;span class=&quot;k&quot;&gt;elif&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; ! -s ip.lst -a -e ip.lst &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;;&lt;span class=&quot;k&quot;&gt;then&lt;/span&gt;
-&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;No server in ip.lst&amp;quot;&lt;/span&gt;
-&lt;span class=&quot;nb&quot;&gt;exit &lt;/span&gt;1
-&lt;span class=&quot;k&quot;&gt;fi&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;for &lt;/span&gt;ip in &lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;cat ip.lst&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;;&lt;span class=&quot;k&quot;&gt;do&lt;/span&gt;
-ping -c 5 &lt;span class=&quot;nv&quot;&gt;$ip&lt;/span&gt;
-expect ssh.exp &lt;span class=&quot;nv&quot;&gt;$ip&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$2&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;done&lt;/span&gt;
+&lt;p&gt;目前squid的初始化准备还在慢慢进行中，趁有点空闲，先把自动化配置脚本搞出来。&lt;/p&gt;
+
+&lt;p&gt;主程序do.sh如下：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;bash&quot;&gt;    &lt;span class=&quot;c&quot;&gt;#!/bin/bash&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;$#&amp;quot;&lt;/span&gt; -ne 2 &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;;&lt;span class=&quot;k&quot;&gt;then&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;    &lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;Usage: ./do.sh [command][customer]&amp;quot;&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;For example:./do.sh add abc&amp;quot;&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;                            ./do.sh del abc&amp;quot;&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;exit &lt;/span&gt;1
+    &lt;span class=&quot;k&quot;&gt;elif&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; ! -s ip.lst -a -e ip.lst &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;;&lt;span class=&quot;k&quot;&gt;then&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;    &lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;No server in ip.lst&amp;quot;&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;exit &lt;/span&gt;1
+    &lt;span class=&quot;k&quot;&gt;fi&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;    for &lt;/span&gt;ip in &lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;cat ip.lst&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;;&lt;span class=&quot;k&quot;&gt;do&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;    &lt;/span&gt;ping -c 5 &lt;span class=&quot;nv&quot;&gt;$ip&lt;/span&gt;
+    expect ssh.exp &lt;span class=&quot;nv&quot;&gt;$ip&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$2&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;done&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;ssh.exp如下：&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;tcl&quot;&gt;&lt;span class=&quot;c&quot;&gt;#!/usr/bin/expect -f&lt;/span&gt;
-&lt;span class=&quot;nv&quot;&gt;log_file&lt;/span&gt; exp.log
-&lt;span class=&quot;k&quot;&gt;set&lt;/span&gt; ipaddr &lt;span class=&quot;k&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;lindex&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$argv&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;]&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;set&lt;/span&gt; command &lt;span class=&quot;k&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;lindex&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$argv&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;]&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;set&lt;/span&gt; custom &lt;span class=&quot;k&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;lindex&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$argv&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;]&lt;/span&gt;
-&lt;span class=&quot;nv&quot;&gt;spawn&lt;/span&gt; scp &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;squid.config&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$custom&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;rt&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;conf.sh &lt;span class=&quot;nv&quot;&gt;$ipaddr:&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;root&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{}&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{}&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;
-&lt;span class=&quot;nv&quot;&gt;expect&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;
-&lt;span class=&quot;nb&quot;&gt;eof&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;break&lt;/span&gt;
-&lt;span class=&quot;s2&quot;&gt;&amp;quot;(yes/no)?&amp;quot;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;send&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;yesr&amp;quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
-&lt;span class=&quot;s2&quot;&gt;&amp;quot;assword:&amp;quot;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;send&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;123456r&amp;quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
-&lt;span class=&quot;nv&quot;&gt;spawn&lt;/span&gt; ssh root&lt;span class=&quot;err&quot;&gt;@&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ipaddr&lt;/span&gt; bash conf.sh &lt;span class=&quot;nv&quot;&gt;$command&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$custom&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{}&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{}&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;
-&lt;span class=&quot;nv&quot;&gt;expect&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;
-&lt;span class=&quot;nb&quot;&gt;eof&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;break&lt;/span&gt;
-&lt;span class=&quot;s2&quot;&gt;&amp;quot;(yes/no)?&amp;quot;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;send&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;yesr&amp;quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
-&lt;span class=&quot;s2&quot;&gt;&amp;quot;assword:&amp;quot;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;send&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;123456r&amp;quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;tcl&quot;&gt;    &lt;span class=&quot;c&quot;&gt;#!/usr/bin/expect -f&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;log_file&lt;/span&gt; exp.log
+    &lt;span class=&quot;k&quot;&gt;set&lt;/span&gt; ipaddr &lt;span class=&quot;k&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;lindex&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$argv&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;]&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;set&lt;/span&gt; command &lt;span class=&quot;k&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;lindex&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$argv&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;]&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;set&lt;/span&gt; custom &lt;span class=&quot;k&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;lindex&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$argv&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;]&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;spawn&lt;/span&gt; scp &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;squid.config&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$custom&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;rt&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;conf.sh &lt;span class=&quot;nv&quot;&gt;$ipaddr:&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;root&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{}&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{}&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;
+      &lt;span class=&quot;nv&quot;&gt;expect&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;eof&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;break&lt;/span&gt;
+        &lt;span class=&quot;s2&quot;&gt;&amp;quot;(yes/no)?&amp;quot;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;send&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;yesr&amp;quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
+        &lt;span class=&quot;s2&quot;&gt;&amp;quot;assword:&amp;quot;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;send&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;123456r&amp;quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
+      &lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;spawn&lt;/span&gt; ssh root&lt;span class=&quot;err&quot;&gt;@&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ipaddr&lt;/span&gt; bash conf.sh &lt;span class=&quot;nv&quot;&gt;$command&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$custom&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{}&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{}&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;
+      &lt;span class=&quot;nv&quot;&gt;expect&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;eof&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;break&lt;/span&gt;
+        &lt;span class=&quot;s2&quot;&gt;&amp;quot;(yes/no)?&amp;quot;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;send&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;yesr&amp;quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
+        &lt;span class=&quot;s2&quot;&gt;&amp;quot;assword:&amp;quot;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;send&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;123456r&amp;quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
+      &lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;conf.sh如下：&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;bash&quot;&gt;&lt;span class=&quot;c&quot;&gt;#!/bin/bash&lt;/span&gt;
-&lt;span class=&quot;nv&quot;&gt;NR&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;$(&lt;/span&gt;cat &lt;span class=&quot;nv&quot;&gt;$2&lt;/span&gt;|wc -l&lt;span class=&quot;k&quot;&gt;)&lt;/span&gt;
-&lt;span class=&quot;nv&quot;&gt;CONF&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;/etc/squid.conf
-&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;$1&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;add&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;;&lt;span class=&quot;k&quot;&gt;then&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;    &lt;/span&gt;sed -i &lt;span class=&quot;s2&quot;&gt;&amp;quot;/config/r $2&amp;quot;&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$CONF&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;elif&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;$1&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;del&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;;&lt;span class=&quot;k&quot;&gt;then&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;    &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;CFNR&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;sed -n -e /&lt;span class=&quot;nv&quot;&gt;$2&lt;/span&gt;/&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$CONF&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;
-    &lt;span class=&quot;nv&quot;&gt;BEGINNR&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$CFNR&lt;/span&gt;|awk &lt;span class=&quot;s1&quot;&gt;&amp;#39;{print $1}&amp;#39;&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;
-    &lt;span class=&quot;nv&quot;&gt;ENDNR&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;expr &lt;span class=&quot;nv&quot;&gt;$BEGINNR&lt;/span&gt; + &lt;span class=&quot;nv&quot;&gt;$NR&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;
-    sed -i &lt;span class=&quot;s2&quot;&gt;&amp;quot;/$BEGINNR/,/$ENDNR/d&amp;quot;&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$CONF&lt;/span&gt;
-    rm -f &lt;span class=&quot;s2&quot;&gt;&amp;quot;$2&amp;quot;&lt;/span&gt;*
-&lt;span class=&quot;k&quot;&gt;else&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;    &lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;Use add or del please!&amp;quot;&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;fi&lt;/span&gt;
-killall -9 squid
-&lt;span class=&quot;nb&quot;&gt;ulimit&lt;/span&gt; -HSn 655360
-/sbin/squid -s
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;bash&quot;&gt;    &lt;span class=&quot;c&quot;&gt;#!/bin/bash&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;NR&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;$(&lt;/span&gt;cat &lt;span class=&quot;nv&quot;&gt;$2&lt;/span&gt;|wc -l&lt;span class=&quot;k&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;CONF&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;/etc/squid.conf
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;$1&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;add&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;;&lt;span class=&quot;k&quot;&gt;then&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;        &lt;/span&gt;sed -i &lt;span class=&quot;s2&quot;&gt;&amp;quot;/config/r $2&amp;quot;&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$CONF&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;elif&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;$1&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;del&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;;&lt;span class=&quot;k&quot;&gt;then&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;        &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;CFNR&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;sed -n -e /&lt;span class=&quot;nv&quot;&gt;$2&lt;/span&gt;/&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$CONF&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;
+        &lt;span class=&quot;nv&quot;&gt;BEGINNR&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$CFNR&lt;/span&gt;|awk &lt;span class=&quot;s1&quot;&gt;&amp;#39;{print $1}&amp;#39;&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;
+        &lt;span class=&quot;nv&quot;&gt;ENDNR&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;expr &lt;span class=&quot;nv&quot;&gt;$BEGINNR&lt;/span&gt; + &lt;span class=&quot;nv&quot;&gt;$NR&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;
+        sed -i &lt;span class=&quot;s2&quot;&gt;&amp;quot;/$BEGINNR/,/$ENDNR/d&amp;quot;&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$CONF&lt;/span&gt;
+        rm -f &lt;span class=&quot;s2&quot;&gt;&amp;quot;$2&amp;quot;&lt;/span&gt;*
+    &lt;span class=&quot;k&quot;&gt;else&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;        &lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;Use add or del please!&amp;quot;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;fi&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;    &lt;/span&gt;killall -9 squid
+    &lt;span class=&quot;nb&quot;&gt;ulimit&lt;/span&gt; -HSn 655360
+    /sbin/squid -s
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;然后我们模拟一个叫做abc的客户来测试CDN了。那么我只要在/squid.config/下创建一个叫做abc的文本，内容是针对性的配置部分字段，假设如下：&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;bash&quot;&gt;&lt;span class=&quot;o&quot;&gt;[&lt;/span&gt;root@center /squid.config&lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;&lt;span class=&quot;c&quot;&gt;# cat abc&lt;/span&gt;
-&lt;span class=&quot;c&quot;&gt;#abc&lt;/span&gt;
-refresh_pattern -i http://www.abc.com/.*.&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;jpg|gif|js|css|swf|xml&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;1440 50% 4320 ignore-reload
-acl abc url_regex -i ^http://www.abc.com/.*.&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;html|do|jsp|asp|aspx|axd|asmx&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt;
-cache deny abc
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;squid&quot;&gt;&lt;span class=&quot;w&quot;&gt;    &lt;/span&gt;&lt;span class=&quot;c&quot;&gt;#abc&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
+&lt;span class=&quot;w&quot;&gt;    &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;refresh_pattern&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;-i&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;http://www.abc.com/.*.(jpg|gif|js|css|swf|xml)$&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;1440&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;50%&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;m&quot;&gt;4320&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;ignore-reload&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
+&lt;span class=&quot;w&quot;&gt;    &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;acl&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;abc&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;url_regex&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;-i&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;^http://www.abc.com/.*.(html|do|jsp|asp|aspx|axd|asmx)&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
+&lt;span class=&quot;w&quot;&gt;    &lt;/span&gt;cache&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;no&quot;&gt;deny&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;abc&lt;span class=&quot;w&quot;&gt;&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
-&lt;p&gt;然后运行./do.sh add abc，就可以自动在ip.lst里所有的服务器的squid.conf中的“#config”字段下面，添上abc的配置文件了。
-过一段时间，要是abc这个客户流失了，就运行./do.sh del abc就行了。
-之前的思路，局限在一句句往配置文件里插句子。于是用下面这个办法
-sed -i s/&amp;rdquo;config&amp;rdquo;/{
-a&amp;rdquo;……&amp;rdquo;/
-a&amp;rdquo;……&amp;rdquo;/
-a&amp;rdquo;……&amp;rdquo;/
-}
-squid.conf
-而这样配置句段的顺序就反过来了，还得用sed -n &amp;ldquo;1!G;h;$!d&amp;rdquo;命令倒序读取——最开始用cat命令，结果cat在读取abc这个文件的时候会自动把空格前后的内容分段读出，于是改用sed。至于倒序之后，再怎么插入，就没有研究了。因为当时我发现了可以直接将文件a插入文件b的方法～～
-del的时候，其实在操作上还有一个办法。就是每次的配置不单以#abc开头，还用一个#abcEND结尾。这样，ENDNR就不用计算，直接取echo $CFNR|awk &amp;lsquo;{print $NF}&amp;rsquo;就行了。
-说到这个CFNR，让人很郁闷的一点是，这个sed -n -e出来的几个数字，我本意是作一个数组的，但怎么试验，shell都把这一串数字存在${CFNR[0]}一个元素里……数组到底怎么输入，还得研究～～&lt;/p&gt;
+&lt;p&gt;然后运行./do.sh add abc，就可以自动在ip.lst里所有的服务器的squid.conf中的“#config”字段下面，添上abc的配置文件了。&lt;/p&gt;
+
+&lt;p&gt;过一段时间，要是abc这个客户流失了，就运行./do.sh del abc就行了。&lt;/p&gt;
+
+&lt;p&gt;之前的思路，局限在一句句往配置文件里插句子。于是用下面这个办法&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;bash&quot;&gt;    sed -i s/&lt;span class=&quot;s2&quot;&gt;&amp;quot;config&amp;quot;&lt;/span&gt;/&lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    a&lt;span class=&quot;s2&quot;&gt;&amp;quot;……&amp;quot;&lt;/span&gt;/
+    a&lt;span class=&quot;s2&quot;&gt;&amp;quot;……&amp;quot;&lt;/span&gt;/
+    a&lt;span class=&quot;s2&quot;&gt;&amp;quot;……&amp;quot;&lt;/span&gt;/
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+    squid.conf
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;而这样配置句段的顺序就反过来了，还得用sed -n &amp;ldquo;1!G;h;$!d&amp;rdquo;命令倒序读取——最开始用cat命令，结果cat在读取abc这个文件的时候会自动把空格前后的内容分段读出，于是改用sed。至于倒序之后，再怎么插入，就没有研究了。因为当时我发现了可以直接将文件a插入文件b的方法～～&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;del的时候，其实在操作上还有一个办法。就是每次的配置不单以#abc开头，还用一个#abcEND结尾。这样，ENDNR就不用计算，直接取echo $CFNR&lt;/td&gt;
+      &lt;td&gt;awk &amp;lsquo;{print $NF}&amp;rsquo;就行了。&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;说到这个CFNR，让人很郁闷的一点是，这个sed -n -e出来的几个数字，我本意是作一个数组的，但怎么试验，shell都把这一串数字存在${CFNR[0]}一个元素里……数组到底怎么输入，还得研究～～&lt;/p&gt;
 
 </content>
  </entry>

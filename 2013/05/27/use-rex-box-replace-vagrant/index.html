@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>使用 Rex::Box 代替 Vagrant 的工作</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive.html">Archive</a></li>
+      	<li><a href="/categories.html">Categories</a></li>
+      	<li><a href="/pages.html">Pages</a></li>
+      	<li><a href="/tags.html">Tags</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+            <li><a href="/links.html">友情链接</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>使用 Rex::Box 代替 Vagrant 的工作 <small></small></h1>
+    <div class="date"><span>27 May 2013</span></div>
+    <ul class="tag_box pull-right">
+    	<li><a href="/tags.html#rex-ref">rex <span>2</span></a></li>
+    	<li><a href="/tags.html#perl-ref">perl <span>54</span></a></li>
+    	<li><a href="/tags.html#virtualbox-ref">virtualbox <span>1</span></a></li>
+    </ul>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>Vagrant 是近来 devops 界内非常流行和火爆的工具，它和 puppet/chef 的结合，成为运维开发和测试，甚至预热部署的重要手段。比如在 cloudfoundry 官方放弃使用 <code>vcap_setup</code> 脚本部署后，社区大多对其 <code>BOSH</code> 不买账，转而研究使用 vagrant 部署了。</p>
+<p>对于 perl 运维人员，使用 Rex 工具做集群管理的话，其实完全不用再使用 vagrant 了。因为 Rex 自带有 Box 功能。完全可以一体化工作。下面从 Rex 官网上半翻译半截取两篇文章，展示 Rex::Box 的使用。两篇原文分别是：</p>
+<ol>
+  <li><a href="http://box.rexify.org/guide">http://box.rexify.org/guide</a></li>
+  <li><a href="http://www.rexify.org/howtos/use_boxes_with_any_box_provider.html">http://www.rexify.org/howtos/use_boxes_with_any_box_provider.html</a></li>
+</ol>
+<h1 id="section">环境准备</h1>
+<div class="highlight"><pre><code class="bash">rexify <span class="nv">$project</span>-name --template box
+<span class="nb">cd</span> <span class="nv">$project</span>-name
+rex init --name<span class="o">=</span><span class="nv">$vm</span>-name --url<span class="o">=</span><span class="nv">$url</span>-to-prebuild-vm-image
+</code></pre></div>
+<h1 id="section-1">虚拟机定义</h1>
+<p>这里有两种方式，一种是类似 Vagrantfile 定义的 Rexfile 写法：</p>
+<div class="highlight"><pre><code class="perl"><span class="n">set</span> <span class="n">box</span> <span class="o">=&gt;</span> <span class="s">&quot;VBox&quot;</span><span class="p">;</span>
+<span class="n">task</span> <span class="n">mytask</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+   <span class="n">box</span> <span class="p">{</span>
+      <span class="k">my</span> <span class="p">(</span><span class="nv">$box</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+      <span class="nv">$box</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">(</span><span class="s">&quot;boxname&quot;</span><span class="p">);</span>
+      <span class="nv">$box</span><span class="o">-&gt;</span><span class="n">url</span><span class="p">(</span><span class="s">&quot;http://box.rexify.org/box/base-image.box&quot;</span><span class="p">);</span>
+      <span class="nv">$box</span><span class="o">-&gt;</span><span class="n">network</span><span class="p">(</span><span class="mi">1</span> <span class="o">=&gt;</span> <span class="p">{</span>
+        <span class="n">type</span> <span class="o">=&gt;</span> <span class="s">&quot;bridged&quot;</span>      <span class="c1"># 默认是 &quot;nat&quot;,</span>
+        <span class="n">bridge</span> <span class="o">=&gt;</span> <span class="s">&quot;eth0&quot;</span><span class="p">,</span>
+      <span class="p">});</span>
+      <span class="nv">$box</span><span class="o">-&gt;</span><span class="n">forward_port</span><span class="p">(</span><span class="n">ssh</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="mi">2222</span><span class="p">,</span> <span class="mi">22</span><span class="p">]);</span>
+      <span class="nv">$box</span><span class="o">-&gt;</span><span class="n">share_folder</span><span class="p">(</span><span class="n">boxhome</span> <span class="o">=&gt;</span> <span class="s">&quot;/path/to/myuser&quot;</span><span class="p">);</span>
+      <span class="nv">$box</span><span class="o">-&gt;</span><span class="n">auth</span><span class="p">(</span>
+        <span class="n">user</span> <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span>
+        <span class="n">password</span> <span class="o">=&gt;</span> <span class="s">&quot;box&quot;</span><span class="p">,</span>
+      <span class="p">);</span>
+      <span class="nv">$box</span><span class="o">-&gt;</span><span class="n">setup</span><span class="p">(</span><span class="sx">qw/setup_frontend/</span><span class="p">);</span>
+   <span class="p">};</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>另一种是采用 YAML 配置：</p>
+<div class="highlight"><pre><code class="yaml"><span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">VBox</span>
+<span class="l-Scalar-Plain">vms</span><span class="p-Indicator">:</span>
+   <span class="l-Scalar-Plain">fe01</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">url</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">http://box.rexify.org/box/ubuntu-server-12.10-amd64.ova</span>
+      <span class="l-Scalar-Plain">network</span><span class="p-Indicator">:</span>
+         <span class="l-Scalar-Plain">1</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">bridged</span>
+            <span class="l-Scalar-Plain">bridge</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">eth0</span>
+      <span class="l-Scalar-Plain">setup</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">setup_frontend</span>
+   <span class="l-Scalar-Plain">db01</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">url</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">http://box.rexify.org/box/ubuntu-server-12.10-amd64.ova</span>
+      <span class="l-Scalar-Plain">network</span><span class="p-Indicator">:</span>
+         <span class="l-Scalar-Plain">1</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">bridged</span>
+            <span class="l-Scalar-Plain">bridge</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">eth0</span>
+      <span class="l-Scalar-Plain">setup</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">setup_db</span>
+</code></pre></div>
+<h1 id="section-2">虚拟机初始化</h1>
+<p>在 Vagrant 中有一个概念叫 provision，也就是在虚拟机第一次运行时，通过 shell/puppet/chef 等进行初始化操作。Rex::Box 自然是通过 Rex 本身来进行这个任务。也就是上例中的 <code>setup</code> 定义的 task 名称。</p>
+<div class="highlight"><pre><code class="perl"><span class="n">task</span> <span class="s">&#39;setup_frontend&#39;</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="n">install</span> <span class="n">nginx</span><span class="p">;</span>
+    <span class="n">file</span> <span class="s">&#39;/etc/nginx.conf&#39;</span><span class="p">,</span>
+        <span class="n">content</span>   <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s">&#39;template/httpd.conf.tpl&#39;</span><span class="p">),</span>
+        <span class="n">owner</span>     <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span>
+        <span class="n">group</span>     <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span>
+        <span class="n">on_change</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="n">service</span> <span class="n">nginx</span> <span class="o">=&gt;</span> <span class="s">&quot;restart&quot;</span><span class="p">;</span> <span class="p">};</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>因为 rex 本身是通过 ssh 管理，所以在 setup 之前，必须定义好如何 auth，自己做的镜像不说了，通过 rexify.org 下载的默认镜像，就是默认的 root/box 了。</p>
+<p>说到镜像，其实 vagrant 的 <code>.box</code> 也就是 <code>.ova</code> ，都是把 virtualbox 的 <code>.vmdk</code> 和 <code>.ovf</code> 打了个包而已。</p>
+<p>当然，也可以在 task 写 shell，通过 <code>run</code> 的方式，其实 run 应该也是 Rex 最常用的 task 了。</p>
+<div class="highlight"><pre><code class="perl"><span class="n">task</span> <span class="s">&#39;setup_frontend&#39;</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="n">run</span> <span class="s">&quot;echo Hello, world&quot;</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre></div>
+<h1 id="section-3">虚拟机使用</h1>
+<p>定义完成后，就可以使用 init 配置虚拟机环境，然后 start/stop 管理虚拟机。</p>
+<p>比如在使用 YAML 配置的时候，配置环境的 Rexfile 最后是这样的：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Rex::Commands::</span><span class="n">Box</span> <span class="n">init_file</span> <span class="o">=&gt;</span> <span class="s">&quot;box.yml&quot;</span><span class="p">;</span>
+<span class="n">group</span> <span class="n">myboxes</span> <span class="o">=&gt;</span> <span class="nb">map</span> <span class="p">{</span> <span class="n">get_box</span><span class="p">(</span><span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">name</span><span class="p">})</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">ip</span><span class="p">}</span> <span class="p">}</span> <span class="n">list_boxes</span><span class="p">;</span>
+<span class="n">task</span> <span class="s">&quot;box&quot;</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+   <span class="n">boxes</span> <span class="s">&quot;init&quot;</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>像要做成命令行管理也比较简单，比如启动和停止虚拟机的 task 这样写：</p>
+<div class="highlight"><pre><code class="perl"><span class="n">task</span> <span class="s">&quot;stop&quot;</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$param</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="n">boxes</span> <span class="n">stop</span> <span class="o">=&gt;</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">name</span><span class="p">};</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>就可以在命令行直接这样启动某个虚拟机了：</p>
+<div class="highlight"><pre><code class="bash">rex stop --name<span class="o">=</span>myvbox
+</code></pre></div>
+<p>事实上，本文最开头的默认 box 模板生成的命令，就是通过前一步生成的 Rexfile 里定义的 <code>task "init", sub {...};</code> 实现的。</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2013/05/14/mojo-and-gocr-for-buildhr-telephone" title="用mojo抓取数据并gocr替换图片内容">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next disabled"><a>Next &rarr;</a>
+      </ul>
+    </div>
+    <hr>
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li> <a href="/2013/05/14/mojo-and-gocr-for-buildhr-telephone">用mojo抓取数据并gocr替换图片内容</a></li>
+                 <li> <a href="/2013/04/19/try-to-write-DSL-for-myown">给自己写个运维语言(Newbie::Gift 介绍)</a></li>
+                 <li> <a href="/2013/04/16/install-foreman">使用 Foreman 来监控统计 puppet 的 reports 信息</a></li>
+                 <li> <a href="/2013/04/03/install-graphite">Graphite 安装</a></li>
+                 <li> <a href="/2013/04/02/parse-puppet-dsl-using-perl6">用 Perl6 解析 puppet 的配置语法</a></li>
+                 <li> <a href="/2013/04/01/use-mojo-commandline-for-rpmbuild">用 Mojo 命令行抓取数据完成自动更新 rpm 构建</a></li>
+                 <li> <a href="/2013/03/28/intro-haml">Haml 简介</a></li>
+                 <li> <a href="/2013/03/27/distributed-nagios-by-mod-gearman">用 Mod_Gearman 实现 Nagios 分布式</a></li>
+                 <li> <a href="/2013/03/18/logrotate-configuration-files-mode">logrotate 配置文件强制为 0644 属性</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
