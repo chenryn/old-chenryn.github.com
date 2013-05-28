@@ -51,7 +51,7 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>首先要申明，rex 和 puppet 本质上是不同的，puppet 追求的是状态，rex 追求的是操作。puppet 用户经常关系的是 agent 运行了没，而 rex 用户关心的是怎么写 Rexfile 能让中控运行 rex 时的命令参数更简洁漂亮(个人感受==!)。所以哪怕在本文中列举的这些资源写法很类似，也请读者们注意：rex 的资源关键词命名，都是带有动作性的，比如 <code>create</code>，<code>add</code>，<code>install</code>，<code>upload</code>，<code>download</code>，<code>sync</code> 等等。</p>
+    <p>首先要申明，rex 和 puppet 本质上是不同的，puppet 追求的是状态，rex 追求的是操作。puppet 用户经常关心的是 agent 运行了没，而 rex 用户关心的是怎么写 Rexfile 能让中控运行 rex 时的命令参数更简洁漂亮(个人感受==!)。所以哪怕在本文中列举的这些资源写法很类似，也请读者们注意：rex 的资源关键词命名，都是带有动作性的，比如 <code>create</code>，<code>add</code>，<code>install</code>，<code>upload</code>，<code>download</code>，<code>sync</code> 等等。</p>
 <p>因为 rex 基于并发 ssh 连接，所以它有一些操作是 puppet 所没有的，比如 <code>tail</code>，<code>file_append</code>，<code>fdisk</code>，<code>sysctl</code> 和 <code>iptables</code> 等等，这里暂时不列举。总的来说，本文目的是总结类似的部分，而不是不同的用法……</p>
 <h1 id="cron-">Cron 资源</h1>
 <h3 id="puppet-">puppet 写法</h3>
@@ -153,6 +153,7 @@
     <span class="p">}</span>
 </code></pre></div>
 <h3 id="rex--4">rex 写法</h3>
+<p>rex 中采用 rsync 来完成目录文件的同步：</p>
 <div class="highlight"><pre><code class="perl">    <span class="nb">mkdir</span><span class="p">(</span><span class="s">&#39;/usr/local/murder&#39;</span><span class="p">);</span>
     <span class="n">sync</span> <span class="s">&#39;dist/*&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;/usr/local/murder&#39;</span><span class="p">,</span> <span class="p">{</span>
         <span class="n">exclude</span>    <span class="o">=&gt;</span> <span class="s">&quot;*.sw*&quot;</span><span class="p">,</span>
@@ -171,6 +172,9 @@
 <div class="highlight"><pre><code class="perl">    <span class="n">run</span> <span class="s">&quot;cmd&quot;</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
         <span class="k">my</span> <span class="p">(</span><span class="nv">$out</span><span class="p">,</span> <span class="nv">$err</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
     <span class="p">};</span>
+</code></pre></div>
+<p>这个回调函数可以不要，那么 <code>run</code> 命令返回输出到变量。这种用法在单行命令中最常用，比如这样：</p>
+<div class="highlight"><pre><code class="bash">    rex -H <span class="s1">&#39;192.168.0.[10..30]&#39;</span> -e <span class="s1">&#39;say run &quot;df -h&quot;&#39;</span>
 </code></pre></div>
 <h1 id="usergroup-">User/Group 资源</h1>
 <h3 id="puppet--6">puppet 写法</h3>
@@ -211,8 +215,7 @@
     <span class="p">}</span>
 </code></pre></div>
 <h3 id="rex--7">rex 写法</h3>
-<div class="highlight"><pre><code class="perl">    <span class="n">service</span> <span class="n">apache2</span><span class="p">,</span>
-      <span class="n">ensure</span> <span class="o">=&gt;</span> <span class="s">&quot;started&quot;</span><span class="p">;</span>
+<div class="highlight"><pre><code class="perl">    <span class="n">service</span> <span class="n">apache2</span> <span class="o">=&gt;</span> <span class="n">ensure</span> <span class="o">=&gt;</span> <span class="s">&quot;started&quot;</span><span class="p">;</span>
     <span class="n">service</span> <span class="n">apache2</span> <span class="o">=&gt;</span> <span class="s">&quot;start&quot;</span><span class="p">;</span>
 </code></pre></div>
 <p>再次可见，rex 认为 <code>service</code> 命令和 <code>chkconfig</code>/<code>update-rc.d</code> 命令是两件事情，所以要分开两个写法。</p>
@@ -230,25 +233,37 @@
        <span class="n">fs</span> <span class="o">=&gt;</span> <span class="s">&quot;ext3&quot;</span><span class="p">,</span>
        <span class="n">options</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw/noatime async/</span><span class="p">];</span>
 </code></pre></div>
-<h1 id="facter-">Facter 资源</h1>
+<h1 id="facts-">Facts 变量和模板</h1>
 <h3 id="puppet--9">puppet 写法</h3>
 <p>在 puppet 中，Facts 变量有两种用法，一个是 <code>*.pp</code> 里的写法：</p>
 <div class="highlight"><pre><code class="ruby">    <span class="vg">$:</span><span class="ss">:lsbdistid</span>
 </code></pre></div>
-<p>另一种是在 <code>*.erb</code> 里的写法：</p>
-<div class="highlight"><pre><code class="ruby">    <span class="o">&lt;%=</span> <span class="ss">scope</span><span class="p">:</span><span class="ss">:lookupvar</span><span class="p">(</span><span class="s1">&#39;ipaddress&#39;</span><span class="p">)</span> <span class="o">%&gt;</span>
+<p>另一种是在 <code>*.erb</code> 里的写法，值得注意的是变量的作用域：</p>
+<div class="highlight"><pre><code class="ruby">    <span class="o">&lt;</span><span class="sx">%= scope::lookupvar(&#39;ipaddress&#39;) %&gt;</span>
+<span class="sx">    &lt;%=</span> <span class="ss">scope</span><span class="p">:</span><span class="ss">:lookupvar</span><span class="p">(</span><span class="s1">&#39;nginx::name&#39;</span><span class="p">)</span> <span class="o">%&gt;</span>
 </code></pre></div>
 <h3 id="rex--9">rex 写法</h3>
-<p>在 rex 中，远端主机的系统状态有多种获取方式，比如获取发行版：</p>
-<div class="highlight"><pre><code class="perl">    <span class="k">my</span> <span class="nv">$lsd</span> <span class="o">=</span> <span class="n">get_operating_system</span><span class="p">;</span>
+<p>在 rex 中，远端主机的系统状态有多种获取方式，比如：</p>
+<div class="highlight"><pre><code class="perl">    <span class="c1"># 全部，这些变量默认会传递给 template</span>
+    <span class="k">my</span> <span class="nv">$sysinfo</span> <span class="o">=</span> <span class="nn">Rex::Helper::System::</span><span class="n">info</span><span class="p">;</span>
+    <span class="c1"># 实际就是从上面info里取具体的变量</span>
+    <span class="k">my</span> <span class="nv">$lsd</span> <span class="o">=</span> <span class="n">get_operating_system</span><span class="p">;</span>
+    <span class="c1"># 这个慎用，会死人的</span>
+    <span class="k">my</span> <span class="nv">@ns</span> <span class="o">=</span> <span class="n">netstat</span><span class="p">;</span>
 </code></pre></div>
-<p>至于 rex 的模板，它没有使用 CPAN 上任何一种现成的模块，而是自己实现了一个，写法如下：</p>
-<div class="highlight"><pre><code class="perl">    <span class="n">template</span><span class="p">(</span><span class="s">&#39;your.tpl&#39;</span><span class="p">,</span> <span class="n">sysinfo</span> <span class="o">=&gt;</span> <span class="n">get_system_information</span><span class="p">()</span> <span class="p">);</span>
+<p>也可以使用 <code>set</code> 指令，这种变量和使用 perl 标准 <code>my $name</code> 方式不同的是它可以直接在模板中读取：</p>
+<div class="highlight"><pre><code class="perl">    <span class="n">set</span> <span class="n">name</span> <span class="o">=&gt;</span> <span class="s">&#39;CDN&#39;</span><span class="p">;</span>
+</code></pre></div>
+<p>至于 rex 的模板，它默认没有使用 CPAN 上任何一种现成的模块，而是自己实现了一个，写法如下：</p>
+<div class="highlight"><pre><code class="perl">    <span class="n">template</span><span class="p">(</span><span class="s">&#39;your.tpl&#39;</span><span class="p">,</span> <span class="n">yourvars</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">%hash</span> <span class="p">);</span>
 </code></pre></div>
 <p>然后在模板中这样引用：</p>
-<div class="highlight"><pre><code class="perl">    <span class="o">&lt;</span><span class="nv">%</span><span class="err">=</span> <span class="err">$</span><span class="nv">::sysinfo</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">eth0_ip</span><span class="p">}</span> <span class="nv">%</span><span class="err">&gt;</span>
+<div class="highlight"><pre><code class="perl">    <span class="n">My</span> <span class="n">variable</span> <span class="n">is</span> <span class="o">&lt;</span><span class="nv">%</span><span class="err">=</span> <span class="err">$</span><span class="nv">::yourvars</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">key</span><span class="p">}</span> <span class="nv">%</span><span class="err">&gt;</span>
+    <span class="nv">My</span> <span class="n">name</span> <span class="n">is</span> <span class="o">&lt;</span><span class="nv">%</span><span class="err">=</span> <span class="err">$</span><span class="nv">::name</span> <span class="nv">%</span><span class="err">&gt;</span>
+    <span class="nv">My</span> <span class="n">lsd</span> <span class="n">is</span> <span class="o">&lt;</span><span class="nv">%</span><span class="err">=</span> <span class="err">$</span><span class="nv">::operatingsystem</span> <span class="nv">%</span><span class="err">&gt;</span>
 </code></pre></div>
 <p>明显有模仿 puppet 的痕迹，传递进模版的变量以 <code>$::</code> 开头，个人比较汗……</p>
+<p>所以个人建议还是更换成 CPAN 上的流行模板，比如 <code>Text::Xslate</code> 或者 <code>Text::MicroTemplate</code> 等等，使用 <code>set_template_option</code> 即可。</p>
     <hr>
     <div class="pagination">
       <ul>
