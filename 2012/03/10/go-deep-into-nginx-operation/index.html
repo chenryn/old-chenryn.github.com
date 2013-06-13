@@ -99,13 +99,13 @@
 <p>所以结果就是说，nginx日志里记载的$remote_addr变量，就是由connection的socket里获得的。在socket.h里可以看到accept函数的定义：</p>
 <div class="highlight"><pre><code class="c"><span class="kt">int</span> <span class="nf">accept</span><span class="p">(</span><span class="kt">int</span> <span class="n">sockfd</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">addr</span><span class="p">,</span> <span class="kt">int</span> <span class="o">*</span><span class="n">addrlen</span><span class="p">);</span>
 </code></pre></div>
-<p>另外，nginx上除了$remote_addr变量外，还有一个$binary_remote_addr变量。而且在ngx_http_variables.c里，根据是否是IPv6协议，做了区分，最终地址是通过r-&gt;connection结构体里的sockaddr-&gt;sin_addr获得。
-目前就看到这里了&hellip;&hellip;关于socket如何从监听套接字上获得IP并建立连接套接字的，以后再继续研究TCP层上的知识。</p>
+<p>另外，nginx上除了$remote_addr变量外，还有一个$binary_remote_addr变量。而且在ngx_http_variables.c里，根据是否是IPv6协议，做了区分，最终地址是通过r-&gt;connection结构体里的sockaddr-&gt;sin_addr获得。</p>
+<p>目前就看到这里了&hellip;&hellip;关于socket如何从监听套接字上获得IP并建立连接套接字的，以后再继续研究TCP层上的知识。</p>
 <h2 id="cookie-insert">2、cookie insert原理在负载均衡上是如何实现的。</h2>
-<p>作7层负载均衡的时候，会遇到cookie类型的会话保持。
-一般的session保持办法，是利用源地址哈希(source-hash)的办法，把同一个来源客户(实际通常是同一个C段的IP)，固定指向后端的同一台机器。
-而利用cookie的办法，则是在负载均衡器上，给响应客户请求的http-response-header里Set-Cookie字段添加上有关内容，然后根据客户请求的http-request-header里Cookie的该字段内容，分发到和之前一样的后端服务器上。
-在nginx上没有标准模块完成这个事情，不过可以用<a href="http://wiki.nginx.org/HttpMapModule">map功能</a>进行简单的模拟，如下：</p>
+<p>作7层负载均衡的时候，会遇到cookie类型的会话保持。</p>
+<p>一般的session保持办法，是利用源地址哈希(source-hash)的办法，把同一个来源客户(实际通常是同一个C段的IP)，固定指向后端的同一台机器。</p>
+<p>而利用cookie的办法，则是在负载均衡器上，给响应客户请求的http-response-header里Set-Cookie字段添加上有关内容，然后根据客户请求的http-request-header里Cookie的该字段内容，分发到和之前一样的后端服务器上。</p>
+<p>在nginx上没有标准模块完成这个事情，不过可以用<a href="http://wiki.nginx.org/HttpMapModule">map功能</a>进行简单的模拟，如下：</p>
 <div class="highlight"><pre><code class="nginx">    <span class="k">map</span> <span class="nv">$COOKIE_route</span> <span class="nv">$group</span> <span class="p">{</span>  
          <span class="kn">700003508</span>     <span class="s">admin</span><span class="p">;</span>  
          <span class="kn">~*3$</span>     <span class="s">admin</span><span class="p">;</span>  
@@ -125,8 +125,8 @@
          <span class="p">}</span>  
      <span class="p">}</span>  
 </code></pre></div>
-<p>不过nginx社区有第三方模块叫做&rdquo;nginx-sticky-module&rdquo;的，用来完成这个功能。项目托管在googlecode上，具体地址是<a href="http://code.google.com/p/nginx-sticky-module">http://code.google.com/p/nginx-sticky-module</a>。具体实现的效果是首先根据轮训RR随机到某台后端，然后在响应的Set-Cookie上加上route=md5(upstream)字段，第二次请求再处理的时候，发现有route字段，直接导向原来的那台服务器。
-编译后启用配置如下：</p>
+<p>不过nginx社区有第三方模块叫做&rdquo;nginx-sticky-module&rdquo;的，用来完成这个功能。项目托管在googlecode上，具体地址是<a href="http://code.google.com/p/nginx-sticky-module">http://code.google.com/p/nginx-sticky-module</a>。具体实现的效果是首先根据轮训RR随机到某台后端，然后在响应的Set-Cookie上加上route=md5(upstream)字段，第二次请求再处理的时候，发现有route字段，直接导向原来的那台服务器。</p>
+<p>编译后启用配置如下：</p>
 <div class="highlight"><pre><code class="nginx"><span class="k">upstream</span> <span class="p">{</span>
   <span class="kn">sticky</span> <span class="s">[name=route]</span> <span class="s">[domain=.domain.com]</span> <span class="s">[path=/]</span> <span class="s">[expires=1h]</span> <span class="s">[hash=index|md5|sha1]</span> <span class="s">[no_fallback]</span><span class="p">;</span>
   <span class="kn">server</span> <span class="n">127.0.0.1</span><span class="p">:</span><span class="mi">9000</span><span class="p">;</span>
@@ -140,8 +140,10 @@
 <p>代码中主要是ngx_trylock_accept_mutex()函数和ngx_process_events_and_timers()函数等，不过这个看不太懂，更多是根据别人的描述文章了。</p>
 <h2 id="section">4、一致性哈希的原理。</h2>
 <p>在7层负载均衡的时候，经常会利用到哈希。关于nginx上的url_hash和consistent_hash模块，我在2年前曾经简单的看过，博文链接如下：</p>
-<p><a href="http://chenlinux.com/2010/03/15/consistent_hash/">url_hash的perl脚本模拟</a>
-<a href="http://chenlinux.com/2010/03/16/implement-consistent_hash-by-perl/">consistent_hash的perl脚本模拟</a></p>
+<ol>
+  <li><a href="http://chenlinux.com/2010/03/15/consistent_hash/">url_hash的perl脚本模拟</a></li>
+  <li><a href="http://chenlinux.com/2010/03/16/implement-consistent_hash-by-perl/">consistent_hash的perl脚本模拟</a></li>
+</ol>
 <p>两年后回头来看当初的脚本，真是很烂。不过从关键的uri和peer都取CRC32和取值做减法还是可以看出来一致性哈希的原理，即将节点通过哈希取值后均匀分布在一个0-9999999999的&rsquo;圆环&rsquo;上。然后要存储的url同样的算法取哈希值后，放进这个&rdquo;圆环&rdquo;里，顺时针方向离他最近的那个节点，即为他实际存储的节点。</p>
 <p>在CPAN上，其实有<a href="http://search.cpan.org/~bradfitz/Set-ConsistentHash-0.92/lib/Set/ConsistentHash.pm">Set::ConsistentHash</a>模块可以看。如果是简单运用的话，<a href="http://search.cpan.org/~karavelov/Hash-ConsistentHash-0.05/lib/Hash/ConsistentHash.pm">Hash::ConsistentHash</a>模块是基于Set::ConsistentHash模块封装的易用版本。示例如下：</p>
 <div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Hash::</span><span class="n">ConsistentHash</span><span class="p">;</span>
@@ -163,11 +165,11 @@ fs.inotify.max_user_instances <span class="o">=</span> 128
 <p>上示是默认值，明显偏小。比方sersync2方案中，启动前就要求修改这些值到50000000。如果启动的时候在sysctl范围内，启动时没问题的，但是迅速的添加到了范围外，那么应该就会出这个问题了。</p>
 <p>当然，以上是我个人猜测，也说不准真的是inotify本身却有问题。</p>
 <h2 id="nginxworkercpu">7、nginx的worker是怎么绑定到cpu上的？</h2>
-<p>nginx有一个配置，就是启动多个worker的时候，可以使用cpu_affinity配置将worker分别绑定在不同的cpu上。
-如果有8个cpu，那么相应参数就是：</p>
+<p>nginx有一个配置，就是启动多个worker的时候，可以使用cpu_affinity配置将worker分别绑定在不同的cpu上。</p>
+<p>如果有8个cpu，那么相应参数就是：</p>
 <p>00000001 00000010 00000100 00001000 00010000 00100000 01000000 10000000</p>
-<p>也就是类似占位符一样一个位置代表一个CPU。如果按照普通理解的二进制，那么0011不是第三个CPU而是绑定在第1和第2个CPU上平均……
-这种写法，是由操作系统决定的。在nginx的ngx_process_cycle.c中，相关内容如下：</p>
+<p>也就是类似占位符一样一个位置代表一个CPU。如果按照普通理解的二进制，那么0011不是第三个CPU而是绑定在第1和第2个CPU上平均……</p>
+<p>这种写法，是由操作系统决定的。在nginx的ngx_process_cycle.c中，相关内容如下：</p>
 <div class="highlight"><pre><code class="c"><span class="cp">#include &lt;ngx_config.h&gt;</span>
 <span class="k">static</span> <span class="kt">void</span>
 <span class="nf">ngx_worker_process_init</span><span class="p">(</span><span class="n">ngx_cycle_t</span> <span class="o">*</span><span class="n">cycle</span><span class="p">,</span> <span class="n">ngx_uint_t</span> <span class="n">priority</span><span class="p">)</span>
@@ -192,11 +194,12 @@ fs.inotify.max_user_instances <span class="o">=</span> 128
        <span class="kt">int</span> <span class="n">sched_setaffinity</span><span class="p">(</span><span class="n">pid_t</span> <span class="n">pid</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">cpusetsize</span><span class="p">,</span>
                              <span class="n">cpu_set_t</span> <span class="o">*</span><span class="n">mask</span><span class="p">);</span>
 </code></pre></div>
-<p>关于这个*mask，man文档之后描述如下：
-       The  actual  system
-       call  interface is slightly different, with the mask being typed as unsigned long *, reflecting
-       that the fact that the underlying implementation of CPU sets is a simple bitmask.
-bitmask就是上面说到的那个意思了~~</p>
+<p>关于这个*mask，man文档之后描述如下：</p>
+<pre><code>   The  actual  system
+   call  interface is slightly different, with the mask being typed as unsigned long *, reflecting
+   that the fact that the underlying implementation of CPU sets is a simple bitmask.
+</code></pre>
+<p>bitmask就是上面说到的那个意思了~~</p>
 <h2 id="section-1">8、某应用经过7层负载均衡访问应用服务器，因业务需要设置了5秒无响应即返回502错误。有反馈说全网范围内5%的访问出现错误，如何判断问题具体出在哪里？</h2>
 <p>这个问题目前我还想不到有什么特别简捷的办法。靠类似nagios那样的定时监测，肯定是很不容易抓到错误的。如果靠debug日志或者strace命令啊，tcpdump命令啊的，在高流量的情况下，又太容易淹没在海量的正常数据里了。</p>
 <p>另一个猜测是连接数满了，TCP的或者HTTP的。不过按理说负载均衡器上应该有监控，不至于到这么危急的时候还是通过客户端访问来反馈问题&hellip;&hellip;</p>
@@ -220,6 +223,7 @@ bitmask就是上面说到的那个意思了~~</p>
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+                 <li><a href="/2013/06/12/translate-85-operational-rules">【翻译】运维的85条规则</a></li>
                  <li><a href="/2013/05/28/compare-dsl-of-puppet-with-rex">puppet和rex的常用资源写法类比</a></li>
                  <li><a href="/2013/05/27/use-rex-box-replace-vagrant">使用 Rex::Box 代替 Vagrant 的工作</a></li>
                  <li><a href="/2013/05/14/mojo-and-gocr-for-buildhr-telephone">用mojo抓取数据并gocr替换图片内容</a></li>
@@ -228,7 +232,6 @@ bitmask就是上面说到的那个意思了~~</p>
                  <li><a href="/2013/04/03/install-graphite">Graphite 安装</a></li>
                  <li><a href="/2013/04/02/parse-puppet-dsl-using-perl6">用 Perl6 解析 puppet 的配置语法</a></li>
                  <li><a href="/2013/04/01/use-mojo-commandline-for-rpmbuild">用 Mojo 命令行抓取数据完成自动更新 rpm 构建</a></li>
-                 <li><a href="/2013/03/28/intro-haml">Haml 简介</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">
@@ -245,6 +248,8 @@ bitmask就是上面说到的那个意思了~~</p>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接</li>
+              <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+              <li><a href="http://blog.dotcloud.com/" title="dotCloud 官方博客">dotCloud-Blog</a></li>
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
               <li><a href="http://www.icylife.net/blog/" title="">心路</a></li>
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
@@ -270,10 +275,10 @@ bitmask就是上面说到的那个意思了~~</p>
               <li><a href="http://www.91tuanfang.com/" title="安居客运维">家欣的天空</a></li>
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
-              <li><a href="http://www.php-oa.com/" title="CC SA">扶凯</a></li>
+              <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
               <li><a href="http://www.wenzizone.cn/" title="">蚊子世界</a></li>
               <li><a href="http://www.opboy.com" title="">运维小子</a></li>
-              <li><a href="http://blog.liuts.com/" title="TianYa SA 刘天斯">运维进行时</a></li>
+              <li><a href="http://blog.liuts.com/" title="前天涯SA 刘天斯">运维进行时</a></li>
               <li><a href="http://www.lark.net.cn/" title="lark's cloud">lark's cloud</a></li>
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
               <li><a href="http://blog.liulantao.com/" title="lax">Lax</a></li>
@@ -283,6 +288,7 @@ bitmask就是上面说到的那个意思了~~</p>
               <li><a href="http://http://www.yinwang.org/" title="当然我在扯淡">当然我在扯淡</a></li>
               <li><a href="http://noops.me/" title="">NoOps</a></li>
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
           </ul>
         </div>
       </div>
