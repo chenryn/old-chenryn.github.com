@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Newbie::Gift 所用知识总结</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive.html">Archive</a></li>
+      	<li><a href="/categories.html">Categories</a></li>
+      	<li><a href="/pages.html">Pages</a></li>
+      	<li><a href="/tags.html">Tags</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>Newbie::Gift 所用知识总结 <small></small></h1>
+    <div class="date"><span>19 April 2013</span></div>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>通过 <a href="https://github.com/chenryn/Newbie-Gift">Newbie::Gift</a> 项目的开发过程，学习和深入了解了不少 Perl 知识，虽然这个模块估计短期内不会再继续开发和更新了，不过还是值得记录一下这段过程中的心得。</p>
+<h3 id="gensym">gensym</h3>
+<p>封装 <code>IPC::Open3</code> 模块时，通过 <code>smokeping</code> 代码中学到了 <code>Symbol</code> 模块的 <code>gensym</code> 指令的使用。</p>
+<p>通过 <code>gensym</code> 指令可以直接返回一个临时文件句柄来使用。</p>
+<h3 id="cb-">$cb-&gt;()</h3>
+<p>在 SPEC 设计中，所有导出指令都采用回调的方式。在 Perl 中实现起来其实特别简单。像下面这样就好了：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">sub </span><span class="nf">keyword</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="p">(</span> <span class="nv">$str</span><span class="p">,</span> <span class="nv">$cb</span> <span class="p">)</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="n">do_some_func</span><span class="p">(</span><span class="nv">$str</span><span class="p">);</span>
+    <span class="nv">$cb</span><span class="o">-&gt;</span><span class="p">(</span><span class="nv">$res</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="selectortoxpath">selector_to_xpath</h3>
+<p>之前一直有使用 <code>Mojo::UserAgent</code> 配合 <code>Mojo::DOM</code> 完成网页抓取工作，这次自己实践，参考的是另一个 <a href="https://metacpan.org/module/Web::Query">Web::Query</a> 模块。其中最关键的两步，第一是通过 <a href="https://metacpan.org/module/HTML::Selector::XPath">selector_to_xpath</a> 指令把选择器的写法转换成 XPath 语言；第二是通过 XPath 操作网页的 <a href="https://metacpan.org/module/HTML::TreeBuilder::XPath">HTML::Tree</a>。</p>
+<p>不过 <code>Mojo</code> 里对象化的很完整，返回的数组和字符串都是对象，所以可以一直反复调用方法连接起来处理，写的会很爽。用 <code>Web::Query</code> 没有这个效果。</p>
+<h3 id="filestat">File::stat</h3>
+<p>stat 是 perl 默认的函数，不过返回的数组在 mode 和 time 方面可读性都不好，所以封装一下，提供更加可读的 0644 这样的 mode 格式，直接用 <code>sprintf</code> 就可以做到：</p>
+<div class="highlight"><pre><code class="perl">    <span class="nb">sprintf</span><span class="p">(</span> <span class="s">&quot;%04o&quot;</span><span class="p">,</span> <span class="nv">$ret</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mo">07777</span> <span class="p">);</span>
+</code></pre></div>
+<h3 id="datetime">DateTime</h3>
+<p>Perl 的 <a href="https://metacpan.org/module/DateTime">DateTime</a> 模块太重，CPAN 上其实也有很多人提交简化版的 DT，其实就是利用 <code>localtime</code>，<code>strftime</code> 和 <code>mktime</code> 几个默认函数做出来的对象调用。</p>
+<h3 id="exporter">Exporter</h3>
+<p><code>import</code> 和 <code>export_to_level</code> 都是 <code>Exporter</code> 模块的方法，所有继承自 <code>Exporter</code> 的模块可以用。比如下面示例，启用该模块，就相当于启用了 <code>strict</code>，<code>warnings</code>，<code>utf8</code> 和 Perl5.10 版的新特性，同时导出了 keywords 关键字。</p>
+<div class="highlight"><pre><code class="perl">    <span class="k">use</span> <span class="n">base</span> <span class="s">&#39;Exporter&#39;</span><span class="p">;</span>
+    <span class="k">our</span> <span class="nv">@EXPORT</span> <span class="o">=</span> <span class="sx">qw/keywords/</span><span class="p">;</span>
+    <span class="k">sub </span><span class="nf">keywords</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+    <span class="k">sub </span><span class="nf">import</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="nv">$class</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+        <span class="n">strict</span><span class="o">-&gt;</span><span class="nb">import</span><span class="p">;</span>
+        <span class="n">warnings</span><span class="o">-&gt;</span><span class="nb">import</span><span class="p">;</span>
+        <span class="n">utf8</span><span class="o">-&gt;</span><span class="nb">import</span><span class="p">;</span>
+        <span class="n">feature</span><span class="o">-&gt;</span><span class="nb">import</span><span class="p">(</span><span class="s">&#39;:5.10&#39;</span><span class="p">);</span>
+        <span class="nn">Try::</span><span class="n">Tiny</span><span class="o">-&gt;</span><span class="nb">import</span><span class="p">;</span>
+        <span class="nv">$class</span><span class="o">-&gt;</span><span class="n">export_to_level</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nv">$class</span><span class="p">,</span> <span class="nv">@EXPORT</span><span class="p">);</span>
+    <span class="p">}</span>
+</code></pre></div>
+<h3 id="zip">zip</h3>
+<p>多数组可以通过 <code>zip</code> 命令逐一对位融合到一起。这个在 <a href="https://metacpan.org/module/List::MoreUtils">List::MoreUtils</a> 中有，这次用 <code>NG::Array</code> 对象实现了一边，其原理是先记录每个数组的长度，然后以最长的那个数组为标杆，循环一遍即可。</p>
+<h3 id="autobox">autobox</h3>
+<p>CPAN 上 Rubyish、Perl6::<em>、Perl5i::</em> 等模块都利用了 <a href="https://metacpan.org/module/autobox">autobox</a> 实现完全的对象化。autobox 是一个库，本身不提供对象方法，而是要自己自己实现针对某个类型的对象方法后，通过 autobox 关联到 Perl 的数据类型上去。</p>
+<p>比如想要实现一个 <code>"Hello World"-&gt;lc-&gt;words</code> 的语法，显然就是要针对 Perl 中的 STRING 数据类型实现 lc 和 words 两个方法。那么先实现一个自己的 string 对象：</p>
+<div class="highlight"><pre><code class="perl">    <span class="nb">package</span> <span class="nn">your::</span><span class="n">string</span><span class="p">;</span>
+    <span class="k">sub </span><span class="nf">lc</span>    <span class="p">{</span> <span class="nn">CORE::</span><span class="n">lc</span>           <span class="nv">$_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">}</span>
+    <span class="k">sub </span><span class="nf">words</span> <span class="p">{</span> <span class="nn">CORE::</span><span class="n">split</span> <span class="sr">/\s+/</span><span class="p">,</span> <span class="nv">$_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">}</span>
+    <span class="mi">1</span><span class="p">;</span>
+</code></pre></div>
+<p>然后开始关联：</p>
+<div class="highlight"><pre><code class="perl">    <span class="nb">package</span> <span class="nn">your::</span><span class="n">autobox</span><span class="p">;</span>
+    <span class="k">use</span> <span class="n">base</span> <span class="sx">qw(autobox)</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">your::</span><span class="n">string</span><span class="p">;</span>
+    <span class="k">sub </span><span class="nf">import</span> <span class="p">{</span>
+        <span class="nb">shift</span><span class="o">-&gt;</span><span class="nn">SUPER::</span><span class="n">import</span><span class="p">(</span>
+            <span class="n">STRING</span> <span class="o">=&gt;</span> <span class="s">&#39;your::string&#39;</span><span class="p">,</span>
+            <span class="nv">@_</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+    <span class="mi">1</span><span class="p">;</span>
+</code></pre></div>
+<p>最后在前面提到过的 <code>Exporter</code> 的 <code>import</code> 函数里加上一行：</p>
+<div class="highlight"><pre><code class="perl">    <span class="nn">your::</span><span class="n">autobox</span><span class="o">-&gt;</span><span class="nb">import</span><span class="p">;</span>
+</code></pre></div>
+<p>autobox 可以关联的数据类型还有很多，绝对是值得一看的模块。</p>
+<h3 id="evalclassnew">eval(&lsquo;*&rsquo;.$class.&rsquo;::new&rsquo;)</h3>
+<p>实现 <code>def_class</code> 关键词的过程中学习颇多，首先是符号表。实现中完成模块代码几乎全靠符号表来绑定一个个函数和变量。像这样：</p>
+<div class="highlight"><pre><code class="perl">    <span class="o">*</span><span class="n">t</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="s">&#39;*&#39;</span><span class="o">.</span><span class="nv">$class</span><span class="o">.</span><span class="s">&#39;::ISA&#39;</span><span class="p">);</span>
+    <span class="o">*</span><span class="n">t</span> <span class="o">=</span> <span class="p">[</span><span class="nv">$parent</span><span class="p">];</span>
+    <span class="o">*</span><span class="n">t</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="s">&#39;*&#39;</span><span class="o">.</span><span class="nv">$class</span><span class="o">.</span><span class="s">&#39;::new&#39;</span><span class="p">);</span>
+    <span class="o">*</span><span class="n">t</span> <span class="o">=</span> <span class="k">sub </span><span class="p">{</span>
+        <span class="k">my</span> <span class="p">(</span><span class="nv">$class</span><span class="p">,</span> <span class="nv">@args</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+        <span class="nb">push</span> <span class="nv">@args</span><span class="p">,</span> <span class="s">&#39;&#39;</span> <span class="k">if</span> <span class="nv">$#args</span> <span class="nv">%</span> <span class="nv">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">$o</span> <span class="o">=</span> <span class="nb">bless</span> <span class="p">{</span><span class="nv">@args</span><span class="p">},</span> <span class="nb">ref</span> <span class="nv">$class</span> <span class="o">||</span> <span class="nv">$class</span><span class="p">;</span>
+        <span class="k">if</span><span class="p">(</span><span class="nb">defined</span> <span class="nv">$methods</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">build</span><span class="p">}){</span>
+            <span class="nv">$o</span><span class="o">-&gt;</span><span class="n">build</span><span class="p">(</span><span class="nv">@args</span><span class="p">);</span>
+        <span class="p">}</span>
+        <span class="nv">$o</span><span class="p">;</span>
+    <span class="p">}</span>
+</code></pre></div>
+<p>不过这个实现有个问题，就是对象只能是基于哈希的引用，不能是数组的了。</p>
+<h3 id="section">对象的元数据</h3>
+<p>实现 <code>def_class</code> 的时候比 spec 多新增了一个默认属性叫meta，所有用 <code>def_class</code> 实现的类，会自动记录他们(包括他们的用 <code>def_class</code> 实现的父类)的属性和方法到meta属性里。</p>
+<p>为此阅读了一下 <code>Moo</code> 和 <code>Moos</code> 的代码。
+<strong>原来他们都是把属性和方法也实现为类。然后再有 <code>*::Meta</code> 类来记录这些属性和方法的类。</strong></p>
+<p>而 <code>Newbie::Gift</code> 计划中没打算把对象化搞得这么彻底，所以就只是存了一个 hash 到 默认 meta 属性里。</p>
+<h3 id="lvalue">:lvalue</h3>
+<p>对象除了方法还要有属性，<code>def_class</code> 里也有实现，同样是用符号表绑定的。</p>
+<p>不过这里用到了 Perl5.10 的一个新东西，函数属性，这里绑定的不是普通变量而是函数，但是函数只会读写一个变量值，具体的说就是使用 <code>sub :lvalue {}</code> 定义。使用方法如下所示：</p>
+<div class="highlight"><pre><code class="perl">    <span class="k">my</span> <span class="nv">$val</span><span class="p">;</span>
+    <span class="k">sub </span><span class="nf">canmod</span> <span class="p">:lvalue {</span>
+        <span class="c1"># return $val; this doesn&#39;t work, don&#39;t say &quot;return&quot;</span>
+        <span class="nv">$val</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">sub </span><span class="nf">nomod</span> <span class="p">{</span>
+        <span class="nv">$val</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="n">canmod</span><span class="p">()</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>   <span class="c1"># assigns to $val</span>
+    <span class="n">nomod</span><span class="p">()</span>  <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>   <span class="c1"># ERROR</span>
+</code></pre></div>
+<p>lvalue 的说明见 <code>perldoc perlsub</code> 文档。在这里还是个比较有趣的用法的，这个用法来自 <code>Newbie::Gift</code> 项目另一位参与者 <a href="https://github.com/fmpdceudy">fmpdceudy</a>。</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2013/04/16/install-foreman" title="使用 Foreman 来监控统计 puppet 的 reports 信息">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next"><a href="/2013/05/14/mojo-and-gocr-for-buildhr-telephone" title="用mojo抓取数据并gocr替换图片内容">Next &rarr;</a></li>
+      </ul>
+    </div>
+    <hr>
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li><a href="/2013/06/12/translate-85-operational-rules">【翻译】运维的85条规则</a></li>
+                 <li><a href="/2013/05/28/compare-dsl-of-puppet-with-rex">puppet和rex的常用资源写法类比</a></li>
+                 <li><a href="/2013/05/27/use-rex-box-replace-vagrant">使用 Rex::Box 代替 Vagrant 的工作</a></li>
+                 <li><a href="/2013/05/14/mojo-and-gocr-for-buildhr-telephone">用mojo抓取数据并gocr替换图片内容</a></li>
+                 <li><a href="/2013/04/16/install-foreman">使用 Foreman 来监控统计 puppet 的 reports 信息</a></li>
+                 <li><a href="/2013/04/03/install-graphite">Graphite 安装</a></li>
+                 <li><a href="/2013/04/02/parse-puppet-dsl-using-perl6">用 Perl6 解析 puppet 的配置语法</a></li>
+                 <li><a href="/2013/04/01/use-mojo-commandline-for-rpmbuild">用 Mojo 命令行抓取数据完成自动更新 rpm 构建</a></li>
+                 <li><a href="/2013/03/28/intro-haml">Haml 简介</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接</li>
+              <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+              <li><a href="http://blog.dotcloud.com/" title="dotCloud 官方博客">dotCloud-Blog</a></li>
+              <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+              <li><a href="http://www.icylife.net/blog/" title="">心路</a></li>
+              <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+              <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+              <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+              <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+              <li><a href="http://dbahacker.com/" title="TB 杨德华">DBA Hacker</a></li>
+              <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+              <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+              <li><a href="http://blog.laird-sa.com/" title="">Laird-SA</a></li>
+              <li><a href="http://www.linuxsee.com/" title="">LinuxSEE</a></li>
+              <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+              <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+              <li><a href="http://www.puppeter.cn/" title="">piol</a></li>
+              <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+              <li><a href="http://www.sanote.org/" title="">sa note</a></li>
+              <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+              <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
+              <li><a href="http://julyclyde.org/" title="新浪系统工程师">七月的夏天</a></li>
+              <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+              <li><a href="http://blog.s135.com/" title="金山·张宴">回忆未来</a></li>
+              <li><a href="http://blog.ops.tudou.com/wp/" title="">土豆运营团队</a></li>
+              <li><a href="http://www.91tuanfang.com/" title="安居客运维">家欣的天空</a></li>
+              <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+              <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+              <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+              <li><a href="http://www.wenzizone.cn/" title="">蚊子世界</a></li>
+              <li><a href="http://www.opboy.com" title="">运维小子</a></li>
+              <li><a href="http://blog.liuts.com/" title="前天涯SA 刘天斯">运维进行时</a></li>
+              <li><a href="http://www.lark.net.cn/" title="lark's cloud">lark's cloud</a></li>
+              <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+              <li><a href="http://blog.liulantao.com/" title="lax">Lax</a></li>
+              <li><a href="http://l09.me/" title="风声">风声</a></li>
+              <li><a href="http://shellblog.info/" title="莫言">莫言</a></li>
+              <li><a href="http://mooser.me/" title="牛氓">牛氓</a></li>
+              <li><a href="http://http://www.yinwang.org/" title="当然我在扯淡">当然我在扯淡</a></li>
+              <li><a href="http://noops.me/" title="">NoOps</a></li>
+              <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+          </ul>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>

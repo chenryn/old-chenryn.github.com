@@ -4,7 +4,7 @@
  <title>三斗室</title>
  <link href="http://chenlinux.com/feed.xml" rel="self"/>
  <link href="http://chenlinux.com"/>
- <updated>2013-06-13T18:20:41+08:00</updated>
+ <updated>2013-06-14T16:14:12+08:00</updated>
  <id>http://chenlinux.com</id>
  <author>
    <name>陈子</name>
@@ -732,168 +732,150 @@ rex init --name&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quo
  </entry>
  
  <entry>
-   <title>给自己写个运维语言(Newbie::Gift 介绍)</title>
-   <link href="http://chenlinux.com/2013/04/19/try-to-write-DSL-for-myown"/>
+   <title>Newbie::Gift 所用知识总结</title>
+   <link href="http://chenlinux.com/2013/04/19/something-dive-to-perl"/>
    <updated>2013-04-19T00:00:00+08:00</updated>
-   <id>http://chenlinux.com/2013/04/19/try-to-write-DSL-for-myown</id>
-   <content type="html">&lt;p&gt;&lt;a href=&quot;http://weibo.com/formalin14&quot;&gt;Achilles Xu&lt;/a&gt; 提出了一个 &lt;a href=&quot;https://github.com/PerlChina/Newbie-Gift&quot;&gt;Newbie::Gift&lt;/a&gt; 计划，希望可以导出 100 个常用函数，解决 90% 的新手上手问题。不过最近他想的更远，先着手去写 &lt;a href=&quot;https://github.com/formalin14/perl-lisp&quot;&gt;perl-lisp&lt;/a&gt; 项目了，打算把 perl 的语法更加的偏离原样，变成 lisp-like 的样子。&lt;/p&gt;
+   <id>http://chenlinux.com/2013/04/19/something-dive-to-perl</id>
+   <content type="html">&lt;p&gt;通过 &lt;a href=&quot;https://github.com/chenryn/Newbie-Gift&quot;&gt;Newbie::Gift&lt;/a&gt; 项目的开发过程，学习和深入了解了不少 Perl 知识，虽然这个模块估计短期内不会再继续开发和更新了，不过还是值得记录一下这段过程中的心得。&lt;/p&gt;
 
-&lt;p&gt;所以在他完成整个工作之前，我打算先给自己实现一小部分常用函数，解决个人工作中的问题。维持 SPEC 中提出的尽量使用回调风格的做法，但是就不用自定义的 &lt;code&gt;def_class&lt;/code&gt; 来实现类了，而且尽量把东西做成 CPAN-like 的模块，所以把主要模块都放在 NG/ 下了。&lt;/p&gt;
+&lt;h3 id=&quot;gensym&quot;&gt;gensym&lt;/h3&gt;
 
-&lt;p&gt;我的 fork 地址是： &lt;a href=&quot;https://github.com/chenryn/Newbie-Gift&quot;&gt;https://github.com/chenryn/Newbie-Gift&lt;/a&gt;。&lt;/p&gt;
+&lt;p&gt;封装 &lt;code&gt;IPC::Open3&lt;/code&gt; 模块时，通过 &lt;code&gt;smokeping&lt;/code&gt; 代码中学到了 &lt;code&gt;Symbol&lt;/code&gt; 模块的 &lt;code&gt;gensym&lt;/code&gt; 指令的使用。&lt;/p&gt;
 
-&lt;p&gt;目前实现的函数主要有：&lt;/p&gt;
+&lt;p&gt;通过 &lt;code&gt;gensym&lt;/code&gt; 指令可以直接返回一个临时文件句柄来使用。&lt;/p&gt;
 
-&lt;ul&gt;
-  &lt;li&gt;local_run&lt;/li&gt;
-&lt;/ul&gt;
+&lt;h3 id=&quot;cb-&quot;&gt;$cb-&amp;gt;()&lt;/h3&gt;
 
-&lt;p&gt;封装了 &lt;code&gt;IPC::Open3&lt;/code&gt; 模块，回调传递 STDOUT 和 STDERR。&lt;/p&gt;
+&lt;p&gt;在 SPEC 设计中，所有导出指令都采用回调的方式。在 Perl 中实现起来其实特别简单。像下面这样就好了：&lt;/p&gt;
 
-&lt;ul&gt;
-  &lt;li&gt;web_get&lt;/li&gt;
-&lt;/ul&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;&lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;keyword&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$str&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$cb&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;shift&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$res&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;do_some_func&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$str&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;$cb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$res&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
-&lt;p&gt;封装了 &lt;code&gt;AnyEvent::HTTP&lt;/code&gt; 模块，实现了 SPEC 中提到的自动并发下载和回调传递 header 和 body。这里学习 &lt;code&gt;Mojo&lt;/code&gt; 的做法，返回的 body 可以用 &lt;code&gt;-&amp;gt;find()&lt;/code&gt;，&lt;code&gt;-&amp;gt;each&lt;/code&gt;，&lt;code&gt;-&amp;gt;text&lt;/code&gt;，&lt;code&gt;-&amp;gt;attr('')&lt;/code&gt; 来取具体的值。&lt;/p&gt;
+&lt;h3 id=&quot;selectortoxpath&quot;&gt;selector_to_xpath&lt;/h3&gt;
 
-&lt;p&gt;不过这里只从 &lt;code&gt;Web::Query&lt;/code&gt; 模块扒(主要就是把原来的@array数组操作都修改成了自定义的Array对象操作)过来了获取的方法，修改的方法都放弃了。感觉没啥必要。&lt;/p&gt;
+&lt;p&gt;之前一直有使用 &lt;code&gt;Mojo::UserAgent&lt;/code&gt; 配合 &lt;code&gt;Mojo::DOM&lt;/code&gt; 完成网页抓取工作，这次自己实践，参考的是另一个 &lt;a href=&quot;https://metacpan.org/module/Web::Query&quot;&gt;Web::Query&lt;/a&gt; 模块。其中最关键的两步，第一是通过 &lt;a href=&quot;https://metacpan.org/module/HTML::Selector::XPath&quot;&gt;selector_to_xpath&lt;/a&gt; 指令把选择器的写法转换成 XPath 语言；第二是通过 XPath 操作网页的 &lt;a href=&quot;https://metacpan.org/module/HTML::TreeBuilder::XPath&quot;&gt;HTML::Tree&lt;/a&gt;。&lt;/p&gt;
 
-&lt;ul&gt;
-  &lt;li&gt;mail_get&lt;/li&gt;
-&lt;/ul&gt;
+&lt;p&gt;不过 &lt;code&gt;Mojo&lt;/code&gt; 里对象化的很完整，返回的数组和字符串都是对象，所以可以一直反复调用方法连接起来处理，写的会很爽。用 &lt;code&gt;Web::Query&lt;/code&gt; 没有这个效果。&lt;/p&gt;
 
-&lt;p&gt;封装了 &lt;code&gt;Net::POP3&lt;/code&gt; 模块，因为这个模块是核心库的，不需要安装太多依赖。倒序回调传递每封邮件 &lt;code&gt;Hashtable&lt;/code&gt; 类的 header 和 &lt;code&gt;Array&lt;/code&gt; 类的 body。其中body的第一个元素是 &lt;code&gt;HTTP::DOM&lt;/code&gt; 对象。&lt;/p&gt;
+&lt;h3 id=&quot;filestat&quot;&gt;File::stat&lt;/h3&gt;
 
-&lt;ul&gt;
-  &lt;li&gt;read_file&lt;/li&gt;
-&lt;/ul&gt;
+&lt;p&gt;stat 是 perl 默认的函数，不过返回的数组在 mode 和 time 方面可读性都不好，所以封装一下，提供更加可读的 0644 这样的 mode 格式，直接用 &lt;code&gt;sprintf&lt;/code&gt; 就可以做到：&lt;/p&gt;
 
-&lt;p&gt;实现 SPEC 描述的回调。&lt;/p&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;    &lt;span class=&quot;nb&quot;&gt;sprintf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;%04o&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$ret&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt; &lt;span class=&quot;mo&quot;&gt;07777&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
-&lt;ul&gt;
-  &lt;li&gt;read_dir&lt;/li&gt;
-&lt;/ul&gt;
+&lt;h3 id=&quot;datetime&quot;&gt;DateTime&lt;/h3&gt;
 
-&lt;p&gt;回调中使用 &lt;code&gt;File::Find&lt;/code&gt; 来递归读取目录下的文件，类似 &lt;code&gt;find&lt;/code&gt; 的作用；直接返回值的话则是第一层次的文件，类似 &lt;code&gt;ls&lt;/code&gt; 的作用。&lt;/p&gt;
+&lt;p&gt;Perl 的 &lt;a href=&quot;https://metacpan.org/module/DateTime&quot;&gt;DateTime&lt;/a&gt; 模块太重，CPAN 上其实也有很多人提交简化版的 DT，其实就是利用 &lt;code&gt;localtime&lt;/code&gt;，&lt;code&gt;strftime&lt;/code&gt; 和 &lt;code&gt;mktime&lt;/code&gt; 几个默认函数做出来的对象调用。&lt;/p&gt;
 
-&lt;ul&gt;
-  &lt;li&gt;process_log&lt;/li&gt;
-&lt;/ul&gt;
+&lt;h3 id=&quot;exporter&quot;&gt;Exporter&lt;/h3&gt;
 
-&lt;p&gt;实现 SPEC 描述的回调。不过自动兼容空格和引号没想好怎么做比较恰当，暂时是默认空格，用其他分割就在回调后面再提供一个参数。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;import&lt;/code&gt; 和 &lt;code&gt;export_to_level&lt;/code&gt; 都是 &lt;code&gt;Exporter&lt;/code&gt; 模块的方法，所有继承自 &lt;code&gt;Exporter&lt;/code&gt; 的模块可以用。比如下面示例，启用该模块，就相当于启用了 &lt;code&gt;strict&lt;/code&gt;，&lt;code&gt;warnings&lt;/code&gt;，&lt;code&gt;utf8&lt;/code&gt; 和 Perl5.10 版的新特性，同时导出了 keywords 关键字。&lt;/p&gt;
 
-&lt;ul&gt;
-  &lt;li&gt;db&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;实现回调处理 CRUD 的返回值。想法本来是来自 &lt;code&gt;Dancer::Plugin::Util::Handle&lt;/code&gt; 的 &lt;code&gt;quick_select&lt;/code&gt;/&lt;code&gt;quick_insert&lt;/code&gt;/&lt;code&gt;quick_update&lt;/code&gt;/&lt;code&gt;quick_delete&lt;/code&gt;，不过目前没有选择自己拼接 SQL，而是使用 SQL::Abstract 模块。&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;file_stat&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;stat 是 perl 默认的函数，不过返回的数组在 mode 和 time 方面可读性都不好，所以封装一下，提供更加可读的 0644 这样的 mode 格式；time也返回自定义的 Time 对象方便使用。&lt;/p&gt;
-
-&lt;p&gt;此外还有 &lt;code&gt;from_yaml&lt;/code&gt;/&lt;code&gt;from_json&lt;/code&gt;/&lt;code&gt;mkdir_p&lt;/code&gt;/&lt;code&gt;rm_p&lt;/code&gt;/&lt;code&gt;mail_send&lt;/code&gt; 等等小函数。&lt;strong&gt;&lt;code&gt;web_server&lt;/code&gt; 这个没想好具体目的，是要像 &lt;code&gt;AnyEvent::HTTPD&lt;/code&gt; 那样返回字符串的，还是 &lt;code&gt;Plack::App::Directory&lt;/code&gt; 那样发布本地目录的呢？&lt;code&gt;remote_run&lt;/code&gt; 这个预备还是在 &lt;code&gt;Net::OpenSSH&lt;/code&gt; 上做，同样也要自动并发。&lt;/strong&gt;&lt;/p&gt;
-
-&lt;p&gt;在基类基础上也实现了两个类：&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;
-    &lt;p&gt;HTTP::DOM&lt;/p&gt;
-  &lt;/li&gt;
-  &lt;li&gt;
-    &lt;p&gt;Time&lt;/p&gt;
-  &lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;最终在 NG.pm 中导出全部函数，这样只需要 &lt;code&gt;use NG;&lt;/code&gt;一行就可以全部使用了。&lt;/p&gt;
-
-&lt;p&gt;顺带还 import 了 &lt;code&gt;warnings&lt;/code&gt;，&lt;code&gt;strict&lt;/code&gt; 和 5.010 的 &lt;code&gt;features&lt;/code&gt;。这里写法如下：&lt;/p&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;    &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;    &lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;base&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;Exporter&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;our&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;@EXPORT&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;sx&quot;&gt;qw/keywords/&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;keywords&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;...&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
         &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$class&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;shift&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
         &lt;span class=&quot;n&quot;&gt;strict&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;import&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
         &lt;span class=&quot;n&quot;&gt;warnings&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;import&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
         &lt;span class=&quot;n&quot;&gt;utf8&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;import&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
         &lt;span class=&quot;n&quot;&gt;feature&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;import&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;:5.10&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;nn&quot;&gt;Try::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Tiny&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;import&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
         &lt;span class=&quot;nv&quot;&gt;$class&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;export_to_level&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$class&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;@EXPORT&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
     &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
-&lt;p&gt;&lt;code&gt;import&lt;/code&gt; 和 &lt;code&gt;export_to_level&lt;/code&gt; 都是 &lt;code&gt;Exporter&lt;/code&gt; 模块的方法，&lt;code&gt;NG.pm&lt;/code&gt; 里继承了 &lt;code&gt;Exporter&lt;/code&gt;。&lt;/p&gt;
+&lt;h3 id=&quot;zip&quot;&gt;zip&lt;/h3&gt;
 
-&lt;h1 id=&quot;section&quot;&gt;2013 年 05 月 06 日更新&lt;/h1&gt;
+&lt;p&gt;多数组可以通过 &lt;code&gt;zip&lt;/code&gt; 命令逐一对位融合到一起。这个在 &lt;a href=&quot;https://metacpan.org/module/List::MoreUtils&quot;&gt;List::MoreUtils&lt;/a&gt; 中有，这次用 &lt;code&gt;NG::Array&lt;/code&gt; 对象实现了一边，其原理是先记录每个数组的长度，然后以最长的那个数组为标杆，循环一遍即可。&lt;/p&gt;
 
-&lt;p&gt;借鉴了 CPAN 上 Rubyish、Perl6::&lt;em&gt;、Perl5i::&lt;/em&gt; 等模块的思路，也加上了 autobox ，不过为了不破坏原先的 Array、Hashtable 等的设计，autobox 只管理标量的操作。现在可以这样：&lt;/p&gt;
+&lt;h3 id=&quot;autobox&quot;&gt;autobox&lt;/h3&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;Test::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;More&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;Test::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Deep&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;lib&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;../lib&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;NG&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;p&gt;CPAN 上 Rubyish、Perl6::&lt;em&gt;、Perl5i::&lt;/em&gt; 等模块都利用了 &lt;a href=&quot;https://metacpan.org/module/autobox&quot;&gt;autobox&lt;/a&gt; 实现完全的对象化。autobox 是一个库，本身不提供对象方法，而是要自己自己实现针对某个类型的对象方法后，通过 autobox 关联到 Perl 的数据类型上去。&lt;/p&gt;
 
-&lt;span class=&quot;n&quot;&gt;cmp_deeply&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;to&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;NG::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Array&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;new&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;is&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;test&amp;quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;length&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;string length&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;cmp_deeply&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;Hello World&amp;quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;lc&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;words&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;NG::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Array&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;new&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;hello&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;world&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;p&gt;比如想要实现一个 &lt;code&gt;&quot;Hello World&quot;-&amp;gt;lc-&amp;gt;words&lt;/code&gt; 的语法，显然就是要针对 Perl 中的 STRING 数据类型实现 lc 和 words 两个方法。那么先实现一个自己的 string 对象：&lt;/p&gt;
 
-&lt;span class=&quot;n&quot;&gt;done_testing&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;    &lt;span class=&quot;nb&quot;&gt;package&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;your::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;string&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;lc&lt;/span&gt;    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;CORE::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lc&lt;/span&gt;           &lt;span class=&quot;nv&quot;&gt;$_&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;words&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;CORE::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;split&lt;/span&gt; &lt;span class=&quot;sr&quot;&gt;/\s+/&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$_&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
-&lt;p&gt;关于 autobox 的用法也蛮有趣的，详见代码。&lt;/p&gt;
+&lt;p&gt;然后开始关联：&lt;/p&gt;
 
-&lt;h1 id=&quot;section-1&quot;&gt;2013 年 05 月 14 日更新&lt;/h1&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;    &lt;span class=&quot;nb&quot;&gt;package&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;your::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;autobox&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;base&lt;/span&gt; &lt;span class=&quot;sx&quot;&gt;qw(autobox)&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;your::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;string&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;shift&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;nn&quot;&gt;SUPER::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;import&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;STRING&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;your::string&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+            &lt;span class=&quot;nv&quot;&gt;@_&lt;/span&gt;
+        &lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
-&lt;p&gt;实现了 &lt;code&gt;def_class&lt;/code&gt; 关键词。这是在许大师的 spec 里就规划好了的。正好用上了前几天和莫言，牛氓请教的符号表的知识。&lt;/p&gt;
+&lt;p&gt;最后在前面提到过的 &lt;code&gt;Exporter&lt;/code&gt; 的 &lt;code&gt;import&lt;/code&gt; 函数里加上一行：&lt;/p&gt;
 
-&lt;p&gt;新增了一个默认属性叫meta，所有用 &lt;code&gt;def_class&lt;/code&gt; 实现的类，会自动记录他们(包括他们的用 &lt;code&gt;def_class&lt;/code&gt; 实现的父类)的属性和方法到meta属性里。&lt;/p&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;    &lt;span class=&quot;nn&quot;&gt;your::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;autobox&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;import&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
-&lt;p&gt;原先想用 &lt;code&gt;def_class&lt;/code&gt; 实现 &lt;code&gt;NG::Object&lt;/code&gt; 类；但是又想让 &lt;code&gt;def_class&lt;/code&gt; 实现的类的默认基类为 &lt;code&gt;NG::Object&lt;/code&gt;。结果思路绕晕了，所以最后 &lt;code&gt;NG::Object&lt;/code&gt; 还是用 bless 直接实现的，所以也单独写了一个 &lt;code&gt;sub meta {}&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;autobox 可以关联的数据类型还有很多，绝对是值得一看的模块。&lt;/p&gt;
 
-&lt;p&gt;为此阅读了一下 &lt;code&gt;Moo&lt;/code&gt; 和 &lt;code&gt;Moos&lt;/code&gt; 的代码。原来他们都是把属性和方法也实现为类。然后再有 &lt;code&gt;*::Meta&lt;/code&gt; 类来记录这些属性和方法的类。我这里就只是存了一个 hash 到 默认 meta 属性里。&lt;/p&gt;
+&lt;h3 id=&quot;evalclassnew&quot;&gt;eval(&amp;lsquo;*&amp;rsquo;.$class.&amp;rsquo;::new&amp;rsquo;)&lt;/h3&gt;
 
-&lt;p&gt;不过 meta 属性和 &lt;code&gt;def_class&lt;/code&gt; 的其他属性不同的是：其他属性是使用 &lt;code&gt;sub :lvalue {}&lt;/code&gt; 定义的，可以修改，meta 是普通 &lt;code&gt;sub {}&lt;/code&gt; 的。&lt;/p&gt;
+&lt;p&gt;实现 &lt;code&gt;def_class&lt;/code&gt; 关键词的过程中学习颇多，首先是符号表。实现中完成模块代码几乎全靠符号表来绑定一个个函数和变量。像这样：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;    &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;t&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;eval&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;*&amp;#39;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$class&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;::ISA&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;t&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$parent&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;
+
+    &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;t&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;eval&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;*&amp;#39;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$class&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;::new&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;t&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$class&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;@args&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;@_&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;push&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;@args&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;&amp;#39;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$#args&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;%&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$o&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;bless&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;@args&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;},&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;ref&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$class&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;||&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$class&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;defined&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$methods&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;build&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;}){&lt;/span&gt;
+            &lt;span class=&quot;nv&quot;&gt;$o&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;build&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;@args&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+        &lt;span class=&quot;nv&quot;&gt;$o&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;不过这个实现有个问题，就是对象只能是基于哈希的引用，不能是数组的了。&lt;/p&gt;
+
+&lt;h3 id=&quot;section&quot;&gt;对象的元数据&lt;/h3&gt;
+
+&lt;p&gt;实现 &lt;code&gt;def_class&lt;/code&gt; 的时候比 spec 多新增了一个默认属性叫meta，所有用 &lt;code&gt;def_class&lt;/code&gt; 实现的类，会自动记录他们(包括他们的用 &lt;code&gt;def_class&lt;/code&gt; 实现的父类)的属性和方法到meta属性里。&lt;/p&gt;
+
+&lt;p&gt;为此阅读了一下 &lt;code&gt;Moo&lt;/code&gt; 和 &lt;code&gt;Moos&lt;/code&gt; 的代码。
+&lt;strong&gt;原来他们都是把属性和方法也实现为类。然后再有 &lt;code&gt;*::Meta&lt;/code&gt; 类来记录这些属性和方法的类。&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;而 &lt;code&gt;Newbie::Gift&lt;/code&gt; 计划中没打算把对象化搞得这么彻底，所以就只是存了一个 hash 到 默认 meta 属性里。&lt;/p&gt;
+
+&lt;h3 id=&quot;lvalue&quot;&gt;:lvalue&lt;/h3&gt;
+
+&lt;p&gt;对象除了方法还要有属性，&lt;code&gt;def_class&lt;/code&gt; 里也有实现，同样是用符号表绑定的。&lt;/p&gt;
+
+&lt;p&gt;不过这里用到了 Perl5.10 的一个新东西，函数属性，这里绑定的不是普通变量而是函数，但是函数只会读写一个变量值，具体的说就是使用 &lt;code&gt;sub :lvalue {}&lt;/code&gt; 定义。使用方法如下所示：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;    &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$val&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;canmod&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;:lvalue {&lt;/span&gt;
+        &lt;span class=&quot;c1&quot;&gt;# return $val; this doesn&amp;#39;t work, don&amp;#39;t say &amp;quot;return&amp;quot;&lt;/span&gt;
+        &lt;span class=&quot;nv&quot;&gt;$val&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;nomod&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;nv&quot;&gt;$val&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;canmod&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;   &lt;span class=&quot;c1&quot;&gt;# assigns to $val&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;nomod&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;  &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;   &lt;span class=&quot;c1&quot;&gt;# ERROR&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;lvalue 的说明见 &lt;code&gt;perldoc perlsub&lt;/code&gt; 文档。在这里还是个比较有趣的用法的，这个用法来自 &lt;code&gt;Newbie::Gift&lt;/code&gt; 项目另一位参与者 &lt;a href=&quot;https://github.com/fmpdceudy&quot;&gt;fmpdceudy&lt;/a&gt;。&lt;/p&gt;
-
-&lt;p&gt;目前 &lt;code&gt;def_class.t&lt;/code&gt; 设计并通过的测试如下：&lt;/p&gt;
-
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;Test::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;More&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;Test::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Deep&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;lib&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;../lib&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;NG&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
- 
-&lt;span class=&quot;n&quot;&gt;def_class&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Animal&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;sex&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;leg_color&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
-    &lt;span class=&quot;n&quot;&gt;sound&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
-         &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-    &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
-    &lt;span class=&quot;n&quot;&gt;run&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
-         &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;100&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-    &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
-&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;def_class&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Dog&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Animal&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;head_color&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
-    &lt;span class=&quot;n&quot;&gt;eat&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
-        &lt;span class=&quot;nb&quot;&gt;shift&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;head_color&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;shift&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-    &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
-    &lt;span class=&quot;n&quot;&gt;run&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
-        &lt;span class=&quot;nb&quot;&gt;shift&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;head_color&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-    &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
-&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
-
-&lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$y&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Animal&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;new&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;isa_ok&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$y&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;Animal&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;is&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$y&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;run&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;100&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;animal run ok&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-
-&lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$x&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Dog&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;new&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;isa_ok&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;Dog&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;nv&quot;&gt;$x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;eat&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;#39;bone&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;is&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;run&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;bone&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;eat ok&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;is&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sound&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;parent sound ok&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;cmp_deeply&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;meta&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;methods&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;},&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;sx&quot;&gt;qw/dump run sound eat/&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;list all methods ok&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;done_testing&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
-
 </content>
  </entry>
  
@@ -24269,20 +24251,14 @@ url_rewrite_concurrency&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span cl
    <link href="http://chenlinux.com/2010/04/02/diff-between-lvs-active_conn-and-netstat-conn"/>
    <updated>2010-04-02T00:00:00+08:00</updated>
    <id>http://chenlinux.com/2010/04/02/diff-between-lvs-active_conn-and-netstat-conn</id>
-   <content type="html">&lt;table&gt;
-  &lt;tbody&gt;
-    &lt;tr&gt;
-      &lt;td&gt;曾经有过一组高并发请求的服务器，在lvs上看到单台activeconn=~220000；同时，在RS上执行netstat -s -t&lt;/td&gt;
-      &lt;td&gt;grep &amp;ldquo;connections established&amp;rdquo;结果=~65000，而squidclient mgr:5min&lt;/td&gt;
-      &lt;td&gt;grep client_http.requests结果=~180。后来说起并发数的时候，有些茫然，到底哪个才算是呢？&lt;/td&gt;
-    &lt;/tr&gt;
-  &lt;/tbody&gt;
-&lt;/table&gt;
+   <content type="html">&lt;p&gt;曾经有过一组高并发请求的服务器，在lvs上看到单台 activeconn 约等于 220000；同时，在RS上执行 &lt;code&gt;netstat -s -t|grep &quot;connections established&quot;&lt;/code&gt; 结果大概是 65000，而 &lt;code&gt;squidclient mgr:5min|grep client_http.requests&lt;/code&gt; 结果却只有 180。后来说起并发数的时候，有些茫然，到底哪个才算是呢？&lt;/p&gt;
 
 &lt;p&gt;今天在squid-user里问起，居然有幸碰见另一位中国订阅者，夏兄随后提供给我一个06年的帖子，所述甚详。算是解惑了~
-&lt;a href=&quot;http://www.linuxsir.org/bbs/showthread.php?t=248500&quot;&gt;&lt;u&gt;&lt;font color=&quot;#0000ff&quot;&gt;http://www.linuxsir.org/bbs/showthread.php?t=248500&lt;/font&gt;&lt;/u&gt;&lt;/a&gt;
-原来lvs默认有个超时时间，可以用ipvsadm -L &amp;ndash;timeout查看，默认是900 120 300，分别是TCP TCPFIN UDP的时间。
-而RS上参数如下：&lt;/p&gt;
+&lt;a href=&quot;http://www.linuxsir.org/bbs/showthread.php?t=248500&quot;&gt;http://www.linuxsir.org/bbs/showthread.php?t=248500&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;原来 lvs 默认有个超时时间，可以用 &lt;code&gt;ipvsadm -L --timeout&lt;/code&gt; 查看，默认是 &lt;code&gt;900 120 300&lt;/code&gt; ，分别是 &lt;code&gt;TCP TCPFIN UDP&lt;/code&gt; 的时间。&lt;/p&gt;
+
+&lt;p&gt;而RS上参数如下：&lt;/p&gt;
 
 &lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;bash&quot;&gt;net.ipv4.tcp_keepalive_time &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; 600
 net.ipv4.route.gc_timeout &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; 100
@@ -24300,7 +24276,7 @@ net.ipv4.netfilter.ip_conntrack_udp_timeout_stream &lt;span class=&quot;o&quot;&
 net.ipv4.netfilter.ip_conntrack_udp_timeout &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; 30
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
-&lt;p&gt;可见RS的超时时间（仅指ESTABLISHED）比LVS小了3倍。再加上WAIT和SYN_RECV等状态，差不多就是220000/65000的比例了。而squid的RPS是按秒计算的，180*300=~55000，在数量级上和netstat的结果也就差不多了~ &lt;/p&gt;
+&lt;p&gt;可见 RS 的超时时间（仅指 &lt;code&gt;ESTABLISHED&lt;/code&gt; ）比 LVS 小了 3 倍。再加上 &lt;code&gt;WAIT&lt;/code&gt; 和 &lt;code&gt;SYN_RECV&lt;/code&gt; 等状态，差不多就是 220000/65000 的比例了。而 squid 的 RPS 是按秒计算的，&lt;code&gt;180*300=~55000&lt;/code&gt; ，在数量级上和 netstat 的结果也就差不多了~ &lt;/p&gt;
 </content>
  </entry>
  
