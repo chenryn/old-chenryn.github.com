@@ -4,13 +4,127 @@
  <title>三斗室</title>
  <link href="http://chenlinux.com/feed.xml" rel="self"/>
  <link href="http://chenlinux.com"/>
- <updated>2013-06-14T16:14:12+08:00</updated>
+ <updated>2013-06-18T20:27:12+08:00</updated>
  <id>http://chenlinux.com</id>
  <author>
    <name>陈子</name>
    <email>rao.chenlin@gmail.com</email>
  </author>
 
+ 
+ <entry>
+   <title>Etsy 的 Kale 系统</title>
+   <link href="http://chenlinux.com/2013/06/18/etsy-kale-1"/>
+   <updated>2013-06-18T00:00:00+08:00</updated>
+   <id>http://chenlinux.com/2013/06/18/etsy-kale-1</id>
+   <content type="html">&lt;p&gt;监控大户 Etsy 最近有公布了一个全新的监控分析系统，叫 Kale，博客地址：&lt;a href=&quot;http://codeascraft.com/2013/06/11/introducing-kale/&quot;&gt;http://codeascraft.com/2013/06/11/introducing-kale/&lt;/a&gt;。&lt;/p&gt;
+
+&lt;p&gt;目前的介绍内容比较简单。两个组件 &lt;code&gt;skyline&lt;/code&gt; 和 &lt;code&gt;oculus&lt;/code&gt; 之间的关系也还没搞清楚。大概上， &lt;code&gt;skyline&lt;/code&gt; 是一个 python 程序，接受 &lt;code&gt;cPickle&lt;/code&gt; 和 &lt;code&gt;MessagePack&lt;/code&gt; 两种数据包，解压后的数据格式类似 &lt;code&gt;graphite&lt;/code&gt; 接收的，然后存在 &lt;code&gt;Redis-server&lt;/code&gt; 中。在 webapp 上提供一个类似 &lt;code&gt;rrdtool&lt;/code&gt; 的功能，显示触发阈值线的趋势图(这步还没测试出来，很奇怪莫非只存一个metric显示不了？)。&lt;/p&gt;
+
+&lt;p&gt;安装步骤：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;bash&quot;&gt;    pip install -r requirements.txt
+    apt-get install -y numpy scipy
+    pip install pandas patsy statsmodels msgpack_python
+    cp src/settings.py.example src/settings.py
+    mkdir /var/log/skyline
+    mkdir /var/run/skyline
+    mkdir /var/log/redis
+    &lt;span class=&quot;c&quot;&gt;# 必须用最新版的 redis-server 才能正常存储&lt;/span&gt;
+    wget http://redis.googlecode.com/files/redis-2.6.13.tar.gz
+    tar zxvf redis-2.6.13.tar.gz
+    &lt;span class=&quot;nb&quot;&gt;cd &lt;/span&gt;redis-2.6.13
+    make
+    ./src/redis-server ../bin/redis.conf
+    &lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; ../src
+    &lt;span class=&quot;c&quot;&gt;# 这里会启动 UDP 2024 端口接受 cpickle 包，2025 端口接受 msgpack 包&lt;/span&gt;
+    ../bin/horizon.d start
+    ../bin/analyzer.d start
+    &lt;span class=&quot;c&quot;&gt;# 这里会启动 TCP 1500 端口接受 web 访问&lt;/span&gt;
+    ../bin/webapp.d start
+    &lt;span class=&quot;c&quot;&gt;# 测试是否正常&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; ../utils
+    ./seed_data.py
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;code&gt;oculus&lt;/code&gt; 是一个 rack 应用，需要定时从 &lt;code&gt;skyline&lt;/code&gt; 中导入数据到 &lt;code&gt;ElasticSearch&lt;/code&gt; 中。同时，&lt;code&gt;oculus&lt;/code&gt; 还提供了一个 &lt;code&gt;ElasticSearch&lt;/code&gt; 分析器插件，可以在 ES 中完成 &lt;code&gt;FastDTW&lt;/code&gt; 和 &lt;code&gt;Euclidian&lt;/code&gt; 两种位移算法（用来给不同时间序列的近似度打分）。在rack 页面上，提供搜索框，你可以提交一个 metric 名称——经过测试，目前应该是采用完全匹配的方式搜索——然后展示这个 metric 的图形，以及按照 score 打分排序的近似时间序列。&lt;/p&gt;
+
+&lt;p&gt;安装步骤：&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;bash&quot;&gt;    &lt;span class=&quot;c&quot;&gt;# 只能用 0.20.5 版，0.90 版目前不支持&lt;/span&gt;
+    wget https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-0.20.5.tar.gz
+    tar zxvf elasticsearch-0.20.5.tar.gz
+    mv elasticsearch-0.20.5 /opt/elasticsearch
+    &lt;span class=&quot;c&quot;&gt;# 编译插件&lt;/span&gt;
+    cp -r resources/elasticsearch-oculus-plugin /opt/elasticsearch/
+    &lt;span class=&quot;nb&quot;&gt;pushd&lt;/span&gt; /opt/elasticsearch/elasticsearch-oculus-plugin
+    rake build
+    cp OculusPlugins.jar /opt/elasticsearch/lib/OculusPlugins.jar
+    &lt;span class=&quot;c&quot;&gt;# 加载分析器和脚本&lt;/span&gt;
+    cat &amp;gt;&amp;gt;/opt/elasticsearch/config/elasticsearch.yml&lt;span class=&quot;s&quot;&gt;&amp;lt;&amp;lt;EOF&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;    script.native:&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;      oculus_euclidian.type: com.etsy.oculus.tsscorers.EuclidianScriptFactory&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;      oculus_dtw.type: com.etsy.oculus.tsscorers.DTWScriptFactory&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;    EOF&lt;/span&gt;
+    &lt;span class=&quot;c&quot;&gt;# 启动&lt;/span&gt;
+    /opt/elasticsearch/bin/elasticsearch
+    
+    &lt;span class=&quot;nb&quot;&gt;popd&lt;/span&gt;
+&lt;span class=&quot;nb&quot;&gt;    &lt;/span&gt;bundle install
+    mkdir /var/run/oculus
+    mkdir /var/log/oculus
+    &lt;span class=&quot;c&quot;&gt;# 启动 worker 进程，这是import.rb 和 ES 交流的渠道&lt;/span&gt;
+    rake resque:start_workers
+    &lt;span class=&quot;c&quot;&gt;# 编辑 config/config.yml，注意里面ES一定要提供两台，哪怕写一个127.0.0.1一个localhost，后面 import 会验证数目&lt;/span&gt;
+    vi config/config.yml
+    &lt;span class=&quot;c&quot;&gt;# 从 skyline 导入数据&lt;/span&gt;
+    ./scripts/import.rb
+    &lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;*/2 * * * * ~/oculus/scripts/import.rb &amp;amp;&amp;gt; /var/log/oculus/import.log&amp;#39;&lt;/span&gt; &amp;gt;&amp;gt; cron.list
+    crontab -u root cron.list
+    &lt;span class=&quot;c&quot;&gt;# 启动web&lt;/span&gt;
+    thin start
+    &lt;span class=&quot;c&quot;&gt;# 默认用户密码都是admin，需要先点击初始化&lt;/span&gt;
+    gnome-open localhost:3000/admin
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;code&gt;oculus&lt;/code&gt; 的测试我是做出来了。如图：&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/uploads/oculus.png&quot; alt=&quot;oculus&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;这个数据我是通过 perl 生成的随机数，所以也没什么近似队列了。展示一下脚本，这样说明我们可以通过其他脚本扩展 Kale 系统的用途。&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;perl&quot;&gt;    &lt;span class=&quot;c1&quot;&gt;#!/usr/bin/env perl&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;strict&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;warnings&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;Data::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;MessagePack&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;use&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;AnyEvent::Handle::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;UDP&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    
+    &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$mp&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;Data::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;MessagePack&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;new&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;utf8&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;prefer_integer&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    
+    &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$cv&lt;/span&gt;   &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;AnyEvent&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;condvar&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$sock&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;AnyEvent::Handle::&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;UDP&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;new&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;connect&lt;/span&gt;   &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;127.0.0.1&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;2025&amp;#39;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;],&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;on_recv&lt;/span&gt;   &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;autoflush&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    
+    &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$timer&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;AnyEvent&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;timer&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;after&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;interval&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;cb&lt;/span&gt;       &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sub &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;k&quot;&gt;print&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;quot;send...\n&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+            &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$data&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&amp;#39;localhost.loadavg&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;time&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(),&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;rand&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;
+            &lt;span class=&quot;k&quot;&gt;my&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$packed&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$mp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;pack&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$data&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+            &lt;span class=&quot;nv&quot;&gt;$sock&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;push_send&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;$packed&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    
+    &lt;span class=&quot;nv&quot;&gt;$cv&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;recv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;从源码中，看到还有 &lt;code&gt;ganglia_to_skyline.rb&lt;/code&gt; 脚本。目前看，&lt;code&gt;Kale&lt;/code&gt; 应该是想着用 &lt;code&gt;skyline&lt;/code&gt; 代替 &lt;code&gt;graphite-web&lt;/code&gt;，得用 &lt;code&gt;redis&lt;/code&gt; 来代替 &lt;code&gt;graphite-whisper&lt;/code&gt;，不过我觉得似乎意义不是很大，还不如直接把数据存入 &lt;code&gt;ElasticSearch&lt;/code&gt;，形成一套类似 &lt;code&gt;openTSDB&lt;/code&gt; 的，但是完全基于 ES 的高扩展分布式方案。&lt;/p&gt;
+</content>
+ </entry>
  
  <entry>
    <title>【翻译】运维的85条规则</title>
