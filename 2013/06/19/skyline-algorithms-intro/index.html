@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>【Etsy 的 Kale 系统】skyline 的过滤算法</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive.html">Archive</a></li>
+      	<li><a href="/categories.html">Categories</a></li>
+      	<li><a href="/pages.html">Pages</a></li>
+      	<li><a href="/tags.html">Tags</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>【Etsy 的 Kale 系统】skyline 的过滤算法 <small></small></h1>
+    <div class="date"><span>19 June 2013</span></div>
+    <ul class="tag_box pull-right">
+    	<li><a href="/tags.html#python-ref">python <span>5</span></a></li>
+    </ul>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>监控大户 Etsy 最近有公布了一个全新的监控分析系统，叫 Kale，博客地址：<a href="http://codeascraft.com/2013/06/11/introducing-kale/">http://codeascraft.com/2013/06/11/introducing-kale/</a>。</p>
+<p>上一篇博客介绍了安装部署和数据导入的方法。但是对 <code>skyline</code> 组件的过滤原理没有做研究。今天花了点时间看 wiki 和源码，大概搞清楚了 <code>skyline</code> 的工作方式。很有趣，值得记录一下。</p>
+<p>同样作为时间序列存储的 <code>rrdtool</code> 和 <code>graphite</code>，都偏重在预测算法，也就是说根据现有数据推测下一个数据应该是多少；而 <code>skyline</code> 则是根据现有数据统计最新数据是否异常。</p>
+<p>目前，<code>skyline</code> 一共提供了 7  个异常检测算法，如果有 5 个以上认为是异常，那么 <code>skyline</code> 就认为这个序列异常了。(当然，这都是可以修改的)</p>
+<p>异常检测算法实际写在了 <code>src/analyzer/algorithms.py</code> 里，包括有：</p>
+<h3 id="firsthouraverage">first_hour_average</h3>
+<p>这是最简单的。先求本周期内最前面的第一个小时的平均值和标准差，然后和最新的三个值的平均值(<code>tail_avg()</code>，这是后面多数算法都通用的做法)做比较。如果 <code>tail_avg</code> 和 第一小时平均值的差距大于 3 倍的标准差，那么认定为异常。</p>
+<h3 id="simplestddevfrommovingaverage">simple_stddev_from_moving_average</h3>
+<p>把上面算法的范围扩大化，求的是整个周期内全部数据的平均值和标准差。</p>
+<h3 id="stddevfrommovingaverage">stddev_from_moving_average</h3>
+<p>在上面算法的基础上，采用指数加权移动平均值。对周期内采点数量较少的情况更好一些。</p>
+<h3 id="meansubtractioncumulation">mean_subtraction_cumulation</h3>
+<p>做法是这样的：</p>
+<ol>
+  <li>排除最后一个值；</li>
+  <li>求剩余序列的平均值；</li>
+  <li>全序列减去上面这个平均值；</li>
+  <li>求剩余序列的标准差；</li>
+  <li>判断全序列最后一个值是否大于 3 倍的标准差</li>
+</ol>
+<p>在代码中本来还计算了一次序列的指数加权移动平均值，但是算完了却没用，感觉怪怪的。</p>
+<h3 id="leastsquares">least_squares</h3>
+<p>采用最小二乘法拟近时间序列，然后用实际值减去拟近值得到新序列。然后判断新序列的最后三个值的平均值是否大于 3 倍的新序列标准差。</p>
+<p>所谓最小二乘法，简单说就是对一个 [x, y] 序列，会有一对常数 [m, c]，让 <code>Y = mx + c</code> 等式中的 Y 和 y 在全序列上最接近。</p>
+<h3 id="histogrambins">histogram_bins</h3>
+<p>将整个周期序列的数据按照直方图统计法归入 15 个直方中，然后看最后三个值的平均值属于这 15 个直方的具体哪个。如果这个直方中包含的数据小于 20 个，判断为异常。</p>
+<p>从算法中可以知道，如果周期内数据量不够，很容易被判断为异常的。</p>
+<h3 id="grubbs">grubbs</h3>
+<p>将整个周期序列的数据按照格拉布斯法求异常值。</p>
+<p>标准的格拉布斯法是这样的：</p>
+<ol>
+  <li>从小到大排序；</li>
+  <li>求序列的平均值和标准差；</li>
+  <li>计算最小值和最大值与平均值的差距，更大的那个为可疑值；</li>
+  <li>可疑值减去平均值，再除以标准差，如果大于格拉布斯临界值，那么就是异常值；</li>
+  <li>排除异常值，对剩余序列循环做 1-5 步骤。</li>
+</ol>
+<p>这里只用判断时间序列的最后是否异常，所以直接将最后三个值的平均值作为可疑值判断是否异常即可。</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2013/06/18/etsy-kale-intro" title="【Etsy 的 Kale 系统】简介、部署和应用">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next disabled"><a>Next &rarr;</a>
+      </ul>
+    </div>
+    <hr>
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li><a href="/2013/06/18/etsy-kale-intro">【Etsy 的 Kale 系统】简介、部署和应用</a></li>
+                 <li><a href="/2013/06/12/translate-85-operational-rules">【翻译】运维的85条规则</a></li>
+                 <li><a href="/2013/05/28/compare-dsl-of-puppet-with-rex">puppet和rex的常用资源写法类比</a></li>
+                 <li><a href="/2013/05/27/use-rex-box-replace-vagrant">使用 Rex::Box 代替 Vagrant 的工作</a></li>
+                 <li><a href="/2013/05/14/mojo-and-gocr-for-buildhr-telephone">用mojo抓取数据并gocr替换图片内容</a></li>
+                 <li><a href="/2013/04/19/something-dive-to-perl">Newbie::Gift 所用知识总结</a></li>
+                 <li><a href="/2013/04/16/install-foreman">使用 Foreman 来监控统计 puppet 的 reports 信息</a></li>
+                 <li><a href="/2013/04/03/install-graphite">Graphite 安装</a></li>
+                 <li><a href="/2013/04/02/parse-puppet-dsl-using-perl6">用 Perl6 解析 puppet 的配置语法</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接</li>
+              <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+              <li><a href="http://blog.dotcloud.com/" title="dotCloud 官方博客">dotCloud-Blog</a></li>
+              <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+              <li><a href="http://www.icylife.net/blog/" title="">心路</a></li>
+              <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+              <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+              <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+              <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+              <li><a href="http://dbahacker.com/" title="TB 杨德华">DBA Hacker</a></li>
+              <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+              <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+              <li><a href="http://blog.laird-sa.com/" title="">Laird-SA</a></li>
+              <li><a href="http://www.linuxsee.com/" title="">LinuxSEE</a></li>
+              <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+              <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+              <li><a href="http://www.puppeter.cn/" title="">piol</a></li>
+              <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+              <li><a href="http://www.sanote.org/" title="">sa note</a></li>
+              <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+              <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
+              <li><a href="http://julyclyde.org/" title="新浪系统工程师">七月的夏天</a></li>
+              <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+              <li><a href="http://blog.s135.com/" title="金山·张宴">回忆未来</a></li>
+              <li><a href="http://blog.ops.tudou.com/wp/" title="">土豆运营团队</a></li>
+              <li><a href="http://www.91tuanfang.com/" title="安居客运维">家欣的天空</a></li>
+              <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+              <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+              <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+              <li><a href="http://www.wenzizone.cn/" title="">蚊子世界</a></li>
+              <li><a href="http://www.opboy.com" title="">运维小子</a></li>
+              <li><a href="http://blog.liuts.com/" title="前天涯SA 刘天斯">运维进行时</a></li>
+              <li><a href="http://www.lark.net.cn/" title="lark's cloud">lark's cloud</a></li>
+              <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+              <li><a href="http://blog.liulantao.com/" title="lax">Lax</a></li>
+              <li><a href="http://l09.me/" title="风声">风声</a></li>
+              <li><a href="http://shellblog.info/" title="莫言">莫言</a></li>
+              <li><a href="http://mooser.me/" title="牛氓">牛氓</a></li>
+              <li><a href="http://http://www.yinwang.org/" title="当然我在扯淡">当然我在扯淡</a></li>
+              <li><a href="http://noops.me/" title="">NoOps</a></li>
+              <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+          </ul>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>

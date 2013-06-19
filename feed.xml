@@ -4,7 +4,7 @@
  <title>三斗室</title>
  <link href="http://chenlinux.com/feed.xml" rel="self"/>
  <link href="http://chenlinux.com"/>
- <updated>2013-06-18T20:27:12+08:00</updated>
+ <updated>2013-06-19T19:53:30+08:00</updated>
  <id>http://chenlinux.com</id>
  <author>
    <name>陈子</name>
@@ -13,13 +13,85 @@
 
  
  <entry>
-   <title>Etsy 的 Kale 系统</title>
-   <link href="http://chenlinux.com/2013/06/18/etsy-kale-1"/>
-   <updated>2013-06-18T00:00:00+08:00</updated>
-   <id>http://chenlinux.com/2013/06/18/etsy-kale-1</id>
+   <title>【Etsy 的 Kale 系统】skyline 的过滤算法</title>
+   <link href="http://chenlinux.com/2013/06/19/skyline-algorithms-intro"/>
+   <updated>2013-06-19T00:00:00+08:00</updated>
+   <id>http://chenlinux.com/2013/06/19/skyline-algorithms-intro</id>
    <content type="html">&lt;p&gt;监控大户 Etsy 最近有公布了一个全新的监控分析系统，叫 Kale，博客地址：&lt;a href=&quot;http://codeascraft.com/2013/06/11/introducing-kale/&quot;&gt;http://codeascraft.com/2013/06/11/introducing-kale/&lt;/a&gt;。&lt;/p&gt;
 
-&lt;p&gt;目前的介绍内容比较简单。两个组件 &lt;code&gt;skyline&lt;/code&gt; 和 &lt;code&gt;oculus&lt;/code&gt; 之间的关系也还没搞清楚。大概上， &lt;code&gt;skyline&lt;/code&gt; 是一个 python 程序，接受 &lt;code&gt;cPickle&lt;/code&gt; 和 &lt;code&gt;MessagePack&lt;/code&gt; 两种数据包，解压后的数据格式类似 &lt;code&gt;graphite&lt;/code&gt; 接收的，然后存在 &lt;code&gt;Redis-server&lt;/code&gt; 中。在 webapp 上提供一个类似 &lt;code&gt;rrdtool&lt;/code&gt; 的功能，显示触发阈值线的趋势图(这步还没测试出来，很奇怪莫非只存一个metric显示不了？)。&lt;/p&gt;
+&lt;p&gt;上一篇博客介绍了安装部署和数据导入的方法。但是对 &lt;code&gt;skyline&lt;/code&gt; 组件的过滤原理没有做研究。今天花了点时间看 wiki 和源码，大概搞清楚了 &lt;code&gt;skyline&lt;/code&gt; 的工作方式。很有趣，值得记录一下。&lt;/p&gt;
+
+&lt;p&gt;同样作为时间序列存储的 &lt;code&gt;rrdtool&lt;/code&gt; 和 &lt;code&gt;graphite&lt;/code&gt;，都偏重在预测算法，也就是说根据现有数据推测下一个数据应该是多少；而 &lt;code&gt;skyline&lt;/code&gt; 则是根据现有数据统计最新数据是否异常。&lt;/p&gt;
+
+&lt;p&gt;目前，&lt;code&gt;skyline&lt;/code&gt; 一共提供了 7  个异常检测算法，如果有 5 个以上认为是异常，那么 &lt;code&gt;skyline&lt;/code&gt; 就认为这个序列异常了。(当然，这都是可以修改的)&lt;/p&gt;
+
+&lt;p&gt;异常检测算法实际写在了 &lt;code&gt;src/analyzer/algorithms.py&lt;/code&gt; 里，包括有：&lt;/p&gt;
+
+&lt;h3 id=&quot;firsthouraverage&quot;&gt;first_hour_average&lt;/h3&gt;
+
+&lt;p&gt;这是最简单的。先求本周期内最前面的第一个小时的平均值和标准差，然后和最新的三个值的平均值(&lt;code&gt;tail_avg()&lt;/code&gt;，这是后面多数算法都通用的做法)做比较。如果 &lt;code&gt;tail_avg&lt;/code&gt; 和 第一小时平均值的差距大于 3 倍的标准差，那么认定为异常。&lt;/p&gt;
+
+&lt;h3 id=&quot;simplestddevfrommovingaverage&quot;&gt;simple_stddev_from_moving_average&lt;/h3&gt;
+
+&lt;p&gt;把上面算法的范围扩大化，求的是整个周期内全部数据的平均值和标准差。&lt;/p&gt;
+
+&lt;h3 id=&quot;stddevfrommovingaverage&quot;&gt;stddev_from_moving_average&lt;/h3&gt;
+
+&lt;p&gt;在上面算法的基础上，采用指数加权移动平均值。对周期内采点数量较少的情况更好一些。&lt;/p&gt;
+
+&lt;h3 id=&quot;meansubtractioncumulation&quot;&gt;mean_subtraction_cumulation&lt;/h3&gt;
+
+&lt;p&gt;做法是这样的：&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;排除最后一个值；&lt;/li&gt;
+  &lt;li&gt;求剩余序列的平均值；&lt;/li&gt;
+  &lt;li&gt;全序列减去上面这个平均值；&lt;/li&gt;
+  &lt;li&gt;求剩余序列的标准差；&lt;/li&gt;
+  &lt;li&gt;判断全序列最后一个值是否大于 3 倍的标准差&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;在代码中本来还计算了一次序列的指数加权移动平均值，但是算完了却没用，感觉怪怪的。&lt;/p&gt;
+
+&lt;h3 id=&quot;leastsquares&quot;&gt;least_squares&lt;/h3&gt;
+
+&lt;p&gt;采用最小二乘法拟近时间序列，然后用实际值减去拟近值得到新序列。然后判断新序列的最后三个值的平均值是否大于 3 倍的新序列标准差。&lt;/p&gt;
+
+&lt;p&gt;所谓最小二乘法，简单说就是对一个 [x, y] 序列，会有一对常数 [m, c]，让 &lt;code&gt;Y = mx + c&lt;/code&gt; 等式中的 Y 和 y 在全序列上最接近。&lt;/p&gt;
+
+&lt;h3 id=&quot;histogrambins&quot;&gt;histogram_bins&lt;/h3&gt;
+
+&lt;p&gt;将整个周期序列的数据按照直方图统计法归入 15 个直方中，然后看最后三个值的平均值属于这 15 个直方的具体哪个。如果这个直方中包含的数据小于 20 个，判断为异常。&lt;/p&gt;
+
+&lt;p&gt;从算法中可以知道，如果周期内数据量不够，很容易被判断为异常的。&lt;/p&gt;
+
+&lt;h3 id=&quot;grubbs&quot;&gt;grubbs&lt;/h3&gt;
+
+&lt;p&gt;将整个周期序列的数据按照格拉布斯法求异常值。&lt;/p&gt;
+
+&lt;p&gt;标准的格拉布斯法是这样的：&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;从小到大排序；&lt;/li&gt;
+  &lt;li&gt;求序列的平均值和标准差；&lt;/li&gt;
+  &lt;li&gt;计算最小值和最大值与平均值的差距，更大的那个为可疑值；&lt;/li&gt;
+  &lt;li&gt;可疑值减去平均值，再除以标准差，如果大于格拉布斯临界值，那么就是异常值；&lt;/li&gt;
+  &lt;li&gt;排除异常值，对剩余序列循环做 1-5 步骤。&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;这里只用判断时间序列的最后是否异常，所以直接将最后三个值的平均值作为可疑值判断是否异常即可。&lt;/p&gt;
+
+</content>
+ </entry>
+ 
+ <entry>
+   <title>【Etsy 的 Kale 系统】简介、部署和应用</title>
+   <link href="http://chenlinux.com/2013/06/18/etsy-kale-intro"/>
+   <updated>2013-06-18T00:00:00+08:00</updated>
+   <id>http://chenlinux.com/2013/06/18/etsy-kale-intro</id>
+   <content type="html">&lt;p&gt;监控大户 Etsy 最近有公布了一个全新的监控分析系统，叫 Kale，博客地址：&lt;a href=&quot;http://codeascraft.com/2013/06/11/introducing-kale/&quot;&gt;http://codeascraft.com/2013/06/11/introducing-kale/&lt;/a&gt;。&lt;/p&gt;
+
+&lt;p&gt;目前的介绍内容比较简单。两个组件 &lt;code&gt;skyline&lt;/code&gt; 和 &lt;code&gt;oculus&lt;/code&gt; 之间的关系也还没搞清楚。大概上， &lt;code&gt;skyline&lt;/code&gt; 是一个 python 程序，接受 &lt;code&gt;cPickle&lt;/code&gt; 和 &lt;code&gt;MessagePack&lt;/code&gt; 两种数据包，解压后的数据格式类似 &lt;code&gt;graphite&lt;/code&gt; 接收的，然后存在 &lt;code&gt;Redis-server&lt;/code&gt; 中。在 webapp 上提供一个类似 &lt;code&gt;rrdtool&lt;/code&gt; 的功能，显示触发阈值线的趋势图(不触发的不会显示，自动过滤了)。&lt;/p&gt;
 
 &lt;p&gt;安装步骤：&lt;/p&gt;
 
@@ -48,6 +120,12 @@
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
 
 &lt;p&gt;&lt;code&gt;oculus&lt;/code&gt; 是一个 rack 应用，需要定时从 &lt;code&gt;skyline&lt;/code&gt; 中导入数据到 &lt;code&gt;ElasticSearch&lt;/code&gt; 中。同时，&lt;code&gt;oculus&lt;/code&gt; 还提供了一个 &lt;code&gt;ElasticSearch&lt;/code&gt; 分析器插件，可以在 ES 中完成 &lt;code&gt;FastDTW&lt;/code&gt; 和 &lt;code&gt;Euclidian&lt;/code&gt; 两种位移算法（用来给不同时间序列的近似度打分）。在rack 页面上，提供搜索框，你可以提交一个 metric 名称——经过测试，目前应该是采用完全匹配的方式搜索——然后展示这个 metric 的图形，以及按照 score 打分排序的近似时间序列。&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;欧几里德算法原理：根据两点的坐标系计算直线距离；&lt;/li&gt;
+  &lt;li&gt;动态时间归整原理：将时间序列进行延伸或者缩短，然后再计算。
+&lt;a href=&quot;http://www.cnblogs.com/kemaswill/archive/2013/04/18/3028610.html&quot;&gt;http://www.cnblogs.com/kemaswill/archive/2013/04/18/3028610.html&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
 
 &lt;p&gt;安装步骤：&lt;/p&gt;
 
