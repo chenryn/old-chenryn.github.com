@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>【Logstash 系列】根据事件统计值报警</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive.html">Archive</a></li>
+      	<li><a href="/categories.html">Categories</a></li>
+      	<li><a href="/pages.html">Pages</a></li>
+      	<li><a href="/tags.html">Tags</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>【Logstash 系列】根据事件统计值报警 <small></small></h1>
+    <div class="date"><span>11 July 2013</span></div>
+    <ul class="tag_box pull-right">
+    	<li><a href="/tags.html#ruby-ref">ruby <span>11</span></a></li>
+    </ul>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>之前已经用很多博文说过了 logstash 如何配合 elasticsearch 以及 kibana 来做日子分析和实时搜索。其实 logstash 上百个插件还有很多其他的玩法，绝不是局限在日志搜索统计方面的。今天就展示另一个做法。根据日志中的异常值出现频率报警。</p>
+<p>在 logstash 的官网上，针对这个问题采用的办法是讲异常值计数 output 到 <code>statsd</code> 中，然后可以用通过观测 <code>graphite</code> 图形变化来判断异常。(或者配合 nagios 的 <code>check_graphite</code> 插件？) 官网说明见：<a href="http://logstash.net/docs/1.1.13/tutorials/metrics-from-logs">http://logstash.net/docs/1.1.13/tutorials/metrics-from-logs</a></p>
+<p>如果不想一直盯着页面看的话，可以利用另外几个插件来实现类似的做法，比如我要监控访问日志，如果其中 504 状态码每分钟超过 100 次，就报警出来。logstash 配置如下：</p>
+<div class="highlight"><pre><code class="ruby">    <span class="n">input</span> <span class="p">{</span>
+        <span class="n">stdin</span> <span class="p">{</span>
+            <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;apache&quot;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="n">filter</span> <span class="p">{</span>
+        <span class="n">grok</span> <span class="p">{</span>
+            <span class="n">pattern</span> <span class="o">=&gt;</span> <span class="s2">&quot;\[%{HTTPDATE:ts}\] %{NUMBER:status} %{IPORHOST:remotehost} %{URIHOST} %{WORD} %{URIPATHPARAM:url} HTTP/%{NUMBER} %{URIHOST:oh} %{NUMBER:responsetime:float} %{NUMBER:upstreamtime:float} (?:%{NUMBER:bytes:float}|-)&quot;</span>
+            <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;apache&quot;</span>
+        <span class="p">}</span>
+        <span class="n">metrics</span> <span class="p">{</span>
+            <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;apache&quot;</span>
+            <span class="n">meter</span> <span class="o">=&gt;</span> <span class="s2">&quot;error.%{status}&quot;</span>
+            <span class="n">add_tag</span> <span class="o">=&gt;</span> <span class="s2">&quot;metric&quot;</span>
+            <span class="n">ignore_older_than</span> <span class="o">=&gt;</span> <span class="mi">10</span>
+        <span class="p">}</span>
+        <span class="n">ruby</span> <span class="p">{</span>
+            <span class="n">tags</span> <span class="o">=&gt;</span> <span class="s2">&quot;metric&quot;</span>
+            <span class="n">code</span> <span class="o">=&gt;</span> <span class="s2">&quot;event.cancel if event[&#39;@fields&#39;][&#39;error.504.rate_1m&#39;] &lt; 100&quot;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="n">output</span> <span class="p">{</span>
+        <span class="nb">exec</span> <span class="p">{</span>
+            <span class="n">tags</span> <span class="o">=&gt;</span> <span class="s2">&quot;metric&quot;</span>
+            <span class="n">command</span> <span class="o">=&gt;</span> <span class="s2">&quot;sendsms.pl -m &#39;%{error\.504\.rate_1m}&#39;&quot;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+</code></pre></div>
+<p>其中关键在两个 filter。 metrics 插件可以每5秒(前天刚更新了源码，这个值可以自己指定了)更新一次统计值，支持 <code>meter</code> 和 <code>timer</code> 两种，<code>timer</code> 除了 <code>count</code> 和 <code>rate_1|5|15m</code> 外，还可以统计 <code>min|max|stddev|mean</code> 和 <code>p1|5|10|90|95|99</code> 等详细数据。</p>
+<p>ruby 插件则是直接 <code>eval</code> 写在 <code>code</code> 配置里的代码。</p>
+<p>需要注意的是： <code>output</code> 里使用的时候，需要用 <code>\</code> 转义 <code>.</code>。否则配置解析后会认为变量不存在。这是目前官网文档上写的有问题的地方。我已經跟作者提过，或许过些天会修改。</p>
+<p>值得一提的是：metrics 插件的输出是一个全新的 event，而不会去改变原先 grok 生成的 event。</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2013/06/28/howto-get-peer-ipaddr-in-http-get" title="获取 Perl 程序中 GET 请求发向的具体 IP">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next disabled"><a>Next &rarr;</a>
+      </ul>
+    </div>
+    <hr>
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li><a href="/2013/06/28/howto-get-peer-ipaddr-in-http-get">获取 Perl 程序中 GET 请求发向的具体 IP</a></li>
+                 <li><a href="/2013/06/24/who-to-calculate-days-between-two-date">计算两个时间点之间隔了几天</a></li>
+                 <li><a href="/2013/06/21/remove-auto-deps-from-rpmbuild">如何去除 rpmbuild 自动发现的依赖关系</a></li>
+                 <li><a href="/2013/06/20/rex-task-params-for-dynamic-server-group">通过 Rex 命令行参数向动态服务器组发起任务</a></li>
+                 <li><a href="/2013/06/19/skyline-algorithms-intro">【Etsy 的 Kale 系统】skyline 的过滤算法</a></li>
+                 <li><a href="/2013/06/18/etsy-kale-intro">【Etsy 的 Kale 系统】简介、部署和应用</a></li>
+                 <li><a href="/2013/06/12/translate-85-operational-rules">【翻译】运维的85条规则</a></li>
+                 <li><a href="/2013/05/28/compare-dsl-of-puppet-with-rex">puppet和rex的常用资源写法类比</a></li>
+                 <li><a href="/2013/05/27/use-rex-box-replace-vagrant">使用 Rex::Box 代替 Vagrant 的工作</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接</li>
+              <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+              <li><a href="http://blog.dotcloud.com/" title="dotCloud 官方博客">dotCloud-Blog</a></li>
+              <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+              <li><a href="http://www.icylife.net/blog/" title="">心路</a></li>
+              <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+              <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+              <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+              <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+              <li><a href="http://dbahacker.com/" title="TB 杨德华">DBA Hacker</a></li>
+              <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+              <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+              <li><a href="http://blog.laird-sa.com/" title="">Laird-SA</a></li>
+              <li><a href="http://www.linuxsee.com/" title="">LinuxSEE</a></li>
+              <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+              <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+              <li><a href="http://www.puppeter.cn/" title="">piol</a></li>
+              <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+              <li><a href="http://www.sanote.org/" title="">sa note</a></li>
+              <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+              <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
+              <li><a href="http://julyclyde.org/" title="新浪系统工程师">七月的夏天</a></li>
+              <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+              <li><a href="http://blog.s135.com/" title="金山·张宴">回忆未来</a></li>
+              <li><a href="http://blog.ops.tudou.com/wp/" title="">土豆运营团队</a></li>
+              <li><a href="http://www.91tuanfang.com/" title="安居客运维">家欣的天空</a></li>
+              <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+              <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+              <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+              <li><a href="http://www.wenzizone.cn/" title="">蚊子世界</a></li>
+              <li><a href="http://www.opboy.com" title="">运维小子</a></li>
+              <li><a href="http://blog.liuts.com/" title="前天涯SA 刘天斯">运维进行时</a></li>
+              <li><a href="http://www.lark.net.cn/" title="lark's cloud">lark's cloud</a></li>
+              <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+              <li><a href="http://blog.liulantao.com/" title="lax">Lax</a></li>
+              <li><a href="http://l09.me/" title="风声">风声</a></li>
+              <li><a href="http://moyan.tk/" title="莫言">莫言</a></li>
+              <li><a href="http://mooser.me/" title="牛氓">牛氓</a></li>
+              <li><a href="http://http://www.yinwang.org/" title="当然我在扯淡">当然我在扯淡</a></li>
+              <li><a href="http://noops.me/" title="">NoOps</a></li>
+              <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+              <li><a href="http://muxueqz.laou.me" title="muxueqz">聊逍遥兮容与</a></li>
+          </ul>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
