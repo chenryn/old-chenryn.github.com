@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Selenium 测试框架介绍</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive.html">Archive</a></li>
+      	<li><a href="/categories.html">Categories</a></li>
+      	<li><a href="/pages.html">Pages</a></li>
+      	<li><a href="/tags.html">Tags</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>Selenium 测试框架介绍 <small></small></h1>
+    <div class="date"><span>22 July 2013</span></div>
+    <ul class="tag_box pull-right">
+    	<li><a href="/tags.html#javascript-ref">javascript <span>6</span></a></li>
+    	<li><a href="/tags.html#firefox-ref">firefox <span>1</span></a></li>
+    	<li><a href="/tags.html#perl-ref">perl <span>58</span></a></li>
+    	<li><a href="/tags.html#automation-ref">automation <span>1</span></a></li>
+    </ul>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>Selenium 是一个自动化网站测试框架，包括 IDE、WebDriver 和 Grid 三个套件。其官网地址见：<a href="http://docs.seleniumhq.org/projects/">http://docs.seleniumhq.org/projects/</a>。其中 Grid 用以跨主机的集群测试，今天就不讲了。而 WebDriver 则是用以控制 Selenium Server(Server 上可以接受并启动的浏览器包括Firefox、IE、Chrome、Safari、Android、IPhone、PhantomJS 等等)进行具体测试动作的客户端，其早期版本叫做 Remote Control。</p>
+<p>最有特色和帮助的，是 IDE 部分，这是一个 Firefox 的 xpi 插件。通过下载安装，就可以启用，然后就是最简单不过的浏览器操作录制，结束动作后就可以自动导出各种支持的语言版本的 WebDriver 程序。</p>
+<p>注意在安装好 xpi 后，在 IDE 上并不能同步看到生成的程序内容，并不是说没有录制，而是默认不显示 <code>options/format</code> 的内容。在 <code>options/options</code> 里把 <code>active developer tools</code> 选项激活就可以了。</p>
+<p>Selenium 是一个 java 项目，官方支持的客户端程序包括 Java、C#、Ruby 和 Python2。社区支持的包括 Perl、PHP 和 Haskell 等等。</p>
+<p>注意 Selenium 的 WebDriver 和 Remote Control 两个版本之间 API 已经完全不一样，所以在 IDE 录制的时候，format 已经要选 WebDriver API 的才能用——除非你还找得到老版本的 Selenium Server，反正我是没找到。</p>
+<p>不巧的是目前官网上的插件列表中，只有官方支持的四个更新了 WebDriver 的 IDE 支持。所以直接从官网上安装的 Perl plugin 其实是没用的。不过不要紧，我很容易就找到了支持 WebDriver 的 Perl 模块，并且还使用 Perl 模块完成了对 Selenium Server 的管理。</p>
+<p>这里要用到两个 CPAN 模块：<a href="https://metacpan.org/module/Selenium::Server">Selenium::Server</a> 和 <a href="https://metacpan.org/module/Selenium::Remote::Driver">Selenium::Remote::Driver</a>。</p>
+<p>由于 Firefox addons 网站上的 <a href="https://addons.mozilla.org/zh-CN/firefox/addon/selenium-ide-perl-formatter/?src=search">Selenium IDE: Perl Formatter</a> 还是老版本的，即 <a href="https://metacpan.org/module/Test::WWW::Selenium">Test::WWW::Selenium</a> 配套的，所以我们需要自行安装新版本插件。</p>
+<p>新版本插件也就是一段 javascript 代码，在 <a href="https://metacpan.org/module/Selenium::Remote::Driver">Selenium::Remote::Driver</a> 代码库目录中已经存在，即 <a href="https://github.com/aivaturi/Selenium-Remote-Driver/blob/master/ide-plugin.js">https://github.com/aivaturi/Selenium-Remote-Driver/blob/master/ide-plugin.js</a>。</p>
+<p>按照 js 文件开头注释中的介绍，在 Selenium IDE 的 <code>options/options</code> 菜单的 <code>Formats</code> 选项卡上点击 <code>Add</code> 按钮，给新的 format 取名为 <code>Perl-WebDriver</code>，然后把整个 js 文件内容贴进文本框内保存即可。</p>
+<p>现在，录制操作只需选择使用 <code>Perl-WebDriver</code> 格式，就可以生成 Perl 测试脚本使用了。</p>
+<p>下一个问题，就是 Selenium Server 的运行。IDE 生成的脚本只负责连接 server 并发送命令。server 的 状况在 IDE 中是在 <code>options/formats</code> 中定义的变量，即 Selenium RC host 、Selenium RC port 和 environment。默认是 <code>localhost</code>、<code>4444</code> 和 <code>firefox</code>。在生成脚本的时候会自动替换。</p>
+<p>也就是说，我们需要自己部署程序，再运行一个脚本，启用 java 程序，来运行 Selenium Server。</p>
+<p>这里就可以用上 <a href="https://metacpan.org/module/Selenium::Server">Selenium::Server</a> 了。程序的下载、启用、参数配置和停止，都有该模块完成。</p>
+<p>最后一步，我们可以把 <a href="https://metacpan.org/module/Selenium::Server">Selenium::Server</a> 的相关代码，也贴进 IDE 的 <code>options/formats</code> 的 <code>Header</code> 和 <code>Footer</code> 模板里。这样不用每次自己粘贴了——自己粘贴代码还不如直接自己启用一个固定监听 4444 端口的 java 程序得了。</p>
+<p>IDE 截图如下：</p>
+<p><img src="/images/uploads/selenium-ide.png" alt="selenium-ide" /></p>
+<p>生成脚本如下所示：</p>
+<div class="highlight"><pre><code class="perl">    <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+    <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Selenium::</span><span class="n">Server</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Selenium::Remote::</span><span class="n">Driver</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Test::</span><span class="n">More</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$server</span> <span class="o">=</span> <span class="nn">Selenium::</span><span class="n">Server</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
+    <span class="nv">$server</span><span class="o">-&gt;</span><span class="n">start</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$driver</span> <span class="o">=</span> <span class="nn">Selenium::Remote::</span><span class="n">Driver</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+        <span class="n">remote_server_addr</span> <span class="o">=&gt;</span> <span class="nv">$server</span><span class="o">-&gt;</span><span class="n">host</span><span class="p">,</span>
+        <span class="n">port</span>               <span class="o">=&gt;</span> <span class="nv">$server</span><span class="o">-&gt;</span><span class="n">port</span>
+    <span class="p">);</span>
+    <span class="nv">$driver</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;http://10.2.21.100:8081/?results=88ceefac3c0c588d14f579d0c47f74fc&quot;</span><span class="p">);</span>
+    <span class="nv">$driver</span><span class="o">-&gt;</span><span class="n">find_element</span><span class="p">(</span><span class="s">&quot;DNS可用性测试&quot;</span><span class="p">,</span> <span class="s">&quot;link&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">click</span><span class="p">;</span>
+    <span class="n">like</span><span class="p">(</span><span class="sx">qr/^[\s\S]*各地测试可用性[\s\S]*$/</span><span class="p">,</span><span class="nv">$driver</span><span class="o">-&gt;</span><span class="n">find_element</span><span class="p">(</span><span class="s">&quot;BODY&quot;</span><span class="p">,</span> <span class="s">&quot;css&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">get_text</span><span class="p">);</span>
+    <span class="nv">$driver</span><span class="o">-&gt;</span><span class="n">quit</span><span class="p">();</span>
+    <span class="n">done_testing</span><span class="p">();</span>
+    <span class="nv">$server</span><span class="o">-&gt;</span><span class="n">stop</span><span class="p">;</span>
+</code></pre></div>
+<p>脚本中这个 <code>click</code> 操作显然是直接根据动作录制的，那么 <code>find_element()-&gt;get_text</code> 是怎么来的呢？其实 Selenium IDE 已经修改了浏览器内鼠标右键菜单的选项。在选中的任意网页元素上单击鼠标右键，菜单中就有 <code>Show All Available Commands</code> 子菜单，只需要选择就可以了。方便吧！</p>
+<p>生成的脚本直接运行，就可以完成测试了。</p>
+<p>和 <code>Selenium</code> 类似的，还有 <a href="https://metacpan.org/module/WWW::WebKit">WWW::WebKit</a> 模块，它是调用 <a href="https://metacpan.org/module/Gtk3::WebKit">Gtk3::WebKit</a> 作为后端浏览器支持，不过经过我个人电脑测试，要安装好 <a href="https://metacpan.org/module/Gtk3::WebKit">Gtk3::WebKit</a> 本身就是一件很复杂的事情。加上有时候我们也需要比较不同浏览器的效果是不是有所不同。所以，还是用 Selenium 吧。</p>
+<p>注：在最近一期 PerlWeekly 对 Perl 社区创业公司 Lokku/Nestoria 的<a href="http://blogs.perl.org/user/ovid/2013/07/perl-startups-lokkunestoria.html">访谈</a>中，Lokku 公司 CTO，Alex Balhatchet 也提到准备使用 Selenium 改造公司的自动化测试。</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2013/07/11/howto-filter-count-in-logstash" title="【Logstash 系列】根据事件统计值报警">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next disabled"><a>Next &rarr;</a>
+      </ul>
+    </div>
+    <hr>
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li><a href="/2013/07/11/howto-filter-count-in-logstash">【Logstash 系列】根据事件统计值报警</a></li>
+                 <li><a href="/2013/06/28/howto-get-peer-ipaddr-in-http-get">获取 Perl 程序中 GET 请求发向的具体 IP</a></li>
+                 <li><a href="/2013/06/24/who-to-calculate-days-between-two-date">计算两个时间点之间隔了几天</a></li>
+                 <li><a href="/2013/06/21/remove-auto-deps-from-rpmbuild">如何去除 rpmbuild 自动发现的依赖关系</a></li>
+                 <li><a href="/2013/06/20/rex-task-params-for-dynamic-server-group">通过 Rex 命令行参数向动态服务器组发起任务</a></li>
+                 <li><a href="/2013/06/19/skyline-algorithms-intro">【Etsy 的 Kale 系统】skyline 的过滤算法</a></li>
+                 <li><a href="/2013/06/18/etsy-kale-intro">【Etsy 的 Kale 系统】简介、部署和应用</a></li>
+                 <li><a href="/2013/06/12/translate-85-operational-rules">【翻译】运维的85条规则</a></li>
+                 <li><a href="/2013/05/28/compare-dsl-of-puppet-with-rex">puppet和rex的常用资源写法类比</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接</li>
+              <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+              <li><a href="http://blog.dotcloud.com/" title="dotCloud 官方博客">dotCloud-Blog</a></li>
+              <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+              <li><a href="http://www.icylife.net/blog/" title="">心路</a></li>
+              <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+              <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+              <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+              <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+              <li><a href="http://dbahacker.com/" title="TB 杨德华">DBA Hacker</a></li>
+              <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+              <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+              <li><a href="http://blog.laird-sa.com/" title="">Laird-SA</a></li>
+              <li><a href="http://www.linuxsee.com/" title="">LinuxSEE</a></li>
+              <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+              <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+              <li><a href="http://www.puppeter.cn/" title="">piol</a></li>
+              <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+              <li><a href="http://www.sanote.org/" title="">sa note</a></li>
+              <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+              <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
+              <li><a href="http://julyclyde.org/" title="新浪系统工程师">七月的夏天</a></li>
+              <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+              <li><a href="http://blog.s135.com/" title="金山·张宴">回忆未来</a></li>
+              <li><a href="http://blog.ops.tudou.com/wp/" title="">土豆运营团队</a></li>
+              <li><a href="http://www.91tuanfang.com/" title="安居客运维">家欣的天空</a></li>
+              <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+              <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+              <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+              <li><a href="http://www.wenzizone.cn/" title="">蚊子世界</a></li>
+              <li><a href="http://www.opboy.com" title="">运维小子</a></li>
+              <li><a href="http://blog.liuts.com/" title="前天涯SA 刘天斯">运维进行时</a></li>
+              <li><a href="http://www.lark.net.cn/" title="lark's cloud">lark's cloud</a></li>
+              <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+              <li><a href="http://blog.liulantao.com/" title="lax">Lax</a></li>
+              <li><a href="http://l09.me/" title="风声">风声</a></li>
+              <li><a href="http://moyan.tk/" title="莫言">莫言</a></li>
+              <li><a href="http://mooser.me/" title="牛氓">牛氓</a></li>
+              <li><a href="http://http://www.yinwang.org/" title="当然我在扯淡">当然我在扯淡</a></li>
+              <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+              <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+              <li><a href="http://muxueqz.laou.me" title="muxueqz">聊逍遥兮容与</a></li>
+              <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+          </ul>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>

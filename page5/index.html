@@ -43,6 +43,58 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2011/10/26/a_perl_extended_regex" title="一个perl扩展正则表达式" rel="bookmark">一个perl扩展正则表达式</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-10-26 00:00:00 +0800">26 Oct 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <html><body>
+<p>今天傍晚，莫言在Q群里贴了一个他写的正则表达式，回来翻了翻perlre文档，基本算是看懂，赶紧记录下来：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="s">"192.168.0.1|192.168.0.2|192.168.0.1"</span><span class="p">;</span>
+<span class="k">if</span> <span class="p">(</span> <span class="nv">$ip</span> <span class="o">=~</span><span class="sr"> /</span>
+<span class="sr">    ^</span>
+<span class="sr">    (?:</span>
+<span class="sr">        ((?:\d{1,3}\.){3}\d{1,3})</span>
+<span class="sr">        (?=</span>
+<span class="sr">            (?:</span>
+<span class="sr">                \|(?!\1)(?1)</span>
+<span class="sr">            )*</span>
+<span class="sr">            \z</span>
+<span class="sr">        )</span>
+<span class="sr">        \|</span>
+<span class="sr">    )*</span>
+<span class="sr">    (?1)</span>
+<span class="sr">    $</span>
+<span class="sr">    /x</span> <span class="p">)</span> <span class="p">{</span>
+    <span class="k">print</span> <span class="s">"match\n"</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>根据<a href="http://perldoc.perl.org/perlre.html" title="perlre文档" target="_blank">perlre文档</a>的说明，一点一点解释。
+ 首先是/x，用这个来去除regex里的空格，不然的话写在一行太难看懂了；
+ 然后是^，表示从最开头开始；
+ 然后是(?:，这个表示本括号不记入反向引用$&amp;中；
+ 然后是((?:\d{1,3}.){3}\d{1,3})，同样里面一个(?:，也就是说这一行匹配一个ip，并计为$1；
+ 然后是(?=，这个表示在上面那行ip的正则后面必须出现符合本括号定义，同样也不计入$&amp;（术语叫”零宽肯定前向断言”是吧？）；
+ 然后一个隔开ip的|；
+ 然后是(?!，这个表示本括号内的东西绝对不能出现，同样也不计入$&amp;（术语叫”零宽否定前向断言”是吧？）；
+ 然后是\1，这个就是前面捕获的$1，跟上行解释的断言合在一起，就是|后面不能有和前面匹配的ip重复；
+ 然后是(?1，这个表示前面捕获$1的正则表达式，也就是不重复ip的情况下，继续捕获新i...</p>
+</body></html>
+      <a href="/2011/10/26/a_perl_extended_regex" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2011/10/25/rewrite_template_for_squid-conf" title="用Template::Tookit给squid.conf写模板" rel="bookmark">用Template::Tookit给squid.conf写模板</a>
     </h1>
     <p class="alt-font tight">
@@ -749,37 +801,6 @@ perldoc -f
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/06/23/make-patch-of-squid-snmp" title="patch制作和使用" rel="bookmark">patch制作和使用</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-06-23 00:00:00 +0800">23 Jun 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>做运维几年没用过patch，说来也怪了~~趁着上一篇自己的小改动，熟悉一下这个命令的简单用法。
-首先是patch的制作，用diff命令。</p>
-<div class="highlight"><pre><code class="bash">tar zxvf squid-2.7.STABLE9.tar.gz
-cp squid-2.7.STABLE9 squid-2.7.STABLE9-old <span class="o">&amp;&amp;</span> mv squid-2.7.STABLE9 squid-2.7.STABLE9-new
-<span class="c">#然后按照上篇的内容修改squid-2.7.STABLE9-new/里的文件</span>
-diff -uNr squid-2.7.STABLE9-old squid-2.7.STABLE9-new &gt; squid-snmp.patch
-</code></pre></div>
-<p>这就完成了，好简单啊~来看看patch文件的内容吧：</p>
-<div class="highlight"><pre><code class="c"><span class="n">diff</span> <span class="o">-</span><span class="n">uNr</span> <span class="n">squid</span><span class="o">-...</span></code></pre></div>
-</body></html>
-      <a href="/2011/06/23/make-patch-of-squid-snmp" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -895,7 +916,7 @@ diff -uNr squid-2.7.STABLE9-old squid-2.7.STABLE9-new &gt; squid-snmp.patch
               <li><a href="http://moyan.tk/" title="莫言">莫言</a></li>
               <li><a href="http://mooser.me/" title="牛氓">牛氓</a></li>
               <li><a href="http://http://www.yinwang.org/" title="当然我在扯淡">当然我在扯淡</a></li>
-              <li><a href="http://noops.me/" title="">NoOps</a></li>
+              <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
               <li><a href="http://muxueqz.laou.me" title="muxueqz">聊逍遥兮容与</a></li>
