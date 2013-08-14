@@ -26,10 +26,10 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
+      	<li><a href="/tags.html">Tags</a></li>
       	<li><a href="/archive.html">Archive</a></li>
       	<li><a href="/categories.html">Categories</a></li>
       	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/tags.html">Tags</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
             <li><a href="/projects.html">学习记录</a></li>
           </ul>
@@ -49,8 +49,8 @@
     <p>被问到一些关于nginx或者说nginx运维相关的问题，记录下来几个值得思考的。这里面有些是自己曾经想到过但是浅浅的了解下就不放在心上的，有些是根本没想过这会成为一个&rdquo;有意思&rdquo;的问题的&hellip;&hellip;</p>
 <h2 id="nginxclientip">1、nginx日志记录得到client的IP原理。</h2>
 <p>nginx记录的client的IP分两种，一种是$remote_addr，一种是$http_x_forwarded_for。其中X-Forwarded-For里存放的是proxy加入的client端IP，通过http header传递的。而$remote_addr是TCP上的结果。但是具体如何不知道。今天回来翻nginx的src，先从定义nginx变量的ngx_http_variable.c看到$remote_addr是这样来的:</p>
-<div class="highlight"><pre><code class="c"><span class="n">ngx_http_variable_remote_addr</span><span class="p">(</span><span class="n">ngx_http_request_t</span> <span class="o">*</span><span class="n">r</span><span class="p">,</span>
-    <span class="n">ngx_http_variable_value_t</span> <span class="o">*</span><span class="n">v</span><span class="p">,</span> <span class="kt">uintptr_t</span> <span class="n">data</span><span class="p">)</span>
+<div class="highlight"><pre><code class="c"><span class="n">ngx_http_variable_remote_addr</span><span class="p">(</span><span class="kt">ngx_http_request_t</span> <span class="o">*</span><span class="n">r</span><span class="p">,</span>
+    <span class="kt">ngx_http_variable_value_t</span> <span class="o">*</span><span class="n">v</span><span class="p">,</span> <span class="kt">uintptr_t</span> <span class="n">data</span><span class="p">)</span>
 <span class="p">{</span>
     <span class="n">v</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">=</span> <span class="n">r</span><span class="o">-&gt;</span><span class="n">connection</span><span class="o">-&gt;</span><span class="n">addr_text</span><span class="p">.</span><span class="n">len</span><span class="p">;</span>
     <span class="n">v</span><span class="o">-&gt;</span><span class="n">valid</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
@@ -61,29 +61,29 @@
 <span class="p">}</span>
 </code></pre></div>
 <p>然后可以在ngx_http.h和ngx_http_request.h里看到</p>
-<div class="highlight"><pre><code class="c"><span class="k">typedef</span> <span class="k">struct</span> <span class="n">ngx_http_request_s</span>     <span class="n">ngx_http_request_t</span><span class="p">;</span>
+<div class="highlight"><pre><code class="c"><span class="k">typedef</span> <span class="k">struct</span> <span class="n">ngx_http_request_s</span>     <span class="kt">ngx_http_request_t</span><span class="p">;</span>
 <span class="p">...</span>
 <span class="k">struct</span> <span class="n">ngx_http_request_s</span> <span class="p">{</span>
     <span class="kt">uint32_t</span>                          <span class="n">signature</span><span class="p">;</span>         <span class="cm">/* &quot;HTTP&quot; */</span>
-    <span class="n">ngx_connection_t</span>                 <span class="o">*</span><span class="n">connection</span><span class="p">;</span>
-    <span class="n">ngx_buf_t</span>                        <span class="o">*</span><span class="n">header_in</span><span class="p">;</span>
-    <span class="n">ngx_http_headers_in_t</span>             <span class="n">headers_in</span><span class="p">;</span>
-    <span class="n">ngx_http_headers_out_t</span>            <span class="n">headers_out</span><span class="p">;</span>
-    <span class="n">ngx_http_request_body_t</span>          <span class="o">*</span><span class="n">request_body</span><span class="p">;</span>
+    <span class="kt">ngx_connection_t</span>                 <span class="o">*</span><span class="n">connection</span><span class="p">;</span>
+    <span class="kt">ngx_buf_t</span>                        <span class="o">*</span><span class="n">header_in</span><span class="p">;</span>
+    <span class="kt">ngx_http_headers_in_t</span>             <span class="n">headers_in</span><span class="p">;</span>
+    <span class="kt">ngx_http_headers_out_t</span>            <span class="n">headers_out</span><span class="p">;</span>
+    <span class="kt">ngx_http_request_body_t</span>          <span class="o">*</span><span class="n">request_body</span><span class="p">;</span>
 <span class="p">...</span>
 <span class="p">}</span>
 </code></pre></div>
 <p>然后在ngx_connection.c里看到</p>
 <div class="highlight"><pre><code class="c"><span class="cp">#include &lt;ngx_core.h&gt;</span>
 <span class="p">...</span>
-<span class="n">ngx_listening_t</span> <span class="o">*</span>
-<span class="n">ngx_create_listening</span><span class="p">(</span><span class="n">ngx_conf_t</span> <span class="o">*</span><span class="n">cf</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">sockaddr</span><span class="p">,</span> <span class="n">socklen_t</span> <span class="n">socklen</span><span class="p">)</span>
+<span class="kt">ngx_listening_t</span> <span class="o">*</span>
+<span class="n">ngx_create_listening</span><span class="p">(</span><span class="kt">ngx_conf_t</span> <span class="o">*</span><span class="n">cf</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">sockaddr</span><span class="p">,</span> <span class="kt">socklen_t</span> <span class="n">socklen</span><span class="p">)</span>
 <span class="p">{</span>
-    <span class="n">ngx_listening_t</span>  <span class="o">*</span><span class="n">ls</span><span class="p">;</span>
+    <span class="kt">ngx_listening_t</span>  <span class="o">*</span><span class="n">ls</span><span class="p">;</span>
     <span class="k">struct</span> <span class="n">sockaddr</span>  <span class="o">*</span><span class="n">sa</span><span class="p">;</span>
     <span class="n">u_char</span>            <span class="n">text</span><span class="p">[</span><span class="n">NGX_SOCKADDR_STRLEN</span><span class="p">];</span>
     <span class="n">ls</span> <span class="o">=</span> <span class="n">ngx_array_push</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cf</span><span class="o">-&gt;</span><span class="n">cycle</span><span class="o">-&gt;</span><span class="n">listening</span><span class="p">);</span>
-    <span class="n">ngx_memzero</span><span class="p">(</span><span class="n">ls</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">ngx_listening_t</span><span class="p">));</span>
+    <span class="n">ngx_memzero</span><span class="p">(</span><span class="n">ls</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">ngx_listening_t</span><span class="p">));</span>
     <span class="n">sa</span> <span class="o">=</span> <span class="n">ngx_palloc</span><span class="p">(</span><span class="n">cf</span><span class="o">-&gt;</span><span class="n">pool</span><span class="p">,</span> <span class="n">socklen</span><span class="p">);</span>
     <span class="n">ngx_memcpy</span><span class="p">(</span><span class="n">sa</span><span class="p">,</span> <span class="n">sockaddr</span><span class="p">,</span> <span class="n">socklen</span><span class="p">);</span>
     <span class="n">ls</span><span class="o">-&gt;</span><span class="n">sockaddr</span> <span class="o">=</span> <span class="n">sa</span><span class="p">;</span>
@@ -172,11 +172,11 @@ fs.inotify.max_user_instances <span class="o">=</span> 128
 <p>这种写法，是由操作系统决定的。在nginx的ngx_process_cycle.c中，相关内容如下：</p>
 <div class="highlight"><pre><code class="c"><span class="cp">#include &lt;ngx_config.h&gt;</span>
 <span class="k">static</span> <span class="kt">void</span>
-<span class="nf">ngx_worker_process_init</span><span class="p">(</span><span class="n">ngx_cycle_t</span> <span class="o">*</span><span class="n">cycle</span><span class="p">,</span> <span class="n">ngx_uint_t</span> <span class="n">priority</span><span class="p">)</span>
+<span class="nf">ngx_worker_process_init</span><span class="p">(</span><span class="kt">ngx_cycle_t</span> <span class="o">*</span><span class="n">cycle</span><span class="p">,</span> <span class="kt">ngx_uint_t</span> <span class="n">priority</span><span class="p">)</span>
 <span class="p">{</span>
 <span class="p">...</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">cpu_affinity</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">sched_setaffinity</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="p">(</span><span class="n">cpu_set_t</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">cpu_affinity</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">sched_setaffinity</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="p">(</span><span class="kt">cpu_set_t</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">cpu_affinity</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
             <span class="p">...</span>
         <span class="p">}</span>
     <span class="p">}</span>
@@ -191,8 +191,8 @@ fs.inotify.max_user_instances <span class="o">=</span> 128
 </code></pre></div>
 <p>其实可以直接通过man sched_setaffinity看说明：</p>
 <div class="highlight"><pre><code class="c">       <span class="err">#</span><span class="n">include</span> <span class="o">&lt;</span><span class="n">sched</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
-       <span class="kt">int</span> <span class="n">sched_setaffinity</span><span class="p">(</span><span class="n">pid_t</span> <span class="n">pid</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">cpusetsize</span><span class="p">,</span>
-                             <span class="n">cpu_set_t</span> <span class="o">*</span><span class="n">mask</span><span class="p">);</span>
+       <span class="kt">int</span> <span class="n">sched_setaffinity</span><span class="p">(</span><span class="kt">pid_t</span> <span class="n">pid</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">cpusetsize</span><span class="p">,</span>
+                             <span class="kt">cpu_set_t</span> <span class="o">*</span><span class="n">mask</span><span class="p">);</span>
 </code></pre></div>
 <p>关于这个*mask，man文档之后描述如下：</p>
 <pre><code>   The  actual  system
@@ -223,6 +223,7 @@ fs.inotify.max_user_instances <span class="o">=</span> 128
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+                 <li><a href="/2013/08/14/my-perl-workshop-experience">BeiJing Perl Workshop 2013 参会总结</a></li>
                  <li><a href="/2013/07/22/intro-selenium-remote-driver">Selenium 测试框架介绍</a></li>
                  <li><a href="/2013/07/11/howto-filter-count-in-logstash">【Logstash 系列】根据事件统计值报警</a></li>
                  <li><a href="/2013/06/28/howto-get-peer-ipaddr-in-http-get">获取 Perl 程序中 GET 请求发向的具体 IP</a></li>
@@ -231,7 +232,6 @@ fs.inotify.max_user_instances <span class="o">=</span> 128
                  <li><a href="/2013/06/20/rex-task-params-for-dynamic-server-group">通过 Rex 命令行参数向动态服务器组发起任务</a></li>
                  <li><a href="/2013/06/19/skyline-algorithms-intro">【Etsy 的 Kale 系统】skyline 的过滤算法</a></li>
                  <li><a href="/2013/06/18/etsy-kale-intro">【Etsy 的 Kale 系统】简介、部署和应用</a></li>
-                 <li><a href="/2013/06/12/translate-85-operational-rules">【翻译】运维的85条规则</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">
@@ -281,7 +281,7 @@ fs.inotify.max_user_instances <span class="o">=</span> 128
               <li><a href="http://blog.liuts.com/" title="前天涯SA 刘天斯">运维进行时</a></li>
               <li><a href="http://www.lark.net.cn/" title="lark's cloud">lark's cloud</a></li>
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
-              <li><a href="http://blog.liulantao.com/" title="lax">Lax</a></li>
+              <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
               <li><a href="http://l09.me/" title="风声">风声</a></li>
               <li><a href="http://moyan.tk/" title="莫言">莫言</a></li>
               <li><a href="http://mooser.me/" title="牛氓">牛氓</a></li>
@@ -291,6 +291,9 @@ fs.inotify.max_user_instances <span class="o">=</span> 128
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
               <li><a href="http://muxueqz.laou.me" title="muxueqz">聊逍遥兮容与</a></li>
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+              <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+              <li><a href="http://paperplane.ruhoh.com/" title="深入研究puppet">纸飞机</a></li>
+              <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
           </ul>
         </div>
       </div>

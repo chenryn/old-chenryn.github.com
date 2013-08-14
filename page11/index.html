@@ -26,10 +26,10 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
+      	<li><a href="/tags.html">Tags</a></li>
       	<li><a href="/archive.html">Archive</a></li>
       	<li><a href="/categories.html">Categories</a></li>
       	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/tags.html">Tags</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
             <li><a href="/projects.html">学习记录</a></li>
           </ul>
@@ -41,6 +41,48 @@
     <div class="row">
       <div class="span7">
 <div class="row">
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/04/23/cdn-analysis-for-www-qidian-com" title="起点小说网的cdn分析~（绝非正式报告）" rel="bookmark">起点小说网的cdn分析~（绝非正式报告）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-04-23 00:00:00 +0800">23 Apr 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>每天习惯了在起点小说网看看小说轻松一下神经，今天一不小心，看见了squid错误页面。于是小小的查看了一下起点的cdn状况。
+首先声明本身的接入情况：宽带通4M接入，ip138显示为北京网通adsl……
+访问的是决战朝鲜的第三十三章。页面内容来看，域名主要有www.qidian.com、image.cmfu.com、ipagent.igalive.com、cj.qidian.com四个，前两个在网宿加速(lxdns)、第三个在蓝汛加速(ccgslb)、第四个在起点母公司盛大加速(sdo)，其余零散域名未加速。
+lxdns返回的ip是天津网通（ping值7ms）；
+ccgslb返回的ip是北京蓝汛（ping值8ms）；
+sdo返回的是上海联通（本地ping不通，在沈阳网通测试机上居然ping通了，返回的是同一个ip，30ms，汗）……
+整个页面一共81个对象:
+加速的域名uedas.qidian.com和sdo的cj.qidian.com下的对象，time都在100ms以上；
+网宿加速域名下的对象，主要是小图片和页面；
+图片小到以B计算，返回time在16ms左右；页面包括aspx和html，html大小在15-20KB左右，返回time在50ms左右；
+耗时最大的是主页面http://www.qidian.com/BookReader/1501306,27478560.aspx，耗时437ms，其中15ms建立链接，而422ms传输内容，content-length 69408，请求头带有no-cache的cache-control和gzip,deflate的压缩；返回头带有Age 1的HIT结果，但X-Cache有两层，分别是一层MISS一层HIT，via头信息是jsyz232:80 (Cdn Cache Server V2.0), tg146:80 (Cdn Cache Server V2.0)。预计应该是parent上设定强制缓存，而leaf上不缓存；
+另一个耗时较大的是http://www.qidian.com/Javascript/ReadChapterNew.js?t=091216，耗时250ms，content-length 35423，其他情况和aspx差不多，不过返回了三个X-Cache，一个MISS两个HIT，在via头上很奇怪的看到三个服务器分别是jsyz232:80 (Cdn Cache Server V2.0), zb99:80 (Cdn Cache Server V2.0), tg134:8103 (Cdn Cache Server V2.0)，不知道这个开8103端口的是什么意思？？（网上查了一下，民生网银用的是这个端口，~~）
+最后是蓝汛加速域名下的对象，都是广告；
+js文件url是相同的，都是http://ipagent.igalive.com/show_ads.js，但先后请求了5次，返回时间依次为：4.28s、48.42s、3.14s、6.17s和875ms，波动相当大！观察这5次的Age，分别是778、827、782、834、835；对应返回时间，可以看出是同一台服务器返回的同一份缓存。再具体看time的细分，建立连接时间都很短，传输内容时间从500ms到1.5s不等。也就是说，主要波动在于服务器的响应时间上。
+aspx?文件，url比较长，类似这种：http://ipagent.igalive.com/s.aspx?adid=100144&amp;host=http://ipagent.igalive.com&amp;dt=1272030174514&amp;lmt=1272028966&amp;output=101&amp;url=http://www.qidian.com/BookReader/1501306/27478560.aspx&amp;ref=http://me.qidian.com/BookCase/1/1&amp;flash=10&amp;u_h=660&amp;u_w=1126&amp;u_ah=627&amp;u_aw=1126&amp;u_cd=24&amp;u_tz=480&amp;u_his=1&amp;u_nplug=7&amp;u_nmime=16，都是MISS回源的。长度和上面的js差不多都在40KB左右。但是到最后甚至有一个文件连接超时了……&lt;/</p>
+<hr />
+<p>综上：
+网宿给起点的cache服务器，应该是针对超小文件做过优化的，所以在16KB以下的图片，返回TCP_MEM_HIT；超过这个大小的那两个文件，响应速度就下降的比较厉害。
+蓝汛给起点的cache服务器，负载压力可能比较大，导致响应速度很慢且有极大波动；我猜测对于js文件，其服务器可能还采用了304回源；从回源的aspx来看，回源效果很差很差……
+盛大给起点的cache服务器，不说啥了~~
+最后附squid的错误信息ERR_READ_TIMEOUT图：
+<img src="/images/uploads/err_read_timeout.jpg" alt="" /></p>
+      <a href="/2010/04/23/cdn-analysis-for-www-qidian-com" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
       <a href="/2010/04/22/perl-built_in-variables" title="perl内置变量" rel="bookmark">perl内置变量</a>
@@ -55,18 +97,64 @@
       <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>$_ 默认输入/模式搜索空间，常用于-f -d测试、print unlink函数、m// s/// tr///匹配、foreach while循环</p>
+      <p>$_ 默认输入/模式搜索空间，常用于-f -d测试、print unlink函数、m// s/// tr///匹配、foreach while循环</p>
 <p>@_ 传递给函数的所有参数</p>
 <p>$&amp;/$<code>/$' 分别是上次匹配成功（时/前/后）的字符串（这三个变量会导致效率显著降低）
 local $_ = 'abcdefghi';
 /def/;
-print "$</code>:$&amp;:$’n”;         # prints abc:def:ghi</p>
+print "$</code>:$&amp;:$&rsquo;n&rdquo;;         # prints abc:def:ghi</p>
 <p>$+ 上次搜索中最后一个括号匹配的文本
 /Version: (.<em>)|Revision: (.</em>)/ &amp;&amp; ($rev = $+);</p>
 <p>$^N 上次搜索中最后闭合的组所匹配的文本（可能嵌套）
-(?:(…)(?{ $var = $^N }));    #这样可以省去计算括号个数</p>
-...</body></html>
+(?:(&hellip;)(?{ $var = $^N }));    #这样可以省去计算括号个数</p>
+<p>$* 匹配模式优化（即当其==0时，perl认为字符串仅为一行(n)，推荐使用/s和/m代替此变量）</p>
+<p>$. 相当于awk中的NR，但如果文件句柄被close()，$.就会复位，相当于FNR</p>
+<p>$/ 相当于RS，正常情况设置为字符串；设置为undef即一口气全读入；设置为整数标量时则读入小于该整数的记录而不是行；一些小文件，可以采用$data = do { local $/;<fh>; };单行命令读入，就是这个原理。</fh></p>
+<p>$ 相当于ORS</p>
+<p>$, 相当于OFS</p>
+<p>$&rdquo; 同$,不过用于向用&rdquo;引起的字符串插入数据的时候</p>
+<p>$; 模拟多维数组时下标的分隔符。
+$foo{$a,$b,$c};
+$foo{join($;, $a, $b, $c)};        #两者相当</p>
+<table>
+  <tbody>
+    <tr>
+      <td>$</td>
+      <td>设置为非零值时，强制刷新每次输出缓存；在向管道和套接字输出时设置该变量</td>
+    </tr>
+  </tbody>
+</table>
+<p>$# 相当于OFMT，不过awk里是%.6g，perl里是%<em>n</em>g，<em>n</em>取决于OS上float.h 中 DBL_DIG 宏的值（不建议使用该变量）</p>
+<p>@-/@+ 分别是模式匹配时，每次成功匹配字符串开始和结束处的偏移量</p>
+<p>在对某个变量 $var 进行匹配后：
+$` 和 &ldquo;substr($var, 0, $-[0])&rdquo; 相同
+$&amp; 和 &ldquo;substr($var, $-[0], $+[0] - $-[0])&rdquo; 相同
+$&rsquo; 和 &ldquo;substr($var, $+[0])&rdquo; 相同
+$1 和 &ldquo;substr($var, $-[1], $+[1] - $-[1])&rdquo; 相同
+$2 和 &ldquo;substr($var, $-[2], $+[2] - $-[2])&rdquo; 相同</p>
+<p>$#+是最近成功匹配了多少个组</p>
+<p>$[ 数组中的第一个元素/字符串中第一个字符的索引号，默认为0（最好不要改）</p>
+<p>$] perl解释器版本（5.001格式）</p>
+<p>$^V perl解释器版本（5.8.8格式）</p>
+<p>$^T 程序运行时间（UNIX秒）</p>
+<p>$$ perl脚本的运行进程号</p>
+<p>$&lt; perl脚本的运行实际用户</p>
+<p>$&gt; perl脚本的运行有效用户</p>
+<p>$( perl脚本的运行实际用户组</p>
+<p>$) perl脚本的运行有效用户组</p>
+<p>$0 当前程序名</p>
+<p>$@/$!/$^E/$? 分别是perl解释器、C库、操作系统、外部程序检测到的错误</p>
+<div class="highlight"><pre><code class="perl"><span class="nb">eval</span> <span class="sx">q{</span>
+<span class="sx">    open my $pipe, &quot;/cdrom/install |&quot; or die $!;</span>
+<span class="sx">    my @res = &lt;$pipe&gt;;</span>
+<span class="sx">    close $pipe or die &quot;bad pipe: $?, $!&quot;;</span>
+<span class="sx">}</span><span class="p">;</span>
+</code></pre></div>
+<p>在需要 &ldquo;eval&rdquo; 的字符串没有通过编译(若 &ldquo;open&rdquo; 或 &ldquo;close&rdquo;导入的原型错误则可能发生)或者 Perl 代码在执行过程中 die() 掉，则 $@变量会被设置。这些情况下 $@ 的值是编译错误信息或 &ldquo;die&rdquo; 的参数(其中会内插 $! 和 $?)。(另见 Fatal)  <br />
+上面的 eval() 表达式执行后，open()、&rdquo;<pipe>" 和 "close" 被翻译成对 C运行库的调用，继而 进入操作系统内核。若其中某个调用失败，则 $! 会设置为C 库的 "errno" 值。</pipe></p>
+<p>在少数操作系统下，$^E 可能含有更详细的错误指示，例如“CDROM仓门没有关闭”。不支持扩展错误 信息的系统只是将 $^E 设置为和 $!一样的值。</p>
+<p>最后，$? 在外部程序 /cdrom/install 失败时设置为非 0 值。高8位反映出该程序遇到的特定错误 条件(程序的 exit() 值)，低8位反映失败方式，例如信号致死或核心转储，细节参见 wait(2)。对比仅在检测到错误条件时才设置的 $! 和 $^E，变量 $? 在每个 &ldquo;wait&rdquo; 或管道&rdquo;close&rdquo; 时都会 设置并冲掉旧值。这一行为更接近 $@，后者在每次 eval()后总是在失败时设置并在成功时清除。</p>
+<p>更多细节请分别参见 $@、$!、$^E 和 $? 各自的说明。</p>
       <a href="/2010/04/22/perl-built_in-variables" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -84,11 +172,42 @@ print "$</code>:$&amp;:$’n”;         # prints abc:def:ghi</p>
       <span>
       </span>
       Posted in&nbsp;
-      <a href="/categories.html#CDN-ref" title="CDN" rel="category tag">CDN</a>
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body><p>今天一天都在跟刷新做斗争。
-先是squid的目录刷新，用/home/squid/bin/squidclient -p 80 mgr:objects|awk ‘/harbin/{system(“/home/squid/bin/squidclient -p 80 -m purge “$2}’刷新一遍；客户反馈看到的依然是旧页面；我想想似乎看到url里有带()的，awk的system函数这时候会出错；于是改成用for i in <code>/home/squid/bin/squidclient -p 80 mgr:objects|awk '/harbin/{print $2}'</code>;do /home/squid/bin...</p></body></html>
+      <p>今天一天都在跟刷新做斗争。
+先是squid的目录刷新，用/home/squid/bin/squidclient -p 80 mgr:objects|awk &lsquo;/harbin/{system(&ldquo;/home/squid/bin/squidclient -p 80 -m purge &ldquo;$2}&rsquo;刷新一遍；客户反馈看到的依然是旧页面；我想想似乎看到url里有带()的，awk的system函数这时候会出错；于是改成用for i in <code>/home/squid/bin/squidclient -p 80 mgr:objects|awk '/harbin/{print $2}'</code>;do /home/squid/bin/squidclient -p 80 -m purge &ldquo;$i&rdquo;;done再刷新一遍；然后自己绑定节点访问，居然也还看到是旧页面！</p>
+<p>通过httpwatch抓取，其中的http://www.harbin-beer.cn/flash/age.swf的Age高达23325，显然没有被purge到，单独提交/home/squid/bin/squidclient -p 80 -m purge http://www.harbin-beer.cn/flash/age.swf，再访问，Ok了！！
+毫无疑问http://www.harbin-beer.cn/flash/age.swf这个url绝对是能被/harbin/模式匹配的，但为什么之前刷新不到？而且不单单是某一台服务器如此。。。</p>
+<p>然后是nginx的url刷新，某小图片加速客户原先是增量缓存，于是nginx中只是很简单的配置了一下文件类型和缓存时间。不料今天客户突然传过来一个24M大小的url列表，将近30万条url要求全网刷新！而这批nginx连后台刷新接口都没有……哭
+临时更换nginx版本为&ndash;add-ngx_cache_purge的。在设置proxy_cache_purge时却又碰到了难题。因为之前的cache配置里压根没配置proxy_cache_key！！有心格盘，但一算，300000*5k=1.5G，而cache已存文件是100G，格盘动作太大了……
+进到nginx的cache目录下，strings其中的文件，看到如下信息：</p>
+<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@ct5 ~<span class="o">]</span><span class="c"># strings /cache/0/00/c7de957045a9987b18f94d3cc1f99000 |head</span>
+KEY: http://images6.anjukestatic.com/property/20090904/22/65/91/69/22659169/600x600.jpg
+HTTP/1.0 200 OK
+Server: nginx
+Date: Thu, 11 Mar 2010 15:48:20 GMT
+Content-Type: image/jpeg
+ajk: <span class="nv">server</span><span class="o">=</span>img01-001
+Expires: Thu, 31 Dec 2037 23:55:55 GMT
+Cache-Control: max-age<span class="o">=</span>315360000
+X-Cache: HIT from CDN01-001
+Age: 1465699
+</code></pre></div>
+<p>对照其他带purge的nginx_cache格式，可以发现nginx默认的proxy_cache_key应该是$scheme://$host$uri$is_args$args，那么proxy_cache_purge就设成$scheme://$host$1$is_args$args，重读配置，然后curl -x 127.0.0.1:80 http://images6.anjukestatic.com/purge/property/20090904/22/65/91/69/22659169/600x600.jpg，看到</p>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;html&gt;</span>
+<span class="nt">&lt;head&gt;&lt;title&gt;</span>Successful purge<span class="nt">&lt;/title&gt;&lt;/head&gt;</span>
+<span class="nt">&lt;body</span> <span class="na">bgcolor=</span><span class="s">&quot;white&quot;</span><span class="nt">&gt;</span>
+<span class="nt">&lt;center&gt;&lt;h1&gt;</span>Successful purge<span class="nt">&lt;/h1&gt;</span>
+<span class="nt">&lt;br&gt;</span>Key : http://images6.anjukestatic.com/property/20090904/22/65/91/69/22659169/600x600.jpg
+<span class="nt">&lt;br&gt;</span>Path: /cache/0/00/c7de957045a9987b18f94d3cc1f99000
+<span class="nt">&lt;/center&gt;</span>
+<span class="nt">&lt;hr&gt;&lt;center&gt;</span>nginx/0.7.65<span class="nt">&lt;/center&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div>
+<p>（写到这里，想到google首页源代码省略了&lt;/body&gt;&lt;/html&gt;，据说是因为就少这几个字符，在全球就能节省几个G的带宽。相比来说这个purgemodule可真浪费的）
+再ls /cache/0/00/c7de957045a9987b18f94d3cc1f99000，提示No such file or directory，成功了。接下来就是for循环刷新了……</p>
       <a href="/2010/04/22/nginx-default-proxy_cache_key" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -106,21 +225,23 @@ print "$</code>:$&amp;:$’n”;         # prints abc:def:ghi</p>
       <span>
       </span>
       Posted in&nbsp;
-      <a href="/categories.html#C-ref" title="C" rel="category tag">C</a>
+      <a href="/categories.html#c-ref" title="c" rel="category tag">c</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>int sscanf(</p>
+      <p>int sscanf(</p>
 <p>const char *buffer,</p>
-<p>const char *format [,argument ] …</p>
+<p>const char *format [,argument ] &hellip;</p>
 <p>);
 最简单的举例：切割时间</p>
-<p>char sztime1[16] = “”, sztime2[16] = “”;
-sscanf(“2006:03:18 - 2006:04:18”, “%s - %s”, sztime1, sztime2);</p>
-<p>可是如果时间是”2006:03:18-2006:04:18”，即没有空格时，%s的定义就没法用了。这时候可以使用%[..]来定义，如下</p>
-<p>sscanf(“2006:03:18-2006:04:18”, “%[0-9,:]-%[0-9,:]”, sztime1, sztime2);</p>
-<p>%[]的用法，类似正则表达式，可以采用[a-z]这样的匹配；可以采用[^a-z]这样的排除匹配；还可以采用*[a-...</p>
-</body></html>
+<p>char sztime1[16] = &ldquo;&rdquo;, sztime2[16] = &ldquo;&rdquo;;
+sscanf(&ldquo;2006:03:18 - 2006:04:18&rdquo;, &ldquo;%s - %s&rdquo;, sztime1, sztime2);</p>
+<p>可是如果时间是&rdquo;2006:03:18-2006:04:18&rdquo;，即没有空格时，%s的定义就没法用了。这时候可以使用%[..]来定义，如下</p>
+<p>sscanf(&ldquo;2006:03:18-2006:04:18&rdquo;, &ldquo;%[0-9,:]-%[0-9,:]&rdquo;, sztime1, sztime2);</p>
+<p>%[]的用法，类似正则表达式，可以采用[a-z]这样的匹配；可以采用[^a-z]这样的排除匹配；还可以采用*[a-z]这样的匹配过滤。举例如下：</p>
+<p>const  char sourceStr[] = &ldquo;hello, world&rdquo;;</p>
+<p>char buf[10] = {0};</p>
+<p>sscanf(sourceStr, &ldquo;%*s%s&rdquo;, buf);</p>
+<p>执行结果就是过滤了hello，打印出world~~</p>
       <a href="/2010/04/20/sscanf-usage" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -141,14 +262,51 @@ sscanf(“2006:03:18 - 2006:04:18”, “%s - %s”, sztime1, sztime2);</p>
       <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>隔了一天，回头再来mount /dev/sda /mnt；成功了~
+      <p>隔了一天，回头再来mount /dev/sda /mnt；成功了~
 不信邪，再上一台，login，mount，继续成功……
 难道是前天rp不行？</p>
 <p>然后试验写入。发现在每台client上的写入，都暂时不会显示在server和其他client上。只有经过logout和login后才会显示。
 接着进行一下简单的读写速度测试，先是read，用hdparm工具，结果如下：</p>
-<p>服务器端：[root@ct5 ~]# hdparm -...</p>
-</body></html>
+<p>服务器端：[root@ct5 ~]# hdparm -tT /dev/xvdb1
+/dev/xvdb1:
+ Timing cached reads:   20880 MB in  1.99 seconds = 10486.02 MB/sec
+ Timing buffered disk reads:  162 MB in  3.01 seconds =  53.85 MB/sec</p>
+<p>客户端：[root@ct5 ~]# hdparm -tT /dev/sda
+/dev/sda:
+ Timing cached reads:   21944 MB in  1.99 seconds = 11022.51 MB/sec
+ Timing buffered disk reads:  152 MB in  3.02 seconds =  50.41 MB/sec</p>
+<p>然后用apache发布，wget的速度基本也差不多。</p>
+<p>然后是write，用time dd，最开始指定了bs=4k，结果让我很惊讶</p>
+<p>服务器端：[root@ct5 cache]# time dd if=/dev/zero of=rao bs=4k count=655360
+655360+0 records in
+655360+0 records out
+2684354560 bytes (2.7 GB) copied, 35.1299 seconds, 76.4 MB/s  <br />
+real 0m35.204s  <br />
+user 0m0.440s  <br />
+sys 0m6.968s    </p>
+<p>而客户端2684354560 bytes (2.7 GB) copied, 28.584 seconds, 93.9 MB/s  <br />
+real 0m28.650s  <br />
+user 0m0.496s  <br />
+sys 0m7.404s    </p>
+<p>居然比服务器端还快。于是想到iscsi的封包机制，可能bs4k有影响，于是往下降成2k，结果立刻有体现了</p>
+<p>服务器1342177280 bytes (1.3 GB) copied, 6.93954 seconds, 193 MB/s  <br />
+real 0m6.943s  <br />
+user 0m0.428s  <br />
+sys 0m4.848s    </p>
+<p>客户端1342177280 bytes (1.3 GB) copied, 12.5357 seconds, 107 MB/s  <br />
+real 0m12.539s  <br />
+user 0m0.348s  <br />
+sys 0m4.720s    </p>
+<p>再降成1k，结果稍慢</p>
+<p>服务器671088640 bytes (671 MB) copied, 4.1199 seconds, 163 MB/s  <br />
+real 0m4.123s  <br />
+user 0m0.372s  <br />
+sys 0m3.280s    </p>
+<p>客户端671088640 bytes (671 MB) copied, 7.06874 seconds, 94.9 MB/s  <br />
+real 0m7.093s  <br />
+user 0m0.328s  <br />
+sys 0m3.324s  <br />
+可见在写速率上，还是有一定差距的。</p>
       <a href="/2010/04/15/intro-iscsi-2" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -169,8 +327,7 @@ sscanf(“2006:03:18 - 2006:04:18”, “%s - %s”, sztime1, sztime2);</p>
       <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>客户需求如下：</p>
+      <p>客户需求如下：</p>
 <p>在web请求视频时，按算法生成密文和明文串，然后依规则组成最终的url请求；</p>
 <p>算法规则：</p>
 <p>用如下三个关键词生成 MD5 密文：</p>
@@ -182,8 +339,101 @@ sscanf(“2006:03:18 - 2006:04:18”, “%s - %s”, sztime1, sztime2);</p>
 <p>最终url格式是 <code>http://www.test.com/path/to/file.rmvb?key=1234567890abcdefghijklmnopqrstuy&amp;t=1234abcd</code> 这样。</p>
 <p>要求失效时间为8小时。</p>
 <p>这个需求和之前一次相当类似，不过上回是squid，这次是apache。同样采用perl脚本进行防盗链设置，apache需要使用mod_perl模块。</p>
-<p>首先安装perl模块：...</p>
-</body></html>
+<p>首先安装perl模块：</p>
+<div class="highlight"><pre><code class="bash">wget http://perl.apache.org/dist/mod_perl-2.0-current.tar.gz
+tar zxvf mod_perl-2.0-current.tar.gz
+<span class="nb">cd </span>mod_perl-2.0-current.tar.gz
+perl Makefile.PL <span class="nv">MP_APXS</span><span class="o">=</span>/home/apache2/bin/apxs
+make <span class="o">&amp;&amp;</span> make install
+<span class="nb">echo</span> <span class="s2">&quot;LoadModule perl_module modules/mod_perl.so&quot;</span> &gt;&gt; /home/apache2/conf/httpd.conf
+perl -MCPAN -e shell
+&gt;install Apache2::Request
+&gt;look Apache2::Request
+rm -f configure
+rm -f apreq2-config
+./buildconf
+perl Makefile.PL
+make <span class="o">&amp;&amp;</span> make install
+<span class="nb">exit</span>
+<span class="c">#因为64位系统的libexpat.so有问题，编译libapreq2会出问题，只好如此强制安装</span>
+<span class="nb">echo</span> <span class="s2">&quot;LoadModule apreq_module modules/mod_apreq2.so&quot;</span> &gt;&gt; /home/apache2/conf/httpd.conf
+</code></pre></div>
+<p>因为libapreq2.so安装在/home/apache2/lib/下了，所以需要echo &ldquo;/home/apache2/lib&rdquo; &gt;/etc/lo.so.conf.d/apache.conf，然后ldconfig。</p>
+<p>修改httpd.conf，加入如下设置：</p>
+<div class="highlight"><pre><code class="apache"><span class="nb">PerlPostConfigRequire</span> <span class="sx">/home/apache2/perl/start.pl</span>
+<span class="nt">&lt;Location</span> <span class="s">/smg</span><span class="nt">&gt;</span>
+<span class="nb">SetHandler</span> modperl
+<span class="nb">PerlAccessHandler</span> DLAuth
+<span class="nb">PerlSetVar</span> ShareKey abcde.
+<span class="nt">&lt;/Location&gt;</span>
+</code></pre></div>
+<p>然后mkdir /home/apache2/perl/，在其中创建start.pl和DLAuth.pm两个文件。start.pl文件内容如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="n">strict</span><span class="p">;</span> 
+<span class="k">use</span> <span class="n">lib</span> <span class="sx">qw(/home/apache2/perl)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestIO</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestRec</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Connection</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Log</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Request</span> <span class="p">();</span>
+<span class="mi">1</span><span class="p">;</span> 
+</code></pre></div>
+<p>DLAuth.pm文件内容如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="n">DLAuth</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">Socket</span> <span class="sx">qw(inet_aton)</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(difftime strftime)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestIO</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestRec</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Connection</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Log</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Request</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Const</span> <span class="o">-</span><span class="n">compile</span> <span class="o">=&gt;</span> <span class="sx">qw(OK FORBIDDEN)</span><span class="p">;</span>
+<span class="k">sub </span><span class="nf">handler</span> <span class="p">{</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span><span class="o">-&gt;</span><span class="n">server</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$shareKey</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">dir_config</span><span class="p">(</span><span class="s">&#39;ShareKey&#39;</span><span class="p">)</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">()</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$args</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">args</span><span class="p">()</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$expire</span> <span class="o">=</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">if</span> <span class="p">(</span><span class="nv">$args</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^key=(\w{32})&amp;t=(\w{8})$#i) {</span>
+<span class="err">   </span>     <span class="k">my</span> <span class="p">(</span><span class="nv">$key</span><span class="p">,</span> <span class="nv">$date</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$1</span><span class="p">,</span> <span class="nv">$2</span><span class="p">);</span>
+<span class="err">   </span>     <span class="k">my</span> <span class="nv">$str</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$shareKey</span> <span class="o">.</span> <span class="nv">$uri</span> <span class="o">.</span> <span class="nv">$date</span><span class="p">)</span>
+<span class="err">   </span>     <span class="k">my</span> <span class="nv">$reqtime</span> <span class="o">=</span> <span class="nb">hex</span><span class="p">(</span><span class="nv">$date</span><span class="p">);</span>
+<span class="err">   </span>     <span class="k">my</span> <span class="nv">$now</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
+<span class="err">   </span>     <span class="k">if</span> <span class="p">(</span> <span class="nv">$now</span> <span class="o">-</span> <span class="nv">$reqtime</span> <span class="o">&lt;</span> <span class="nv">$expire</span><span class="p">)</span> <span class="p">{</span>
+<span class="err">   </span> <span class="err">   </span>     <span class="k">if</span> <span class="p">(</span><span class="nv">$str</span> <span class="ow">eq</span> <span class="nv">$key</span><span class="p">)</span> <span class="p">{</span>
+<span class="err">   </span> <span class="err">   </span> <span class="err">   </span>     <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">OK</span><span class="p">;</span>
+<span class="err">   </span> <span class="err">   </span>     <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+<span class="err">       </span> <span class="err">   </span> <span class="err">   </span> <span class="nv">$s</span><span class="o">-&gt;</span><span class="n">log_error</span><span class="p">(</span><span class="s">&quot;[$uri FORBIDDEN] Auth failed&quot;</span><span class="p">);</span>
+<span class="err">   </span> <span class="err">   </span> <span class="err">   </span>     <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">FORBIDDEN</span><span class="p">;</span>
+<span class="err">   </span> <span class="err">   </span>     <span class="p">}</span>
+<span class="err">   </span>     <span class="p">}</span>
+<span class="err">   </span> <span class="p">}</span>
+<span class="err">   </span> <span class="nv">$s</span><span class="o">-&gt;</span><span class="n">log_error</span><span class="p">(</span><span class="s">&quot;[$uri FORBIDDEN] Auth failed&quot;</span><span class="p">);</span>
+<span class="err">   </span> <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">FORBIDDEN</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="mi">1</span><span class="p">;</span>
+</code></pre></div>
+<p>就可以了。</p>
+<p>apachectl restart。测试一下，先用perl自己生成一个测试链接：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$key</span> <span class="o">=</span> <span class="s">&quot;bestv.&quot;</span><span class="p">;</span>
+<span class="nv">$path</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">(</span><span class="nv">@ARGV</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$date</span> <span class="o">=</span> <span class="nb">sprintf</span><span class="p">(</span><span class="s">&quot;%x&quot;</span><span class="p">,</span><span class="nb">time</span><span class="p">);</span>
+<span class="nv">$result</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$key</span> <span class="o">.</span> <span class="nv">$path</span> <span class="o">.</span> <span class="nv">$date</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="s">&quot;http://127.0.0.1$path?key=$result&amp;t=$date&quot;</span><span class="p">;</span>
+<span class="k">print</span> <span class="nv">$uri</span><span class="p">;</span>
+</code></pre></div>
+<p>运行 <code>./url.pl /smg/abc.rmvb</code> 生成 <code>http://127.0.0.1/smg/abc.rmvb?key=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=4bc7dd5a</code>，然后 <code>wget -S -O /dev/null "http://127.0.0.1/smg/abc.rmvb?key=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=4bc7dd5a"</code>，返回 200 OK;任意修改 t 为 12345678，再 wget，返回 403 Forbidden。<code>error_log</code> 显示如下：</p>
+<pre><code>[Fri Apr 16 11:47:06 2010] [error] [/smg/abc.rmvbkey=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=12345678 FORBIDDEN] Auth failed
+</code></pre>
       <a href="/2010/04/15/anti_hotlinking-in-apache-by-mod_perl" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -204,16 +454,47 @@ sscanf(“2006:03:18 - 2006:04:18”, “%s - %s”, sztime1, sztime2);</p>
       <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>聊天时听同事提及iscsi。回来后借助百度和谷歌大概了解了一下是网络存储，就赶紧下了软件包作测试。</p>
+      <p>聊天时听同事提及iscsi。回来后借助百度和谷歌大概了解了一下是网络存储，就赶紧下了软件包作测试。</p>
 <div class="highlight"><pre><code class="bash">wget http://downloads.sourceforge.net/project/iscsitarget/iscsitarget/1.4.19/iscsitarget-1.4.19.tar.gz
 tar zxvf iscsitarget-1.4.19.tar.gz
 <span class="nb">cd </span>iscsitarget-1.4.19
 make <span class="o">&amp;&amp;</span> make install
 </code></pre></div>
 <p>就完成了服务器端的安装，然后修改配置文件/etc/iet/ietd.conf，方便起见，就写最基本的三行：</p>
-<pre><code>Target iqn.2010-04.com.test:...</code></pre>
-</body></html>
+<pre><code>Target iqn.2010-04.com.test:storage.xvdb1
+Lun 0 Path=/dev/xvdb1,Type=fileio
+Alias Test
+</code></pre>
+<p>启动服务/etc/init.d/iscsi-target start，netstat查看，发现有3260端口的监听了。</p>
+<p>然后是客户端，更容易，直接yum install iscsi-initiator-utils就够了。然后启动服务/etc/init.d/iscsid start。</p>
+<p>然后链接服务器，iscsiadm -m discovery -t st -p 10.12.13.86，可以搜索到了。不过居然出现两个，分别是服务器内外网ip搜索的值。两个办法。</p>
+<p>一个是定义客户端/var/lib/iscsi/iface/ieth0文件如下：</p>
+<pre><code>iface.iscsi_ifacename = ieth0
+iface.net_ifacename = eth0
+iface.hwaddress = default
+iface.transport_name = tcp
+</code></pre>
+<p>然后用iscsiadm -m discovery -t st -p 10.12.13.86 -I ieth0命令搜索；</p>
+<p>一个是定义服务端/etc/iet/targets.allow文件如下：</p>
+<pre><code>ALL 10.12.13.0/24
+</code></pre>
+<p>然后/etc/init.d/iscsi-target restart就可以了。</p>
+<p>最后搜索结果如下：</p>
+<pre><code>10.12.13.86:3260,1 iqn.2010-04.com.rao:storage.xvdb1
+</code></pre>
+<p>在客户端用iscsiadm -m node -p 10.12.13.86 &ndash;targetname iqn.2010-04.com.rao:storage.xvdb1 &ndash;login命令，就可以连上磁盘了。然后用fdisk -l命令可以看到如下输出：</p>
+<pre><code>Disk /dev/sda: 750.1 GB, 750153729024 bytes
+</code></pre>
+<p>试验到目前为止一切正常。然后再mount这个sda的时候，赫然提示没有格式化！！
+好吧，fdisk /dev/sda然后mkfs.ext3 /dev/sda1再mount /dev/sda1 /mnt。
+OK，返回服务器端，mount，居然提示ext3错误~~</p>
+<p>再开一台，同样到mount的时候，又一次提示没有格式化。
+难道iscsi和nfs不一样，压根不能多客户端同时连接一块磁盘？？？
+还是说因为iscsi默认是sda，而虚拟机是xvda，之间有冲突？？？
+于是返回谷歌搜索“iscsi xen”，结果看来应该是第一种了。
+<a href="http://www.performancemagic.com/iscsi-xen-howto/index.html">xen和iscsi的常见合用</a>
+，是在Domain0上链接iscsi，然后基于不同的target分别create虚拟机模板和虚拟机磁盘，进一步可以保证虚拟平台出问题时，可以迅速的转移到另一个虚拟平台上。
+而后看到<a target="_blank" href="http://www.sansky.net/">存储部落</a>中的介绍，iscsi可以同样理解为裸设备，要达到网络共享，需要配套另外的共享软件~比如GFS</p>
       <a href="/2010/04/12/intro-iscsi-1" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -231,17 +512,47 @@ make <span class="o">&amp;&amp;</span> make install
       <span>
       </span>
       Posted in&nbsp;
-      <a href="/categories.html#CDN-ref" title="CDN" rel="category tag">CDN</a>
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>今天接到客户电话，说，主页已经提交过了刷新任务，上面的图片已经更新，但点击图片后链接到的页面内容还是老的……
+      <p>今天接到客户电话，说，主页已经提交过了刷新任务，上面的图片已经更新，但点击图片后链接到的页面内容还是老的……
 仔细一看，原来主页里的html是这么定义的：</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">"http://msn.golfbox.cn/cache/922/36717.html"</span> <span class="na">target=</span><span class="s">"_blank"</span><span class="nt">&gt;&lt;img</span> <span class="na">src=</span><span class="s">"/upload/img/20100410/20100410144202.jpg"</span> <span class="na">width=</span><span class="s">"125"</span> <span class="na">height=</span><span class="s">"80"</span> <span class="na">class=</span><span class="s">"border_blue"</span> <span class="nt">/&gt;&lt;/a&gt;</span>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://msn.golfbox.cn/cache/922/36717.html&quot;</span> <span class="na">target=</span><span class="s">&quot;_blank&quot;</span><span class="nt">&gt;&lt;img</span> <span class="na">src=</span><span class="s">&quot;/upload/img/20100410/20100410144202.jpg&quot;</span> <span class="na">width=</span><span class="s">&quot;125&quot;</span> <span class="na">height=</span><span class="s">&quot;80&quot;</span> <span class="na">class=</span><span class="s">&quot;border_blue&quot;</span> <span class="nt">/&gt;&lt;/a&gt;</span>
 </code></pre></div>
 <p>而http://msn.golfbox.cn/cache/922/36717.html的内容是这样：</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;meta</span> <span class="na">http-equiv=</span><span class="s">"Content-Type"</span> <span class="na">content=</span><span class="s">"text/html; charset=ut...</span></code></pre></div>
-</body></html>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;meta</span> <span class="na">http-equiv=</span><span class="s">&quot;Content-Type&quot;</span> <span class="na">content=</span><span class="s">&quot;text/html; charset=utf-8&quot;</span> <span class="nt">/&gt;&lt;script </span><span class="na">language=</span><span class="s">&quot;JavaScript&quot;</span><span class="nt">&gt;</span>
+<span class="err"> </span><span class="nx">location</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="s2">&quot;http://msn.golfbox.cn/cache/874/36804.html&quot;</span><span class="p">);</span>
+<span class="nt">&lt;/script&gt;</span>
+</code></pre></div>
+<p>于是跟客户交流确认，他们网站的主页框架上比较固定的地方，都是采用这种方式，来提供内容更新的。。。
+他们又不肯给出具体更新了那些跳转页面，只好写个小脚本，去处理比对。如果有相同url的location.replace地址不统一的，就强制更新这些页面。</p>
+<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
+curl http://msn.golfbox.cn/ |sed <span class="s1">&#39;s/\n//g&#39;</span>|sed <span class="s1">&#39;s/href=/\n/g&#39;</span>|grep <span class="s2">&quot;^&quot;</span>http://msn.golfbox.cn/cache<span class="s2">&quot;|awk -F&#39;&quot;</span><span class="s1">&#39; &#39;</span><span class="o">{</span>print <span class="nv">$2</span><span class="o">}</span><span class="s1">&#39;&gt;url</span>
+<span class="s1">for j in `cat url`;do</span>
+<span class="s1"> for i in `cat ip`;do</span>
+<span class="s1">  curl -x $i:80 $j|awk -F&#39;</span><span class="s2">&quot;&#39; &#39;/replace/{print &quot;</span><span class="s1">&#39;$j&#39;</span><span class="s2">&quot;,&quot;</span><span class="s1">&#39;$i&#39;</span><span class="s2">&quot;,$2}&#39;&gt;&gt;golfbox.log</span>
+<span class="s2">#  curl -x $i:80 -I $j|awk &#39;/Age/{print &quot;</span><span class="s1">&#39;$j&#39;</span><span class="s2">&quot;,&quot;</span><span class="s1">&#39;$i&#39;</span><span class="s2">&quot;,$2}&#39;&gt;&gt;age.log</span>
+<span class="s2"> done</span>
+<span class="s2">done</span>
+<span class="s2">cat golfbox.log |awk &#39;{if($1==a){if($3!=b){system(&quot;</span>/home/squid/bin/squidclient -p 80 -h <span class="s2">&quot;$2&quot;</span> -m purge <span class="err">&quot;</span><span class="nv">$1</span><span class="o">)}}</span>;<span class="nv">a</span><span class="o">=</span><span class="nv">$1</span>;<span class="nv">b</span><span class="o">=</span><span class="nv">$3</span><span class="o">}</span><span class="err">&#39;</span>
+</code></pre></div>
+<p>（该脚本有一个问题：如果刚好是第一台的url未更新，结果会反而去刷新那些已经更新了的服务器；所以应该是输出url，然后再用for do done去刷新所有服务器~如果curl可以在获取内容的同时获取Age就好了~所以最后用一个讨巧的办法：在ip列表的最开始放上客户源站的ip，这样就能保证最新了）
+以上是第一个。
+第二个：
+客户首页上还有一个问题：其右下角有跟随悬浮窗口，本来应该可以关闭的。但一点关闭，就提示javascrpt:iclose()错误页面。而用浏览器另存为html到桌面以后，再打开保存下来的页面，点击关闭就正常关闭了！
+经过查找，其中调用的js文件是http://msn.golfbox.cn/js/show.js，内容中关于javascrpt:iclose()的内容如下：</p>
+<div class="highlight"><pre><code class="javascript"><span class="kd">var</span> <span class="nx">sogouTall</span> <span class="o">=</span><span class="s1">&#39;&lt;div style=&quot;z-index:1000;position: absolute;display:none;&quot; id=&quot;sogoubox&quot;&gt;&#39;</span>
+<span class="err">  </span> <span class="o">+</span><span class="s1">&#39;&lt;a href=&quot;javascript:iclose();&quot; style=&quot;float:left; margin-left:190px&quot;&gt;关闭&lt;/a&gt;&#39;</span>
+<span class="err">  </span> <span class="o">+</span><span class="s1">&#39;&lt;div style=&quot;clear:both&quot;&gt;&#39;</span>
+<span class="err">  </span> <span class="o">+</span><span class="s1">&#39;&lt;a href=&quot;&lt;a href=&quot;http://new.msn.golfbox.cn/wd/&quot;&gt;http://new.msn.golfbox.cn/wd/&quot;&gt;&lt;img&lt;/a&gt; src=&quot;&lt;a href=&quot;http://new.msn.golfbox.cn/wd/dbtt.jpg&quot;&gt;http://new.msn.golfbox.cn/wd/dbtt.jpg&lt;/a&gt;&quot; style=&quot;width:220px;height:160px&quot;/&gt;&lt;/a&gt;&#39;</span>
+<span class="err">     </span> <span class="o">+</span> <span class="s1">&#39;&lt;input type=hidden name=&quot;sogouAccountId&quot; value=&quot;202014&quot;&gt;&#39;</span>
+<span class="err">  </span> <span class="o">+</span> <span class="s1">&#39;&#39;</span>
+<span class="err"> </span><span class="kd">function</span> <span class="nx">iclose</span><span class="p">()</span>
+<span class="err"> </span><span class="p">{</span>
+<span class="err">  </span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s1">&#39;sogoubox&#39;</span><span class="p">).</span><span class="nx">style</span><span class="p">.</span><span class="nx">display</span><span class="o">=</span><span class="s1">&#39;none&#39;</span><span class="p">;</span>
+<span class="err"> </span><span class="p">}</span>
+</code></pre></div>
+<p>以我浅薄的web知识，是没看出来什么问题~~客户也莫名其妙，最好撤销掉这个窗口了</p>
       <a href="/2010/04/10/refresh-problem-of-js-location_replace" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -262,11 +573,31 @@ make <span class="o">&amp;&amp;</span> make install
       <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>squid的重定向，我看网上一般都采用 <code>redirect_children</code> (即 <code>url_rewrite_children</code>)。估计是因为中文权威指南的原因吧。不过中文权威指南还是2.5版的时候出的。有些新东西没有。比如 <code>squid.conf.default</code> 中提供的另一种 <code>url_rewrite_concurrency</code>。</p>
+      <p>squid的重定向，我看网上一般都采用 <code>redirect_children</code> (即 <code>url_rewrite_children</code>)。估计是因为中文权威指南的原因吧。不过中文权威指南还是2.5版的时候出的。有些新东西没有。比如 <code>squid.conf.default</code> 中提供的另一种 <code>url_rewrite_concurrency</code>。</p>
 <p>官方使用说明如右：<a href="http://wiki.squid-cache.org/Features/Redirectors#How_do_I_make_it_concurrent.3F">http://wiki.squid-cache.org/Features/Redirectors#How_do_I_make_it_concurrent.3F</a></p>
-<p>简单的说，就是开启 <code>url_rewrite_concurrency</code> 后，squid...</p>
-</body></html>
+<p>简单的说，就是开启 <code>url_rewrite_concurrency</code> 后，squid传递给rewriter的流由四个域增加为五个——最前头多了一个ID。然后rewriter返回的，也就有两个域，ID和uri。</p>
+<p>简单修改一下原来的脚本如下即可：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -wl</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="vg">$|</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span>
+<span class="k">while</span> <span class="p">()</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="p">(</span><span class="nv">$id</span><span class="p">,</span><span class="nv">$url</span><span class="p">,</span><span class="nv">$client</span><span class="p">,</span><span class="nv">$ident</span><span class="p">,</span><span class="nv">$method</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span> <span class="p">);</span>
+    <span class="p">(</span><span class="nv">$id</span><span class="p">,</span> <span class="nv">$url</span><span class="p">,</span> <span class="nv">$client</span><span class="p">,</span> <span class="nv">$ident</span><span class="p">,</span> <span class="nv">$method</span><span class="p">)</span> <span class="o">=</span> <span class="nb">split</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$url</span> <span class="o">=~</span><span class="n">m</span><span class="c1">#^(.*)(?.*)#i) {</span>
+        <span class="k">my</span> <span class="p">(</span><span class="nv">$domain</span><span class="p">,</span><span class="nv">$option</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$1</span><span class="p">,</span><span class="nv">$2</span><span class="p">);</span>
+        <span class="k">print</span> <span class="s">&quot;$id $domain\n&quot;</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="k">print</span> <span class="s">&quot;$id\n&quot;</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>然后squid.conf里修改如下：</p>
+<div class="highlight"><pre><code class="squid"><span class="k">acl</span><span class="w"> </span>rewriteurl<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^http://drag.g1d.net/.*.mp40drag?<span class="w"></span>
+url_rewrite_access<span class="w"> </span><span class="no">deny</span><span class="w"> </span>!rewriteurl<span class="w"></span>
+url_rewrite_program<span class="w"> </span>/home/squid/etc/redirect.pl<span class="w"></span>
+<span class="c">#url_rewrite_children 10</span><span class="w"></span>
+url_rewrite_concurrency<span class="w"> </span><span class="m">10</span><span class="w"></span>
+</code></pre></div>
       <a href="/2010/04/08/url_rewrite_concurrency" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -287,14 +618,12 @@ make <span class="o">&amp;&amp;</span> make install
       <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>今天看同事的一个备份脚本，在取昨天的日期时，采用了YESTERDAY_NAME=<code>date -I -d'-1 day' +"%Y-%m-%d"</code>的方法。</p>
+      <p>今天看同事的一个备份脚本，在取昨天的日期时，采用了YESTERDAY_NAME=<code>date -I -d'-1 day' +"%Y-%m-%d"</code>的方法。</p>
 <p>我对这个方法比较感兴趣，赶紧试试，结果赫然返回“date: multiple output formats specified”的报错来！</p>
-<p>而单独采用date -I -d’-1 day’或者date -d’-1 day’ +”%Y-%m-%d”这两种方法，都能返回正确结果。</p>
+<p>而单独采用date -I -d&rsquo;-1 day&rsquo;或者date -d&rsquo;-1 day&rsquo; +&rdquo;%Y-%m-%d&rdquo;这两种方法，都能返回正确结果。</p>
 <p>返回同事的机器上，运行原命令确实没有问题。于是开始查版本，我的机器bash是3.2.25，date是5.97；他的bash是3.0.0.9，date是5.2.1。</p>
 <p>不过在date -help中，不论是我的，还是他的机器上，都没发现-I这个option！！</p>
-<p>为了移植性，同事也更改脚本删除了-I。不过之前脚本中为什么有这个，为什么还就真能跑，真是怪事...</p>
-</body></html>
+<p>为了移植性，同事也更改脚本删除了-I。不过之前脚本中为什么有这个，为什么还就真能跑，真是怪事~~</p>
       <a href="/2010/04/03/a-unfound-option-of-date-command" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -315,12 +644,27 @@ make <span class="o">&amp;&amp;</span> make install
       <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>曾经有过一组高并发请求的服务器，在lvs上看到单台 activeconn 约等于 220000；同时，在RS上执行 <code>netstat -s -t|grep "connections established"</code> 结果大概是 65000，而 <code>squidclient mgr:5min|grep client_http.requests</code> 结果却只有 180。后来说起并发数的时候，有些茫然，到底哪个才算是呢？</p>
+      <p>曾经有过一组高并发请求的服务器，在lvs上看到单台 activeconn 约等于 220000；同时，在RS上执行 <code>netstat -s -t|grep "connections established"</code> 结果大概是 65000，而 <code>squidclient mgr:5min|grep client_http.requests</code> 结果却只有 180。后来说起并发数的时候，有些茫然，到底哪个才算是呢？</p>
 <p>今天在squid-user里问起，居然有幸碰见另一位中国订阅者，夏兄随后提供给我一个06年的帖子，所述甚详。算是解惑了~
 <a href="http://www.linuxsir.org/bbs/showthread.php?t=248500">http://www.linuxsir.org/bbs/showthread.php?t=248500</a></p>
-<p>原来 lvs 默认有个超时时间，可以用 <code>ipvsadm...</code></p>
-</body></html>
+<p>原来 lvs 默认有个超时时间，可以用 <code>ipvsadm -L --timeout</code> 查看，默认是 <code>900 120 300</code> ，分别是 <code>TCP TCPFIN UDP</code> 的时间。</p>
+<p>而RS上参数如下：</p>
+<div class="highlight"><pre><code class="bash">net.ipv4.tcp_keepalive_time <span class="o">=</span> 600
+net.ipv4.route.gc_timeout <span class="o">=</span> 100
+net.ipv4.tcp_fin_timeout <span class="o">=</span> 30
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_close <span class="o">=</span> 10
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_max_retrans <span class="o">=</span> 300
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_time_wait <span class="o">=</span> 120
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_last_ack <span class="o">=</span> 30
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_close_wait <span class="o">=</span> 60
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_fin_wait <span class="o">=</span> 120
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_established <span class="o">=</span> 300
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_syn_recv <span class="o">=</span> 60
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_syn_sent <span class="o">=</span> 120
+net.ipv4.netfilter.ip_conntrack_udp_timeout_stream <span class="o">=</span> 180
+net.ipv4.netfilter.ip_conntrack_udp_timeout <span class="o">=</span> 30
+</code></pre></div>
+<p>可见 RS 的超时时间（仅指 <code>ESTABLISHED</code> ）比 LVS 小了 3 倍。再加上 <code>WAIT</code> 和 <code>SYN_RECV</code> 等状态，差不多就是 220000/65000 的比例了。而 squid 的 RPS 是按秒计算的，<code>180*300=~55000</code> ，在数量级上和 netstat 的结果也就差不多了~ </p>
       <a href="/2010/04/02/diff-between-lvs-active_conn-and-netstat-conn" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -338,19 +682,46 @@ make <span class="o">&amp;&amp;</span> make install
       <span>
       </span>
       Posted in&nbsp;
-      <a href="/categories.html#CDN-ref" title="CDN" rel="category tag">CDN</a>
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>squid的purge，一般有两种方式，squidclient -m purge url或者http request (method)purge url。如果任务不太多的情况下，直接使用squidclient -p 80 -h 1.2.3.4 -m purge url即可。如果任务比较繁重的情况下，telnet80后直接发送purge请求稍微好一些。作为初学perl的练手，写一个purge脚本。如下：</p>
+      <p>squid的purge，一般有两种方式，squidclient -m purge url或者http request (method)purge url。如果任务不太多的情况下，直接使用squidclient -p 80 -h 1.2.3.4 -m purge url即可。如果任务比较繁重的情况下，telnet80后直接发送purge请求稍微好一些。作为初学perl的练手，写一个purge脚本。如下：</p>
 <div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
 <span class="k">use</span> <span class="nn">IO::</span><span class="n">Socket</span><span class="p">;</span>
 <span class="c1">#检测脚本参数个数</span>
-<span class="k">unless</span> <span class="p">(</span><span class="nv">@ARGV</span> <span class="o">&amp;</span><span class="ow">gt</span><span class="p">;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span> <span class="nb">die</span> <span class="s">"usage: $0 url"</span> <span class="p">}</span>
+<span class="k">unless</span> <span class="p">(</span><span class="nv">@ARGV</span> <span class="o">&amp;</span><span class="ow">gt</span><span class="p">;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span> <span class="nb">die</span> <span class="s">&quot;usage: $0 url&quot;</span> <span class="p">}</span>
 <span class="c1">#打开ip列表文件，定义文件句柄HOST</span>
-<span class="nb">open</span><span class="p">(</span><span class="n">HOST</span><span class="p">,</span><span class="s">"./ip"</span><span class="p">);</span>
-<span class="c1">#定义连接结束符...</span></code></pre></div>
-</body></html>
+<span class="nb">open</span><span class="p">(</span><span class="n">HOST</span><span class="p">,</span><span class="s">&quot;./ip&quot;</span><span class="p">);</span>
+<span class="c1">#定义连接结束符，然后翻倍（汗这个方式~）</span>
+<span class="nv">$EOL</span> <span class="o">=</span> <span class="s">&quot;1512&quot;</span><span class="p">;</span>
+<span class="nv">$BLANK</span> <span class="o">=</span> <span class="nv">$EOL</span> <span class="n">x</span> <span class="mi">2</span><span class="p">;</span>
+<span class="c1">#从打开的文件中读取具体ip</span>
+<span class="c1">#@host = HOST;</span>
+<span class="c1">#my $ip;</span>
+<span class="c1">#foreach $ip(@host){</span>
+<span class="c1">#当ip列表较大时，采用@host的方法可能out of memory，所以采取逐行读取</span>
+<span class="k">while</span> <span class="p">(</span><span class="nb">defined</span><span class="p">(</span><span class="nv">$ip</span><span class="o">=</span><span class="sr">&lt;HOST&gt;</span><span class="p">)){</span>
+    <span class="c1">#从参数中默认读取url变量</span>
+    <span class="k">foreach</span> <span class="nv">$document</span> <span class="p">(</span> <span class="nv">@ARGV</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="c1">#利用IO::Socket::INET模块定义TCP80连接，port可以读取/etc/services文件里的定义</span>
+        <span class="nv">$remote</span> <span class="o">=</span> <span class="nn">IO::Socket::</span><span class="n">INET</span><span class="o">-&amp;</span><span class="ow">gt</span><span class="p">;</span><span class="k">new</span><span class="p">(</span> <span class="n">Proto</span>     <span class="o">=&gt;</span> <span class="s">&quot;tcp&quot;</span><span class="p">,</span>
+                                            <span class="n">PeerAddr</span><span class="err"> </span> <span class="o">=&gt;</span> <span class="nv">$ip</span><span class="p">,</span>
+                                            <span class="n">PeerPort</span><span class="err"> </span> <span class="o">=&gt;</span> <span class="s">&quot;http(80)&quot;</span><span class="p">,</span>
+                                          <span class="p">);</span>
+        <span class="k">unless</span> <span class="p">(</span><span class="nv">$remote</span><span class="p">)</span> <span class="p">{</span> <span class="nb">die</span> <span class="s">&quot;cannot connect to http daemon on $ip&quot;</span> <span class="p">}</span>
+        <span class="c1">#立即输出</span>
+        <span class="nv">$remote</span><span class="o">-&gt;</span><span class="n">autoflush</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+        <span class="c1">#向定义的TCP连接文件句柄发送purge请求</span>
+        <span class="c1">#这里可以直接&quot;\n\n&quot;，不过采用&quot;&quot;.$BLANK的方式可能规范一些，因为在win或者mac的平台上，是不一样的</span>
+        <span class="k">print</span> <span class="nv">$remote</span> <span class="s">&quot;PURGE $document HTTP/1.0&quot;</span> <span class="o">.</span> <span class="nv">$BLANK</span><span class="p">;</span>
+        <span class="k">while</span> <span class="p">(</span> <span class="sr">&lt;$remote&gt;</span> <span class="p">)</span> <span class="p">{</span> <span class="k">print</span> <span class="p">}</span>
+        <span class="c1">#关闭tcp连接</span>
+        <span class="nb">close</span> <span class="nv">$remote</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="c1">#关闭ip列表文件</span>
+<span class="nb">close</span><span class="p">(</span><span class="n">HOST</span><span class="p">);</span>
+</code></pre></div>
       <a href="/2010/03/30/purge-script-by-perl" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -368,18 +739,40 @@ make <span class="o">&amp;&amp;</span> make install
       <span>
       </span>
       Posted in&nbsp;
-      <a href="/categories.html#CDN-ref" title="CDN" rel="category tag">CDN</a>
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>因为这么一个想法，我陆陆续续的把squid很多功能都理了一遍，今天终于打算写个不完美的终结篇。而就在写这个终结篇的同时，公司里也已经开始把这批别扭的客户改往nginx平台加速了。</p>
+      <p>因为这么一个想法，我陆陆续续的把squid很多功能都理了一遍，今天终于打算写个不完美的终结篇。而就在写这个终结篇的同时，公司里也已经开始把这批别扭的客户改往nginx平台加速了。</p>
 <p>总结这批客户的跳转要求，其实格式都比较统一，大抵就是*.abc.com(.cn)坏了就转到abc.cdn.21vokglb.cn。在3月24日的博文最后，已经有了一个思路——既然无法执行php的header(Location)和strstr(%U)，那么就干脆在squid的src里对%U进行操作好了。</p>
 <p>squid-src/errorpage.c中关于%U的注释是：</p>
 <pre><code>U - URL without password
 </code></pre>
 <p>相关语句是：</p>
-<div class="highlight"><pre><code class="c"><span class="n">p</span> <span class="o">=</span> <span class="n">r</span> <span class="o">?</span> <span class="n">urlCanonicalClean</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">:</span> <span class="n">err</span><span class="o">-&gt;</span><span class="n">url...</span></code></pre></div>
-</body></html>
+<div class="highlight"><pre><code class="c"><span class="n">p</span> <span class="o">=</span> <span class="n">r</span> <span class="o">?</span> <span class="n">urlCanonicalClean</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">:</span> <span class="n">err</span><span class="o">-&gt;</span><span class="n">url</span> <span class="o">?</span> <span class="n">err</span><span class="o">-&gt;</span><span class="n">url</span> <span class="o">:</span> <span class="s">&quot;[no URL]&quot;</span><span class="p">;</span>
+</code></pre></div>
+<p>只要把url按&rdquo;.&rdquo;分割，然后取出第二个域abc，就可以在html代码中给它加上跳转后的url了——这一步也能在src里完成，不过以后不好修改了，虽然现在这样子的定制性也强不到哪去~
+从大二到现在无数年了，c已经属于忘到冥王星外的东东，于是一个一个的翻c的字符串函数，从strstr、strchr、strcat、strtok、strsep到最后终于发现sscanf。只要在src/errorpage.c的588行下加这么一句话就可以了：</p>
+<div class="highlight"><pre><code class="c"><span class="mi">587</span><span class="err">    </span> <span class="k">case</span> <span class="sc">&#39;U&#39;</span>:
+<span class="mi">588</span><span class="err">        </span> <span class="n">p</span> <span class="o">=</span> <span class="n">r</span> <span class="o">?</span> <span class="n">urlCanonicalClean</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">:</span> <span class="n">err</span><span class="o">-&gt;</span><span class="n">url</span> <span class="o">?</span> <span class="n">err</span><span class="o">-&gt;</span><span class="n">url</span> <span class="o">:</span> <span class="s">&quot;[no URL]&quot;</span><span class="p">;</span>
+<span class="mi">589</span><span class="o">+</span><span class="err">     </span> <span class="n">sscanf</span><span class="p">(</span><span class="n">p</span><span class="p">,</span><span class="s">&quot;%*[^.].%[^.]&quot;</span><span class="p">,</span><span class="n">p</span><span class="p">);</span>
+<span class="mi">590</span><span class="err">        </span> <span class="k">break</span><span class="p">;</span>
+</code></pre></div>
+<p>然后编译安装，一路通过没有问题~~启动squid服务，测试一下%U吧~
+先把ERR_ACCESS_DENIED内容修改如下：</p>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;HTML&gt;</span>
+<span class="nt">&lt;BODY&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+<span class="nt">&lt;META</span> <span class="na">HTTP-EQUIV=</span><span class="s">&quot;refresh&quot;</span><span class="err">  </span> <span class="na">Content=</span><span class="s">&quot;0;URL=http://%U.cdn.21vokglb.cn/index.htm&quot;</span><span class="nt">&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;/HTML&gt;</span>
+</code></pre></div>
+<p>然后在squid.conf中增加对自己本机的访问控制如下：</p>
+<div class="highlight"><pre><code class="squid"><span class="k">acl</span><span class="w"> </span>test<span class="w"> </span><span class="k">src</span><span class="w"> </span><span class="mf">222.62.104.189/255.255.255.255</span><span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span>rao<span class="w"></span>
+</code></pre></div>
+<p>squid -k reconfigure生效，访问一下www.xyfunds.com.cn，果然跳转到xyfunds.cdn.21vokglb.cn/index.htm啦~~
+完毕。
+虽然最终还是没能达到任意定义跳转url的目标，不过就本身的出发点来说，还是完成了需求。这也是我N年来第一次重新看C，也是第一次修改squid代码，虽然只加了一句~~~不过意义还是有滴，晚上吃个鸡蛋自我犒劳一下咯。</p>
       <a href="/2010/03/28/modify-error_page-src-for-location" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -400,17 +793,17 @@ make <span class="o">&amp;&amp;</span> make install
       <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p><em>continue</em></p>
-<p>zabbix作为分布式监控系统，不试试实在可惜。好在做起来也简单。  <br>
-首先要求编译时有enable-proxy参数，这个已经有了；  <br>
-然后修改zabbix_proxy.conf，和zabbix_server.conf相同的修改（DB等）就不再说了：  <br>
-Server=要写最上层zabbix的ip  <br>
-Hostname=要写独一无二的，在最上层zabbix的web配置上要用  <br>
-ConfigFrequency=这个是配置同步时间差，设短一点，默认3600太长  <br>
+      <p><em>continue</em></p>
+<p>zabbix作为分布式监控系统，不试试实在可惜。好在做起来也简单。  <br />
+首先要求编译时有enable-proxy参数，这个已经有了；  <br />
+然后修改zabbix_proxy.conf，和zabbix_server.conf相同的修改（DB等）就不再说了：  <br />
+Server=要写最上层zabbix的ip  <br />
+Hostname=要写独一无二的，在最上层zabbix的web配置上要用  <br />
+ConfigFrequency=这个是配置同步时间差，设短一点，默认3600太长  <br />
 TrapperTimeout=超时时间，设短一点，默认300，最好不超过30    </p>
-<p>然后在最上层的zabbix的web界面上添加pr...</p>
-</body></html>
+<p>然后在最上层的zabbix的web界面上添加proxy即可。administrator-DM-proxy-Add，填入刚才独一无二的那个Hostname即可。    </p>
+<p>Add Host的时候，选择proxy——host里agentd.conf的Server也必须是相应proxy的ip才行。  <br />
+<em>To_be_continued</em>    </p>
       <a href="/2010/03/25/zabbix_proxy-install" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -431,16 +824,50 @@ TrapperTimeout=超时时间，设短一点，默认300，最好不超过30    </
       <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>首先，采用spine代替cmd.php来采集数据。
+      <p>首先，采用spine代替cmd.php来采集数据。
 下载与cacti相应版本的spine和补丁：</p>
 <div class="highlight"><pre><code class="bash">wget http://www.cacti.net/downloads/spine/cacti-spine-0.8.7e.tar.gz
 tar zxvf cacti-spine-0.8.7e.tar.gz -C /tmp
 <span class="nb">cd</span> /tmp/cacti-spine-0.8.7e
 wget http://www.cacti.net/downloads/spine/patches/snmp_v3_fix.patch
 wget http://www.cacti.net/downloads/spine/patches/mysql_client_reconnect.patch
-wget http://www.cacti....</code></pre></div>
-</body></html>
+wget http://www.cacti.net/downloads/spine/patches/ping_reliability.patch
+patch -p1 -N &lt; snmp_v3_fix.patch
+patch -p1 -N &lt; mysql_client_reconnect.patch
+patch -p1 -N &lt; ping_reliability.patch
+./configure –prefix<span class="o">=</span>/cache/data/cacti --with-mysql<span class="o">=</span>/home/mysql
+make
+<span class="c"># 这个时候发现报错了，spine0.8.7e编译安装要求最新版本的automake1.11，于是去下automake：</span>
+wget http://ftp.gnu.org/gnu/automake/automake-1.11.tar.gz
+tar zxvf automake-1.11.tar.gz -C /tmp/
+<span class="nb">cd</span> /tmp/automake-1.11/
+./configure --prefix<span class="o">=</span>/usr
+<span class="c"># 又报错，automake1.11要求新版本的autoconf2.64，于是去下autoconf：</span>
+wget http://ftp.gnu.org/gnu/autoconf/autoconf-2.65.tar.gz
+tar zxvf autoconf-2.65.tar.gz -C /tmp/
+<span class="nb">cd</span> /tmp/autoconf-2.65/
+./configure --prefix<span class="o">=</span>/usr <span class="o">&amp;&amp;</span> make <span class="o">&amp;&amp;</span> make install
+</code></pre></div>
+<p>返回安装automake，即可成功；安装spine，也成功了。  <br />
+修改/cache/data/cacti/etc/spine.conf里的db信息，和cacti的global.php里一致。  <br />
+登陆web界面，settings中修改poller type为spine，修改Spine Specific Execution Parameters里的Maximum Threads per Process为cpu数的2倍。save~  <br />
+第二、给cacti-tables建index。默认的cacti.sql里一个index索引都没有~    </p>
+<div class="highlight"><pre><code class="sql"><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">data_template_data_id</span><span class="o">`</span> <span class="k">ON</span> <span class="o">`</span><span class="n">data_input_data</span><span class="o">`</span> <span class="p">(</span><span class="o">`</span><span class="n">data_template_data_id</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">host_id_snmp_query_id_snmp_index</span><span class="o">`</span> <span class="k">ON</span> <span class="n">data_local</span> <span class="p">(</span><span class="o">`</span><span class="n">host_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">snmp_query_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">snmp_index</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">local_data_id_data_source_name</span><span class="o">`</span> <span class="k">ON</span> <span class="n">data_template_rrd</span> <span class="p">(</span><span class="o">`</span><span class="n">local_data_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">data_source_name</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">graph_template_id_local_graph_id</span><span class="o">`</span> <span class="k">ON</span> <span class="n">graph_templates_item</span> <span class="p">(</span><span class="o">`</span><span class="n">graph_template_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">local_graph_id</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">local_graph_template_item_id</span><span class="o">`</span> <span class="k">ON</span> <span class="n">graph_templates_item</span> <span class="p">(</span><span class="o">`</span><span class="n">local_graph_template_item_id</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">host_id_snmp_query_id_snmp_index</span><span class="o">`</span> <span class="k">ON</span> <span class="n">host_snmp_cache</span> <span class="p">(</span><span class="o">`</span><span class="n">host_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">snmp_query_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">snmp_index</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">local_data_id_rrd_path</span><span class="o">`</span> <span class="k">ON</span> <span class="n">poller_item</span> <span class="p">(</span><span class="o">`</span><span class="n">local_data_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">rrd_path</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">host_id_rrd_next_step</span><span class="o">`</span> <span class="k">ON</span> <span class="n">poller_item</span> <span class="p">(</span><span class="o">`</span><span class="n">host_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">rrd_next_step</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">host_id_snmp_query_id</span> <span class="k">ON</span> <span class="n">host_snmp_cache</span> <span class="p">(</span><span class="n">host_id</span><span class="p">,</span><span class="n">snmp_query_id</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">host_id_snmp_port</span> <span class="k">ON</span> <span class="n">poller_item</span> <span class="p">(</span><span class="n">host_id</span><span class="p">,</span><span class="n">snmp_port</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">data_source_path</span> <span class="k">ON</span> <span class="n">data_template_data</span> <span class="p">(</span><span class="n">data_source_path</span><span class="p">);</span>
+</code></pre></div>
+<p>第三、重构rra目录结构。按照device分结构。  <br />
+/home/php/bin/php /cache/data/cacti/cli/structure_rra_paths.php &ndash;proceed即可。  <br />
+web界面中settings里的Paths可以勾选Structured RRA Path(/host_id/local_data_id.rrd)即可。    </p>
+<p>最后，据这个优化的<a target="_blank" href="http://zys.8800.org/index.php/archives/391/comment-page-1#comment-22">原作者</a>说，按此步骤，710台服务器，24000个RRD文件，完成一次poller.php的时间，缩短到50 seconds。</p>
       <a href="/2010/03/25/cacti-optimization" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -461,8 +888,7 @@ wget http://www.cacti....</code></pre></div>
       <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>同样作为提供web服务的机器，因为不同业务的关系，除了流量以外，还需要参考TCP80连接数来分析服务器性能状况。下面就试试cacti对连接数的监控。
+      <p>同样作为提供web服务的机器，因为不同业务的关系，除了流量以外，还需要参考TCP80连接数来分析服务器性能状况。下面就试试cacti对连接数的监控。
 最简单的方法，利用snmpnetstat这个命令，自动搞定一切。cactiuser.org上提供一个现成的模板，只要import就能直接用。下载地址如右：<a href="http://www.iammecn.com/wp-content/uploads/2009/12/cacti_graph_template_snmp_connections.zip" target="_blank">http://www.iammecn.com/wp-content/uploads/2009/12/cacti_graph_template_snmp_connections.zip</a></p>
 <p>不过这个snmpnetstat用起来精准度不太好保证，比如我在测试机上运行如下：</p>
 <pre><code>[root@BeiJingBGP-Dns-02 ~]# snmpnetstat  -c 'public' -v 2c 10.10.10.43:161
@@ -475,8 +901,87 @@ udp   *.54927
 udp   localhost.domain
 udp   localhost.ntp
 udp   localhost.domain
-udp   loca...</code></pre>
-</body></html>
+udp   localhost.ntp
+udp   211.151.65.53.ntp
+udp   211.151.67.80.domain
+</code></pre>
+<p>居然一个tcp都没显示出来。我汗~~
+所以采用一个自建脚本模板的方法来完成吧~~
+首先在host上新建/etc/snmp/tcpconn.sh，内容如下：</p>
+<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/sh</span>
+<span class="nv">conn</span><span class="o">=</span><span class="sb">`</span>netstat -s -t | grep connections established |awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
+<span class="nb">echo</span> <span class="nv">$conn</span>
+</code></pre></div>
+<table>
+  <tbody>
+    <tr>
+      <td>对这个脚本我个人持保留意见。因为在netstat -anpl</td>
+      <td>grep :80</td>
+      <td>wc -l、netstat -s -t和/proc/net/tcp中来看，netstat -s -t最省时间，但数字也最不准~</td>
+    </tr>
+  </tbody>
+</table>
+<p>三种方法测试如下：
+    [root@BeiJingBGP-Dns-02 ~]# time netstat -s -t|awk &lsquo;/connections established/{print $1}&rsquo;
+    3</p>
+<pre><code>real    0m0.008s
+user    0m0.000s
+sys    0m0.008s
+[root@BeiJingBGP-Dns-02 ~]# time netstat -plna|awk '/:80/{a++}END{print a}'
+1
+real    0m0.065s
+user    0m0.000s
+sys    0m0.048s
+[root@BeiJingBGP-Dns-02 ~]# time awk '$4=="01"{a++}END{print a}' /proc/net/tcp
+real    0m0.023s
+user    0m0.000s
+sys    0m0.024s
+</code></pre>
+<table>
+  <tbody>
+    <tr>
+      <td>（话说顺便试了一下</td>
+      <td>grep :80</td>
+      <td>wc -l和</td>
+      <td>awk &lsquo;/:80/{a++}END{print a}&rsquo;的time，awk快5ms，哈哈~）</td>
+    </tr>
+  </tbody>
+</table>
+<p>然后在/etc/snmp/snmpd.cong里添加如下句：</p>
+<pre><code>exec .1.3.6.1.4.1.2021.18 tcpCurrEstab /etc/snmp/tcpconn.sh
+</code></pre>
+<p>重启snmpd服务即可。</p>
+<p>回cacti服务器端，运行如下命令，可以看到相关输出即可。</p>
+<pre><code>[root@BeiJingBGP-Dns-02 ~]# snmpwalk -c 'public' -v 2c 10.10.10.43 .1.3.6.1.4.1.2021.18
+UCD-SNMP-MIB::ucdavis.18.1.1 = INTEGER: 1
+UCD-SNMP-MIB::ucdavis.18.2.1 = STRING: "tcpCurrEstab"
+UCD-SNMP-MIB::ucdavis.18.3.1 = STRING: "/etc/snmp/tcpconn.sh"
+UCD-SNMP-MIB::ucdavis.18.100.1 = INTEGER: 0
+UCD-SNMP-MIB::ucdavis.18.101.1 = STRING: "3"
+UCD-SNMP-MIB::ucdavis.18.102.1 = INTEGER: 0
+UCD-SNMP-MIB::ucdavis.18.103.1 = ""
+</code></pre>
+<p>这个string:&rdquo;3&rdquo;就是真正的tcp80连接数。
+然后进入cacti的web页面进行设置吧：</p>
+<table>
+  <tbody>
+    <tr>
+      <td>在cacti界面中console-&gt;Templates-&gt;Data Templates，然后点击右上角的Add，Data Templates中的name是给这个数据模板的命名，Data Source中的name将来显示在Data Sources中，我这里添加“</td>
+      <td>host_description</td>
+      <td>– Tcp Conn. – ESTBLISHED”，选get snmp data，Internal Data Source Name也可以随便添，这个用来给rrd文件命名。设置完后就可以create了，之后会发现下面多了一些选项，在最下面那个添上我们需要的数据的OID“.1.3.6.1.4.1.2021.18.101.1”，可以save了。</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>此后需要创建一个Graph Templates，好让cacti生成图片。在cacti界面中console-&gt;Templates-&gt;Graph Templates，然后点击右上角的Add，Templates中的name是给这个数据模板的命名，Graph Template中的name是将来显示在图片上面中间的内容，我这里添加“</td>
+      <td>host_description</td>
+      <td>– Tcp Conn. –ESTBLISHED”，其他保持默认，保存之后上面会出来一些选项。在Graph Template Items中添加一个item，Data Source选之前添加的，color选择一个图片的颜色，Graph Item Type选AREA，也就是区域，也可以选其他的线条，Text Format设置说明。然后再添加一个，Graph Item Type选GPRINT，Consolidation Function选LAST，也就是当前的值，Text Format输入current。你还可以添加一些Graph Item Type为COMMENT的注释说明等。</td>
+    </tr>
+  </tbody>
+</table>
+<p>最后，可以把graph加进host templates，或者直接在device中加graph。过一会就能看到图啦~~~</p>
       <a href="/2010/03/24/monitor-tcp-conns-by-cacti" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -494,16 +999,36 @@ udp   loca...</code></pre>
       <span>
       </span>
       Posted in&nbsp;
-      <a href="/categories.html#CDN-ref" title="CDN" rel="category tag">CDN</a>
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>nginx的error_page，有两个种办法。</p>
+      <p>nginx的error_page，有两个种办法。</p>
 <p>一是直接error_page 502 503 504 = http://xyfunds.cdn.21vokglb.cn/index.htm;</p>
 <p>二是error_page 502 503 504 =200 @fetch;然后location ~* @fetch {……}。</p>
 <p>网上看到很多自定义error_page的方式，比如error_page 404 /404.php;把变量都传给php去分析处理；也可以在location里用if(){}做rewrite等等。</p>
-<p>squid的error_page，可以有error_directory、error_map、deny_info三种方式。其中deny_info仅适用于ERR_ACCESS_DENIE...</p>
-</body></html>
+<p>squid的error_page，可以有error_directory、error_map、deny_info三种方式。其中deny_info仅适用于ERR_ACCESS_DENIED一种情况；目前对于源站故障跳转，采用的是修改error_directory里html的meta；今天由nginx的方式想到采用error_map试试，于是写了如下php页面：</p>
+<div class="highlight"><pre><code class="php"><span class="cp">&lt;?php</span>
+<span class="k">switch</span> <span class="p">(</span><span class="nv">$_SERVER</span><span class="p">[</span><span class="s1">&#39;SERVER_NAME&#39;</span><span class="p">])</span>
+<span class="p">{</span>
+<span class="k">case</span> <span class="s1">&#39;www.xyfunds.com.cn&#39;</span><span class="o">:</span>
+<span class="nx">header</span><span class="p">(</span><span class="s2">&quot;Location: http://xyfunds.cdn.21vokglb.cn/index.htm&quot;</span><span class="p">);</span>
+<span class="k">break</span><span class="p">;</span>
+<span class="k">default</span><span class="o">:</span>
+<span class="k">echo</span> <span class="nv">$_SERVER</span><span class="p">[</span><span class="s1">&#39;SERVER_NAME&#39;</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="cp">?&gt;</span><span class="x"></span>
+</code></pre></div>
+<p>但测试结果，ERR的页面却是一片空白……在squid.conf,default中看到，原来<span style="color:#ff0000;">error_map只是返回定义页面的内容，header还是原先的。</span>
+于是又想针对squid返回的%U，进行strtr()，然后再进行meta，如下：</p>
+<div class="highlight"><pre><code class="php"><span class="cp">&lt;?php</span>
+<span class="nv">$urlarray</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;com.cn&#39;</span><span class="o">=&gt;</span><span class="s1">&#39;21vokglb.cn&#39;</span><span class="p">);</span>
+<span class="nv">$urlrewrite</span> <span class="o">=</span> <span class="nx">strtr</span><span class="p">(</span><span class="s2">&quot;%U&quot;</span><span class="p">,</span><span class="nv">$urlarray</span><span class="p">);</span>
+<span class="k">echo</span> <span class="o">&lt;</span><span class="nx">META</span> <span class="nx">HTTP</span><span class="o">-</span><span class="nx">EQUIV</span><span class="o">=</span><span class="s2">&quot;refresh&quot;</span> <span class="nx">CONTENT</span><span class="o">=</span><span class="s2">&quot;0; </span><span class="si">$urlrewrite</span><span class="s2">&quot;</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="cp">?&gt;</span><span class="x"></span>
+</code></pre></div>
+<p>很可惜，测试结果是把这串字符直接显示在了页面上。
+这两个结果让我很无语。如果说squid不支持php，那为什么它能识别出来上一个是修改header而不是页面内容所以不显示文本；如果说squid支持php，那为什么下一个又无法执行呢？</p>
+<p>想对%U进行操作，难道非得到squid/src/errorpage.c里去修改么？C语言的字符串处理没有封装好的函数，真的好麻烦的说……</p>
       <a href="/2010/03/24/diff-of-error_page-between-squid-nginx" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -524,8 +1049,7 @@ udp   loca...</code></pre>
       <a href="/categories.html#nginx-ref" title="nginx" rel="category tag">nginx</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>今天发现nginx做多域名混跑的proxy_cache时有一个小问题：当一个非加速server_name的请求到达的时候，nginx不会像squid那样返回一个ERR_DNS_FAIL，反而假装很正常的返回一个页面：</p>
+      <p>今天发现nginx做多域名混跑的proxy_cache时有一个小问题：当一个非加速server_name的请求到达的时候，nginx不会像squid那样返回一个ERR_DNS_FAIL，反而假装很正常的返回一个页面：</p>
 <div class="highlight"><pre><code class="nginx"><span class="k">http</span> <span class="p">{</span>
     <span class="kn">server</span> <span class="p">{</span>
         <span class="kn">server_name</span> <span class="s">www.aaa.com</span><span class="p">;</span>
@@ -537,8 +1061,24 @@ udp   loca...</code></pre>
     <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
-<p>访问www.ccc...</p>
-</body></html>
+<p>访问www.ccc.com的时候，nginx毫不犹豫的把www.aaa.com的页面内容返回给了client。在日志里记录：</p>
+<pre><code>MISS/200 GET http://www.ccc.com/ 1.1.1.1:80
+</code></pre>
+<p>如果把aaa和bbb的server{}顺序倒换，那ccc的回源地址就变成了2.2.2.2……</p>
+<p>也就是说，解析不出、定义不到的域名请求，自动返回排在第一位的server内容。</p>
+<p>解决办法也容易，在最上头，也定义一个自己的server，就可以了：</p>
+<div class="highlight"><pre><code class="nginx"><span class="k">http</span> <span class="p">{</span>
+    <span class="kn">server</span> <span class="p">{</span>
+        <span class="kn">root</span> <span class="s">/cache</span><span class="p">;</span>
+        <span class="kn">rewrite</span> <span class="s">^(.*)</span> <span class="s">/error.htm</span> <span class="s">permanent</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="kn">server</span> <span class="p">{</span>
+        <span class="kn">……</span>
+    <span class="err">}</span>
+<span class="err">}</span>
+</code></pre></div>
+<p>至于这个error.htm，有没有都一样，反正有就是301，没有就是404~~</p>
+<p>后面的web服务器为什么不检查Host直接给出内容，也是让人很郁闷的一点。或许IIS就是如此？</p>
       <a href="/2010/03/24/default-vhost-in-nginx" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -556,12 +1096,32 @@ udp   loca...</code></pre>
       <span>
       </span>
       Posted in&nbsp;
-      <a href="/categories.html#CDN-ref" title="CDN" rel="category tag">CDN</a>
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body><p>flash和flex应该是现在网络上红到发紫的技术了，要flv不要tv，要sns不要bbs，连春晚节目都满嘴偷菜~~~我也试着用用fms3.5，一些基本搭建，过过瘾，免得自己太过OUT了。  <br>
-fms是adobe的付费产品，不过不花钱买序列号，也可以用免费的开发版，限制是10个链接而已。上www.adobe.com注册一个帐号，就可以下载了。下载下来的zip中包含了win版的exe和linux版的tar.gz。网上教程大多是win的，不过不要紧，除了字符和图形，真正使用上没啥区别。  <br>
-上传FlashMediaServer3.5.tar.gz到linu...</p></body></html>
+      <p>flash和flex应该是现在网络上红到发紫的技术了，要flv不要tv，要sns不要bbs，连春晚节目都满嘴偷菜~~~我也试着用用fms3.5，一些基本搭建，过过瘾，免得自己太过OUT了。  <br />
+fms是adobe的付费产品，不过不花钱买序列号，也可以用免费的开发版，限制是10个链接而已。上www.adobe.com注册一个帐号，就可以下载了。下载下来的zip中包含了win版的exe和linux版的tar.gz。网上教程大多是win的，不过不要紧，除了字符和图形，真正使用上没啥区别。  <br />
+上传FlashMediaServer3.5.tar.gz到linux服务器上，解压开，./installFMS -platformWarnOnly，然后按提示，设定安装目录、管理员帐号密码、监听端口、是否安装自带的apache2.2.9，是否设为守护进程等，最后完成。  <br />
+ps看看，已经有几个fms的进程了吧；netstat看看，也有1935/19350/1111端口的监听吧（前提是你没改），OK了。  <br />
+注：这里有几个问题。如果install的时候，端口选择了默认的1935,80，而本身服务器上又开着httpd的80，就会有冲突；这时候关掉FMSHttpd是不够的，因为fmsedge也监听这80端口，需要在conf/fms.ini中，把SERVER.HTTPD_ENABLED设为false，再删除ADAPTOR.HOSTPORT里的80，然后/etc/init.d/fms restart，这样就可以了。    </p>
+<ul>
+  <li>VOD点播：    </li>
+</ul>
+<p>上传一个flv/mp4/avi/f4v到服务器上，放进applications/vod/media/目录里。然后用播放器播放rtmp://testip/vod/sample就可以播放flv格式的视频了，如果是mp4/avi/f4v等H.264的视频，uri地址为rtmp://testip/vod/mp4:sample.f4v，也就是申明一下它是mp4的，然后写全文件名就行。  <br />
+fms自带一个测试的页面，可以用来试验。在apache里建一个virtualhost，发布/opt/adobe/fms/samples/videoPlayer，就可以用http://testip/videoPlayer/videoplayer.html访问这个测试页面，把上面说到的url贴进STREAM URL:里，选择VOD，点击PLAY STREAM，看到上面出现loading、buffering，然后就开始播放上传的那个视频了。OK~  <br />
+rtmp流方式和nginx/lighttpd的flv_module不同的是，rtmp的拖动，你拖到哪它就从哪开始播放；而flv_module的拖动，只是在你拖到的地点附件找一个最接近的关键帧，向服务器发送start=***的query_strings，然后从该关键帧开始播放。这也就意味着在拖动之前，你至少得等到flv的meta信息（主要是全部的关键帧位置）下载完才行。    </p>
+<ul>
+  <li>LIVE直播：    </li>
+</ul>
+<p>上面的小实验完成了，可能惊喜不是很大，唉，谁让web发布flv的拖动功能一样ok呢。嗯，下面开始用live功能，把web给ko掉~~  <br />
+要完成直播，还得用另外一样东东：FME，全称flash media live encoder，同样上adobe官网，登陆帐号下载即可。两个消息，一好一坏，好消息是这个东东免费，不收钱；坏消息是这个东东只有windows版，口年那些用ubuntu、mac、fc的童鞋们了~~  <br />
+下载安装运行，可以看到一个很一目了然的界面，IO画面，视频编码和分辨率选择、音频码率大小选择、保存地址、流服务器地址，日志。主要就是这些。  <br />
+先试试最基本的保存视频，取消stream to flash media server的勾选，点击start，稍后再点stop，去我的文档里看我的视频文件夹，里面是不是就有个sample.flv了？那就成功了。（不行？看log排查，不会是你压根没接摄像头吧？）  <br />
+然后就是给fms服务器传直播流了。把刚才取消的勾重新打上。修改FMS url地址为服务器的正确地址，也就是把localhost改成testip，然后修改stream为一个别的名字（比如otherlivestream），因为livestream这个名字服务器上默认已经存在了。点connect，嗯，连不上……  <br />
+这是因为fme和fms之间还差了个桥梁。返回刚才下载fme的页面（没关吧~），看到下面还有个auth-addin下载吧，赶紧下下来传服务器上。解压出来，./installSAA，同样是字符界面，一顿y就可以了，不过如果你前面修改过安装路径什么的，也得一样修改这里~  <br />
+然后进入conf路径，里面除了fms.ini、Loggerxml、Server.xml、Users.xml外，多了users、users.dat两个文件。./users add -u username -p password，添加用户即可。然后你就可以看到users.dat中多了一行username:<em>**</em>  <br />
+返回本机的fme，再重点connect，很快弹出验证框，输入username和password，连接成功了，点start，直播流就此建立。  <br />
+继续使用刚才看vod的页面，在stream url里填rtmp:/live/otherlivestream，选择live，点play stream，缓冲完成后，看是不是就是摄像头前的自己在动在说话？OK啦~    </p>
       <a href="/2010/03/21/fms3-5" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -582,8 +1142,7 @@ fms是adobe的付费产品，不过不花钱买序列号，也可以用免费的
       <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>在CU上看到有帖子比较各开源monitor软件，其中对zabbix颇多赞誉。决定试用一下。</p>
+      <p>在CU上看到有帖子比较各开源monitor软件，其中对zabbix颇多赞誉。决定试用一下。</p>
 <div class="highlight"><pre><code class="bash"><span class="c">#为快速安装方便，LAMP环境都采用yum获取。</span>
 yum install httpd mysql* php* gcc net-snmp* curl*
 <span class="c">#然后编译安装zabbix，步骤如下：</span>
@@ -594,8 +1153,73 @@ tar zxvf zabbix-1.8.1.tar.gz
 <span class="nb">cd </span>zabbix-1.8.1
 mysql -uroot -p
 &gt;create database zabbix;
-&gt;grant all privileges on...</code></pre></div>
-</body></html>
+&gt;grant all privileges on zabbix.* to zabbix@<span class="s2">&quot;localhost&quot;</span> identified by <span class="s1">&#39;123456&#39;</span>;
+&gt;flush privileges;
+mysql -uroot -p zabbix &lt; create/schema/mysql.sql
+mysql -uroot -p zabbix &lt; create/data/data.sql
+mysql -uroot -p zabbix &lt; create/data/images_msql.sql
+./configure --prefix<span class="o">=</span>/home/zabbix --enable-server --enable-proxy --enable-agent --with-mysql --with-net-snmp --with-libcurl
+make <span class="o">&amp;&amp;</span> make install
+cat &gt;&gt; /etc/services <span class="s">&lt;&lt;EOF</span>
+<span class="s">zabbix-agent    10050/tcp            # Zabbix Agent</span>
+<span class="s">zabbix-agent    10050/udp            # Zabbix Agent</span>
+<span class="s">zabbix-trapper    10051/tcp            # Zabbix Trapper</span>
+<span class="s">zabbix-trapper    10051/udp            # Zabbix Trapper</span>
+<span class="s">EOF</span>
+make /home/zabbix/conf
+cp misc/conf/* /home/zabbix/conf/
+ln -s /home/zabbix/conf /etc/zabbix
+chown -R zabbix.zabbix /etc/zabbix
+<span class="nv">i</span><span class="o">=</span><span class="sb">`</span>hostname<span class="sb">`</span>;sed -i <span class="s2">&quot;s/^Hostname=system.uname/Hostname=$i&quot;</span> /etc/zabbix/zabbix_agentd.conf
+sed -i <span class="s1">&#39;s/^DBUser=root/DBUser=zabbix/g&#39;</span> /etc/zabbix/zabbix_server.conf
+sed -i <span class="s1">&#39;s/^# DBPassword=/DBPassword=zabbix/g&#39;</span> /etc/zabbix/zabbix_server.conf
+mv frontends/php /var/www/html/zabbix
+chown -R zabbix.zabbix /var/www/html/zabbix
+</code></pre></div>
+<p>根据zabbix需求修改LAMP，vi /etc/php.ini修改相关参数如下：</p>
+<pre><code>max_execution_time = 300
+date.timezone = Asia/Shanghai
+post_max_size = 32M
+memory_limit = 128M
+mbstring.func_overload = 2
+</code></pre>
+<p>vi /etc/httpd/conf/httpd.conf修改servername，然后启动apache。</p>
+<p>服务器操作部分完成，接下来是web配置。</p>
+<p>浏览器打开http://mydomain.com/zabbix，出现setup.php，按说明next即可。到最后要求下载zabbix.conf.php。其实可以直接修改服务器文件。</p>
+<div class="highlight"><pre><code class="bash">sed -i <span class="s1">&#39;s/0&quot;;/3306&quot;;/g&#39;</span> /var/www/html/zabbix/conf/zabbix.conf.php.example
+sed -i <span class="s1">&#39;s/_password//g&#39;</span> /var/www/html/zabbix/conf/zabbix.conf.php.example
+mv /var/www/html/zabbix/conf/zabbix.conf.php.example /var/www/html/zabbix/conf/zabbix.conf.php
+</code></pre></div>
+<p>然后test即可OK，进行登陆界面。初始用户名密码为admin/zabbix。
+进去以后，第一件事改密码。
+选择administrator下的user，点击admin，change password即可；还可以添上email等信息；另外，可以选择chinese，save之后relogin，可以看到稍微友好一点点的中文界面，不过翻译水平就请将就一下吧~~（最无语的是把select翻译成搜索==!）
+<a href="http://www.hiadmin.com" target="_blank">架构研究室</a>刚刚发布了一个汉化全面一些的<a href="http://www.hiadmin.com/wp-content/uploads/2010/03/cn_zh.inc.php_.tar.gz" target="_blank">语言包</a>，可以解压覆盖/var/www/html/zabbix/include/locales/cn_zh.inc.php。
+开始在页面上点点看看吧，不过这时候才想起来，web虽然开了，zabbix服务本身却一直没有启动呢~返回服务器操作：</p>
+<div class="highlight"><pre><code class="bash">cp misc/init.d/redhat/zabbix_* /etc/init.d/
+</code></pre></div>
+<p>vi /etc/init.d/zabbix_server_ctl，把BASEDIR改成/home/zabbix，PIDFILE=/var/tmp修改成PIDFILE=/tmp/，$BASEDIR/bin/改成$BASEDIR/sbin/。zabbix_agentd_ctl同理。</p>
+<p>然后，启动服务，/etc/init.d/zabbix_server_ctl start;/etc/init.d/zabbix_agentd_ctl start</p>
+<p>（网上都没写pid路径也要改，实际上zabbix_server.conf里的路径是/tmp/zabbix_server.pid，不改会导致启动脚本失效）</p>
+<p>zabbix和nagios等监控一样，需要在被监控host上安装agent来完成数据采集和其他操作。当然，如果就是不肯安装的话，也可以使用snmp来完成一些基本的东西。
+host上的agent部署特别简单：</p>
+<div class="highlight"><pre><code class="bash">wget http://www.zabbix.com/downloads/1.8/zabbix_agents_1.8.linux2_6.x64.tar.gz
+tar zxvf zabbix_agents_1.8.linux2_6.x64.tar.gz -C /home/
+cat &gt;&gt; /home/zabbix/conf/zabbix_agentd.conf <span class="s">&lt;&lt; eof</span>
+<span class="s">LogFile=/tmp/zabbix_agentd.log</span>
+<span class="s">Server=zabbix服务器的ip</span>
+<span class="s">Hostname=被监控host的名字</span>
+<span class="s">eof</span>
+</code></pre></div>
+<p>然后启动即可。/home/zabbix/sbin/zabbix_agentd -c /home/zabbix/conf/zabbix_agentd.conf &amp;</p>
+<p>据称这里如果不写全路径，可能出错。</p>
+<p>进入使用环节咯。大体上monitor都是这样，groups-hosts-templates-items-triggers-graphs-actions
+create一个新host group，太简单，略过；  <br />
+create一个新host，主要选择group、link相应的template；  <br />
+返回host列表，就可以选择它们自己的items、trigger、graph了。需要注意的是原有的trigger是从template里读出来的，所以修改的话也要从template里修改。  <br />
+action是报警方式，比如上面编辑user时加的email，这里可以在add operations的时候选择send message给某user（不要忘了在administration的media types里配smtp），还可以选择remote command；另外add conditions的时候，选择具体是哪些主机、那些trigger等等。  <br />
+graph是绘图，有阴影、连线、散点等方式，只要是items里有的，都能绘图出来。重叠在一张图里显示的时候，不要忘了改成好区分的颜色，一目了然~~常见的自然是流量、负载、磁盘使用等等图。  <br />
+web是对url的监控，这个比nagios等要强大多了。因为使用libcurl，它可以模拟各种user-agent下的访问，还能post数据模拟一系列操作（登陆、发帖、收藏等等，先在variables里定义好变量，然后在step中传递）。添加完成后，就可以看到对这些url的响应速度和时间的监控图了。完成后，在该host的trigger中，select items还增加了web monitor项，分别是速度、时间、状态码，也可以对此进行报警。  <br />
+<em>to_be_continued</em></p>
       <a href="/2010/03/18/zabbix-install" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -616,11 +1240,32 @@ mysql -uroot -p
       <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>今天在 squid 服务器上，无意看到一个让我无比惊讶的访问日志，随后一统计，同样的日志居然还不在少数，……</p>
+      <p>今天在 squid 服务器上，无意看到一个让我无比惊讶的访问日志，随后一统计，同样的日志居然还不在少数，……</p>
 <div class="highlight"><pre><code class="bash">    <span class="o">[</span>root@tinysquid2 ~<span class="o">]</span><span class="c"># tail -f /cache/logs/access.log |grep HIT</span>
-    1268824378.683     64 125.39.107.46 TCP_MEM_HIT/200 851 GET http://www.114.com.cn/style/css/jquery.autocomplete.css - DIRECT/117.25.130.146 text/css <span class="s2">"http://www.114.com.cn/gindex.html"</span> <span class="s2">"Mozilla/4.0 (compatible; MSIE 6.0; Windo...</span></code></pre></div>
-</body></html>
+    1268824378.683     64 125.39.107.46 TCP_MEM_HIT/200 851 GET http://www.114.com.cn/style/css/jquery.autocomplete.css - DIRECT/117.25.130.146 text/css <span class="s2">&quot;http://www.114.com.cn/gindex.html&quot;</span> <span class="s2">&quot;Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; QQPinyin 686; SV1; 360SE)&quot;</span>
+</code></pre></div>
+<p>居然存在 <code>TCP_MEM_HIT/200</code> 的情况下还 <code>DIRECT</code> 回源的情况！！</p>
+<p>有同事猜测可能是当源站数据取回来后，因为 <code>cache_mem</code> 不够大，要转写到 <code>cache_disk</code> 上去，但请求并发较大，数据还没转写呢，mem 已经不足了，于是把相对较老的抛弃掉。于是在索引中标记这部分数据是 HIT 的，但实际又没有数据在 MEM 中，所以继续 DIRECT 回源取了。</p>
+<p>不过从 squidclient 的 mgr:info 来看，不支持他的这种说法。</p>
+<div class="highlight"><pre><code class="bash">    Cache information <span class="k">for </span>squid:
+        Request Hit Ratios:    5min: 45.4%, 60min: 55.7%
+        Byte Hit Ratios:    5min: 59.2%, 60min: 62.3%
+        Request Memory Hit Ratios:    5min: 30.1%, 60min: 24.4%
+        Request Disk Hit Ratios:    5min: 26.8%, 60min: 24.0%
+        Storage Swap size:    354184 KB
+        Storage Mem size:    32196 KB
+        Mean Object Size:    15.91 KB
+        Requests given to unlinkd:    498
+</code></pre></div>
+<p>可以看到内存使用的很少，才 32M，而 free 是 3G，cache_mem 是 1G。</p>
+<p>还有，之后对全部日志进行分析时发现，cache_status 不单单是 <code>TCP_MEM_HIT</code> 会出现这种情况，全部日志的情况如下：</p>
+<div class="highlight"><pre><code class="bash">    <span class="o">[</span>root@tinysquid2 ~<span class="o">]</span><span class="c"># cat /cache/logs/access.log|grep HIT|grep DIRECT|grep -v REFRESH|awk &#39;{print $4}&#39;|sort|uniq -c</span>
+       1086 TCP_HIT/200
+      18386 TCP_IMS_HIT/304
+      45964 TCP_MEM_HIT/200
+          2 TCP_MEM_HIT/206
+</code></pre></div>
+<p>即使是 DISK 上的 <code>TCP_HIT</code> 也有回源的。太奇怪了！！</p>
       <a href="/2010/03/17/problem-of-squid-access-log" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -641,20 +1286,34 @@ mysql -uroot -p
       <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body><div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
 <span class="k">use</span> <span class="nn">String::</span><span class="n">CRC32</span><span class="p">;</span>
 <span class="k">my</span> <span class="nv">$url</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">@peer</span> <span class="o">=</span> <span class="p">(</span><span class="s">'10.13.12.14:80'</span><span class="p">,</span>
-<span class="s">'10.13.12.15:80'</span><span class="p">,</span>
-<span class="s">'10.13.12.16:80'</span><span class="p">,</span>
-<span class="s">'10.13.12.17:80'</span><span class="p">,</span>
-<span class="s">'10.13.12.18:80'</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">@peer</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;10.13.12.14:80&#39;</span><span class="p">,</span>
+<span class="s">&#39;10.13.12.15:80&#39;</span><span class="p">,</span>
+<span class="s">&#39;10.13.12.16:80&#39;</span><span class="p">,</span>
+<span class="s">&#39;10.13.12.17:80&#39;</span><span class="p">,</span>
+<span class="s">&#39;10.13.12.18:80&#39;</span><span class="p">);</span>
 <span class="k">my</span> <span class="nv">$new</span> <span class="o">=</span> <span class="mi">9999999999</span><span class="p">;</span>
 <span class="k">my</span> <span class="nv">$sum</span> <span class="o">=</span> <span class="nv">$#peer</span><span class="o">+</span><span class="mi">1</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$uricrc</span> <span class="o">=</span> <span class="n">crc32</span><span class="p">(</span><span class="s">"$url"</span><span class="p">,</span><span class="nb">length</span><span class="p">(</span><span class="nv">$url</span><span class="p">));</span>
+<span class="k">my</span> <span class="nv">$uricrc</span> <span class="o">=</span> <span class="n">crc32</span><span class="p">(</span><span class="s">&quot;$url&quot;</span><span class="p">,</span><span class="nb">length</span><span class="p">(</span><span class="nv">$url</span><span class="p">));</span>
 <span class="k">for</span> <span class="p">(</span><span class="k">my</span> <span class="nv">$i</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span><span class="nv">$i</span><span class="o">&lt;</span><span class="nv">$sum</span><span class="p">;</span><span class="nv">$i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
 <span class="k">my</span> <span class="nv">$peercrc</span> <span class="o">=</span> <span class="n">crc32</span><span class="p">(</span><span class="nv">$peer</span><span class="p">[</span><span class="nv">$i</span><span class="p">],</span><span class="nb">length</span><span class="p">(</span><span class="nv">$peer</span><span class="p">[</span><span class="nv">$i</span><span class="p">]));</span>
-<span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="nv">$peercrc</span> <span class="o">-</span> <span class="nv">$uricrc</span><span class="p">;...</span></code></pre></div></body></html>
+<span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="nv">$peercrc</span> <span class="o">-</span> <span class="nv">$uricrc</span><span class="p">;</span>
+<span class="k">if</span> <span class="p">(</span><span class="nv">$res</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="nv">$res</span> <span class="o">&lt;</span> <span class="nv">$new</span><span class="p">){</span>
+<span class="nv">$new</span> <span class="o">=</span> <span class="nv">$res</span><span class="p">;</span>
+<span class="nv">$haha</span> <span class="o">=</span> <span class="s">&quot;$i\t$new&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="p">}</span>
+<span class="k">my</span> <span class="nv">@num</span> <span class="o">=</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/\t/</span><span class="p">,</span><span class="nv">$haha</span><span class="p">);</span>
+<span class="nb">printf</span><span class="p">(</span><span class="s">&quot;%s cached at the %s peer by the key %010.0f.\n&quot;</span><span class="p">,</span><span class="nv">$url</span><span class="p">,</span><span class="nv">$peer</span><span class="p">[</span><span class="nv">$num</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span><span class="nv">$uricrc</span><span class="p">);</span>
+<span class="n">_END_</span>
+</code></pre></div>
+<p>测试如下：</p>
+<div class="highlight"><pre><code class="bash">./crc.pl http://www.hapi.com.cn/FLASH/age.swf
+http://www.hapi.com.cn/FLASH/age.swf cached at the 10.13.12.14:80 peer by the key   1007905459.
+</code></pre></div>
+<p>方法很拙劣，在比较运算和数组传递之间捣腾了很久，最后还是没能用%var{}和sort的办法搞定，而是采用了赋值单一变量然后切割获取序号的办法，反正只是做个小模拟，~~</p>
       <a href="/2010/03/16/implement-consistent_hash-by-perl" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -675,12 +1334,47 @@ mysql -uroot -p
       <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>今天继续看nginx的consistent_hash_module，因为想可能的话可以把url和对应的peer关系查出来，形成一个类似squidclient一样的方式。以下内容都是我从百度、谷歌、nginx模块应用指南和ngx_upstream_consistent_hash_module的src中自我理解得出的，欢迎指正。</p>
+      <p>今天继续看nginx的consistent_hash_module，因为想可能的话可以把url和对应的peer关系查出来，形成一个类似squidclient一样的方式。以下内容都是我从百度、谷歌、nginx模块应用指南和ngx_upstream_consistent_hash_module的src中自我理解得出的，欢迎指正。</p>
 <h2 id="urlhash">一、url_hash的原理</h2>
 <p>在一些稳定的系统（即不考虑流量变化导致时常add/del服务器）中，采用upstream_url_hash+固定的peer+一个backup的方式应该很不错。整个module很“简单”，对$uri进行CRC32计算得到key，然后把key针对peer的总数求余数，余几就把$uri存在第几个peer上。over~~</p>
-<p>用perl...</p>
-</body></html>
+<p>用perl表示，大概如下吧：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">use</span> <span class="nn">String::</span><span class="n">CRC32</span><span class="p">;</span>
+<span class="k">my</span> <span class="p">(</span><span class="nv">$url</span><span class="p">,</span> <span class="nv">$sum</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@ARGV</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$crc</span> <span class="o">=</span> <span class="n">crc32</span><span class="p">(</span><span class="s">&quot;$url&quot;</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$num</span> <span class="o">=</span> <span class="nv">$crc</span> <span class="nv">%</span> <span class="err">$</span><span class="nv">sum</span><span class="p">;</span>
+<span class="nb">printf</span> <span class="s">&quot;%s cached at the %s peer by the key %s\n&quot;</span><span class="p">,</span> <span class="nv">$url</span><span class="p">,</span> <span class="nv">$num</span><span class="p">,</span> <span class="nv">$crc</span><span class="p">;</span>
+</code></pre></div>
+<p>测试如下：</p>
+<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@sdl4 /home/rao 21:41:47<span class="o">]</span><span class="c"># ./crc.pl http://www.baidu.com 10</span>
+http://www.baidu.com cached at the 4 peer by the key 3500265894
+</code></pre></div>
+<h2 id="consistenthash">二、consistent_hash的原理</h2>
+<ol>
+  <li>consistent_hash在url_hash的基础上进一步，不单单对$uri进行CRC32计算，同样对peer进行CRC32计算。然后向下寻找离crc32($uri)最近的一个crc32($peer)，并把$uri存在这个peer上。</li>
+  <li>单纯进行uri和peer的crc32并寻找最近点的话，在均衡方面做到并不好，因为事实上sum(peer)不大可能大到满足理论推测的，就这么五六台peer，肯定很容易就出现个别服务器爆满的情况，所以consistent_hash还有进阶做法，为真实的peer做虚拟节点，然后uri寻找最近的虚拟节点存储（当然实际上还是对应到真实peer了）。按照前人实验，如果10台peer的话，给每个peer分成100-200个虚拟节点，才能比较完美的达到url_balance。</li>
+</ol>
+<h2 id="ngxupstreamhashmodule">三、ngx_upstream_hash_module的原理</h2>
+<p>nginx模块应用指南网上到处有，这里只贴CU论坛上关于upstream的一段翻译<a href="http://bbs.chinaunix.net/thread-1479873-1-1.html">http://bbs.chinaunix.net/thread-1479873-1-1.html</a>，大概说明的代码流程就是</p>
+<ol>
+  <li>ngx_http_upstream_hash注册upstream初始化函数并填充CONF信息，即读取nginx.conf中upstream backend {}中的内容；</li>
+  <li>ngx_http_upstream_init_hash初始化函数，（如果peer不是IP是Domain的话）DNS resolv，（根据peer的数量、端口、权重等）allocate sockets；</li>
+  <li>ngx_http_upstream_peer_data_t初始化peer函数，计算hash，设置get、free、tries变量；</li>
+  <li>ngx_http_upstream_get_peer(ngx_peer_connection_t *pc, void *data)，接受1中得到的peer列表，进行%运算，返回peer_name，告知nginx建立连接；</li>
+  <li>ngx_http_upstream_free_peer(ngx_peer_connection_t *pc, void *data, ngx_uint_t state)，完成rehash。</li>
+</ol>
+<h2 id="ngxconsistenthashmodule">四、ngx_consistent_hash_module的原理</h2>
+<p>这个module是在upstream的架构上完成的，所以对照上面的指南，倒是可以看出来一点点头绪。</p>
+<ol>
+  <li>在计算crc32的时候，不单单是使用uri和server_name:port的字符串，而且还增补上了字符串length;</li>
+  <li>和url_hash禁止给server加其他任何配置不同，src中也有weight的相关定义（0-255）处理（计算虚拟节点时），以完成weight-&gt;hash_cyc的映射；具体算法如下，MMC_CONSISTENT_POINTS，最开始定义了它等于160.应该就是全默认状态下的虚拟节点，naddrs或许是当前server的排序序号？（未知）</li>
+</ol>
+<div class="highlight"><pre><code class="c"><span class="n">points</span> <span class="o">+=</span> <span class="n">server</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">weight</span> <span class="o">*</span> <span class="n">server</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">naddrs</span> <span class="o">*</span> <span class="n">MMC_CONSISTENT_POINTS</span><span class="p">;</span>
+</code></pre></div>
+<ol>
+  <li>ngx_http_upstream_consistent_hash_find(ngx_http_upstream_consistent_hash_continuum *continuum, ngx_uint_t point)函数test middle point，用来计算url的crc32离哪个point最近。</li>
+  <li>使用了ngx_crc32_long来计算hash，这部分在nginx/src/core/ngx_crc32.c中。看到里头提供了256的初始化数据，和perl的String::CRC32里的是一样的……</li>
+</ol>
       <a href="/2010/03/15/consistent_hash" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -701,8 +1395,7 @@ mysql -uroot -p
       <a href="/categories.html#nginx-ref" title="nginx" rel="category tag">nginx</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>回到nginx的cache_store方式上来。这是传统的nginx缓存方式，配置一般如下：</p>
+      <p>回到nginx的cache_store方式上来。这是传统的nginx缓存方式，配置一般如下：</p>
 <div class="highlight"><pre><code class="nginx"><span class="k">upstream</span> <span class="s">test</span><span class="p">{</span>
     <span class="kn">server</span> <span class="n">211.152.60.180</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
 <span class="p">}</span>
@@ -714,8 +1407,68 @@ mysql -uroot -p
         <span class="kn">proxy_redirect</span> <span class="no">off</span><span class="p">;</span>
         <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="nv">$host</span><span class="p">;</span>
         <span class="kn">proxy_set_header</span> <span class="s">X-Real-IP</span> <span class="nv">$remote_addr</span><span class="p">;</span>
-        <span class="kn">proxy_set_...</span></code></pre></div>
-</body></html>
+        <span class="kn">proxy_set_header</span> <span class="s">X-Forwarded-For</span> <span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span>
+        <span class="kn">proxy_store</span> <span class="no">on</span><span class="p">;</span>
+        <span class="kn">proxy_store_access  </span> <span class="s">user:rw </span> <span class="s">group:rw </span> <span class="s">all:r</span><span class="p">;</span>
+        <span class="kn">proxy_temp_path    </span> <span class="s">/cache/temp</span><span class="p">;</span>
+        <span class="kn">if</span> <span class="s">(!-f</span> <span class="nv">$request_filename</span><span class="s">)</span> <span class="p">{</span>
+            <span class="kn">proxy_pass</span> <span class="s">http://test</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>很简单明了。不过如果如果碰上img[1-16].static.com这样的客户，难不成把这一大段复制粘贴上16遍？汗~~必然得采用泛域名方式了。</p>
+<p>server_name 支持.static.com的方式，root也支持/cache/$host/没有问题，save&amp;&amp;reconfigure，wget试一下，却没能缓存住。</p>
+<p>于是去翻nginx官方wiki，刚巧看到proxy_store语法，除了on和off这两个想当然的赋值外，还有一个path！原文如下：</p>
+<pre><code>Furthermore, the name of the path can be clearly assigned with the aid of the
+line with the variables:
+proxy_store   /data/www$original_uri;
+</code></pre>
+<p>赶紧换上，测试果然成功！conf如下：</p>
+<div class="highlight"><pre><code class="nginx"><span class="k">upstream</span> <span class="s">test</span><span class="p">{</span>
+    <span class="kn">server</span> <span class="n">211.152.60.180</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">server</span> <span class="p">{</span>
+    <span class="kn">listen</span>       <span class="mi">80</span><span class="p">;</span>
+    <span class="kn">server_name</span>  <span class="s">.anjukestatic.com</span><span class="p">;</span>
+    <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
+        <span class="kn">root</span> <span class="s">/cache/</span><span class="nv">$host/</span><span class="p">;</span>
+        <span class="kn">proxy_redirect</span> <span class="no">off</span><span class="p">;</span>
+        <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="nv">$host</span><span class="p">;</span>
+        <span class="kn">proxy_set_header</span> <span class="s">X-Real-IP</span> <span class="nv">$remote_addr</span><span class="p">;</span>
+        <span class="kn">proxy_set_header</span> <span class="s">X-Forwarded-For</span> <span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span>
+        <span class="kn">proxy_store</span> <span class="s">/cache/</span><span class="nv">$host$uri</span><span class="p">;</span>
+        <span class="kn">proxy_store_access</span>   <span class="s">user:rw</span>  <span class="s">group:rw</span>  <span class="s">all:r</span><span class="p">;</span>
+        <span class="kn">proxy_temp_path</span>      <span class="s">/cache/temp</span><span class="p">;</span>
+        <span class="kn">if</span> <span class="s">(!-f</span> <span class="nv">$request_filename</span><span class="s">)</span> <span class="p">{</span>
+            <span class="kn">proxy_pass</span> <span class="s">http://test</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>测试日志记录如下：</p>
+<pre><code>1268456455.505 -/200 101 GET http://images6.static.com/property/20090911/600x600.jpg PARENT/211.152.60.180:80 "-" "Wget/1.10.2 (Red Hat modified)"
+1268456586.371 -/200 101 GET http://images6.static.com/property/20090911/600x600.jpg PARENT/- "-" "Wget/1.10.2 (Red Hat modified)"
+1268456631.414 -/200 45 GET http://images9.static.com/property/20100103/420x315.jpg PARENT/211.152.60.180:80 "-" "Wget/1.10.2 (Red Hat modified)"
+1268456632.231 -/200 45 GET http://images9.static.com/property/20100103/420x315.jpg PARENT/- "-" "Wget/1.10.2 (Red Hat modified)"
+</code></pre>
+<p>不知道为什么，这个$upstream_cache_status居然一直是-，郁闷一下下。</p>
+<p>另，刚开始只写proxy_store /cache/$host;也不行，后来看error.log中提示</p>
+<pre><code>“rename() "/cache/temp/0000000001" to "/cache/images6.static.com/" failed (20: Not a directory)”
+</code></pre>
+<p>才知道必须加上$uri。官方文档写的是$original_uri，日志里写的是$request_uri，nginx的内置变量有时候真的让人有些头晕……
+思路跳回上篇的大小写，或许用下面这个办法可以？</p>
+<div class="highlight"><pre><code class="nginx"><span class="k">perl_set</span> <span class="nv">$url</span> <span class="s">&#39;</span>
+<span class="s">sub</span> <span class="p">{</span>
+    <span class="kn">my</span> <span class="nv">$r</span> <span class="p">=</span> <span class="s">shift</span><span class="p">;</span>
+    <span class="kn">my</span> <span class="nv">$re</span> <span class="p">=</span> <span class="s">lc(</span><span class="nv">$r-&gt;uri</span><span class="s">)</span><span class="p">;</span>
+    <span class="kn">return</span> <span class="nv">$re</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">&#39;</span><span class="p">;</span>
+<span class="k">proxy_store</span> <span class="s">/cache/</span><span class="nv">$host$url</span><span class="p">;</span>
+<span class="c1">#proxy_cache_key $host$url$is_args$args;</span>
+</code></pre></div>
+<p>未经试验，目前猜测，可能结果是nginx回源下载新文件，然后覆盖掉原来的——也就是说达到节省磁盘的目的，但HIT/MISS照旧。</p>
       <a href="/2010/03/13/pan-domain-cache_store" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -736,48 +1489,45 @@ mysql -uroot -p
       <a href="/categories.html#nginx-ref" title="nginx" rel="category tag">nginx</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>想找找解决不同client请求中文url产生多份cache的办法，结果在nginx的maillist里看到也有人问《<a href="http://forum.nginx.org/read.php?2,48527" target="_blank">rewrite to lowercase?</a>》下面有人回答了这个问题，做法和我一样~~呵呵。随后他也附上了这种做法的思路和问题。</p>
+      <p>想找找解决不同client请求中文url产生多份cache的办法，结果在nginx的maillist里看到也有人问《<a href="http://forum.nginx.org/read.php?2,48527" target="_blank">rewrite to lowercase?</a>》下面有人回答了这个问题，做法和我一样~~呵呵。随后他也附上了这种做法的思路和问题。</p>
 <pre><code>The first option (with the if and http://$host) sends an HTTP redirect
 to the lowercase URL if the requested URL is not completely in
 lowercase. I like this approach better as it kind of normalizes all URL
-to a canonical for...</code></pre>
-</body></html>
+to a canonical form.. The second option (without if nor http://) just accepts
+any URL and internally rewrites them to lowercase: if you rename all
+your directories and files to lowercase, this will imitate Windows'
+case-insensitive behaviour.
+</code></pre>
+<p>第一个办法：采用if语句判断url是否有大写字母在内，有则重定向，作者本人比较喜欢这种方式，因为这样返回的url是符合标准规范的；第二个方法，采用internal方式重定向所有uri，就像windows主机的做法一样。</p>
+<pre><code>Kudos to the following post were I
+draw the "inspiration" :D from to get this done. The embedded perl doc
+and examples are indeed scarce. :-(
+</code></pre>
+<p>最后作者也感慨了一句：nginx的内置perl模块的文档和配置案例实在是太少了……
+    Anyway I see two problems in this approach:
+然后说说这种办法的两个问题：</p>
+<pre><code>- you need the
+embedded perl module which according to the docs is experimental and can
+lead to memory leaks.
+</code></pre>
+<p>这个方法是基于内嵌perl模块的，而根据官方文档的说明，有可能导致内存泄漏！</p>
+<pre><code>- the actual redirection is done with the
+rewrite, which you can put on the location you need. But the URL
+lowercase calculation, being on the "http" section of the config, is
+done for each and every request arriving to your server. Say you have a
+virtual server with 10 domains and you only need this on one particular
+location of one of them. The lowercase URL is going to be calculated for
+every request of every domain.
+</code></pre>
+<p>rewrite语句是在location段的，而perl_set语句是在http段的。也就是说，每一个请求过来，都被转化大小写了。如果你的服务器上配了十个虚拟主机，却只想忽略一个的大小写，这个换算依然要在所有域名中都执行的……</p>
+<pre><code>I guess that by defining a perl
+function the URL calculation could be restricted to a particular
+location, have to look into it further. Another option is writing a C
+module.
+</code></pre>
+<p>我想在location段里另建perl函数换算url（即perl_module/perl_require），不过这是以后的事了；或者干脆用C语言写个模块。</p>
+<p>在继续往下翻的时候，看到两条感兴趣的话，一是nginx开发者正在完成updating_file_lock的功能，解决第一次MISS的时候同时向origin并发请求的问题；二是正在完善cache_path和temp_pache必须在同一个文件系统的link()的功能，这样就可以在每个server下指定特定的cache_path了。</p>
       <a href="/2010/03/13/ignore-case-in-nginx-2" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/03/13/ignore-case-in-nginx" title="忽略大小写（nginx）" rel="bookmark">忽略大小写（nginx）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-03-13 00:00:00 +0800">13 Mar 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#nginx-ref" title="nginx" rel="category tag">nginx</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <html><body>
-<p>刚才发现使用perl_set忽略大小写，完全不用perl_module和perl_require那么兴师动众，同样也能达到不错的效果。比如<a href="http://www.cnblogs.com/fengmk2/archive/2009/04/25.html" target="_blank">这个用perl做伪静态路径的例子</a>。随即就动手试验一下。</p>
-<p>首先找一个windows的origin，因为windows是不区分大小写，这样可以确保任意wget都能返回200的结果；</p>
-<p>然后按照上篇提到的方法配置nginx.conf（如下），stop&amp;&amp;start看看。</p>
-<div class="highlight"><pre><code class="nginx"><span class="k">upstream</span> <span class="s">test</span><span class="p">{</span>
-    <span class="kn">server</span> <span class="n">61.152.237.170</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">perl_set</span> <span class="nv">$url</span> <span class="s">'</span>
-    <span class="s">sub</span> <span class="p">{</span>
-        <span class="kn">my</span> <span class="nv">$r</span> <span class="p">=</span> <span class="s">shift</span><span class="p">;</span>
-        <span class="kn">my</span> <span class="nv">$re</span> <span class="p">=</span> <span class="s">lc(</span><span class="nv">$r-&gt;uri</span><span class="s">)</span><span class="p">;</span>
-        <span class="kn">return</span> <span class="nv">$re</span><span class="p">;</span>
-    ...</code></pre></div>
-</body></html>
-      <a href="/2010/03/13/ignore-case-in-nginx" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
@@ -893,7 +1643,7 @@ to a canonical for...</code></pre>
               <li><a href="http://blog.liuts.com/" title="前天涯SA 刘天斯">运维进行时</a></li>
               <li><a href="http://www.lark.net.cn/" title="lark's cloud">lark's cloud</a></li>
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
-              <li><a href="http://blog.liulantao.com/" title="lax">Lax</a></li>
+              <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
               <li><a href="http://l09.me/" title="风声">风声</a></li>
               <li><a href="http://moyan.tk/" title="莫言">莫言</a></li>
               <li><a href="http://mooser.me/" title="牛氓">牛氓</a></li>
@@ -903,6 +1653,9 @@ to a canonical for...</code></pre>
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
               <li><a href="http://muxueqz.laou.me" title="muxueqz">聊逍遥兮容与</a></li>
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+              <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+              <li><a href="http://paperplane.ruhoh.com/" title="深入研究puppet">纸飞机</a></li>
+              <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
           </ul>
         </div>
       </div>
