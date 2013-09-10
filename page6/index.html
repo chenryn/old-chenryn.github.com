@@ -43,6 +43,149 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2011/07/25/overwrite-qqwry-for-self-monitor" title="cdn自主监控(一):整理一个可用范围内的尽可能小的ip库" rel="bookmark">cdn自主监控(一):整理一个可用范围内的尽可能小的ip库</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-07-25 00:00:00 +0800">25 Jul 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>为了跟第三方监控做对比和作为备用，准备自己通过页面js返回数据做个监控。首先第一步，整理一个足够自己用的ip库。
+首先，考虑调用会比较频繁，打算把内容尽可能归并，到省级运营商即可；
+其次，未知归并完会有多大的情况下，考虑到qqwry的地区都是中文，打算统一使用电话区号代替地区，运营商也有一位数字代替，ip采用inet-aton网络值代替；这样每条记录的字节数固定，可以方便采用seek和sysread提高读取某条记录的速度。</p>
+<hr />
+<p>前几步工作和之前整理ip库给dns用的时候一样，导出qqwry.txt，约42w条，24MB大小。
+然后从网上搜一下全国电话区号，以各省省会(首府)的区号为准，存成一个quhao.txt，为了之后处理方便，只保留前两个中文，好在中国的省份里也只有内蒙古和黑龙江是三个字，留两位不至于影响阅读，txt内容如下：</p>
+<div class="highlight"><pre><code class="yaml"><span class="l-Scalar-Plain">北京 0010</span> 
+<span class="l-Scalar-Plain">上海 0021</span>
+<span class="l-Scalar-Plain">天津 0022</span>
+<span class="l-Scalar-Plain">重庆 0023</span>
+<span class="l-Scalar-Plain">安徽 0551</span>
+<span class="l-Scalar-Plain">福建 0591</span>
+<span class="l-Scalar-Plain">甘肃 0931</span>
+<span class="l-Scalar-Plain">广东 0020</span>
+<span class="l-Scalar-Plain">广西 0771</span>
+<span class="l-Scalar-Plain">贵州 0851</span>
+<span class="l-Scalar-Plain">海南 0898</span>
+<span class="l-Scalar-Plain">河北 0311</span>
+<span class="l-Scalar-Plain">河南 0371</span>
+<span class="l-Scalar-Plain">黑龙 0451</span>
+<span class="l-Scalar-Plain">湖北 0027</span>
+<span class="l-Scalar-Plain">湖南 0731</span>
+<span class="l-Scalar-Plain">吉林 0431</span>
+<span class="l-Scalar-Plain">江苏 0025</span>
+<span class="l-Scalar-Plain">江西 0791</span>
+<span class="l-Scalar-Plain">辽宁 0024</span>
+<span class="l-Scalar-Plain">内蒙 0471</span>
+<span class="l-Scalar-Plain">宁夏 0951</span>
+<span class="l-Scalar-Plain">青海 0971</span>
+<span class="l-Scalar-Plain">山东 0531</span>
+<span class="l-Scalar-Plain">山西 0351</span>
+<span class="l-Scalar-Plain">陕西 0029</span>
+<span class="l-Scalar-Plain">四川 0028</span>
+<span class="l-Scalar-Plain">西藏 0891</span>
+<span class="l-Scalar-Plain">新疆 0991</span>
+<span class="l-Scalar-Plain">云南 0871</span>
+<span class="l-Scalar-Plain">浙江 0571</span>
+</code></pre></div>
+<p>然后用如下perl脚本归并：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">my</span><span class="p">(</span><span class="nv">$quhao</span><span class="p">,</span> <span class="nv">$qqwry</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@ARGV</span><span class="p">;</span>
+<span class="nv">$code</span> <span class="o">=</span> <span class="n">read_area_code</span><span class="p">(</span><span class="nv">$quhao</span><span class="p">);</span>
+<span class="n">overwrite_iplist</span><span class="p">(</span><span class="nv">$qqwry</span><span class="p">,</span> <span class="nv">$code</span><span class="p">);</span>
+<span class="k">sub </span><span class="nf">inet_aton</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$short</span> <span class="o">=</span> <span class="nb">sprintf</span> <span class="s">&quot;%010s&quot;</span><span class="p">,</span> <span class="nv">$1</span> <span class="o">*</span> <span class="mi">256</span><span class="o">**</span><span class="mi">3</span> <span class="o">+</span> <span class="nv">$2</span> <span class="o">*</span> <span class="mi">256</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="nv">$3</span> <span class="o">*</span> <span class="mi">256</span> <span class="o">+</span> <span class="nv">$4</span> <span class="k">if</span> <span class="nv">$ip</span> <span class="o">=~</span><span class="sr"> /(\d+)\.(\d+)\.(\d+)\.(\d+)/</span><span class="p">;</span>
+    <span class="k">return</span> <span class="nv">$short</span><span class="p">;</span>
+<span class="p">};</span>
+<span class="k">sub </span><span class="nf">read_area_code</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$file</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$area_code</span> <span class="o">=</span> <span class="p">{};</span>
+    <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span><span class="s">&#39;&lt;&#39;</span><span class="p">,</span><span class="s">&quot;$file&quot;</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;Cannot open $file&quot;</span><span class="p">;</span>
+    <span class="k">while</span> <span class="p">(</span><span class="sr">&lt;$fh&gt;</span><span class="p">)</span> <span class="p">{</span>
+	<span class="nb">chomp</span><span class="p">;</span>
+        <span class="k">my</span><span class="p">(</span><span class="nv">$area</span><span class="p">,</span><span class="nv">$code</span><span class="p">)</span> <span class="o">=</span> <span class="nb">split</span><span class="p">;</span>
+	<span class="nv">$area_code</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$area&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="s">&quot;$code&quot;</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="nb">close</span> <span class="nv">$fh</span><span class="p">;</span>
+    <span class="k">return</span> <span class="nv">$area_code</span><span class="p">;</span>
+<span class="p">};</span>
+<span class="k">sub </span><span class="nf">overwrite_iplist</span> <span class="p">{</span>
+    <span class="k">my</span><span class="p">(</span><span class="nv">$iplist</span><span class="p">,</span> <span class="nv">$area_code</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+    <span class="k">my</span><span class="p">(</span><span class="nv">$last_begin_ip_n</span><span class="p">,</span> <span class="nv">$last_end_ip_n</span><span class="p">,</span> <span class="nv">$last_province_n</span><span class="p">,</span> <span class="nv">$last_isp_n</span><span class="p">);</span>
+    <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span><span class="s">&#39;&lt;&#39;</span><span class="p">,</span><span class="s">&quot;$iplist&quot;</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;Cannoet open $iplist&quot;</span><span class="p">;</span>
+    <span class="k">while</span> <span class="p">(</span><span class="sr">&lt;$fh&gt;</span><span class="p">)</span> <span class="p">{</span>
+	<span class="nb">chomp</span><span class="p">;</span>
+	<span class="k">my</span><span class="p">(</span><span class="nv">$begin_ip</span><span class="p">,</span> <span class="nv">$end_ip</span><span class="p">,</span> <span class="nv">$area</span><span class="p">,</span> <span class="nv">$isp</span><span class="p">)</span> <span class="o">=</span> <span class="nb">split</span><span class="p">;</span>
+	<span class="k">my</span><span class="p">(</span><span class="nv">$province_n</span><span class="p">,</span> <span class="nv">$isp_n</span><span class="p">);</span>
+	<span class="k">my</span> <span class="nv">$begin_ip_n</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">inet_aton</span><span class="p">(</span><span class="s">&quot;$begin_ip&quot;</span><span class="p">);</span>
+	<span class="k">my</span> <span class="nv">$end_ip_n</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">inet_aton</span><span class="p">(</span><span class="s">&quot;$end_ip&quot;</span><span class="p">);</span>
+        <span class="k">next</span> <span class="k">if</span> <span class="p">(</span><span class="nv">$end_ip_n</span> <span class="o">-</span> <span class="nv">$begin_ip_n</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">32</span><span class="p">;</span>
+	<span class="k">if</span> <span class="p">(</span> <span class="nv">$area</span> <span class="o">=~</span><span class="sr"> /学/</span> <span class="p">)</span> <span class="p">{</span>
+	    <span class="nv">$isp_n</span> <span class="o">=</span> <span class="mi">4</span><span class="p">;</span>                                          <span class="c1">#教育网, 因为清华北大等学校记录在area里了，所以这步提前设定 </span>
+	<span class="p">};</span>
+	<span class="k">if</span> <span class="p">(</span> <span class="nv">$isp</span> <span class="o">=~</span> <span class="sr">m/电信/</span> <span class="p">)</span> <span class="p">{</span>
+	    <span class="nv">$isp_n</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>                                          <span class="c1">#电信 </span>
+	<span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$isp</span> <span class="o">=~</span> <span class="sr">m/联通/</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="nv">$isp_n</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>                                          <span class="c1">#联通(包括原网通) </span>
+	<span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$isp</span> <span class="o">=~</span> <span class="sr">m/铁通|移动/</span> <span class="p">)</span> <span class="p">{</span>
+	    <span class="nv">$isp_n</span> <span class="o">=</span> <span class="mi">3</span><span class="p">;</span>                                          <span class="c1">#移动(包括原铁通) </span>
+	<span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$isp</span> <span class="o">=~</span> <span class="sr">m/学/</span> <span class="p">)</span> <span class="p">{</span>
+	    <span class="nv">$isp_n</span> <span class="o">=</span> <span class="mi">4</span><span class="p">;</span>                                          <span class="c1">#教育网 </span>
+	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+	    <span class="nv">$isp_n</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>                                          <span class="c1">#国外地址及其他未能识别的国内运营商 </span>
+	<span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$province</span> <span class="o">=</span> <span class="nb">substr</span><span class="p">(</span><span class="nv">$area</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">);</span>                      <span class="c1">#中文用2字节，所以对原始记录获取前四字节即为省份名</span>
+	<span class="k">if</span> <span class="p">(</span> <span class="nb">exists</span> <span class="nv">$area_code</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$province&quot;</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
+	    <span class="nv">$province_n</span> <span class="o">=</span> <span class="nv">$area_code</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$province&quot;</span><span class="p">};</span>             <span class="c1">#国内已知电话区号的省份 </span>
+	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+	    <span class="nv">$province_n</span> <span class="o">=</span> <span class="s">&#39;0000&#39;</span><span class="p">;</span>                                <span class="c1">#港澳台及外国，可能有其他未能识别的国内地址 </span>
+	<span class="p">};</span>
+        <span class="c1">#下段为合并网段，之前dns时也用过</span>
+	<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nv">$last_province_n</span><span class="p">)</span> <span class="p">{</span>
+	    <span class="p">(</span><span class="nv">$last_begin_ip_n</span><span class="p">,</span> <span class="nv">$last_end_ip_n</span><span class="p">,</span> <span class="nv">$last_province_n</span><span class="p">,</span> <span class="nv">$last_isp_n</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$begin_ip_n</span><span class="p">,</span> <span class="nv">$end_ip_n</span><span class="p">,</span> <span class="nv">$province_n</span><span class="p">,</span> <span class="nv">$isp_n</span><span class="p">);</span>
+	<span class="p">};</span>
+        <span class="k">if</span> <span class="p">(</span> <span class="nv">$last_province_n</span> <span class="o">==</span> <span class="nv">$province_n</span> <span class="o">&amp;&amp;</span> <span class="nv">$last_isp_n</span> <span class="o">==</span> <span class="nv">$isp_n</span> <span class="p">)</span> <span class="p">{</span>
+	    <span class="nv">$last_end_ip_n</span> <span class="o">=</span> <span class="nv">$end_ip_n</span><span class="p">;</span>
+	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+	    <span class="nb">printf</span> <span class="s">&quot;%010s %010s %04s %s\n&quot;</span><span class="p">,</span> <span class="nv">$last_begin_ip</span><span class="p">,</span> <span class="nv">$last_end_ip</span><span class="p">,</span> <span class="nv">$last_province_n</span><span class="p">,</span> <span class="nv">$last_isp_n</span><span class="p">;</span>
+	    <span class="p">(</span><span class="nv">$last_begin_ip_n</span><span class="p">,</span> <span class="nv">$last_end_ip_n</span><span class="p">,</span> <span class="nv">$last_province_n</span><span class="p">,</span> <span class="nv">$last_isp_n</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$begin_ip_n</span><span class="p">,</span> <span class="nv">$end_ip_n</span><span class="p">,</span> <span class="nv">$province_n</span><span class="p">,</span> <span class="nv">$isp_n</span><span class="p">);</span>
+	<span class="p">};</span>
+    <span class="p">};</span>
+    <span class="nb">close</span> <span class="nv">$fh</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>最后运行如下命令即可获得精简ip库：</p>
+<div class="highlight"><pre><code class="bash">perl overwrite.pl quhao.txt qqwry.txt &gt; newip.txt
+</code></pre></div>
+<p>对比一下大小和行数：</p>
+<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@cdn2 ~<span class="o">]</span><span class="c"># ll</span>
+-rw-r--r-- 1 root root   539226 Jul 25 18:18 newer.txt
+-rw-r--r-- 1 root root  9058928 May 15 13:13 QQWry.dat
+-rw-r--r-- 1 root root 24753935 Jul 25 15:26 qqwry.txt
+-rw-r--r-- 1 root root      340 Jul 25 15:03 quhao.txt
+-rw-r--r-- 1 root root     2439 Jul 25 18:17 test.pl
+<span class="o">[</span>root@cdn2 ~<span class="o">]</span><span class="c"># wc -l *</span>
+   18594 newer.txt
+   34727 QQWry.dat
+  428454 qqwry.txt
+      30 quhao.txt
+      72 test.pl
+</code></pre></div>
+<p>好了，一天一天来，明天实现在这527KB的文件里快速定位ip……</p>
+      <a href="/2011/07/25/overwrite-qqwry-for-self-monitor" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2011/07/21/some-tests-about-perl" title="perl小测试题(转自CU)" rel="bookmark">perl小测试题(转自CU)</a>
     </h1>
     <p class="alt-font tight">
@@ -2440,30 +2583,6 @@ CPU：
 数据库会有大量的磁盘IO以完成数据在内存和硬盘的交换。一般每个xeon的CPU需要对应10块高速硬盘，最好能有50块10000转的磁盘。IBM的xSeries 370使用450块10000转磁盘以达到最大吞吐量——每分钟40000次交换。</p>
 <p>笔记到此为止。之后的内容是DB2的调优，samba、ldap、lotus章节，就没看了……</p>
       <a href="/2011/04/01/learning-tuning-red-hat-enterprise-linux-on-ibm-server-xseries-servers" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/03/31/problem-of-php-compile-option" title="php编译参数问题一例" rel="bookmark">php编译参数问题一例</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-03-31 00:00:00 +0800">31 Mar 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#php-ref" title="php" rel="category tag">php</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>某php应用在给图片加水印的时候，显示的中文全都成了乱码，而开发同事在它本机(ubuntu)上apt安装的lamp上显示没有问题。仔细检查过了从env到encoding到phpinfo，都没有发现问题——都符合GD函数imagettftext()的utf8要求。
-还好有google，发现一个类似的文章，提出是php的编译参数中有一个&ndash;enable-gd-jis-conv，会把ttf字库中非标准拉丁文的部分，按照日文顺序映射，imagettftext()的默认编码其实被隐形指定成了日文编码euc-jp，中文自然就不正常了！
-然后赶紧重新看phpinfo，真有这个参数。重新编译php，随后恢复正常显示了。
-编译参数还真是不能大意啊～～</p>
-      <a href="/2011/03/31/problem-of-php-compile-option" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
