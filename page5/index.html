@@ -43,6 +43,40 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2011/12/19/omd_intro_install_on_centos5" title="OMD系列(一)简介与安装" rel="bookmark">OMD系列(一)简介与安装</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-12-19 00:00:00 +0800">19 Dec 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>OMD，全称Open Monitoring Distribution，是一个围绕Nagios core构建的分布式开源监控集。在nagios基础上融合了NRPE、NSCA、check_mk、mod_gearman、pnp4nagios、nagvis、rrdcached等插件，以完成高性能的、可视化的，分权限管理的监控系统。
+（我是在看mod_gearman的安装介绍时看到的，感觉这种一体式的安装很爽）
+项目主页是<a href="http://omdistro.org" target="_blank">http://omdistro.org</a>，提供了rh、debian、suse和src各种安装模式。
+比如在centos5上面，只需要简单的操作即可：</p>
+<div class="highlight"><pre><code class="bash">rpm -Uvh http://download.fedora.redhat.com/pub/epel/5/i386/epel-release-5-4.noarch.rpm
+<span class="c">#单独装graphviz是因为epel里的版本有冲突</span>
+yum install graphviz-gd.x86_64
+<span class="c">#已经有rhel6上的版本，而5.4提供最高只到0.45，mod_gearman从0.48才加入，所以试试5.5的，发现也没问题~~</span>
+yum install --nogpgcheck http://omdistro.org/attachments/download/121/omd-0.50-rh55-25.x86_64.rpm
+</code></pre></div>
+<p>然后运行omd create monitor即可。
+omd会自动在linux系统上添加一个monitor用户，然后其他操作可以在su - monitor后再继续，这样比较安全，而且可以看到的是，create的时候，还挂载了tmpfs到/omd/sites/monitor/tmp，以提供更高的性能。
+切换到monitor用户后，运行omd start，即可启动。
+先写到这里，慢慢看具体配置。</p>
+      <a href="/2011/12/19/omd_intro_install_on_centos5" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2011/12/19/intro_open_flash_chart" title="Chart::OFC试用" rel="bookmark">Chart::OFC试用</a>
     </h1>
     <p class="alt-font tight">
@@ -2253,83 +2287,6 @@ select_time<span class="nt">&lt;HR&gt;</span>
 <span class="k">ALTER</span> <span class="n">EVENT</span> <span class="n">event_cdn</span> <span class="k">ON</span> <span class="n">COMPLETION</span> <span class="n">PRESERVE</span> <span class="n">ENABLE</span><span class="p">;</span>
 </code></pre></div>
       <a href="/2011/07/27/prepare-mysql-for-self-monitor" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/07/26/seek-iplist-for-self-monitor" title="cdn自主监控(二):快速查找ip对应信息" rel="bookmark">cdn自主监控(二):快速查找ip对应信息</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-07-26 00:00:00 +0800">26 Jul 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>话接上篇，ip整理出来，然后就是接一个ip地址，快速定位查找到它属于哪个ip段，然后返回具体的省份和运营商。因为之前的ip已经转换成数字，而且是顺序排列的，所以可以采用折半算法(二分法)。perl脚本如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="c1">#my $ip = inet_aton(&quot;$ARGV[0]&quot;);</span>
-<span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="n">inet_aton</span><span class="p">(</span><span class="n">get_test_ip</span><span class="p">());</span>
-<span class="k">my</span> <span class="nv">$file</span> <span class="o">=</span> <span class="nv">$ARGV</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">||</span> <span class="s">&#39;iplist.txt&#39;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$length</span> <span class="o">=</span> <span class="sb">`cat $file | wc -l`</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$code</span> <span class="o">=</span> <span class="n">get_area_code</span><span class="p">(</span><span class="s">&#39;quhao.txt&#39;</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">@isplist</span> <span class="o">=</span> <span class="sx">qw(&#39;其他&#39; &#39;电信&#39; &#39;联通&#39; &#39;移动&#39; &#39;教育网&#39;)</span><span class="p">;</span>
-<span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;&lt;&#39;</span><span class="p">,</span> <span class="s">&quot;$file&quot;</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;Cannot open $file\n&quot;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$line_len</span> <span class="o">=</span> <span class="s">&#39;26&#39;</span><span class="p">;</span>                       <span class="c1">#=10+10+4+1+1，包括回车符(注意上篇输出为了好看多了空格，可以删掉) </span>
-<span class="k">my</span> <span class="nv">$first</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$last</span> <span class="o">=</span> <span class="nv">$length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>                    <span class="c1">#统一使用SEEK_SET,所以最后一行的起始位置是length-1 </span>
-<span class="k">my</span> <span class="nv">$result</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-<span class="k">while</span> <span class="p">(</span><span class="nv">$result</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$middle</span> <span class="o">=</span> <span class="nb">sprintf</span><span class="p">(</span><span class="s">&quot;%.0f&quot;</span><span class="p">,(</span><span class="nv">$last</span><span class="o">-</span><span class="nv">$first</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="nv">$first</span><span class="p">);</span>    <span class="c1">#折半位置，除法取整时采用sprintf比直接int精确</span>
-    <span class="nb">seek</span> <span class="nv">$fh</span><span class="p">,</span> <span class="nv">$line_len</span> <span class="o">*</span> <span class="nv">$middle</span><span class="p">,</span> <span class="mi">0</span><span class="p">;</span>                            <span class="c1">#移动到折半位置 </span>
-    <span class="nb">sysread</span> <span class="nv">$fh</span><span class="p">,</span> <span class="nv">$begin_ip</span><span class="p">,</span> <span class="mi">10</span><span class="p">;</span>                                  <span class="c1">#从折半处读取10位 </span>
-    <span class="nb">sysread</span> <span class="nv">$fh</span><span class="p">,</span> <span class="nv">$end_ip</span><span class="p">,</span> <span class="mi">10</span><span class="p">;</span>                                    <span class="c1">#接着再读10位,如果没删空格,还要先seek移动1位,麻烦 </span>
-    <span class="c1">#根据比大小决定下次向哪个方向折半</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nv">$ip</span> <span class="o">&lt;</span> <span class="nv">$begin_ip</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$last</span> <span class="o">=</span> <span class="nv">$middle</span><span class="p">;</span>
-        <span class="k">next</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$ip</span> <span class="o">&gt;</span> <span class="nv">$end_ip</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$first</span> <span class="o">=</span> <span class="nv">$middle</span><span class="p">;</span>
-        <span class="k">next</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-    <span class="c1">#找到相应区间，读取区号和运营商号</span>
-        <span class="nb">sysread</span> <span class="nv">$fh</span><span class="p">,</span> <span class="nv">$area</span><span class="p">,</span> <span class="mi">4</span><span class="p">;</span>
-        <span class="nb">sysread</span> <span class="nv">$fh</span><span class="p">,</span> <span class="nv">$isp</span><span class="p">,</span> <span class="mi">1</span><span class="p">;</span>
-        <span class="nb">printf</span> <span class="s">&quot;%010s %s %s\n&quot;</span><span class="p">,</span> <span class="nv">$ip</span><span class="p">,</span> <span class="nv">$code</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$area&quot;</span><span class="p">},</span> <span class="nv">$isplist</span><span class="p">[</span><span class="nv">$isp</span><span class="p">];</span>
-        <span class="nv">$result</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>                                             <span class="c1">#设定$result为假，退出循环 </span>
-    <span class="p">};</span>
-<span class="p">};</span>
-<span class="nb">close</span> <span class="nv">$fh</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">inet_aton</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$short</span> <span class="o">=</span> <span class="nb">sprintf</span> <span class="s">&quot;%010s&quot;</span><span class="p">,</span> <span class="nv">$1</span> <span class="o">*</span> <span class="mi">256</span><span class="o">**</span><span class="mi">3</span> <span class="o">+</span> <span class="nv">$2</span> <span class="o">*</span> <span class="mi">256</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="nv">$3</span> <span class="o">*</span> <span class="mi">256</span> <span class="o">+</span> <span class="nv">$4</span> <span class="k">if</span> <span class="nv">$ip</span> <span class="o">=~</span><span class="sr"> /(\d+)\.(\d+)\.(\d+)\.(\d+)/</span><span class="p">;</span>
-    <span class="k">return</span> <span class="nv">$short</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="c1">#对应区号和省份，跟上篇的kv相反</span>
-<span class="k">sub </span><span class="nf">get_area_code</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$file</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$area_code</span> <span class="o">=</span> <span class="p">{</span> <span class="s">&#39;0000&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;other&#39;</span> <span class="p">};</span>
-    <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span><span class="s">&#39;&lt;&#39;</span><span class="p">,</span><span class="s">&quot;$file&quot;</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;Cannot open $file&quot;</span><span class="p">;</span>
-    <span class="k">while</span> <span class="p">(</span><span class="sr">&lt;$fh&gt;</span><span class="p">)</span> <span class="p">{</span>
-	<span class="nb">chomp</span><span class="p">;</span>
-        <span class="k">my</span><span class="p">(</span><span class="nv">$area</span><span class="p">,</span><span class="nv">$code</span><span class="p">)</span> <span class="o">=</span> <span class="nb">split</span><span class="p">;</span>
-	<span class="nv">$area_code</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$code&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="s">&quot;$area&quot;</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="nb">close</span> <span class="nv">$fh</span><span class="p">;</span>
-    <span class="k">return</span> <span class="nv">$area_code</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="c1">#生成一个随机的合法ip地址</span>
-<span class="k">sub </span><span class="nf">get_test_ip</span> <span class="p">{</span>
-    <span class="k">return</span> <span class="nb">join</span> <span class="s">&#39;.&#39;</span><span class="p">,</span> <span class="nb">map</span> <span class="nb">int</span> <span class="nb">rand</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">1</span><span class="o">..</span><span class="mi">4</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div>
-      <a href="/2011/07/26/seek-iplist-for-self-monitor" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

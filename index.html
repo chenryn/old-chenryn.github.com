@@ -43,6 +43,34 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/09/14/elasticsearch-for-rexify-website" title="用 ElasticSearch 支持 Rexify 网站的搜索功能" rel="bookmark">用 ElasticSearch 支持 Rexify 网站的搜索功能</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-09-14 00:00:00 +0800">14 Sep 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>最近给 Rexify 官网做<a href="http://rex.perl-china.com">中文化</a>工作，除了文字翻译之外，还要负责把服务正常跑起来。网站本身就是一个 <code>Mojolicious</code> 写的小东西，用 <code>morbo html/website.pl</code> 命令直接运行就可以监听在 3000 端口，然后通过 nginx 代理发布即可。</p>
+<p>不过官网上还有一个高级功能需要另外支持，那就是搜索。</p>
+<p>Rexify 官网的搜索功能是通过 ElasticSearch 提供的。这里需要注意一点，官方提供的 <code>create_index.pl</code> 中，并不是直接把文件内容本身存入 ES 索引的(之前介绍过的 <code>devopsweekly_index.pl</code> 脚本就是这样做的)，而是编码成 Base64 之后再以附件形式存储。</p>
+<p>一开始我没注意到这点，结果搜索结果里一直只有标题和链接，没有高亮内容。后来发现是存的 base64 编码后又很疑惑 Rexify 官网是如何把 base64 再解码回来到网页上显示的。幸亏后来想到去 ElasticSearch 官网搜索一下 base64 关键词，然后发现了专门的<a href="https://github.com/elasticsearch/elasticsearch-mapper-attachments">介绍页面</a>。原来是有一个<a href="https://github.com/elasticsearch/elasticsearch-mapper-attachments">插件</a>实现的附件解析，调用了 Apache Tika 库，也就意味着支持 HTML/XML/Office/ODF/PDF/Epub/RTF/TXT/ZIP/MP3/JPG/FLV/Mbox/JAR 等等各种格式的文件。</p>
+<p>所以，安装这个插件，然后重建索引，就可以正常提供搜索功能了：</p>
+<pre><code>/usr/share/elasticsearch/bin/plugin -install elasticsearch/elasticsearch-mapper-attachments/1.9.0
+rexify-website/create_index.pl localhost 9200 html/templates
+</code></pre>
+<p>脚本本身超级简单，欢迎大家自行阅读。</p>
+      <a href="/2013/09/14/elasticsearch-for-rexify-website" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/09/10/different-format-character-of-pack-between-python-and-perl" title="Perl 和 Python 的 pack 函数格式字符的区别" rel="bookmark">Perl 和 Python 的 pack 函数格式字符的区别</a>
     </h1>
     <p class="alt-font tight">
@@ -2072,68 +2100,6 @@ ln -s /usr/lib64/nagios/plugins /omd/sites/cdn-monitor/lib/nagios/plugins
 </code></pre></div>
 <p>OK，现在这个机房(即nagios配置中的hostgroup)的监测任务，就都分发给本机房的 worker 来进行了。比如 <code>check_http</code> 任务，可以看到原先跨机房访问带来的几十毫秒的延时，都变成了一两毫秒。</p>
       <a href="/2013/03/27/distributed-nagios-by-mod-gearman" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2013/03/18/logrotate-configuration-files-mode" title="logrotate 配置文件强制为 0644 属性" rel="bookmark">logrotate 配置文件强制为 0644 属性</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2013-03-18 00:00:00 +0800">18 Mar 2013</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>在一次包更新后，发现 Nginx 服务器的每晚日志切割不再进行了。找遍了各种地方，最后在一次偶然的<code>ls -l</code>中发现：</p>
-<div class="highlight"><pre><code class="bash"><span class="c"># ll /etc/logrotate.d/</span>
-total 64
--rw-r--r-- 1 root root  326 2012-08-04 06:08 apache2
--rw-r--r-- 1 root root   84 2009-02-08 05:18 apt
--rw-r--r-- 1 root root   79 2008-12-05 17:15 aptitude
--rw-r--r-- 1 root root  330 2008-03-08 05:36 atop
--rw-r--r-- 1 root root  232 2011-11-10 14:33 dpkg
--rw-r--r-- 1 root root  267 2013-01-31 13:20 foreman-proxy
--rw-r--r-- 1 root root  151 2007-09-29 19:23 iptraf
--rw-r--r-- 1 root root  880 2012-10-29 17:10 mysql-server
--rwxr-xr-x 1 root root  356 2012-08-05 00:17 nginx
--rw-r--r-- 1 root root 1061 2008-03-08 05:36 psaccs_atop
--rw-r--r-- 1 root root  512 2008-03-08 05:36 psaccu_atop
--rw-r--r-- 1 root root  260 2012-06-23 00:52 rabbitmq-server
--rw-r--r-- 1 root root  126 2012-06-09 00:22 redis-server
--rw-r--r-- 1 root root  515 2012-09-27 02:40 rsyslog
--rw-r--r-- 1 root root  285 2008-11-18 21:20 stunnel4
-</code></pre></div>
-<p>这里的nginx多了可执行权限。于是我尝试性的执行了<code>chmod -x nginx</code>；结果居然真的恢复了。</p>
-<p>这事儿说起来蛮奇怪了。于是去 <a href="https://fedorahosted.org/logrotate">https://fedorahosted.org/logrotate</a> 找来 logrotate 的源码看，结果在<code>logrotate-3.8.3/config.c</code> 里发现这么一段：</p>
-<div class="highlight"><pre><code class="c"> <span class="mi">661</span>                 <span class="nf">if</span> <span class="p">((</span><span class="n">sb</span><span class="p">.</span><span class="n">st_mode</span> <span class="o">&amp;</span> <span class="mo">07533</span><span class="p">)</span> <span class="o">!=</span> <span class="mo">0400</span><span class="p">)</span> <span class="p">{</span>
- <span class="mi">662</span>                         <span class="n">message</span><span class="p">(</span><span class="n">MESS_DEBUG</span><span class="p">,</span>
- <span class="mi">663</span>                                 <span class="s">&quot;Ignoring %s because of bad file mode.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span>
- <span class="mi">664</span>                                 <span class="n">configFile</span><span class="p">);</span>
- <span class="mi">665</span>                         <span class="n">close</span><span class="p">(</span><span class="n">fd</span><span class="p">);</span>
- <span class="mi">666</span>                         <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
- <span class="mi">667</span>                 <span class="p">}</span>
-</code></pre></div>
-<p>只有文件权限是 0644 的时候，配置文件才会被读取！0755 的与结果是 0511，不等于 0400。相关 <code>st_mode</code> 的内容可以通过 <code>man 2 stat</code> 查看。</p>
-<p>可以写一小段 perl 代码来验证：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl</span>
-<span class="k">my</span> <span class="nv">$mode</span> <span class="o">=</span> <span class="p">(</span><span class="nb">stat</span><span class="p">(</span><span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">]))[</span><span class="mi">2</span><span class="p">];</span>
-<span class="nb">printf</span> <span class="s">&quot;Permissions are %04o\n&quot;</span><span class="p">,</span> <span class="nv">$mode</span> <span class="o">&amp;</span> <span class="mo">07533</span><span class="p">;</span>
-</code></pre></div>
-<p>在 <a href="https://fedorahosted.org/logrotate/browser/tags/r3-8-3/CHANGES">ChangeLog</a> 里，看到如下一段话：</p>
-<pre><code>2.1 -&gt; 2.2:
-    - ignore nonnormal files when reading config files from a directory
-    - (these were suggested and originally implemented by
-      Henning Schmiedehausen)
-</code></pre>
-<p>不过比较早了，就懒得从历史堆里再翻为什么当初会有这么个提议了…………</p>
-      <a href="/2013/03/18/logrotate-configuration-files-mode" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
