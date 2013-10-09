@@ -43,6 +43,70 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2011/12/20/omd_configurations_basic" title="OMD系列(二)基础配置和目录介绍" rel="bookmark">OMD系列(二)基础配置和目录介绍</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-12-20 00:00:00 +0800">20 Dec 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>话接上篇，在su和omd start之后，可以看到挂载的一个目录。其/omd是/opt/omd的软连接。目录结构如下：</p>
+<div class="highlight"><pre><code class="bash"><span class="o">[</span>monitor@localhost tmp<span class="o">]</span><span class="nv">$ </span>ll /opt/omd/sites/dyxmonitor/
+total 12
+lrwxrwxrwx  1 monitor dyxmonitor   11 Dec 19 18:15 bin -&gt; version/bin
+drwxr-xr-x 21 monitor dyxmonitor 4096 Dec 19 18:15 etc
+lrwxrwxrwx  1 monitor dyxmonitor   15 Dec 19 18:15 include -&gt; version/include
+lrwxrwxrwx  1 monitor dyxmonitor   11 Dec 19 18:15 lib -&gt; version/lib
+drwxr-xr-x  5 monitor dyxmonitor 4096 Dec 19 18:15 <span class="nb">local</span>
+lrwxrwxrwx  1 monitor dyxmonitor   13 Dec 19 18:15 share -&gt; version/share
+drwxr-xr-x 14 monitor dyxmonitor  300 Dec 19 23:32 tmp
+drwxr-xr-x 12 monitor dyxmonitor 4096 Dec 19 18:15 var
+lrwxrwxrwx  1 monitor dyxmonitor   19 Dec 19 18:15 version -&gt; ../../versions/0.50
+</code></pre></div>
+<p>软连接的部分，都是所有omd共用的；tmp就是挂载的tmpfs用来加速数据读写的；var是日志和由前端生成的数据(比如rrd)存放地点；etc是配置文件存放地点，具体内容包括：</p>
+<div class="highlight"><pre><code class="bash"><span class="o">[</span>monitor@localhost etc<span class="o">]</span><span class="nv">$ </span>ls
+apache       cron.d       htpasswd  logrotate.conf  mod-gearman  nsca        rc.d            thruk
+check_mk     dokuwiki     init.d    logrotate.d     nagios       omd         rrdcached.conf  xinetd.conf
+check_multi  environment  jmx4perl  mk-livestatus   nagvis       pnp4nagios  shinken         xinetd.d
+</code></pre></div>
+<p>其中，htpasswd定义了auth的用户名密码，默认是omdadmin:omd；
+rrdcached.conf定义了rrdcached的过期时间，用来缓解rrdtools的压力；
+apache/mode.conf是/opt/omd/apache/monitor.conf里Include的文件，实质是apache/apache-own.conf的软连接；调用了apache/proxy-port.conf来反向代理5000端口的实质页面。
+apache/apache.conf是真正的5000端口运行的配置文件，里面Include了apache/conf.d/*.conf——这些conf都是外面不同插件目录里的apache.conf的软连接：</p>
+<div class="highlight"><pre><code class="bash"><span class="o">[</span>monitor@localhost conf.d<span class="o">]</span><span class="nv">$ </span>ll
+total 24
+-rw-r--r-- 1 monitor monitor 119 Dec 19 18:15 01_python.conf
+-rw-r--r-- 1 monitor monitor 482 Dec 19 18:15 02_fcgid.conf
+-rw-r--r-- 1 monitor monitor 252 Dec 19 18:15 auth.conf
+lrwxrwxrwx 1 monitor monitor  26 Dec 19 18:15 check_mk.conf -&gt; ../../check_mk/apache.conf
+lrwxrwxrwx 1 monitor monitor  26 Dec 19 18:15 dokuwiki.conf -&gt; ../../dokuwiki/apache.conf
+lrwxrwxrwx 1 monitor monitor  25 Dec 19 23:29 nagios.conf -&gt; ../../shinken/apache.conf
+lrwxrwxrwx 1 monitor monitor  24 Dec 19 18:15 nagvis.conf -&gt; ../../nagvis/apache.conf
+-rw-r--r-- 1 monitor monitor 519 Dec 19 18:15 omd.conf
+lrwxrwxrwx 1 monitor monitor  28 Dec 19 18:15 pnp4nagios.conf -&gt; ../../pnp4nagios/apache.conf
+-rw-r--r-- 1 monitor monitor 117 Dec 19 18:15 site.conf
+lrwxrwxrwx 1 monitor monitor  23 Dec 19 18:15 thruk.conf -&gt; ../../thruk/apache.conf
+-rw-r--r-- 1 monitor monitor 283 Dec 19 18:15 var_www.conf
+</code></pre></div>
+<p>另外，在etc下还有omd/site.conf配置文件。这是本site的主配置文件，看起来可能不太清楚，所以omd提供了更直观的修改办法，那就是仿UI的omd config命令：
+<img src="/images/uploads/omd.png" alt="" title="omd" width="300" height="173" class="alignnone size-medium wp-image-2830" />
+通过这种类似setup的方式直接搞定就可以了。
+默认情况下，web页面的首页访问url地址是/monitor/omd/，这个页面上列出了classic nagios、check_mk、nagvis、pnp4nagios和dokuwiki的访问效果截图和地址，可以点击进入查看。然后再用omd config定义Web UI的default选择就是了。一旦定义完成，配置会自动修改，下次再访问/monitor/omd/，就会自动跳转了。
+注：/monitor/是因为我create的site名字是monitor
+另，修改config后，发现mod_gearman不可用。原因是omd的rpm发布里没有带gearmand的实现，必须自己另外搞定gearman的jobserver~~</p>
+      <a href="/2011/12/20/omd_configurations_basic" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2011/12/19/omd_intro_install_on_centos5" title="OMD系列(一)简介与安装" rel="bookmark">OMD系列(一)简介与安装</a>
     </h1>
     <p class="alt-font tight">
@@ -2236,62 +2300,6 @@ select_time<span class="nt">&lt;HR&gt;</span>
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/07/27/prepare-mysql-for-self-monitor" title="cdn自主监控(三):数据库准备工作" rel="bookmark">cdn自主监控(三):数据库准备工作</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-07-27 00:00:00 +0800">27 Jul 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>准备两个表，一个存储原始数据，另一个存储每5分钟归总一次的数据。之后根据时间段绘制省份运营商性能图的时候，就直接从汇总表里获取数据；原始表留给详细查询。
-数据库准备脚本如下：</p>
-<div class="highlight"><pre><code class="mysql"><span class="k">USE</span> <span class="n">myops</span><span class="p">;</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="k">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="nf">cdn_ori_record</span> <span class="p">(</span>
-	<span class="n">id</span> <span class="kt">INT</span><span class="p">(</span><span class="mi">11</span><span class="p">)</span> <span class="k">NOT</span> <span class="no">NULL</span> <span class="kp">AUTO_INCREMENT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-	<span class="n">ip</span> <span class="kt">INT</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span> <span class="k">NOT</span> <span class="no">NULL</span> <span class="k">DEFAULT</span> <span class="s1">&#39;0000000000&#39;</span><span class="p">,</span>
-	<span class="n">isp</span> <span class="kt">ENUM</span><span class="p">(</span><span class="s1">&#39;0&#39;</span><span class="p">,</span><span class="s1">&#39;1&#39;</span><span class="p">,</span><span class="s1">&#39;2&#39;</span><span class="p">,</span><span class="s1">&#39;3&#39;</span><span class="p">,</span><span class="s1">&#39;4&#39;</span><span class="p">),</span>
-	<span class="n">area</span> <span class="kt">INT</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span> <span class="k">NOT</span> <span class="no">NULL</span> <span class="k">DEFAULT</span> <span class="s1">&#39;0000&#39;</span><span class="p">,</span>
-	<span class="n">cur_date</span> <span class="kt">TIMESTAMP</span> <span class="k">DEFAULT</span> <span class="nf">NOW</span><span class="p">(),</span>
-	<span class="n">cdn_time</span> <span class="kt">INT</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span> <span class="k">NOT</span> <span class="no">NULL</span> <span class="k">DEFAULT</span> <span class="s1">&#39;0&#39;</span><span class="p">,</span>
-	<span class="n">cdn</span> <span class="kt">ENUM</span><span class="p">(</span><span class="s1">&#39;CHINACACHE&#39;</span><span class="p">,</span><span class="s1">&#39;DNION&#39;</span><span class="p">,</span><span class="s1">&#39;FASTWEB&#39;</span><span class="p">)</span> <span class="k">NOT</span> <span class="no">NULL</span><span class="p">,</span>
-	<span class="k">KEY</span> <span class="nf">time_key</span> <span class="p">(</span><span class="n">cur_date</span><span class="p">)</span>
-<span class="p">);</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="k">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="nf">cdn_cron_record</span> <span class="p">(</span>
-	<span class="n">id</span> <span class="kt">INT</span><span class="p">(</span><span class="mi">11</span><span class="p">)</span> <span class="k">NOT</span> <span class="no">NULL</span> <span class="kp">AUTO_INCREMENT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-	<span class="n">isp</span> <span class="kt">TINYINT</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">NOT</span> <span class="no">NULL</span> <span class="k">DEFAULT</span> <span class="s1">&#39;0&#39;</span><span class="p">,</span>
-	<span class="n">area</span> <span class="kt">INT</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span> <span class="k">NOT</span> <span class="no">NULL</span> <span class="k">DEFAULT</span> <span class="s1">&#39;0000&#39;</span><span class="p">,</span>
-	<span class="n">cur_date</span> <span class="kt">TIMESTAMP</span> <span class="k">DEFAULT</span> <span class="nf">NOW</span><span class="p">(),</span>
-	<span class="n">cdn</span> <span class="kt">ENUM</span><span class="p">(</span><span class="s1">&#39;CHINACACHE&#39;</span><span class="p">,</span><span class="s1">&#39;DNION&#39;</span><span class="p">,</span><span class="s1">&#39;FASTWEB&#39;</span><span class="p">)</span> <span class="k">NOT</span> <span class="no">NULL</span><span class="p">,</span>
-	<span class="n">avg_time</span> <span class="kt">INT</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span> <span class="k">NOT</span> <span class="no">NULL</span> <span class="k">DEFAULT</span> <span class="s1">&#39;0&#39;</span><span class="p">,</span>
-	<span class="k">KEY</span> <span class="nf">time_area_isp_key</span> <span class="p">(</span><span class="n">cur_date</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">isp</span><span class="p">)</span>
-<span class="p">);</span>
-<span class="n">DELIMITER</span> <span class="o">|</span>
-<span class="k">DROP</span> <span class="k">PROCEDURE</span> <span class="k">IF</span> <span class="k">EXISTS</span> <span class="n">cdn_cron</span> <span class="o">|</span>
-<span class="k">CREATE</span> <span class="k">PROCEDURE</span> <span class="nf">cdn_cron</span><span class="p">()</span>
-<span class="n">BEGIN</span>
-	<span class="k">INSERT</span> <span class="k">INTO</span> <span class="nf">cdn_cron_record</span><span class="p">(</span><span class="n">isp</span><span class="p">,</span><span class="n">area</span><span class="p">,</span><span class="n">cdn</span><span class="p">,</span><span class="n">avg_time</span><span class="p">)</span> 
-	<span class="k">SELECT</span> <span class="n">isp</span><span class="p">,</span><span class="n">area</span><span class="p">,</span><span class="n">cdn</span><span class="p">,</span><span class="nf">AVG</span><span class="p">(</span><span class="n">cdn_time</span><span class="p">)</span> <span class="k">FROM</span> <span class="n">cdn_ori_record</span> 
-	<span class="k">WHERE</span> <span class="n">cur_date</span> <span class="o">&gt;</span> <span class="nf">FROM_UNIXTIME</span><span class="p">(</span><span class="nf">UNIX_TIMESTAMP</span><span class="p">()</span><span class="o">-</span><span class="mi">300</span><span class="p">)</span>
-	<span class="k">GROUP</span> <span class="k">BY</span> <span class="n">cdn</span><span class="p">,</span><span class="n">area</span><span class="p">,</span><span class="n">isp</span><span class="p">;</span>
-<span class="n">END</span> <span class="o">|</span>
-<span class="n">DELIMITER</span> <span class="p">;</span>
-<span class="kt">SET</span> <span class="n">GLOBAL</span> <span class="n">event_scheduler</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-<span class="k">CREATE</span> <span class="n">EVENT</span> <span class="k">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">event_cdn</span> <span class="k">ON</span> <span class="n">SCHEDULE</span> <span class="n">EVERY</span> <span class="mi">300</span> <span class="n">SECOND</span> <span class="k">ON</span> <span class="n">COMPLETION</span> <span class="n">PRESERVE</span> <span class="n">DO</span> <span class="k">CALL</span> <span class="nf">cdn_cron</span><span class="p">();</span>
-<span class="k">ALTER</span> <span class="n">EVENT</span> <span class="n">event_cdn</span> <span class="k">ON</span> <span class="n">COMPLETION</span> <span class="n">PRESERVE</span> <span class="n">ENABLE</span><span class="p">;</span>
-</code></pre></div>
-      <a href="/2011/07/27/prepare-mysql-for-self-monitor" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -2416,6 +2424,7 @@ select_time<span class="nt">&lt;HR&gt;</span>
               <li><a href="http://paperplane.ruhoh.com/" title="深入研究puppet">纸飞机</a></li>
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+              <li><a href="http://blog.sectop.org/" title=""></a></li>
           </ul>
         </div>
       </div>
