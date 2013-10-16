@@ -43,6 +43,78 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/02/06/conntrack-of-netfilter" title="netfilter的conntrack优化" rel="bookmark">netfilter的conntrack优化</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-02-06 00:00:00 +0800">06 Feb 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p><a href="http://www.wallfire.org/misc/netfilter_conntrack_perf.txt">参考原文</a>
+<a href="http://www.linuxmine.com/5791.html">中文版</a>
+说是zz，好歹也是自己看完以后的zz，所以组织语言次序都是自己来：
+首先解释两个概念性的名词</p>
+<p>conntrack最大数量.叫做conntrack_max
+存储这些conntrack的hash表的大小,叫做hashsize
+hash表存在于固定的的不可swap的内存中.
+conntrack_mark决定占用多少这些不可swap的内存
+hashsize=conntrack_max/8=ramsize(in bytes)/131072/(x/32)
+x表示使用的指针类型是(32位还是64的)</p>
+<p>读取conntrack_max值
+cat /proc/sys/net/ipv4/ip_conntrack_max</p>
+<p>读取hashsize值
+cat /proc/sys/net/ipv4/netfilter/ip_conntrack_buckets</p>
+<p>ip_conntrack buffer使用情况
+grep conn /proc/slabinfo</p>
+<p>文章提出的sysctl参数修改：</p>
+<div class="highlight"><pre><code class="bash"><span class="c">#允许TCP/UDP打开的本地端口范围</span>
+<span class="nb">echo</span> <span class="s2">&quot;1024 65000&quot;</span> &gt; /proc/sys/net/ipv4/ip_local_port_range
+<span class="c">#内存脏数据回收参数，2.6内核中没有……</span>
+<span class="nb">echo</span> <span class="s2">&quot;100 1200 128 512 15 5000 500 1884 2&quot;</span>&gt;/proc/sys/vm/bdflush
+<span class="c">#禁止ICMP ECHO响应</span>
+<span class="nb">echo</span> <span class="s2">&quot;1&quot;</span> &gt; /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts
+<span class="c">#记录伪装广播帧响应日志</span>
+<span class="nb">echo</span> <span class="s2">&quot;1&quot;</span> &gt; /proc/sys/net/ipv4/icmp_ignore_bogus_error_responses
+<span class="c">#允许转发</span>
+<span class="nb">echo</span> <span class="s2">&quot;1&quot;</span> &gt; /proc/sys/net/ipv4/ip_forward
+<span class="c">#可用的共享内存总量(bytes)</span>
+<span class="nb">echo</span> <span class="s2">&quot;268435456&quot;</span> &gt;/proc/sys/kernel/shmall
+<span class="c">#内核允许的最大共享内存段大小(bytes)</span>
+<span class="nb">echo</span> <span class="s2">&quot;536870912&quot;</span> &gt;/proc/sys/kernel/shmmax
+<span class="c">#链接跟踪库允许的最大值</span>
+<span class="nb">echo</span> <span class="s2">&quot;1048576&quot;</span> &gt; /proc/sys/net/ipv4/netfilter/ip_conntrack_max
+<span class="c">#TCP链接established状态的超时时间，同理，还有wait/close/last_ack等的超时时间设定</span>
+<span class="nb">echo</span> <span class="s2">&quot;600&quot;</span> &gt; /proc/sys/net/ipv4/netfilter/ip_conntrack_tcp_timeout_established
+<span class="c">#决定检查一次相邻层记录的有效性的周期</span>
+<span class="nb">echo</span> <span class="s2">&quot;240&quot;</span> &gt; /proc/sys/net/ipv4/neigh/default/gc_stale_time
+<span class="c">#存在于ARP高速缓存中的最少层数，如果少于这个数，垃圾收集器将不会运行</span>
+<span class="nb">echo</span> <span class="s2">&quot;1024&quot;</span> &gt; /proc/sys/net/ipv4/neigh/default/gc_thresh1
+<span class="c">#保存在 ARP 高速缓存中的最多的记录软限制。垃圾收集器在开始收集前，允许记录数超过这个数字 5 秒</span>
+<span class="nb">echo</span> <span class="s2">&quot;2048&quot;</span> &gt; /proc/sys/net/ipv4/neigh/default/gc_thresh2
+<span class="c">#保存在 ARP 高速缓存中的最多记录的硬限制，一旦高速缓存中的数目高于此，垃圾收集器将马上运行</span>
+<span class="nb">echo</span> <span class="s2">&quot;4096&quot;</span> &gt; /proc/sys/net/ipv4/neigh/default/gc_thresh3
+<span class="c">#路由缓存最大值</span>
+<span class="nb">echo</span> <span class="s2">&quot;52428800&quot;</span> &gt; /proc/sys/net/ipv4/route/max_size
+<span class="c">#允许中继网络中的arp包</span>
+<span class="nb">echo</span> <span class="s2">&quot;1&quot;</span> &gt; /proc/sys/net/ipv4/conf/all/proxy_arp
+<span class="c">#TCP/IP会话的滑动窗口大小可变</span>
+<span class="nb">echo</span> <span class="s2">&quot;1&quot;</span> &gt; /proc/sys/net/ipv4/tcp_window_scaling
+</code></pre></div>
+<p>最直接看到的两个调整，就是ip_conntrack_max和ip_conntrack_tcp_timeout_established了。
+而gc_*四个参数，是修改内核维护ARP表的参数，当arp -an|wc -l大于300的话，就需要修改这些参数，不然会出现“neighbour table overflow”或者“kernel: printk: 24 messages suppressed”这样的syslog，导致服务器ssh、ping无响应！</p>
+      <a href="/2010/02/06/conntrack-of-netfilter" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/02/04/performance-optimization-test-of-tcmalloc-loaded-by-squid-3" title="squid加载tcmalloc性能优化测试(编译)" rel="bookmark">squid加载tcmalloc性能优化测试(编译)</a>
     </h1>
     <p class="alt-font tight">
@@ -2183,59 +2255,6 @@ neighbor.    </p>
   </tbody>
 </table>
       <a href="/2009/12/30/system-function-in-awk" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/12/30/squid-gzip" title="squid3 的 gzip 支持" rel="bookmark">squid3 的 gzip 支持</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-12-30 00:00:00 +0800">30 Dec 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>标题很简单，内容很复杂，而且我也用不上。姑且存档吧：
-原标题《VIGOS eCAP GZIP Adapter for SQUID Proxy Cache》
-第一句话就让我很绝望，本插件只适用于squid3.1及以上版本——squid有比3.1更高的版本么——前文提到的有session控制的squid2.7我都还没看呢~哭</p>
-<p>办法：</p>
-<div class="highlight"><pre><code class="bash">wget http://www.measurement-factory.com/tmp/ecap/libecap-0.0.2.tar.gz
-wget http://www.vigos.com/products/eCAP/vigos-ecap-gzip-adapter-1.1.0.tar.gz
-wget http://www.squid-cache.org/Versions/v3/3.1/squid-3.1.0.9.tar.gz
-tar xvfz squid-3.1.0.9.tar.gz
-tar xvfz libecap-0.0.2.tar.gz
-tar xvfz vigos-ecap-gzip-adapter-1.1.0.tar.gz
-<span class="nb">cd </span>libecap-0.0.2/
-./configure
-make
-make install
-<span class="nb">cd</span> ../vigos-ecap-gzip-adapter-1.1.0/
-./configure
-make
-make install
-<span class="nb">cd</span> ../squid-3.1.0.9/
-./configure --enable-ecap
-make
-make install
-cat &gt;&gt; etc/squid.conf <span class="s">&lt;&lt;EOF</span>
-<span class="s">ecap_enable on</span>
-<span class="s">ecap_service gzip_service respmod_precache 0</span>
-<span class="s">ecap://www.vigos.com/ecap_gzip</span>
-<span class="s">loadable_modules /usr/local/lib/ecap_adapter_gzip.so</span>
-<span class="s">acl GZIP_HTTP_STATUS http_status 200</span>
-<span class="s">adaptation_access gzip_service allow GZIP_HTTP_STATUS</span>
-<span class="s">EOF</span>
-</code></pre></div>
-<p>以上，3.1毕竟还是测试版，这个留待以后吧~~</p>
-<p>另，据《squid中文权威指南》作者潘勇华的blog说，这个“基于squid3.1的eCAP接口的流量压缩适配器”，对被自己压缩过的内容，简单的把Etag删除。</p>
-      <a href="/2009/12/30/squid-gzip" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

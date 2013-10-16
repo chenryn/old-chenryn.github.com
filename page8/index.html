@@ -43,6 +43,36 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/12/30/resin-ipv6" title="resin与ipv6" rel="bookmark">resin与ipv6</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-12-30 00:00:00 +0800">30 Dec 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>一台nginx+resin的应用服务器出现大量的ipv6下的CLOSE_WAIT。重启后十五分钟就累积到了1500+。</p>
+<p>调整resin的keepalive-timeout和nginx的proxy_read_timeout，没有丝毫改变。决定先关掉ipv6。</p>
+<p>如果要关掉整个linux的ipv6，需要修改/etc/modprobe.conf然后reboot，显然没法在生产环境上直接操作，只能寻求应用监听上的办法。</p>
+<p>修改sysctl -w net.ipv6.bindv6only=1，然后重启应用，赫然发现resin重启失败，只有perl进程，没有java进程了。改回0，java立刻启动成功。</p>
+<p>google了一下，在<a href="http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=560044">http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=560044</a>中看到了答案——原来java默认就是用ipv6。</p>
+<p>增加resin/bin/wrapper.pl相关行如下：</p>
+<p>$EXTRA_JAVA_ARGS=&rdquo;-Djava.util.logging.manager=com.caucho.log.LogManagerImpl&rdquo;;
+$EXTRA_JAVA_ARGS.=&rdquo; -Djavax.management.builder.initial=com.caucho.jmx.MBeanServerBuilderImpl&rdquo;;
+$EXTRA_JAVA_ARGS.=&rdquo; -Djava.net.preferIPv4Stack=true&rdquo;;#新增参数</p>
+<p>重启，就只在ipv4上了。</p>
+      <a href="/2010/12/30/resin-ipv6" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/12/28/intro-tcprstat" title="TCP响应时间监测" rel="bookmark">TCP响应时间监测</a>
     </h1>
     <p class="alt-font tight">
@@ -2509,41 +2539,6 @@ Please increase the amount of inotify watches allowed per user via `/proc/sys/fs
 <p>cat一下这个文件，默认值是8192；df -i看看inode数量，远远大过这个值~</p>
 <p>echo 8192000 &gt; /proc/sys/fs/inotify/max_user_watches即可~</p>
       <a href="/2010/11/04/intro-inotify" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/10/27/problem-about-vrrp-and-intro-flood-ping" title="集群故障检查记录" rel="bookmark">集群故障检查记录</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-10-27 00:00:00 +0800">27 Oct 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>某服务器集群，是双lvs_keepalived+多nginx结构。最近突然发现流量监控出现较大波动，nginx的access.log时常出现持续几十秒的无外来访问情况（即只有LVS的ip过来的400探测）。</p>
-<p>在两台lvs设备上的/var/log/messages上都看到大量的VIP切换记录：</p>
-<p>Oct 22 09:47:12 localhost Keepalived_vrrp: VRRP_Instance(VI<em>10) Transition to MASTER STATE
-Oct 22 09:47:13 localhost Keepalived_vrrp: VRRP_Instance(VI</em>10) Entering MASTER STATE
-Oct 22 09:47:13 localhost Keepalived_vrrp: VRRP_Instance(VI_10) setting protocol VIPs.</p>
-<p>Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI<em>10) Received higher prio advert
-Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI</em>10) Entering BACKUP STATE
-Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI_10) removing protocol VIPs.</p>
-<p>相互之间ping丢包相当严重，而ping同一网段其他ip都没问题。</p>
-<p>学来一个比较直观而且细腻的ping用法：ping -f $IP -c 5000</p>
-<p>man上对-f的解释如下：</p>
-<p>-f     Flood  ping.  For  every  ECHO_REQUEST  sent  a  period &ldquo;.&rdquo; is printed, while for ever ECHO_REPLY received a backspace is printed.  This provides a rapid display of how many packets are being dropped.  If interval is not given, it sets  interval to zero and outputs packets as fast as they come back or one hundred times per second, whichever is more.  Only the superuser may use this option with zero interval.</p>
-<p>-f    洪水ping，每当发送一个ECHO_REQUEST请求时，都在屏幕上打印一个点&rdquo;.&rdquo;，而收到ECHO_REPLY时就退格一次。以此简洁明了的显示出丢了多少个包。如果不明确指定发包间隔，默认间隔时间为0，即收包有多快，发包就有多快，可能每秒100次，或许更快~注意：只有超级用户root才能不设间隔的使用洪水ping参数-f</p>
-<p>我们把这个丢包.叫做贪吃蛇，哈哈~~</p>
-<p>采用更换服务器网线、强制指定网卡速率等办法，丢包率从近30%下降到了5%，问题依然没有全部解决。最后重启机器，就OK了……真实问题是否和ipvs有关，待查ing</p>
-      <a href="/2010/10/27/problem-about-vrrp-and-intro-flood-ping" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
