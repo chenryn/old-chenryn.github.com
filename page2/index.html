@@ -43,6 +43,165 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/04/02/parse-puppet-dsl-using-perl6" title="用 Perl6 解析 puppet 的配置语法" rel="bookmark">用 Perl6 解析 puppet 的配置语法</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-04-02 00:00:00 +0800">02 Apr 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>前段时间看到报道说，puppet 的作者本来是用 perl 完成的原型设计，后来改用的 ruby。所以我想，目前这个 puppet 的 DSL 设计，用 perl 来完成的话，应该如何做。</p>
+<p>这里碰到一个问题，就是 puppet 中 <code>resource_type</code> 的 <code>title</code> 后面有个冒号，这事儿比较麻烦，不过这时候我突然想到了 Perl6 ，稍微翻了一下文档，发现这事用 Perl6 来实现很容易：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="n">v6</span><span class="p">;</span>
+<span class="k">sub </span><span class="nf">infix</span><span class="p">:&lt;:&gt;($a, %b){</span>
+    <span class="k">return</span> <span class="nv">$a</span><span class="p">,</span> <span class="nv">%b</span><span class="p">;</span>
+<span class="p">};</span>
+<span class="k">sub </span><span class="nf">service</span><span class="p">(&amp;service) {</span>
+    <span class="k">my</span> <span class="nv">@res</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">service</span><span class="o">.</span><span class="p">();</span>
+    <span class="n">say</span> <span class="nv">@res</span><span class="o">.</span><span class="nb">shift</span> <span class="o">=&gt;</span> <span class="nv">@res</span><span class="o">.</span><span class="n">hash</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="n">class</span> <span class="nn">nginx::</span><span class="n">install</span> <span class="p">{</span>
+	<span class="k">my</span> <span class="nv">$nginxparams</span> <span class="o">=</span> <span class="s">&quot;nginx&quot;</span><span class="p">;</span>
+	<span class="n">service</span> <span class="p">{</span> <span class="s">&quot;$nginxparams&quot;</span><span class="p">:</span>
+        <span class="n">conf</span> <span class="o">=&gt;</span> <span class="s">&quot;#&quot;</span><span class="p">,</span>
+        <span class="n">source</span> <span class="o">=&gt;</span> <span class="s">&quot;http&quot;</span> 
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>运行结果如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="n">perl6</span> <span class="sr">/data/</span><span class="n">perl6</span><span class="sr">/script/</span><span class="n">puppet</span><span class="o">-</span><span class="n">style</span><span class="o">.</span><span class="n">pl</span>
+<span class="s">&quot;nginx&quot;</span> <span class="o">=&gt;</span> <span class="p">{</span><span class="s">&quot;conf&quot;</span> <span class="o">=&gt;</span> <span class="s">&quot;#&quot;</span><span class="p">,</span> <span class="s">&quot;source&quot;</span> <span class="o">=&gt;</span> <span class="s">&quot;http&quot;</span><span class="p">}</span>
+</code></pre></div>
+<p>当然实际上 puppet 要复杂很多，这里其实更多是为了说明 Perl6 如何自定义操作符~</p>
+      <a href="/2013/04/02/parse-puppet-dsl-using-perl6" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2013/04/01/use-mojo-commandline-for-rpmbuild" title="用 Mojo 命令行抓取数据完成自动更新 rpm 构建" rel="bookmark">用 Mojo 命令行抓取数据完成自动更新 rpm 构建</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-04-01 00:00:00 +0800">01 Apr 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>我一直很喜欢 <code>Dancer</code> 里的 keyword 方式，所以很少使用 <code>Mojolicious</code> 框架来写网站，不过 <code>Mojo::UserAgent</code> 和 <code>Mojo::DOM</code> 在一起作为爬虫工具使用，真是太方便了。这两天需要自己打包 <code>tengine</code> ，考虑自动化因素，需要从 <code>tengine</code> 和 其他第三方模块的 <code>github</code> 托管网页上定期查询其更新，都是一行代码就搞定了。整个 <code>Build.PL</code> 如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/env perl</span>
+<span class="k">use</span> <span class="nn">Modern::</span><span class="n">Perl</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">IPC::</span><span class="n">Run</span> <span class="sx">qw(run)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">File::</span><span class="n">Slurp</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(strftime)</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">Template</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">ojo</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">@ModuleList</span> <span class="o">=</span> <span class="sx">qw(</span>
+<span class="sx">    renren/ngx_http_accounting_module</span>
+<span class="sx">    agentzh/echo-nginx-module</span>
+<span class="sx">    agentzh/chunkin-nginx-module</span>
+<span class="sx">    simpl/ngx_devel_kit</span>
+<span class="sx">    calio/form-input-nginx-module</span>
+<span class="sx">    chaoslawful/lua-nginx-module</span>
+<span class="sx">    renren/ngx_http_consistent_hash</span>
+<span class="sx">)</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$TengineMD5</span> <span class="o">=</span> <span class="p">(</span><span class="nb">split</span><span class="p">(</span><span class="sr">/ /</span><span class="p">,</span> <span class="n">g</span><span class="p">(</span><span class="s">&quot;http://tengine.taobao.org/download_cn.html&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">dom</span><span class="o">-&gt;</span><span class="n">at</span><span class="p">(</span><span class="s">&quot;.one_col li span&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">text</span><span class="p">))[</span><span class="o">-</span><span class="mi">1</span><span class="p">];</span>
+<span class="n">write_file</span><span class="p">(</span><span class="s">&quot;md5.txt&quot;</span><span class="p">,</span> <span class="s">&quot;firstimetorun&quot;</span><span class="p">)</span> <span class="k">unless</span> <span class="o">-</span><span class="n">f</span> <span class="s">&quot;md5.txt&quot;</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$TengineOldMD5</span> <span class="o">=</span> <span class="n">read_file</span><span class="p">(</span> <span class="s">&quot;md5.txt&quot;</span> <span class="p">);</span>
+<span class="n">say</span> <span class="nv">$TengineOldMD5</span><span class="p">;</span>
+<span class="n">say</span> <span class="nv">$TengineMD5</span><span class="p">;</span>
+<span class="k">if</span> <span class="p">(</span> <span class="nv">$TengineMD5</span> <span class="ow">ne</span> <span class="nv">$TengineOldMD5</span> <span class="p">)</span> <span class="p">{</span>
+    <span class="n">gettarball</span><span class="p">(</span><span class="o">\</span><span class="nv">@ModuleList</span><span class="p">);</span>
+    <span class="n">write_file</span><span class="p">(</span><span class="s">&quot;md5.txt&quot;</span><span class="p">,</span> <span class="nv">$TengineMD5</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">gettarball</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$ModuleList</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$TengineUrl</span> <span class="o">=</span> <span class="n">g</span><span class="p">(</span><span class="s">&quot;http://tengine.taobao.org/download_cn.html&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">dom</span><span class="o">-&gt;</span><span class="n">at</span><span class="p">(</span><span class="s">&quot;.one_col li a&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">href</span><span class="p">};</span>
+    <span class="k">my</span> <span class="nv">$TengineVersion</span> <span class="o">=</span> <span class="nv">$1</span> <span class="k">if</span> <span class="nv">$TengineUrl</span> <span class="o">=~</span> <span class="sr">m!download/tengine-(.*).tar.gz!</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$TengineRelease</span> <span class="o">=</span> <span class="n">strftime</span><span class="p">(</span><span class="s">&quot;%Y%m%d%H%M&quot;</span><span class="p">,</span><span class="nb">localtime</span><span class="p">);</span>
+    <span class="n">run</span><span class="p">(</span><span class="s">&#39;wget&#39;</span><span class="p">,</span> <span class="s">&quot;http://tengine.taobao.org/${TengineUrl}&quot;</span><span class="p">,</span> <span class="s">&#39;-O&#39;</span><span class="p">,</span> <span class="s">&quot;SOURCES/tengine-${TengineVersion}.tar.gz&quot;</span><span class="p">);</span>
+    <span class="k">my</span> <span class="nv">@ModuleFile</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$i</span> <span class="o">=</span> <span class="mi">10</span><span class="p">;</span>
+    <span class="k">for</span> <span class="k">my</span> <span class="nv">$Module</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span> <span class="nv">$ModuleList</span> <span class="p">}</span> <span class="p">)</span> <span class="p">{;</span>
+        <span class="k">my</span> <span class="nv">$GitUrl</span> <span class="o">=</span> <span class="s">&quot;https://github.com/${Module}&quot;</span><span class="p">;</span>
+        <span class="n">say</span> <span class="nv">$GitUrl</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">$GitCommit</span> <span class="o">=</span> <span class="nb">substr</span><span class="p">(</span><span class="n">g</span><span class="p">(</span><span class="s">&quot;${GitUrl}&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">dom</span><span class="o">-&gt;</span><span class="n">at</span><span class="p">(</span><span class="s">&quot;.sha&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">text</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">7</span><span class="p">);</span>
+        <span class="p">(</span> <span class="k">my</span> <span class="nv">$StoreName</span> <span class="o">=</span> <span class="nv">$Module</span> <span class="p">)</span> <span class="o">=~</span> <span class="sr">s!/!-!</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">$StoreFile</span> <span class="o">=</span> <span class="s">&quot;${StoreName}-${GitCommit}.tar.gz&quot;</span><span class="p">;</span>
+        <span class="nb">push</span> <span class="nv">@ModuleFile</span><span class="p">,</span> <span class="p">[</span> <span class="s">&quot;Source${i}&quot;</span> <span class="o">=&gt;</span> <span class="s">&quot;${StoreName}-${GitCommit}&quot;</span> <span class="p">];</span>
+        <span class="n">run</span><span class="p">(</span><span class="s">&#39;wget&#39;</span><span class="p">,</span> <span class="s">&quot;${GitUrl}/tarball/master&quot;</span><span class="p">,</span> <span class="s">&#39;-O&#39;</span><span class="p">,</span> <span class="s">&quot;SOURCES/$StoreFile&quot;</span><span class="p">);</span>
+        <span class="nv">$i</span><span class="o">++</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="nb">unlink</span><span class="p">(</span><span class="s">&#39;SPECS/tengine.spec&#39;</span><span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$template</span> <span class="o">=</span> <span class="n">Template</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
+    <span class="nv">$template</span><span class="o">-&gt;</span><span class="n">process</span><span class="p">(</span><span class="s">&quot;tengine.spec.tt&quot;</span><span class="p">,</span> <span class="p">{</span>
+        <span class="n">TengineVersion</span> <span class="o">=&gt;</span> <span class="nv">$TengineVersion</span><span class="p">,</span>
+        <span class="n">TengineRelease</span> <span class="o">=&gt;</span> <span class="nv">$TengineRelease</span><span class="p">,</span>
+        <span class="n">TengineAddons</span>  <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@ModuleFile</span><span class="p">,</span>
+    <span class="p">},</span> <span class="s">&quot;SPECS/tengine.spec&quot;</span><span class="p">);</span>
+    <span class="n">buildrpm</span><span class="p">(</span><span class="nv">$TengineVersion</span><span class="p">,</span> <span class="nv">$TengineRelease</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">buildrpm</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="p">(</span> <span class="nv">$TengineVersion</span><span class="p">,</span> <span class="nv">$TengineRelease</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+    <span class="k">my</span> <span class="p">(</span> <span class="nv">$out</span><span class="p">,</span> <span class="nv">$err</span> <span class="p">);</span>
+    <span class="n">run</span> <span class="p">[</span><span class="s">&#39;rpmbuild&#39;</span><span class="p">,</span> <span class="s">&#39;-bb&#39;</span><span class="p">,</span> <span class="s">&#39;SPECS/tengine.spec&#39;</span><span class="p">],</span> <span class="nb">undef</span><span class="p">,</span> <span class="o">\</span><span class="nv">$out</span><span class="p">,</span> <span class="nv">$err</span><span class="p">;</span>
+    <span class="n">mail2author</span><span class="p">(</span><span class="nv">$err</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">mail2author</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$output</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$body</span> <span class="o">=</span> <span class="nv">$output</span> <span class="p">?</span> <span class="s">&quot;Build Error: $output&quot;</span> <span class="p">:</span> <span class="s">&quot;Build OK&quot;</span><span class="p">;</span>
+    <span class="n">p</span><span class="p">(</span><span class="s">&quot;http://email.notify.d.xiaonei.com/eml/tengine-build/chenlin.rao&quot;</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="n">DNT</span> <span class="o">=&gt;</span> <span class="mi">1</span> <span class="p">}</span> <span class="o">=&gt;</span> <span class="nv">$body</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>直接 <code>g</code> 就是 GET 方法， <code>p</code> 就是 POST 方法。然后 <code>-&gt;dom-&gt;at()</code> 后采用类似 <code>jQuery</code> 的写法就可以直接定位，然后还可以用 <code>-&gt;text</code> 来获取内容，或者 <code>-&gt;{attr}</code> 来获取属性值。</p>
+<p>顺带，今天刚知道原来 <code>Template</code> 模块也有 <code>filter</code> 可用。<code>tengine.spec.tt</code> 中就用了一个大写过滤：</p>
+<div class="highlight"><pre><code class="bash">Summary:    a HTTP and reverse proxy server
+Name:       tengine
+Version:    <span class="o">[</span>% TengineVersion %<span class="o">]</span>
+Release:    <span class="o">[</span>% TengineRelease %<span class="o">]</span>
+Source0:    %<span class="o">{</span>name<span class="o">}</span>-%<span class="o">{</span>version<span class="o">}</span>.tar.gz
+Source1:    init.nginx
+Source2:    logrotate.nginx
+Source3:    nginx-renren-conf.tar.gz
+<span class="o">[</span>% FOREACH Module IN TengineAddons -%<span class="o">]</span>
+<span class="o">[</span>% Module.0 %<span class="o">]</span>:    <span class="o">[</span>% Module.1 %<span class="o">]</span>.tar.gz
+<span class="o">[</span>% END %<span class="o">]</span>
+Group:      System Environment/Daemons
+License:    BSD
+BuildRoot:  %<span class="o">{</span>_tmppath<span class="o">}</span>/%<span class="o">{</span>name<span class="o">}</span>-%<span class="o">{</span>version<span class="o">}</span>-%<span class="o">{</span>release<span class="o">}</span>
+Requires:      pcre,zlib,lua
+BuildRequires: pcre-devel,zlib-devel,lua-devel
+Requires<span class="o">(</span>post<span class="o">)</span>:    chkconfig
+Conflicts:     nginx
+%description
+Nginx with modules: 1<span class="o">)</span> ngx_http_consistent_hash; 2<span class="o">)</span> ngx_http_accounting_module; 3<span class="o">)</span> agentzh-chunkin-nginx-module. 
+%prep
+<span class="c">#%setup -q </span>
+%setup -n tengine-%<span class="o">{</span>version<span class="o">}</span>
+tar zxvf %<span class="o">{</span>SOURCE3<span class="o">}</span>
+<span class="o">[</span>% FOREACH Module IN TengineAddons -%<span class="o">]</span>
+tar zxvf %<span class="o">{[</span>% Module.0 FILTER upper %<span class="o">]}</span>
+<span class="o">[</span>% END %<span class="o">]</span>
+...;
+</code></pre></div>
+      <a href="/2013/04/01/use-mojo-commandline-for-rpmbuild" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/03/28/intro-haml" title="Haml 简介" rel="bookmark">Haml 简介</a>
     </h1>
     <p class="alt-font tight">
@@ -3006,494 +3165,6 @@ plot <span class="s1">&#39;oversea.csv&#39;</span> using 2:xtic<span class="o">(
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/11/22/tatsumaki-demo" title="用 Tatsumaki 框架写 elasticsearch 界面" rel="bookmark">用 Tatsumaki 框架写 elasticsearch 界面</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-11-22 00:00:00 +0800">22 Nov 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>Tatsumaki是Plack作者的一个小框架，亮点是很好的利用了psgi.streaming的接口可以async的完成响应。不过因为缺少周边支持，所以除了几个webchat的example，似乎没看到什么应用。笔者之前纯为练手，却用tatsumaki写了个sync响应的小demo，算是展示一下用tatsuamki做普通web应用的基础步骤吧：</p>
-<p>(代码本来是作为一个ElasticSearch数据分析的平台，不过后来发现社区有人开始做纯js的内嵌进ElasticSearch的plugin了，所以撤了repo，这里贴下代码)</p>
-<ul>
-  <li>所有的psgi/plack应用都一样有自己的app.psgi文件：</li>
-</ul>
-<div class="highlight"><pre><code class="perl"><span class="k">our</span> <span class="nv">$VERSION</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">;</span>
-<span class="c1">### app.psgi</span>
-<span class="k">use</span> <span class="nn">Tatsumaki::</span><span class="n">Error</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Tatsumaki::</span><span class="n">Application</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Tatsumaki::</span><span class="n">HTTPClient</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Tatsumaki::</span><span class="n">Server</span><span class="p">;</span>
-<span class="c1">### read config</span>
-<span class="k">use</span> <span class="nn">File::</span><span class="n">Basename</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">YAML::</span><span class="n">Syck</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$config</span> <span class="o">=</span> <span class="n">LoadFile</span><span class="p">(</span><span class="n">dirname</span><span class="p">(</span><span class="n">__FILE__</span><span class="p">)</span> <span class="o">.</span> <span class="s">&#39;/config.yml&#39;</span><span class="p">);</span>
-<span class="c1">### elasticsearch init</span>
-<span class="k">use</span> <span class="n">ElasticSearch</span><span class="p">;</span>
-<span class="c1">#这里yml的写法借鉴Dancer::Plugin::ElasticSearch了</span>
-<span class="k">my</span> <span class="nv">$elsearch</span> <span class="o">=</span> <span class="n">ElasticSearch</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="nv">$config</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;options&#39;</span><span class="p">}</span> <span class="p">);</span>
-<span class="c1">### index init</span>
-<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(strftime)</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$index</span> <span class="o">=</span> <span class="nb">join</span> <span class="s">&#39;-&#39;</span><span class="p">,</span> <span class="p">(</span> <span class="p">(</span><span class="o">+</span><span class="nb">split</span><span class="p">(</span> <span class="s">&#39;-&#39;</span><span class="p">,</span> <span class="nv">$config</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;index&#39;</span><span class="p">}</span> <span class="p">))[</span><span class="mi">0</span><span class="p">],</span> <span class="n">strftime</span><span class="p">(</span> <span class="p">(</span><span class="o">+</span><span class="nb">split</span><span class="p">(</span> <span class="s">&#39;-&#39;</span><span class="p">,</span> <span class="nv">$config</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;index&#39;</span><span class="p">}</span> <span class="p">))[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">localtime</span> <span class="p">)</span> <span class="p">);</span>
-<span class="k">my</span> <span class="nv">$type</span> <span class="o">=</span> <span class="nv">$config</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;type&#39;</span><span class="p">};</span>
-<span class="c1">#首页类，调用了模板</span>
-<span class="nb">package</span> <span class="n">MainHandler</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">parent</span> <span class="sx">qw(Tatsumaki::Handler)</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">get</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">render</span><span class="p">(</span><span class="s">&#39;index.html&#39;</span><span class="p">);</span>
-<span class="p">};</span>
-<span class="c1">#具体的API类</span>
-<span class="nb">package</span> <span class="n">ListHandler</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">parent</span> <span class="sx">qw(Tatsumaki::Handler)</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">get</span> <span class="p">{</span>
-<span class="c1">#这里自动把urlpath切分好了</span>
-    <span class="k">my</span> <span class="p">(</span> <span class="nv">$self</span><span class="p">,</span> <span class="nv">$group</span><span class="p">,</span> <span class="nv">$order</span><span class="p">,</span> <span class="nv">$interval</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">return</span> <span class="s">&#39;Not valid order&#39;</span> <span class="k">unless</span> <span class="nv">$order</span> <span class="ow">eq</span> <span class="s">&#39;count&#39;</span> <span class="ow">or</span> <span class="nv">$order</span> <span class="ow">eq</span> <span class="s">&#39;mean&#39;</span><span class="p">;</span>
-    <span class="k">return</span> <span class="s">&#39;Not valid interval&#39;</span> <span class="k">unless</span> <span class="nv">$interval</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#\d+(h|m|s)#;</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$key_field</span><span class="p">,</span> <span class="nv">$value_field</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nv">$group</span> <span class="ow">eq</span> <span class="s">&#39;url&#39;</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$key_field</span> <span class="o">=</span> <span class="s">&#39;url&#39;</span><span class="p">;</span>
-        <span class="nv">$value_field</span> <span class="o">=</span> <span class="s">&#39;responsetime&#39;</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$group</span> <span class="ow">eq</span> <span class="s">&#39;ip&#39;</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$key_field</span> <span class="o">=</span> <span class="s">&#39;oh&#39;</span><span class="p">;</span>
-        <span class="nv">$value_field</span> <span class="o">=</span> <span class="s">&#39;upstreamtime&#39;</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-        <span class="k">return</span> <span class="s">&#39;Not valid group field&#39;</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="c1"># get index mapping and sort into array</span>
-    <span class="k">my</span> <span class="nv">$mapping</span> <span class="o">=</span> <span class="nv">$elsearch</span><span class="o">-&gt;</span><span class="n">mapping</span><span class="p">(</span>
-        <span class="nb">index</span> <span class="o">=&gt;</span> <span class="s">&quot;$index&quot;</span><span class="p">,</span>
-        <span class="n">type</span>  <span class="o">=&gt;</span> <span class="s">&quot;$type&quot;</span><span class="p">,</span>
-    <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">@res_map</span><span class="p">;</span>
-    <span class="k">for</span> <span class="k">my</span> <span class="nv">$property</span> <span class="p">(</span> <span class="nb">sort</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span> <span class="nv">$mapping</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$type</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;properties&#39;</span><span class="p">}</span> <span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="k">if</span> <span class="p">(</span><span class="nv">$property</span> <span class="ow">eq</span> <span class="s">&#39;@fields&#39;</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="k">my</span> <span class="nv">@fields</span><span class="p">;</span>
-            <span class="nb">push</span> <span class="nv">@fields</span><span class="p">,</span> <span class="p">{</span> <span class="n">name</span> <span class="o">=&gt;</span> <span class="nv">$_</span><span class="p">,</span> <span class="n">type</span> <span class="o">=&gt;</span> <span class="nv">$mapping</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$type</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;properties&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$property</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;properties&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$_</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;type&#39;</span><span class="p">}</span> <span class="p">}</span>
-                <span class="k">for</span> <span class="nb">sort</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span> <span class="nv">$mapping</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$type</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;properties&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$property</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;properties&#39;</span><span class="p">}</span> <span class="p">};</span>
-            <span class="nb">push</span> <span class="nv">@res_map</span><span class="p">,</span> <span class="o">\</span><span class="nv">@fields</span><span class="p">;</span>
-        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-            <span class="nb">push</span> <span class="nv">@res_map</span><span class="p">,</span> <span class="p">{</span> <span class="n">name</span> <span class="o">=&gt;</span> <span class="nv">$property</span><span class="p">,</span> <span class="n">type</span> <span class="o">=&gt;</span> <span class="nv">$mapping</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$type</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;properties&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$property</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;type&#39;</span><span class="p">}</span> <span class="p">};</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-    <span class="c1"># get value stat group by key field</span>
-    <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="nv">$elsearch</span><span class="o">-&gt;</span><span class="n">search</span><span class="p">(</span>
-        <span class="nb">index</span> <span class="o">=&gt;</span> <span class="s">&quot;$index&quot;</span><span class="p">,</span>
-        <span class="n">type</span>  <span class="o">=&gt;</span> <span class="s">&quot;$type&quot;</span><span class="p">,</span>
-        <span class="n">size</span>  <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span>
-        <span class="n">query</span> <span class="o">=&gt;</span> <span class="p">{</span>
-            <span class="s">&quot;range&quot;</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                <span class="s">&#39;@timestamp&#39;</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                    <span class="n">from</span> <span class="o">=&gt;</span> <span class="s">&quot;now-$interval&quot;</span><span class="p">,</span>
-                    <span class="n">to</span>   <span class="o">=&gt;</span> <span class="s">&quot;now&quot;</span>
-                <span class="p">},</span>
-            <span class="p">},</span>
-        <span class="p">},</span>
-        <span class="n">facets</span> <span class="o">=&gt;</span> <span class="p">{</span>
-            <span class="s">&quot;$group&quot;</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                <span class="s">&quot;terms_stats&quot;</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                    <span class="s">&quot;value_field&quot;</span> <span class="o">=&gt;</span> <span class="s">&quot;$value_field&quot;</span><span class="p">,</span>
-                    <span class="s">&quot;key_field&quot;</span>   <span class="o">=&gt;</span> <span class="s">&quot;$key_field&quot;</span><span class="p">,</span>
-                    <span class="s">&quot;order&quot;</span>       <span class="o">=&gt;</span> <span class="s">&quot;$order&quot;</span><span class="p">,</span>
-                    <span class="s">&quot;size&quot;</span>        <span class="o">=&gt;</span> <span class="mi">20</span><span class="p">,</span>
-                <span class="p">}</span>
-            <span class="p">},</span>
-        <span class="p">}</span>
-    <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">@res_tbl</span><span class="p">;</span>
-    <span class="k">for</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">facets</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$group&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">terms</span><span class="p">}}</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$key</span> <span class="o">=</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">term</span><span class="p">};</span>
-        <span class="k">my</span> <span class="nv">$mean</span> <span class="o">=</span> <span class="nb">sprintf</span> <span class="s">&quot;%.03f&quot;</span><span class="p">,</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">mean</span><span class="p">};</span>
-        <span class="k">my</span> <span class="nv">$code_count</span> <span class="o">=</span> <span class="n">code_count</span><span class="p">(</span><span class="nv">$key_field</span><span class="p">,</span> <span class="nv">$key</span><span class="p">,</span> <span class="nv">$interval</span><span class="p">);</span>
-        <span class="nb">push</span> <span class="nv">@res_tbl</span><span class="p">,</span> <span class="p">{</span>
-            <span class="n">key</span>   <span class="o">=&gt;</span> <span class="nv">$key</span><span class="p">,</span>
-            <span class="n">min</span>   <span class="o">=&gt;</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">min</span><span class="p">},</span>
-            <span class="n">max</span>   <span class="o">=&gt;</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">max</span><span class="p">},</span>
-            <span class="n">mean</span>  <span class="o">=&gt;</span> <span class="nv">$mean</span><span class="p">,</span>
-            <span class="n">code</span>  <span class="o">=&gt;</span> <span class="nv">$code_count</span><span class="p">,</span>
-            <span class="n">count</span> <span class="o">=&gt;</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">count</span><span class="p">},</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-<span class="c1"># render可以接收参数，并且默认把$self带进去，具体key是handler</span>
-    <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">render</span><span class="p">(</span><span class="s">&#39;index.html&#39;</span><span class="p">,</span> <span class="p">{</span> <span class="n">table</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@res_tbl</span><span class="p">,</span> <span class="n">mapping</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@res_map</span> <span class="p">});</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">code_count</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$key_field</span><span class="p">,</span> <span class="nv">$key</span><span class="p">,</span> <span class="nv">$interval</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$result</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="nv">$elsearch</span><span class="o">-&gt;</span><span class="n">search</span><span class="p">(</span>
-        <span class="nb">index</span> <span class="o">=&gt;</span> <span class="s">&quot;$index&quot;</span><span class="p">,</span>
-        <span class="n">type</span>  <span class="o">=&gt;</span> <span class="s">&quot;$type&quot;</span><span class="p">,</span>
-        <span class="n">size</span>  <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span>
-        <span class="n">query</span> <span class="o">=&gt;</span> <span class="p">{</span>
-            <span class="n">range</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                <span class="s">&#39;@timestamp&#39;</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                    <span class="n">from</span> <span class="o">=&gt;</span> <span class="s">&quot;now-$interval&quot;</span><span class="p">,</span>
-                    <span class="n">to</span>   <span class="o">=&gt;</span> <span class="s">&quot;now&quot;</span>
-                <span class="p">},</span>
-            <span class="p">},</span>
-        <span class="p">},</span>
-        <span class="n">facets</span> <span class="o">=&gt;</span> <span class="p">{</span>
-            <span class="s">&quot;code&quot;</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                <span class="n">facet_filter</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                    <span class="n">term</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                        <span class="nv">$key_field</span> <span class="o">=&gt;</span> <span class="s">&quot;$key&quot;</span>
-                    <span class="p">}</span>
-                <span class="p">},</span>
-                <span class="n">terms</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                    <span class="n">field</span> <span class="o">=&gt;</span> <span class="s">&quot;status&quot;</span><span class="p">,</span>
-                <span class="p">}</span>
-            <span class="p">}</span>
-        <span class="p">}</span>
-    <span class="p">);</span>
-    <span class="k">for</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">facets</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">code</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">terms</span><span class="p">}}</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$result</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">term</span><span class="p">}}</span> <span class="o">=</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">count</span><span class="p">};</span>
-    <span class="p">};</span>
-    <span class="k">return</span> <span class="nv">$result</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="c1">#画图数据API类，因为响应的是Ajax请求，所以这里开启了async，不过其实没意义了。因为这个ElasticSearch代码不是async格式的。应该改造用ElasticSearch::Transport::AEHTTP才能做到全程async。</span>
-<span class="nb">package</span> <span class="n">ChartHandler</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">parent</span> <span class="sx">qw(Tatsumaki::Handler)</span><span class="p">;</span>
-<span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">asynchronous</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
-<span class="k">use</span> <span class="n">JSON</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">post</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$api</span> <span class="o">=</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">request</span><span class="o">-&gt;</span><span class="n">param</span><span class="p">(</span><span class="s">&#39;api&#39;</span><span class="p">)</span> <span class="o">||</span> <span class="s">&#39;term&#39;</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$key</span> <span class="o">=</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">request</span><span class="o">-&gt;</span><span class="n">param</span><span class="p">(</span><span class="s">&#39;key&#39;</span><span class="p">)</span> <span class="o">||</span> <span class="s">&#39;oh&#39;</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$value</span> <span class="o">=</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">request</span><span class="o">-&gt;</span><span class="n">param</span><span class="p">(</span><span class="s">&#39;value&#39;</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$status</span> <span class="o">=</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">request</span><span class="o">-&gt;</span><span class="n">param</span><span class="p">(</span><span class="s">&#39;status&#39;</span><span class="p">)</span> <span class="o">||</span> <span class="s">&#39;200&#39;</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$field</span> <span class="o">=</span>  <span class="nv">$key</span> <span class="ow">eq</span> <span class="s">&#39;oh&#39;</span> <span class="p">?</span> <span class="s">&#39;upstreamtime&#39;</span> <span class="p">:</span> <span class="s">&#39;responsetime&#39;</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="nv">$elsearch</span><span class="o">-&gt;</span><span class="n">search</span><span class="p">(</span>
-        <span class="nb">index</span> <span class="o">=&gt;</span> <span class="s">&quot;$index&quot;</span><span class="p">,</span>
-        <span class="n">type</span>  <span class="o">=&gt;</span> <span class="s">&quot;$type&quot;</span><span class="p">,</span>
-        <span class="n">size</span>  <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span>
-        <span class="n">query</span> <span class="o">=&gt;</span> <span class="p">{</span>
-            <span class="n">match_all</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="p">}</span>
-        <span class="p">},</span>
-        <span class="n">facets</span> <span class="o">=&gt;</span> <span class="p">{</span>
-            <span class="s">&quot;chart&quot;</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                <span class="n">facet_filter</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                    <span class="ow">and</span> <span class="o">=&gt;</span> <span class="p">[</span>
-                        <span class="p">{</span>
-                            <span class="n">term</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                                <span class="n">status</span> <span class="o">=&gt;</span> <span class="nv">$status</span><span class="p">,</span>
-                            <span class="p">},</span>
-                        <span class="p">},</span>
-                        <span class="p">{</span>
-                            <span class="nv">$api</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                                <span class="nv">$key</span> <span class="o">=&gt;</span> <span class="nv">$value</span><span class="p">,</span>
-                            <span class="p">},</span>
-                        <span class="p">},</span>
-                    <span class="p">]</span>
-                <span class="p">},</span>
-                <span class="n">date_histogram</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                    <span class="n">value_field</span> <span class="o">=&gt;</span> <span class="nv">$field</span><span class="p">,</span>
-                    <span class="n">key_field</span> <span class="o">=&gt;</span> <span class="s">&#39;@timestamp&#39;</span><span class="p">,</span>
-                    <span class="n">interval</span> <span class="o">=&gt;</span> <span class="s">&quot;1m&quot;</span>
-                <span class="p">}</span>
-            <span class="p">},</span>
-        <span class="p">},</span>
-    <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">@result</span><span class="p">;</span>
-    <span class="k">for</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;facets&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;chart&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;entries&#39;</span><span class="p">}}</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nb">push</span> <span class="nv">@result</span><span class="p">,</span> <span class="p">{</span>
-           <span class="nb">time</span> <span class="o">=&gt;</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;time&#39;</span><span class="p">},</span>
-           <span class="n">count</span> <span class="o">=&gt;</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;count&#39;</span><span class="p">},</span>
-           <span class="n">mean</span> <span class="o">=&gt;</span> <span class="nb">sprintf</span> <span class="s">&quot;%.3f&quot;</span><span class="p">,</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;mean&#39;</span><span class="p">}</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-    <span class="n">header</span><span class="p">(</span><span class="s">&#39;Content-Type&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;application/json&#39;</span><span class="p">);</span>
-    <span class="n">to_json</span><span class="p">(</span><span class="o">\</span><span class="nv">@result</span><span class="p">);</span>
-<span class="p">};</span>
-<span class="c1">#主函数</span>
-<span class="nb">package</span> <span class="n">main</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">File::</span><span class="n">Basename</span><span class="p">;</span>
-<span class="c1">#通过Tatsumaki::Application绑定urlpath到不同的类上。注意下面listhandler那里用的正则捕获。对，上面类里传参就是这么来的。注意最多不超过$9。</span>
-<span class="k">my</span> <span class="nv">$app</span> <span class="o">=</span> <span class="nn">Tatsumaki::</span><span class="n">Application</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">([</span>
-    <span class="s">&#39;/&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;MainHandler&#39;</span><span class="p">,</span>
-    <span class="s">&#39;/api/chartdata&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;ChartHandler&#39;</span><span class="p">,</span>
-    <span class="s">&#39;/api/(\w+)/(\w+)/(\w+)&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;ListHandler&#39;</span><span class="p">,</span>
-<span class="p">]);</span>
-<span class="c1">#指定template和static的路径。类似Dancer里的views和public</span>
-<span class="nv">$app</span><span class="o">-&gt;</span><span class="n">template_path</span><span class="p">(</span><span class="n">dirname</span><span class="p">(</span><span class="n">__FILE__</span><span class="p">)</span> <span class="o">.</span> <span class="s">&#39;/templates&#39;</span><span class="p">);</span>
-<span class="nv">$app</span><span class="o">-&gt;</span><span class="n">static_path</span><span class="p">(</span><span class="n">dirname</span><span class="p">(</span><span class="n">__FILE__</span><span class="p">)</span> <span class="o">.</span> <span class="s">&#39;/static&#39;</span><span class="p">);</span>
-<span class="c1">#psgi app组建完成</span>
-<span class="k">return</span> <span class="nv">$app</span><span class="o">-&gt;</span><span class="n">psgi_app</span><span class="p">;</span>
-<span class="n">true</span><span class="p">;</span>
-</code></pre></div>
-<p>static里都是bootstrap的东西就不贴了。然后说说template。目前Tatsumaki只支持Text::MicroTemplate::File一种template，当然自己在handler里调用其他的template然后返回字符串也行。不过其实Text::MicroTemplate也蛮强大的。下面上例子：</p>
-<div class="highlight"><pre><code class="html">%# 这就是Text::MicroTemplate强大的地方了，行首加个百分号就可以直接使用perl而不像TT那样尽量搞自己的语法
-%# 配合render传来的handler(前面说了是类$self)，整个环境全可以任意调用。
-% my $mapping = $_[0]-&gt;{&#39;mapping&#39;};
-% my $table = $_[0]-&gt;{&#39;table&#39;};
-%# 比如这里其实就是通过handler调用request了。
-% my $group = $_[0]-&gt;{handler}-&gt;args-&gt;[0];
-% my @codes = qw(200 206 302 304 400 403 404 499 502 503 504);
-<span class="cp">&lt;!DOCTYPE html PUBLIC &quot;-//W3C//DTD XHTML 1.0 Transitional//EN&quot;</span>
-<span class="cp">        &quot;http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd&quot;&gt;</span>
-<span class="nt">&lt;html</span> <span class="na">xmlns=</span><span class="s">&quot;http://www.w3.org/1999/xhtml&quot;</span><span class="nt">&gt;</span>
-<span class="nt">&lt;head&gt;</span>
-<span class="nt">&lt;meta</span> <span class="na">http-equiv=</span><span class="s">&quot;Content-type&quot;</span> <span class="na">content=</span><span class="s">&quot;text/html; charset=utf-8&quot;</span> <span class="nt">/&gt;</span>
-<span class="nt">&lt;title&gt;</span>Bubble -- a perl webui for logstash <span class="err">&amp;</span> elasticsearch<span class="nt">&lt;/title&gt;</span>
-<span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">&quot;stylesheet&quot;</span> <span class="na">href=</span><span class="s">&quot;/static/bootstrap/css/bootstrap.css&quot;</span> <span class="nt">&gt;</span>
-<span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">&quot;stylesheet&quot;</span> <span class="na">href=</span><span class="s">&quot;/static/fontawesome/css/font-awesome.css&quot;</span> <span class="nt">&gt;</span>
-<span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">&quot;stylesheet&quot;</span> <span class="na">href=</span><span class="s">&quot;/static/css/style.css&quot;</span> <span class="nt">&gt;</span>
-<span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">&quot;stylesheet&quot;</span> <span class="na">href=</span><span class="s">&quot;/static/amcharts/style.css&quot;</span> <span class="na">type=</span><span class="s">&quot;text/css&quot;</span><span class="nt">&gt;</span>
-<span class="nt">&lt;/head&gt;</span>
-<span class="nt">&lt;body&gt;</span>
-<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;container&quot;</span><span class="nt">&gt;</span>
-<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;container-fluid&quot;</span><span class="nt">&gt;</span>
-  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;row-fluid&quot;</span><span class="nt">&gt;</span>
-    <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;span3&quot;</span><span class="nt">&gt;</span>
-      <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;well sidebar-nav&quot;</span><span class="nt">&gt;</span>
-        <span class="nt">&lt;ul</span> <span class="na">class=</span><span class="s">&quot;nav nav-list&quot;</span><span class="nt">&gt;</span>
-          <span class="nt">&lt;li</span> <span class="na">class=</span><span class="s">&quot;nav-header&quot;</span><span class="nt">&gt;</span>查询<span class="nt">&lt;/li&gt;</span>
-% for my $property ( @{ $mapping } ) {
-%     if ( ref( $property ) eq &#39;ARRAY&#39; ) {
-          <span class="nt">&lt;li&gt;</span>@fields<span class="nt">&lt;/li&gt;</span>
-%          for ( @{$property} ) {
-          <span class="nt">&lt;li&gt;</span>  - <span class="err">&lt;</span>%= $_-&gt;{&#39;name&#39;} %&gt; <span class="err">&lt;</span>%= $_-&gt;{&#39;type&#39;} %&gt;<span class="nt">&lt;/li&gt;</span>
-%          }
-%     } elsif ( $property-&gt;{&#39;type&#39;} ) {
-          <span class="nt">&lt;li&gt;</span><span class="err">&lt;</span>%= $property-&gt;{&#39;name&#39;} %&gt; <span class="err">&lt;</span>%= $property-&gt;{&#39;type&#39;} %&gt;<span class="nt">&lt;/li&gt;</span>
-%     }
-% }
-        <span class="nt">&lt;/ul&gt;</span>
-      <span class="nt">&lt;/div&gt;</span>
-    <span class="nt">&lt;/div&gt;</span>
-    <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;span9&quot;</span><span class="nt">&gt;</span>
-      <span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">&quot;search&quot;</span><span class="nt">&gt;</span>
-        <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;control-group&quot;</span><span class="nt">&gt;</span>
-          <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;controls docs-input-sizes&quot;</span><span class="nt">&gt;</span>
-            <span class="nt">&lt;select</span> <span class="na">class=</span><span class="s">&quot;input-small inline&quot;</span> <span class="na">id=</span><span class="s">&quot;esapi&quot;</span> <span class="na">name=</span><span class="s">&quot;api&quot;</span><span class="nt">&gt;</span>
-              <span class="nt">&lt;option&gt;</span>匹配方式<span class="nt">&lt;/option&gt;</span>
-              <span class="nt">&lt;option&gt;</span>prefix<span class="nt">&lt;/option&gt;</span>
-              <span class="nt">&lt;option&gt;</span>term<span class="nt">&lt;/option&gt;</span>
-              <span class="nt">&lt;option&gt;</span>text<span class="nt">&lt;/option&gt;</span>
-            <span class="nt">&lt;/select&gt;</span>
-            <span class="nt">&lt;select</span> <span class="na">class=</span><span class="s">&quot;input-small inline&quot;</span> <span class="na">id=</span><span class="s">&quot;eskey&quot;</span> <span class="na">name=</span><span class="s">&quot;key&quot;</span><span class="nt">&gt;</span>
-              <span class="nt">&lt;option&gt;</span>查询列<span class="nt">&lt;/option&gt;</span>
-              <span class="nt">&lt;option&gt;</span>oh<span class="nt">&lt;/option&gt;</span>
-              <span class="nt">&lt;option&gt;</span>url<span class="nt">&lt;/option&gt;</span>
-            <span class="nt">&lt;/select&gt;</span>
-            <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">&quot;text&quot;</span> <span class="na">class=</span><span class="s">&quot;input-big inline&quot;</span> <span class="na">id=</span><span class="s">&quot;esvalue&quot;</span> <span class="na">name=</span><span class="s">&quot;value&quot;</span> <span class="na">placeholder=</span><span class="s">&quot;查询文本&quot;</span> <span class="nt">/&gt;</span>
-            <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">&quot;text&quot;</span> <span class="na">class=</span><span class="s">&quot;input-small inline&quot;</span> <span class="na">id=</span><span class="s">&quot;esstatus&quot;</span> <span class="na">name=</span><span class="s">&quot;status&quot;</span> <span class="na">placeholder=</span><span class="s">&quot;指定状态&quot;</span> <span class="nt">/&gt;</span>
-            <span class="nt">&lt;button</span> <span class="na">class=</span><span class="s">&quot;btn btn-primary&quot;</span> <span class="na">onclick=</span><span class="s">&quot;genchart()&quot;</span><span class="nt">&gt;</span>查看<span class="nt">&lt;/button&gt;</span>
-          <span class="nt">&lt;/div&gt;</span>
-        <span class="nt">&lt;/div&gt;</span>
-      <span class="nt">&lt;/div&gt;</span>
-      <span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">&quot;chartdiv&quot;</span> <span class="na">style=</span><span class="s">&quot;display:none; width: 100%; height: 500px;&quot;</span><span class="nt">&gt;&lt;/div&gt;</span>
-      <span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">&quot;estable&quot;</span><span class="nt">&gt;</span>
-% if ( $table ) {
-        <span class="nt">&lt;table</span> <span class="na">class=</span><span class="s">&quot;table table-striped table-bordered table-condensed&quot;</span><span class="nt">&gt;</span>
-          <span class="nt">&lt;thead&gt;</span>
-            <span class="nt">&lt;tr&gt;</span>
-              <span class="nt">&lt;th&gt;</span><span class="err">&lt;</span>%= $group %&gt;<span class="nt">&lt;/th&gt;</span>
-              <span class="nt">&lt;th&gt;</span>平均响应时间<span class="nt">&lt;/th&gt;</span>
-              <span class="nt">&lt;th&gt;</span>最大响应时间<span class="nt">&lt;/th&gt;</span>
-              <span class="nt">&lt;th&gt;</span>下载数<span class="nt">&lt;/th&gt;</span>
-%     for ( @codes ) {
-              <span class="nt">&lt;th&gt;</span><span class="err">&lt;</span>%= $_ %&gt;<span class="nt">&lt;/th&gt;</span>
-%     }
-            <span class="nt">&lt;/tr&gt;</span>
-          <span class="nt">&lt;/thead&gt;</span>
-          <span class="nt">&lt;tbody&gt;</span>
-%     for my $list ( @{ $table } ) {
-            <span class="nt">&lt;tr&gt;</span>
-              <span class="nt">&lt;td&gt;</span><span class="err">&lt;</span>%= $list-&gt;{&#39;key&#39;} %&gt;<span class="nt">&lt;/td&gt;</span>
-              <span class="nt">&lt;td&gt;</span><span class="err">&lt;</span>%= $list-&gt;{&#39;mean&#39;} %&gt;<span class="nt">&lt;/td&gt;</span>
-              <span class="nt">&lt;td&gt;</span><span class="err">&lt;</span>%= $list-&gt;{&#39;max&#39;} %&gt;<span class="nt">&lt;/td&gt;</span>
-              <span class="nt">&lt;td&gt;</span><span class="err">&lt;</span>%= $list-&gt;{&#39;count&#39;} %&gt;<span class="nt">&lt;/td&gt;</span>
-%         for ( @codes ) {
-%             if ( $list-&gt;{&#39;code&#39;}-&gt;{$_} ) {
-              <span class="nt">&lt;td&gt;</span><span class="err">&lt;</span>%= $list-&gt;{&#39;code&#39;}-&gt;{$_} %&gt;<span class="nt">&lt;/td&gt;</span>
-%             } else {
-              <span class="nt">&lt;td&gt;&lt;/td&gt;</span>
-%             }
-%         }
-            <span class="nt">&lt;/tr&gt;</span>
-%     }
-          <span class="nt">&lt;/tbody&gt;</span>
-        <span class="nt">&lt;/table&gt;</span>
-% }
-      <span class="nt">&lt;/div&gt;</span>
-    <span class="nt">&lt;/div&gt;</span>
-  <span class="nt">&lt;/div&gt;</span>
-<span class="nt">&lt;/div&gt;</span>
-<span class="nt">&lt;/div&gt;</span>
-<span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;/static/javascripts/jquery-1.7.2.min.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
-<span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;/static/bootstrap/js/bootstrap.min.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
-<span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;/static/amcharts/amstock.js&quot;</span> <span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
-<span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span><span class="nt">&gt;</span>
-  <span class="kd">var</span> <span class="nx">chart</span><span class="p">;</span>
-  <span class="kd">var</span> <span class="nx">chartProvider</span> <span class="o">=</span> <span class="p">[];</span>
-  <span class="kd">function</span> <span class="nx">createStockChart</span><span class="p">()</span> <span class="p">{</span>
-    <span class="nx">chart</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">AmStockChart</span><span class="p">();</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">pathToImages</span> <span class="o">=</span> <span class="s2">&quot;/static/amcharts/images/&quot;</span><span class="p">;</span>
-    <span class="kd">var</span> <span class="nx">categoryAxesSettings</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">CategoryAxesSettings</span><span class="p">();</span>
-    <span class="nx">categoryAxesSettings</span><span class="p">.</span><span class="nx">parseDates</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
-    <span class="nx">categoryAxesSettings</span><span class="p">.</span><span class="nx">minPeriod</span> <span class="o">=</span> <span class="s2">&quot;mm&quot;</span><span class="p">;</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">categoryAxesSettings</span> <span class="o">=</span> <span class="nx">categoryAxesSettings</span><span class="p">;</span>
-    <span class="kd">var</span> <span class="nx">dataSet</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">DataSet</span><span class="p">();</span>
-    <span class="nx">dataSet</span><span class="p">.</span><span class="nx">fieldMappings</span> <span class="o">=</span> <span class="p">[{</span>
-      <span class="nx">fromField</span> <span class="o">:</span> <span class="s2">&quot;count&quot;</span><span class="p">,</span>
-      <span class="nx">toField</span> <span class="o">:</span> <span class="s2">&quot;count&quot;</span><span class="p">,</span>
-    <span class="p">},</span> <span class="p">{</span>
-      <span class="nx">fromField</span> <span class="o">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
-      <span class="nx">toField</span> <span class="o">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
-    <span class="p">}];</span>
-    <span class="nx">dataSet</span><span class="p">.</span><span class="nx">dataProvider</span> <span class="o">=</span> <span class="nx">chartProvider</span><span class="p">;</span>
-    <span class="nx">dataSet</span><span class="p">.</span><span class="nx">categoryField</span> <span class="o">=</span> <span class="s2">&quot;date&quot;</span><span class="p">;</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">dataSets</span> <span class="o">=</span> <span class="p">[</span><span class="nx">dataSet</span><span class="p">];</span>
-    <span class="kd">var</span> <span class="nx">stockPanel1</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">StockPanel</span><span class="p">();</span>
-    <span class="nx">stockPanel1</span><span class="p">.</span><span class="nx">percentHeight</span> <span class="o">=</span> <span class="mi">70</span><span class="p">;</span>
-    <span class="kd">var</span> <span class="nx">valueAxis1</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">ValueAxis</span><span class="p">();</span>
-    <span class="nx">valueAxis1</span><span class="p">.</span><span class="nx">position</span> <span class="o">=</span> <span class="s2">&quot;left&quot;</span><span class="p">;</span>
-    <span class="nx">valueAxis1</span><span class="p">.</span><span class="nx">axisColor</span> <span class="o">=</span> <span class="s2">&quot;#999999&quot;</span><span class="p">;</span>
-    <span class="nx">stockPanel1</span><span class="p">.</span><span class="nx">addValueAxis</span><span class="p">(</span><span class="nx">valueAxis1</span><span class="p">);</span>
-    <span class="kd">var</span> <span class="nx">graph1</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">StockGraph</span><span class="p">();</span>
-    <span class="nx">graph1</span><span class="p">.</span><span class="nx">valueField</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">;</span>
-    <span class="nx">graph1</span><span class="p">.</span><span class="nx">title</span> <span class="o">=</span> <span class="s2">&quot;mean(ms)&quot;</span><span class="p">;</span>
-    <span class="nx">graph1</span><span class="p">.</span><span class="nx">type</span> <span class="o">=</span> <span class="s2">&quot;smoothedLine&quot;</span><span class="p">;</span>
-    <span class="nx">graph1</span><span class="p">.</span><span class="nx">lineColor</span> <span class="o">=</span> <span class="s2">&quot;#999999&quot;</span><span class="p">;</span>
-    <span class="nx">graph1</span><span class="p">.</span><span class="nx">fillAlphas</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">;</span>
-    <span class="nx">graph1</span><span class="p">.</span><span class="nx">useDataSetColors</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
-    <span class="nx">stockPanel1</span><span class="p">.</span><span class="nx">addStockGraph</span><span class="p">(</span><span class="nx">graph1</span><span class="p">);</span>
-    <span class="kd">var</span> <span class="nx">stockLegend1</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">StockLegend</span><span class="p">();</span>
-    <span class="nx">stockPanel1</span><span class="p">.</span><span class="nx">stockLegend</span> <span class="o">=</span> <span class="nx">stockLegend1</span><span class="p">;</span>
-    <span class="nx">stockPanel1</span><span class="p">.</span><span class="nx">drawingIconsEnabled</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
-    <span class="kd">var</span> <span class="nx">stockPanel2</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">StockPanel</span><span class="p">();</span>
-    <span class="nx">stockPanel2</span><span class="p">.</span><span class="nx">percentHeight</span> <span class="o">=</span> <span class="mi">30</span><span class="p">;</span>
-    <span class="nx">stockPanel2</span><span class="p">.</span><span class="nx">marginTop</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-    <span class="nx">stockPanel2</span><span class="p">.</span><span class="nx">categoryAxis</span><span class="p">.</span><span class="nx">dashLength</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
-    <span class="nx">stockPanel2</span><span class="p">.</span><span class="nx">showCategoryAxis</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
-    <span class="nx">valueAxis2</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">ValueAxis</span><span class="p">();</span>
-    <span class="nx">valueAxis2</span><span class="p">.</span><span class="nx">dashLength</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
-    <span class="nx">valueAxis2</span><span class="p">.</span><span class="nx">gridAlpha</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="nx">valueAxis2</span><span class="p">.</span><span class="nx">axisThickness</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
-    <span class="nx">stockPanel2</span><span class="p">.</span><span class="nx">addValueAxis</span><span class="p">(</span><span class="nx">valueAxis2</span><span class="p">);</span>
-    <span class="kd">var</span> <span class="nx">graph2</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">StockGraph</span><span class="p">();</span>
-    <span class="nx">graph2</span><span class="p">.</span><span class="nx">valueAxis</span> <span class="o">=</span> <span class="nx">valueAxis2</span><span class="p">;</span>
-    <span class="nx">graph2</span><span class="p">.</span><span class="nx">valueField</span> <span class="o">=</span> <span class="s2">&quot;count&quot;</span><span class="p">;</span>
-    <span class="nx">graph2</span><span class="p">.</span><span class="nx">title</span> <span class="o">=</span> <span class="s2">&quot;count&quot;</span><span class="p">;</span>
-    <span class="nx">graph2</span><span class="p">.</span><span class="nx">balloonText</span> <span class="o">=</span> <span class="s2">&quot;[[value]]%&quot;</span><span class="p">;</span>
-    <span class="nx">graph2</span><span class="p">.</span><span class="nx">type</span> <span class="o">=</span> <span class="s2">&quot;column&quot;</span><span class="p">;</span>
-    <span class="nx">graph2</span><span class="p">.</span><span class="nx">cornerRadiusTop</span> <span class="o">=</span> <span class="mi">4</span><span class="p">;</span>
-    <span class="nx">graph2</span><span class="p">.</span><span class="nx">fillAlphas</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-    <span class="nx">graph2</span><span class="p">.</span><span class="nx">lineColor</span> <span class="o">=</span> <span class="s2">&quot;#FCD202&quot;</span><span class="p">;</span>
-    <span class="nx">graph2</span><span class="p">.</span><span class="nx">useDataSetColors</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
-    <span class="nx">stockPanel2</span><span class="p">.</span><span class="nx">addStockGraph</span><span class="p">(</span><span class="nx">graph2</span><span class="p">);</span>
-    <span class="kd">var</span> <span class="nx">stockLegend2</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">StockLegend</span><span class="p">();</span>
-    <span class="nx">stockPanel2</span><span class="p">.</span><span class="nx">stockLegend</span> <span class="o">=</span> <span class="nx">stockLegend2</span><span class="p">;</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">panels</span> <span class="o">=</span> <span class="p">[</span><span class="nx">stockPanel1</span><span class="p">,</span> <span class="nx">stockPanel2</span><span class="p">];</span>
-    <span class="kd">var</span> <span class="nx">sbsettings</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">ChartScrollbarSettings</span><span class="p">();</span>
-    <span class="nx">sbsettings</span><span class="p">.</span><span class="nx">graph</span> <span class="o">=</span> <span class="nx">graph2</span><span class="p">;</span>
-    <span class="nx">sbsettings</span><span class="p">.</span><span class="nx">graphType</span> <span class="o">=</span> <span class="s2">&quot;line&quot;</span><span class="p">;</span>
-    <span class="nx">sbsettings</span><span class="p">.</span><span class="nx">height</span> <span class="o">=</span> <span class="mi">30</span><span class="p">;</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">chartScrollbarSettings</span> <span class="o">=</span> <span class="nx">sbsettings</span><span class="p">;</span>
-    <span class="kd">var</span> <span class="nx">cursorSettings</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">ChartCursorSettings</span><span class="p">();</span>
-    <span class="nx">cursorSettings</span><span class="p">.</span><span class="nx">valueBalloonsEnabled</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">chartCursorSettings</span> <span class="o">=</span> <span class="nx">cursorSettings</span><span class="p">;</span>
-    <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;#chartdiv&quot;</span><span class="p">).</span><span class="nx">show</span><span class="p">();</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">write</span><span class="p">(</span><span class="s2">&quot;chartdiv&quot;</span><span class="p">);</span>
-  <span class="p">};</span>
-  <span class="kd">function</span> <span class="nx">genchart</span><span class="p">()</span> <span class="p">{</span>
-    <span class="nx">$</span><span class="p">.</span><span class="nx">getJSON</span><span class="p">(</span><span class="s1">&#39;/api/chartdata&#39;</span><span class="p">,</span> <span class="p">{</span>
-      <span class="nx">api</span> <span class="o">:</span> <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;#esapi&quot;</span><span class="p">).</span><span class="nx">val</span><span class="p">(),</span>
-      <span class="nx">key</span> <span class="o">:</span> <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;#eskey&quot;</span><span class="p">).</span><span class="nx">val</span><span class="p">(),</span>
-      <span class="nx">status</span> <span class="o">:</span> <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;#esstatus&quot;</span><span class="p">).</span><span class="nx">val</span><span class="p">(),</span>
-      <span class="nx">value</span> <span class="o">:</span> <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;#esvalue&quot;</span><span class="p">).</span><span class="nx">val</span><span class="p">(),</span>
-    <span class="p">},</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
-      <span class="k">for</span> <span class="p">(</span> <span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">data</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="kd">var</span> <span class="nx">date</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">(</span><span class="nx">data</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">time</span><span class="p">);</span>
-        <span class="nx">chartProvider</span><span class="p">.</span><span class="nx">push</span><span class="p">({</span>
-          <span class="nx">date</span><span class="o">:</span> <span class="nx">date</span><span class="p">,</span>
-          <span class="nx">count</span><span class="o">:</span> <span class="nx">data</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">count</span><span class="p">,</span>
-          <span class="nx">mean</span><span class="o">:</span> <span class="nx">data</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">mean</span><span class="p">,</span>
-        <span class="p">});</span>
-      <span class="p">}</span>
-      <span class="nx">createStockChart</span><span class="p">();</span>
-    <span class="p">});</span>
-  <span class="p">};</span>
-<span class="nt">&lt;/script&gt;</span>
-<span class="nt">&lt;/body&gt;</span>
-<span class="nt">&lt;/html&gt;</span>
-</code></pre></div>
-<p>效果如下：</p>
-<p><img src="/images/uploads/tatsumaki.png" alt="查询表格并提交最多次的url绘图" title="查询表格并提交最多次的url绘图" /></p>
-<hr />
-<p><strong>2012 年 12 月 30 日附注：</strong></p>
-<p>更好的纯 js 版本已经作为独立的 elasticsearch-plugin 项目发布在 github 上。地址：<a href="https://github.com/chenryn/elasticsearch-logstash-faceter">https://github.com/chenryn/elasticsearch-logstash-faceter</a> 。欢迎大家试用!!</p>
-      <a href="/2012/11/22/tatsumaki-demo" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/11/22/gnuplot-to-draw-multi-graph" title="用gnuplot绘制多图" rel="bookmark">用gnuplot绘制多图</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-11-22 00:00:00 +0800">22 Nov 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>以前已经提过多次gnuplot的简便快捷了。不过大多是最基本的单图上画条线之类的。这次碰到需求，稍微help了一下在一个图上画多个区域。主要需要注意的就是set size的定位点到底从什么角度算，说实话蛮麻烦的。</p>
-<p>上文件：</p>
-<div class="highlight"><pre><code class="bash">    <span class="nv">result</span><span class="o">=</span><span class="nv">$1</span>
-    <span class="nv">begin</span><span class="o">=</span><span class="sb">`</span>head -n 1 <span class="nv">$result</span>.txt | awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
-    <span class="nv">end</span><span class="o">=</span><span class="sb">`</span>tail -n 1 <span class="nv">$result</span>.txt | awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
-    cat &gt; conf/<span class="nv">$result</span>.conf <span class="s">&lt;&lt;EOF</span>
-<span class="s">    set terminal png</span>
-<span class="s">    set output &quot;png/$result.png&quot;</span>
-<span class="s">    set multiplot</span>
-<span class="s">    set xdata time</span>
-<span class="s">    set timefmt &quot;%H:%M:%S&quot;</span>
-<span class="s">    set format x &quot;%M:%S&quot;</span>
-<span class="s">    set size 1.0,0.5</span>
-<span class="s">    set origin 0.0,0.5</span>
-<span class="s">    set ylabel &quot;KRps&quot;</span>
-<span class="s">    unset xtics</span>
-<span class="s">    plot &quot;res/$result.txt&quot; using 1:(\$2/1000) with points linewidth 2 title &quot;&quot;</span>
-<span class="s">    set origin 0.0,0.0</span>
-<span class="s">    set size 1.0,0.35</span>
-<span class="s">    set xtics</span>
-<span class="s">    set xrange [&quot;$begin&quot;:&quot;$end&quot;]</span>
-<span class="s">    set ylabel &quot;%usr:sys:irq&quot;</span>
-<span class="s">    plot &quot;res/$result.csv&quot; using 2:(\$3+\$4+\$8) with boxes fs solid 1.0 title &quot;&quot;, \</span>
-<span class="s">         &quot;res/$result.csv&quot; using 2:(\$3+\$4) with boxes fs solid 1.0 title &quot;&quot;, \</span>
-<span class="s">         &quot;res/$result.csv&quot; using 2:3 with boxes fs solid 1.0 title &quot;&quot;</span>
-<span class="s">    set origin 0.0,0.3</span>
-<span class="s">    set size 1.0,0.25</span>
-<span class="s">    unset xtics</span>
-<span class="s">    set ylabel &quot;MBps&quot;</span>
-<span class="s">    plot &quot;res/$result.csv&quot; using 2:(\$11/1024/1024) with boxes fs solid 0.7 linecolor rgb &quot;green&quot; title &quot;&quot;, \</span>
-<span class="s">         &quot;res/$result.csv&quot; using 2:(\$12/1024/1024) with lines linewidth 2 linecolor rgb &quot;blue&quot; title &quot;&quot;</span>
-<span class="s">    EOF</span>
-    cat conf/<span class="nv">$result</span>.conf | gnuplot
-</code></pre></div>
-<p>注意：新增了一行xrange配置，如果不指定这个几张小图的xtics会不统一，而上面两张图的xtics又已经被unset了，结果看起来就跟不同步似的。</p>
-<p>效果如下：
-<img src="/images/uploads/gnuplot-multi.png" alt="图片" /></p>
-      <a href="/2012/11/22/gnuplot-to-draw-multi-graph" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -3543,6 +3214,9 @@ plot <span class="s1">&#39;oversea.csv&#39;</span> using 2:xtic<span class="o">(
     </li>
     <li class="page">
       <a href="/page15">15</a>
+    </li>
+    <li class="page">
+      <a href="/page16">16</a>
     </li>
     <li>
       <a href="/page3">Next</a>

@@ -43,6 +43,166 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/02/09/intro-vary" title="cache驻留时间（七、Vary）" rel="bookmark">cache驻留时间（七、Vary）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-02-09 00:00:00 +0800">09 Feb 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>之前的系列文章，只涉及squid本身，今天突然想到，其实这个网站加速，除了squid缓存这种缩短传输距离的办法以外，还有另一个办法——压缩内容以缩短传输时间。
+而糟糕的问题是，squid对压缩内容的缓存，限制多多。因为squid默认是以HTTP/1.0进行内容传输的，对HTTP/1.1协议兼容性不怎么滴~~一个不小心，browser就会接受到squid交给它的无法理解的内容，并忠实的把这个错乱信息显示给网民……然后你就等着客户投诉电话吧~~
+这个具体的限制就是：squid只支持静态压缩，不支持动态压缩。反应到header上，就是rep_header里必须指明Content-length是多少多少，不能采用Transfer-Encoding: chunked这样的动态块格式；rep_header里必须指明Vary是Accept-Encoding，而不能是其他的User-Agent等等。</p>
+<p>HTTP/1.1标准中，是建议所有的网页都加上vary头的。可见这个东东的重要性。</p>
+<p>我不知道是不是有其他的缓存服务器能够支持vary值为user-agent，不过却在网上看到这么一句话：“如果依照除请求头以外的其他条件决定是否使用压缩(例如：HTTP版本)，你必须设置Vary头的值为&rdquo;*&ldquo;来完全阻止代理服务器的缓存”——我正好在今天看到一个客户的网站所有内容都加上了Vary: *，于是全部回源。。。</p>
+<p>接下来，当源站把Content-Length和Accept-Encoding都设定好了，squid就万事大吉了么？嗯，理论上是的，不过最好还是检查一下配置文件，万一你前任或者同事在里头写了句“cache_vary off”，上面那些可就全做了无用功了……</p>
+<p>检查完成，但看看分析结果，怎么缓存命中率还是不算高，访问速度还是不算快？（呃，你想要多高多快？）那，我这还有一招——隆重推出windtear的文章《[squid patch] 解决 Accept-Encoding不一致造成的多份缓存问题》，因为IE和FF在发出这个header的时候，其实内容是不一样的：</p>
+<pre><code>IE : Accept-Encoding: gzip, deflate
+FF : Accept-Encoding: gzip,deflate
+</code></pre>
+<p>注意到了么？IE的内容里多了一个空格！
+感谢windtear这些已经深入squid源代码的大神们，把src/http.c相关部分修改如下，编译完成即可：</p>
+<div class="highlight"><pre><code class="c"><span class="n">strListAdd</span><span class="p">(</span><span class="o">&amp;</span><span class="n">vstr</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="sc">&#39;,&#39;</span><span class="p">);</span>
+<span class="n">hdr</span> <span class="o">=</span> <span class="n">httpHeaderGetByName</span><span class="p">(</span><span class="o">&amp;</span><span class="n">request</span><span class="o">-&gt;</span><span class="n">header</span><span class="p">,</span> <span class="n">name</span><span class="p">);</span>
+<span class="n">value</span> <span class="o">=</span> <span class="n">strBuf</span><span class="p">(</span><span class="n">hdr</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="p">{</span>
+<span class="o">+</span><span class="err">    </span> <span class="k">if</span> <span class="p">(</span><span class="n">strcmp</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="s">&quot;accept-encoding&quot;</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">rfc1738_escape_part</span><span class="p">(</span><span class="n">value</span><span class="p">);</span>
+    <span class="n">stringAppend</span><span class="p">(</span><span class="o">&amp;</span><span class="n">vstr</span><span class="p">,</span> <span class="s">&quot;=&quot;&quot;, 2);</span>
+    <span class="n">stringAppend</span><span class="p">(</span><span class="o">&amp;</span><span class="n">vstr</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">strlen</span><span class="p">(</span><span class="n">value</span><span class="p">));</span>
+    <span class="n">stringAppend</span><span class="p">(</span><span class="o">&amp;</span><span class="n">vstr</span><span class="p">,</span> <span class="s">&quot;&quot;&quot;, 1);</span>
+<span class="o">+</span><span class="err">    </span> <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+<span class="o">+</span> <span class="k">if</span><span class="p">(</span><span class="n">strstr</span><span class="p">(</span><span class="n">value</span><span class="p">,</span><span class="s">&quot;gzip&quot;</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">NULL</span> <span class="o">||</span> <span class="n">strstr</span><span class="p">(</span><span class="n">value</span><span class="p">,</span><span class="s">&quot;deflate&quot;</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">{</span>
+<span class="o">+</span>     <span class="n">stringAppend</span><span class="p">(</span><span class="o">&amp;</span><span class="n">vstr</span><span class="p">,</span> <span class="s">&quot;=&quot;</span><span class="n">gzip</span><span class="p">,</span><span class="o">%</span><span class="mi">20</span><span class="n">deflate</span><span class="s">&quot;&quot;</span><span class="p">,</span> <span class="mi">18</span><span class="p">);</span>
+<span class="o">+</span> <span class="p">}</span>
+<span class="o">+</span><span class="err">    </span> <span class="p">}</span>
+<span class="p">}</span>
+<span class="o">+</span> <span class="n">safe_free</span><span class="p">(</span><span class="n">name</span><span class="p">);</span>
+<span class="n">stringClean</span><span class="p">(</span><span class="o">&amp;</span><span class="n">hdr</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="n">safe_free</span><span class="p">(</span><span class="n">request</span><span class="o">-&gt;</span><span class="n">vary_hdr</span><span class="p">);</span>
+</code></pre></div>
+      <a href="/2010/02/09/intro-vary" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/02/06/squid-running-analysis" title="squid运行分析" rel="bookmark">squid运行分析</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-02-06 00:00:00 +0800">06 Feb 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>上回编译加载tcmalloc后，效果各有不同，所以还得细分具体运行情况，以便之后继续优化。
+之前的架构是1个lvs下挂6台leaf+1台parent。现在已经给7台squid都加载tcmalloc了。leaf运行上佳，CPU占用率甚至降到了2%，loadavg也不过0.2。但parent的CPU占用率虽然降低，loadavg却依然在1以上——这对于单核服务器来说，可不是什么好事。分析日志，或者用squidclient分析cache情况，leaf如下：
+cat access.log |awk &lsquo;{if(/NONE/){a[NONE]++}}END{print a[NONE]/NR}&rsquo;
+0.981347
+squidclient -p 80 mgr:info
+    Cache information for squid:
+    Request Hit Ratios: 5min: 97.8%, 60min: 98.3%
+    Byte Hit Ratios: 5min: 97.8%, 60min: 98.2%
+    Request Memory Hit Ratios: 5min: 85.8%, 60min: 86.8%
+    Request Disk Hit Ratios: 5min: 9.8%, 60min: 9.1%
+    Storage Swap size: 19891740 KB
+    Storage Mem size: 1048572 KB
+    Mean Object Size: 9.67 KB
+可以看到缓存文件的平均大小不足10KB，绝大多数的请求都在内存中处理掉了。所以在加载了优化内存反应速度的tcmalloc后，效果那么明显。
+parent如下：
+$ cat access.log |awk &lsquo;{if(/NONE/){a[NONE]++}}END{print a[NONE]/NR}&rsquo;
+0.179209
+$ squidclient -p 80 mgr:info
+    Cache information for squid:
+    Request Hit Ratios: 5min: 31.1%, 60min: 32.3%
+    Byte Hit Ratios: 5min: 38.4%, 60min: 36.9%
+    Request Memory Hit Ratios: 5min: 7.8%, 60min: 12.2%
+    Request Disk Hit Ratios: 5min: 32.7%, 60min: 37.9%
+    Storage Swap size: 40300232 KB
+    Storage Mem size: 524284 KB
+    Mean Object Size: 11.68 KB
+只有30%的缓存命中，而且基本还都是从磁盘读取的（awk结果排除了REFRESH_HIT，所以更低）。难怪上次优化没什么效用了……
+为了保证服务，先给这组服务器加上了round-robin的双parent。新parent的硬件情况和老的一样。而squid配置上，则采用了aufs方式，不再使用diskd方式。运行到现在30个小时，分析如下：
+$ cat /cache/logs/access.log |awk &lsquo;{if(/NONE/){a[NONE]++}}END{print a[NONE]/NR}&rsquo;
+0.238754
+$ squidclient -p 80 mgr:info
+    Cache information for squid:
+    Request Hit Ratios: 5min: 22.7%, 60min: 22.8%
+    Byte Hit Ratios: 5min: 22.9%, 60min: 20.1%
+    Request Memory Hit Ratios: 5min: 22.2%, 60min: 24.3%
+    Request Disk Hit Ratios: 5min: 64.4%, 60min: 65.0%
+    Storage Swap size: 4640308 KB
+    Storage Mem size: 1048588 KB
+    Mean Object Size: 9.08 KB</p>
+<p>看起来差不多的样子。
+因为确认mem没怎么用上，下一步看disk的I/O。
+采用diskd的parent如下：</p>
+<pre><code>[root@tinysquid2 ~]# iostat -x /dev/xvdb2 5 5
+Linux 2.6.18-128.el5xen (tinysquid2)
+02/06/2010
+avg-cpu: %user   %nice %system %iowait %steal   %idle
+0.00 0.00 0.00 10.00 0.00   90.00
+Device: rrqm/s wrqm/s r/s w/s rsec/s   wsec/s avgrq-sz avgqu-sz await  svctm  %util
+xvdb2
+0.00 5.00  8.60 46.60 81.60 412.80 8.96 0.32 5.80 1.75   9.68
+</code></pre>
+<p>采用aufs的parent如下：</p>
+<pre><code>[root@tinysquid3 ~]# iostat -x /dev/xvdb2 5 5
+Linux 2.6.18-128.el5xen (tinysquid3)
+02/06/2010
+avg-cpu: %user   %nice %system %iowait %steal   %idle
+0.20 0.00 0.40 1.60 0.20   97.60
+Device: rrqm/s wrqm/s r/s w/s rsec/s   wsec/s avgrq-sz avgqu-sz await  svctm  %util
+xvdb2
+0.00 8.58  3.19 6.19 25.55 118.16 15.32 0.02 2.47 1.70   1.60
+</code></pre>
+<p>以上结果的解释如下：</p>
+<p>rrqm/s: 每秒进行 merge 的读操作数目。即 delta(rmerge)/s  <br />
+wrqm/s: 每秒进行 merge 的写操作数目。即 delta(wmerge)/s  <br />
+r/s: 每秒完成的读 I/O 设备次数。即 delta(rio)/s  <br />
+w/s: 每秒完成的写 I/O 设备次数。即 delta(wio)/s  <br />
+rsec/s: 每秒读扇区数。即 delta(rsect)/s  <br />
+wsec/s: 每秒写扇区数。即 delta(wsect)/s  <br />
+rkB/s: 每秒读K字节数。是 rsect/s 的一半，因为每扇区大小为512字节。(需要计算)  <br />
+wkB/s: 每秒写K字节数。是 wsect/s 的一半。(需要计算)  <br />
+avgrq-sz: 平均每次设备I/O操作的数据大小(扇区)。delta(rsect+wsect)/delta(rio+wio)  <br />
+avgqu-sz: 平均I/O队列长度。即 delta(aveq)/s/1000(因为aveq的单位为毫秒)。  <br />
+await: 平均每次设备I/O操作的等待时间 (毫秒)。即delta(ruse+wuse)/delta(rio+wio)  <br />
+svctm: 平均每次设备I/O操作的服务时间 (毫秒)。即 delta(use)/delta(rio+wio)  <br />
+%util: 一秒中有百分之多少的时间用于 I/O 操作，或者说一秒中有多少时间 I/O 队列是非空的。即 delta(use)/s/1000(因为use的单位为毫秒)    </p>
+<p>从上面的运行情况看，都是w操作为主，但diskd比aufs每秒w的次数要大，而每次w的服务时间也大——大的同时波动性也不太稳定——由此导致rw时的等待时间也延长——进一步的结果就是I/O非空时间变少——最后的结果就是disk的I/O压力变大！
+因为现在已经双parent，loadavg降低，所以不好看出之前的高loadavg问题关键。不过至少从现在的运行来看，aufs比diskd要好。</p>
+<p>————————————————————————————————————————
+3月25日补充：</p>
+<p>aufs虽然是异步io，但某些文件默认的写操作并不如此。需要在编译时修改src/fs/aufs/store_asyncufs.h中的#define ASYNC_WRIT值为1。
+对于aufs，可以使用squidclient mgr:squidaio_counts查看，其中queue一项，据说不应该超过线程数量的5倍。而线程数量跟cache_dir数量的关系如下：</p>
+<p>cache_dirs Threads
+1               16
+2               26
+3               32
+4               36
+5               40
+6               44</p>
+      <a href="/2010/02/06/squid-running-analysis" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/02/06/conntrack-of-netfilter" title="netfilter的conntrack优化" rel="bookmark">netfilter的conntrack优化</a>
     </h1>
     <p class="alt-font tight">
@@ -2138,128 +2298,6 @@ neighbor.    </p>
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/12/31/process-of-request-to-squid" title="squid请求处理流程（源站故障转向研究）" rel="bookmark">squid请求处理流程（源站故障转向研究）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-12-31 00:00:00 +0800">31 Dec 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天继续想别的办法，第一，当然还是修改源代码，这个C++可惜俺不懂，只是大略的通过百大哥谷大婶知道了squid的请求处理流程：</p>
-<ol>
-  <li>客户端和squid建立连接（client-side模块、clientBeginRequest()函数）；</li>
-  <li>检查ACL访问控制；</li>
-  <li>检查重定向；</li>
-  <li>检查缓存命中（GetMoreData()函数），写入StoreEntry（client-side模块）；
-4.1. 命中（client-side模块）；
-4.2. 未命中（rotoDispatch()函数启动peer算法，算法检查never|always_direct）；</li>
-  <li>收到ICP响应，选择中止，转发请求（protoStart()函数）；</li>
-  <li>打开到源站或peer的连接（HTTP模块），发起请求（NetworkCommunication模块），建立连接并处理异常（comm.c程序）；</li>
-  <li>建立写缓存（HTTP模块），将请求写入socket；</li>
-  <li>建立相应的socket读缓存，接受处理HTTP响应（即，如果已有socket，可以跳过6、7步）；</li>
-  <li>响应被接受，squid接收到header信息，并在被读取时把data追加进StoreEntry，同时通知client-side模块，这个过程的速度取决于delay_pools；</li>
-  <li>client-side模块从StoreEntry取数据，并写入客户端socket；</li>
-  <li>客户端读取完成，数据根据情况（refresh、cache）存入磁盘；</li>
-  <li>回源取完数据，标记StoreEntry为“完成”（client-side模块），socket关闭或保留到持久连接池；</li>
-  <li>数据写入客户端socket完成，从StoreEntry注释掉client-side模块，同样，关闭或等待客户端连接请求。</li>
-</ol>
-<p>原先的想法就是在第3步，而缓存在第4步，所以不行。也就是说，必须在第4步以后操作，才能不影响CDN的命中率。很显然，我注意到一个词，第6步中“建立链接并处理异常”的comm.c程序；其次，第9步“响应被接受”，也就是说，可能建立链接但没响应，这里就应该是socket的存活过期时间来决定。<br /></p>
-<p>思路到此为止，往下就是编程开发能力的事儿了，哭ing~~</p>
-<p>第二个办法，还在squid本身上做文章。我注意到，处理流程的4.2步上，squid是同时检查源站和cache_peer的。那么，在源站故障的时候，cache_peer可以设成其他服务器顶上。这样的情况，不单解决一个url跳转，还能做一个源站备份。配置如下：</p>
-<div class="highlight"><pre><code class="squid">nonhierarchical_direct<span class="w"> </span><span class="no">off</span><span class="w"></span>
-<span class="k">prefer_direct</span><span class="w"> </span><span class="no">on</span><span class="w"></span>
-<span class="k">cache_peer</span><span class="w"> </span><span class="mf">192.168.1.1</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="no">no-query</span><span class="w"> </span>originserver<span class="w"> </span>name=S1<span class="w"></span>
-<span class="k">cache_peer</span><span class="w"> </span><span class="mf">192.168.1.2</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="no">no-query</span><span class="w"> </span>name=S2<span class="w"></span>
-<span class="k">cache_peer</span><span class="w"> </span><span class="mf">192.168.1.3</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="no">no-query</span><span class="w"> </span>name=S3<span class="w"></span>
-<span class="k">acl</span><span class="w"> </span>myservice<span class="w"> </span><span class="k">dstdomain</span><span class="w"> </span>.site.com<span class="w"></span>
-<span class="k">cache_peer_access</span><span class="w"> </span>S1<span class="w"> </span><span class="no">allow</span><span class="w"> </span>myservice<span class="w"></span>
-<span class="k">cache_peer_access</span><span class="w"> </span>S2<span class="w"> </span><span class="no">allow</span><span class="w"> </span>myservice<span class="w"></span>
-<span class="k">cache_peer_access</span><span class="w"> </span>S3<span class="w"> </span><span class="no">allow</span><span class="w"> </span>myservice<span class="w"></span>
-</code></pre></div>
-<p>第一句的意思，就是当originserver挂了，不可层叠的请求（即hierarchy_stoplist定义的）就“可能”发往其他peer。</p>
-<p>第二句的意思，就是所有优先originserver，只有挂了以后才去peer，这个配置针对的可cache的请求。</p>
-<p>不过两句加起来，还有那些不再hierarchy_stoplist定义又不cache的（没实验，不知道这个可cache是指squid配置还是包括origin的header设置），可就没办法了，也不全面。</p>
-      <a href="/2009/12/31/process-of-request-to-squid" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/12/30/system-function-in-awk" title="awk中让人郁闷的system()函数" rel="bookmark">awk中让人郁闷的system()函数</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-12-30 00:00:00 +0800">30 Dec 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>发现一个特尴尬的事实。我辛辛苦苦去百度资料，想用rewrite实现针对不同域名源站故障后的自动跳转功能，但整个思路里遗漏了一个严重的问题。</p>
-<p>按我的思路，针对请求的url进行一次curl，然后根据http_code去改写url或者原样输出——这也就意味着，每一个请求，squid都回源去取一次header。那么对于源站来说，前面squid的缓存率，就是0%！完全没有效果。</p>
-<p>得重新想过办法……难道去看squid源代码？汗</p>
-<p>本着有头有尾善始善终的原则，决定还是把原先那个鸡肋想法写完。根据squid权威指南11章的说法，传递给重定向器的流格式为：URL IP/FQDN IDENT METHOD，其中FQDN和ident经常是空。METHOD，一般是GET和POST，squid只能缓存GET的数据，但不能无视POST方式，因为有时候POST数据header太大的话，squid可能拒绝转发这些内容，这就不好玩了。</p>
-<p>在明确这个格式以后（主要是草草收尾的想法影响下），我便觉得其实完全不用perl或者php来搞，简单的awk就足够了——当然，shell不行，因为shell不能从事这种流状的行处理。</p>
-<p>以下是本着我想法写的awk脚本：</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/awk -f</span>
-<span class="o">{</span>
-  <span class="k">if</span><span class="o">(</span>system<span class="o">(</span><span class="s2">&quot;curl -o /dev/null -s -w %{http_code}&quot;</span> <span class="nv">$1</span><span class="o">)</span>~/^<span class="o">[</span>2|3<span class="o">]</span>/<span class="o">){</span>
-    print <span class="s2">&quot;:$1&quot;</span>
-  <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
-    print <span class="s2">&quot;:http://www.baidu.com/&quot;</span>
-  <span class="o">}</span>
-<span class="o">}</span>
-</code></pre></div>
-<p>但是再度让我郁闷的事情接连发生。</p>
-<p>第一，不管我在{}中进行什么操作，程序都把system()的结果print出来了；</p>
-<table>
-  <tbody>
-    <tr>
-      <td>第二，即使system()的结果是200，print出来的也是else{}的&rdquo;http://www.baidu.com&rdquo;；而如果我直接试验if(200~/^[2</td>
-      <td>3]/){}else{}，结果就很正常！</td>
-    </tr>
-  </tbody>
-</table>
-<p>试验过程如下：</p>
-<div class="highlight"><pre><code class="bash"><span class="o">[</span>rao@localhost ~<span class="o">]</span><span class="nv">$ </span><span class="nb">echo</span> <span class="s2">&quot;http://www.google.com&quot;</span>|awk <span class="s1">&#39;{if(200~/^[2|3]/){ print &quot;:&quot;$1 } else{ print &quot;:http://www.baidu.com/&quot;}}&#39;</span>
-:http://www.google.com
-<span class="o">[</span>rao@localhost ~<span class="o">]</span><span class="nv">$ </span><span class="nb">echo</span> <span class="s2">&quot;http://www.google.com&quot;</span>|awk <span class="s1">&#39;{if(system(&quot;curl -o /dev/null -s -w %{http_code} &quot;$1)~/^[2|3]/){print &quot;:&quot;$1 } else{ print &quot;:http://www.baidu.com/&quot;}}&#39;</span>
-200:http://www.baidu.com/
-</code></pre></div>
-<table>
-  <tbody>
-    <tr>
-      <td>思前想后，在百度大婶的帮助下，终于搞明白一个问题：system()的结果是直接返回给shell显示了，然后再由awk继续执行后面的程序，这种情况下，if()里留下的其实是system()的执行状态【即0或1】&rdquo;0&rdquo;~/^[2</td>
-      <td>3]/，当然就一直执行else了。</td>
-    </tr>
-  </tbody>
-</table>
-<p>糟糕的问题是awk的getline，无法直接把system()的执行结果导入awk的变量…除非我先system里&gt;一个文件，然后getline&lt;这个文件。MyGod！</p>
-<table>
-  <tbody>
-    <tr>
-      <td>而如果采用while(&ldquo;curl&rdquo;</td>
-      <td>getline var)的执行方式，如何传递shell变量进去又成了问题……唉</td>
-    </tr>
-  </tbody>
-</table>
-      <a href="/2009/12/30/system-function-in-awk" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -2309,6 +2347,9 @@ neighbor.    </p>
     </li>
     <li class="page">
       <a href="/page15">15</a>
+    </li>
+    <li class="page">
+      <a href="/page16">16</a>
     </li>
     <li>
       <a href="/page14">Next</a>
