@@ -43,6 +43,64 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2012/12/01/convert-docx-to-markdown" title="把docx文档转换成markdown格式发布" rel="bookmark">把docx文档转换成markdown格式发布</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-12-01 00:00:00 +0800">01 Dec 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>有些Word文档想搬到博客上来，而博客用的是markdown的格式。最简单的办法是在Word里转成html格式另存为，因为markdown和html是兼容的。不过word直接另存为的html里面带有“海量”的无聊样式，实在不方便之后我们再用vim的工具编辑。所以还是想办法整整。</p>
+<p>相对来说，Word的docx格式比doc格式要容易处理，因为docx是微软特意推出的open xml格式。其实就是记录了文本内容的content.xml、附件media/*和对应附件路径的_ref.xml等的zip包而已。所以相对必须在Windows平台上调用WIN32OLE的API来处理的doc来说，我们在linux平台上也可以很容易的处理docx文件了。比如rubygems上就有一个很不错的gem叫<code>ydocx</code>。一般的docx库都是只抽取docx里的content文字，而这个ydocx很负责的把media/*也复制到docxname_files/images/*下面，并且在html里生成<code>&lt;img&gt;</code>标签了。</p>
+<p>然后另一步就是把html转换成markdown，这在github上也有现成的repo叫<a href="https://github.com/cousine/downmark_it">downmark_it</a>。嗯，这名字一目了然就是反过来……</p>
+<p>(<code>ydocx</code>用的是<code>nokogiri</code>，<code>downmark\_it</code>用的是<code>hpricot</code>，或许应该也改用<code>nokogiri</code>比较好~不过<code>nokogiri</code>官网可耻的被墙了)</p>
+<h1 id="section">首先安装依赖</h1>
+<div class="highlight"><pre><code class="bash">  apt-get install libxslt1-dev libxml2-dev
+  gem install rubyzip htmlentities rmagick ydocx hpricot
+  wget https://raw.github.com/cousine/downmark_it/master/downmark_it.rb
+</code></pre></div>
+<h1 id="section-1">编写转换脚本</h1>
+<div class="highlight"><pre><code class="ruby">  <span class="nb">require</span> <span class="s1">&#39;rubygems&#39;</span>
+  <span class="nb">require</span> <span class="s1">&#39;ydocx&#39;</span>
+  <span class="vg">$:</span> <span class="o">&lt;&lt;</span> <span class="no">File</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="bp">__FILE__</span><span class="p">)</span>
+  <span class="nb">require</span> <span class="s1">&#39;downmark_it&#39;</span>
+  <span class="n">filename</span> <span class="o">=</span> <span class="no">ARGV</span><span class="o">.</span><span class="n">shift</span>
+  <span class="n">ydocx</span> <span class="o">=</span> <span class="ss">YDocx</span><span class="p">:</span><span class="ss">:Document</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+  <span class="n">html</span> <span class="o">=</span> <span class="n">ydocx</span><span class="o">.</span><span class="n">to_html</span><span class="o">.</span><span class="n">gsub</span><span class="p">(</span><span class="sr">/\n/</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+  <span class="nb">puts</span> <span class="no">DownmarkIt</span><span class="o">.</span><span class="n">to_markdown</span><span class="p">(</span><span class="n">html</span><span class="p">)</span>
+</code></pre></div>
+<p>这样就能看到输出了。目录里的每个章节都有引用格式凸现，美中不足是对word里的标题样式识别不太好，本来期望是可以自己生成<code>&lt;h1&gt;</code>、<code>&lt;h2&gt;</code>的，但是ydocx生成的html里只把第一个标题一变成<code>&lt;h1&gt;</code>，其他的都是普通的<code>&lt;p&gt;</code>。</p>
+<p>另一个问题是上面脚本里直接调用to_html的方法，不会保存住unzip出来的images文件夹。自己再另写一段unzip的代码:</p>
+<div class="highlight"><pre><code class="ruby">  <span class="nb">require</span> <span class="s1">&#39;fileutils&#39;</span>  
+  <span class="nb">require</span> <span class="s1">&#39;zip/zip&#39;</span>  
+  <span class="nb">require</span> <span class="s1">&#39;zip/zipfilesystem&#39;</span>  
+  <span class="k">def</span> <span class="nf">unzip</span><span class="p">(</span><span class="n">zip_file</span><span class="p">,</span> <span class="n">dest_dir</span><span class="p">)</span>
+    <span class="ss">Zip</span><span class="p">:</span><span class="ss">:ZipFile</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">zip_file</span><span class="p">)</span> <span class="k">do</span> <span class="o">|</span><span class="n">zf</span><span class="o">|</span>
+      <span class="n">zf</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">e</span><span class="o">|</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="no">File</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dest_dir</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="no">FileUtils</span><span class="o">.</span><span class="n">mkdir_p</span><span class="p">(</span><span class="no">File</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+        <span class="n">zf</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span> <span class="p">{</span> <span class="kp">true</span> <span class="p">}</span>
+      <span class="k">end</span>  
+    <span class="k">end</span>  
+  <span class="k">end</span>
+  <span class="n">dirname</span> <span class="o">=</span> <span class="no">File</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;.docx&#39;</span><span class="p">)</span>
+  <span class="n">unzip</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;/tmp/</span><span class="si">#{</span><span class="n">dirname</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+  <span class="no">FileUtils</span><span class="o">.</span><span class="n">mv</span><span class="p">(</span><span class="s2">&quot;/tmp/</span><span class="si">#{</span><span class="n">dirname</span><span class="si">}</span><span class="s2">/media/&quot;</span><span class="p">,</span> <span class="s2">&quot;/images/&quot;</span><span class="p">)</span>
+  <span class="no">FileUtils</span><span class="o">.</span><span class="n">rm_rf</span><span class="p">(</span><span class="s2">&quot;/tmp/</span><span class="si">#{</span><span class="n">dirname</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>比较普通的办法，是直接使用ydocx自带的脚本<code>docx2html --format none file.docx</code>，会在docx文档的同级目录下生成同名html和_files目录。然后再写一个单行脚本转成markdown的。</p>
+      <a href="/2012/12/01/convert-docx-to-markdown" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2012/11/22/tatsumaki-demo" title="用 Tatsumaki 框架写 elasticsearch 界面" rel="bookmark">用 Tatsumaki 框架写 elasticsearch 界面</a>
     </h1>
     <p class="alt-font tight">
@@ -3600,168 +3658,6 @@ passport的原理很简单，将原先的页面url带入session转到passport的
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/07/07/intro-ipc-locker" title="IPC::Locker模块介绍" rel="bookmark">IPC::Locker模块介绍</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-07-07 00:00:00 +0800">07 Jul 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>当你需要给一个集群的某项服务做简单的排他性管理的时候，强力推荐Veripool公司的一系列模块：IPC::Locker、Schedule::Load。</p>
-<p>今天先说IPC::Locker模块。部署很简单，直接在集群所有节点上运行cpanm IPC::Locker即可。该模块依赖几个都是perl的核心模块比如IO::Socket::INET、IO::Poll和POSIX。所以理论上你也可以把代码打个包分发。</p>
-<p>随包分发的还有几个现成的脚本程序lockerd、lockersh、pidstat、pidstatd和pidwatch。</p>
-<p>后面三个关注的remote设备上的pid是否存在等，但是相信一般情况下，我们不会自己来通过pid管理集群，所以在使用上只要理解lockerd和lockersh其实也是用pidstatd来解决pid问题的就够了。</p>
-<p>其实代码很简单，看看就明白，无非就是lockerd用的IPC::Locker::Server是启动了一个IO::Socket::INET做tcp server，主要维护几个东西，一个是@{$self-&gt;{lock}}列表，一个是@{$self-&gt;{host}}列表，一个是$self-&gt;{locked}的Bool值。</p>
-<p>而lockersh用的IPC::Locker则是连接上lockerd的端口，检查$self-&gt;{locked}状态，如果没locked就发送LOCK请求，然后fork一个进行exec你定义的shell命令，执行完成后，unlock发送UNLOCK请求给lockerd。</p>
-<p>做个简单实验：</p>
-<ol>
-  <li>在serverA上运行lockerd &amp;     </li>
-  <li>在serverB上运行lockersh &ndash;dhost serverA &ndash;lock test_task &lsquo;while true;do echo &ldquo;OK&rdquo;;done&rsquo;</li>
-  <li>在serverC上运行lockersh &ndash;dhost serverA &ndash;lock test_task &lsquo;while true;do echo &ldquo;OK&rdquo;;done&rsquo;</li>
-  <li>在serverD上运行lockersh &ndash;dhost serverA &ndash;lock other_task &lsquo;while true;do echo &ldquo;OK&rdquo;;done&rsquo;</li>
-</ol>
-<p>观察一下，结果是在serverB和serverD上同时在执行echo &ldquo;OK&rdquo;。而serverC被lock住了。继续：</p>
-<ol>
-  <li>在serverB的session上按下Ctrl+C终止程序，然后再次运行上述命令</li>
-  <li>在serverC的session上按下Ctrl+C终止程序</li>
-</ol>
-<p>观察一下，结果是停止B时C的即开始，停止C的后B的继续。这些都不影响serverD的运行。</p>
-<ol>
-  <li>终止serverD的程序，改为运行lockersh &ndash;dhost serverA &ndash;lock test_task &lsquo;while true;do echo &ldquo;OK&rdquo;;done&rsquo;</li>
-</ol>
-<p>观察一下，发现B、C、D是按照lockersh的执行次序解锁的。因为hostlist是一个列表，在server上是用for循环的。</p>
-<p>注意：必须要先运行lockerd并且保证不中途退出。经过测试，如果lockerd中途退出再重新运行的话，因为locklist是保存在内存里会丢失的。结果就会出现之前的lockersh还在执行(他已经获得了lock，在unlock之前不会再和server通信的)，之后再启动的新lockersh会在新lockerd上又获得一次lock的情况……</p>
-<p>后一个Schedule::Load则可以根据集群设备的loadavg，top等，决定在哪台设备上运行job。还没测试。之后再记录。</p>
-<p>补充：贴一个脚本，仿照lockersh改写的squid集群重启及报警控制：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="k">use</span> <span class="n">FindBin</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">lib</span> <span class="s">&quot;$FindBin::Bin/../lib&quot;</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">autodie</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">vars</span> <span class="sx">qw ($Debug);</span>
-<span class="sx">use </span><span class="n">Furl</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">IO::</span><span class="n">File</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Getopt::</span><span class="n">Long</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">IPC::</span><span class="n">Locker</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">IPC::</span><span class="n">PidStat</span><span class="p">;</span>
-<span class="c1">#======================================================================</span>
-<span class="k">my</span> <span class="nv">$pscount</span> <span class="o">=</span> <span class="sb">`ps aux|grep -v grep|grep $0|wc -l`</span><span class="p">;</span>
-<span class="k">print</span> <span class="s">&quot;Already run, waiting for lock now&quot;</span> <span class="ow">and</span> <span class="nb">exit</span> <span class="k">unless</span> <span class="nv">$pscount</span> <span class="o">==</span> <span class="mi">1</span><span class="p">;</span>
-<span class="c1">#======================================================================</span>
-<span class="k">my</span> <span class="nv">%server_params</span> <span class="o">=</span> <span class="p">(</span><span class="n">lock</span><span class="o">=&gt;[]</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">$cluserv</span><span class="p">;</span>
-<span class="nv">$Debug</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-<span class="nn">Getopt::Long::</span><span class="n">config</span> <span class="p">(</span><span class="s">&quot;require_order&quot;</span><span class="p">);</span>
-<span class="k">if</span> <span class="p">(</span><span class="o">!</span> <span class="n">GetOptions</span> <span class="p">(</span>
-                  <span class="s">&quot;dhost=s&quot;</span>     <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span><span class="nb">shift</span><span class="p">;</span> <span class="nv">$server_params</span><span class="p">{</span><span class="n">host</span><span class="p">}</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;},</span>
-                  <span class="s">&quot;cluster=s&quot;</span>   <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span><span class="nb">shift</span><span class="p">;</span> <span class="nb">push</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$server_params</span><span class="p">{</span><span class="n">lock</span><span class="p">}},</span> <span class="nb">split</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">,</span><span class="nb">shift</span><span class="p">);},</span>
-                  <span class="s">&quot;port=i&quot;</span>      <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span><span class="nb">shift</span><span class="p">;</span> <span class="nv">$server_params</span><span class="p">{</span><span class="n">port</span><span class="p">}</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;},</span>
-                  <span class="s">&quot;timeout=i&quot;</span>   <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span><span class="nb">shift</span><span class="p">;</span> <span class="nv">$server_params</span><span class="p">{</span><span class="n">timeout</span><span class="p">}</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;},</span>
-                  <span class="s">&quot;verbose!&quot;</span>    <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span><span class="nb">shift</span><span class="p">;</span> <span class="nv">$server_params</span><span class="p">{</span><span class="n">verbose</span><span class="p">}</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;},</span>
-                  <span class="s">&quot;debug&quot;</span>       <span class="o">=&gt;</span> <span class="o">\&amp;</span><span class="n">debug</span><span class="p">,</span>
-                  <span class="s">&quot;service=s&quot;</span>   <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">$cluserv</span><span class="p">,</span>
-                  <span class="p">))</span> <span class="p">{</span>
-    <span class="nb">die</span> <span class="s">&quot;%Error: Bad usage, see lockersh --help\n&quot;</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="nv">$#</span><span class="p">{</span><span class="nv">$server_params</span><span class="p">{</span><span class="n">lock</span><span class="p">}}</span><span class="o">&gt;=</span><span class="mi">0</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;%Error: --cluster not specified; see lockersh --help\n&quot;</span><span class="p">;</span>
-<span class="c1"># Fork once to start parent process</span>
-<span class="k">my</span> <span class="nv">$foreground_pid</span> <span class="o">=</span> <span class="vg">$$</span><span class="p">;</span>  <span class="c1"># Unlike most forks, the job goes in the parent</span>
-<span class="c1"># Do this while we still have STDERR.</span>
-<span class="k">my</span> <span class="nv">$lock</span>  <span class="o">=</span> <span class="k">new</span> <span class="nn">IPC::</span><span class="n">Locker</span> <span class="p">(</span><span class="n">verbose</span><span class="o">=&gt;</span><span class="mi">0</span><span class="p">,</span>
-                             <span class="n">timeout</span><span class="o">=&gt;</span><span class="mi">0</span><span class="p">,</span>
-                             <span class="n">autounlock</span><span class="o">=&gt;</span><span class="mi">1</span><span class="p">,</span>
-                             <span class="n">destroy_unlock</span><span class="o">=&gt;</span><span class="mi">0</span><span class="p">,</span>
-                             <span class="nv">%server_params</span><span class="p">,</span>
-                             <span class="p">);</span>
-<span class="nv">$lock</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;%Error: Did not connect to lockerd,&quot;</span><span class="p">;</span>
-<span class="nv">$lock</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">;</span>
-<span class="k">if</span> <span class="p">(</span><span class="k">my</span> <span class="nv">$pid</span> <span class="o">=</span> <span class="nb">fork</span><span class="p">())</span> <span class="p">{</span>  <span class="c1"># Parent process, foreground job</span>
-    <span class="k">print</span> <span class="s">&quot;\tForeground: $cluserv\n&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
-    <span class="c1"># The child forks again quickly.  Sometimes, SIG_CHLD leaks to us and</span>
-    <span class="c1"># wrecks the exec&#39;d command, so wait for it now.</span>
-    <span class="k">my</span> <span class="nv">$rv</span> <span class="o">=</span> <span class="nb">waitpid</span><span class="p">(</span><span class="nv">$pid</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="nv">$rv</span> <span class="o">!=</span> <span class="nv">$pid</span><span class="p">)</span> <span class="p">{</span>
-        <span class="nb">die</span> <span class="s">&quot;%Error: waitpid() returned $rv: $!&quot;</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="vg">$?</span><span class="p">)</span> <span class="p">{</span>
-        <span class="nb">die</span> <span class="s">&quot;%Error: Child process died with status $?,&quot;</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="k">print</span> <span class="s">&quot;Exec in $$\n&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
-    <span class="o">&amp;</span><span class="n">service</span><span class="p">(</span><span class="nv">$cluserv</span><span class="p">);</span>
-<span class="p">}</span>
-<span class="c1">#else, rest is for child process.</span>
-<span class="c1"># Disassociate from controlling terminal</span>
-<span class="nn">POSIX::</span><span class="n">setsid</span><span class="p">()</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;%Error: Can&#39;t start a new session: $!&quot;</span><span class="p">;</span>
-<span class="c1"># Change working directory</span>
-<span class="nb">chdir</span> <span class="s">&quot;/&quot;</span><span class="p">;</span>
-<span class="nb">open</span><span class="p">(</span><span class="bp">STDIN</span><span class="p">,</span>  <span class="s">&quot;+&gt;/dev/null&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;%Error: Can&#39;t re-open STDIN: $!&quot;</span><span class="p">;</span>
-<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nv">$Debug</span><span class="p">)</span> <span class="p">{</span>
-    <span class="nb">open</span><span class="p">(</span><span class="bp">STDOUT</span><span class="p">,</span> <span class="s">&quot;+&gt;&amp;STDIN&quot;</span><span class="p">);</span>
-    <span class="nb">open</span><span class="p">(</span><span class="bp">STDERR</span><span class="p">,</span> <span class="s">&quot;+&gt;&amp;STDIN&quot;</span><span class="p">);</span>
-<span class="p">}</span>
-<span class="c1"># Prevent possibility of acquiring a controlling terminal</span>
-<span class="nb">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="nb">fork</span><span class="p">();</span>
-<span class="c1"># Wait for child to complete.  We can&#39;t waitpid, as we&#39;re not the parent</span>
-<span class="k">while</span> <span class="p">(</span><span class="nn">IPC::PidStat::</span><span class="n">local_pid_exists</span><span class="p">(</span><span class="nv">$foreground_pid</span><span class="p">))</span> <span class="p">{</span> <span class="nb">sleep</span> <span class="mi">1</span><span class="p">;</span> <span class="p">}</span>
-<span class="k">print</span> <span class="s">&quot;Parent $foreground_pid completed\n&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
-<span class="c1"># Unlock</span>
-<span class="nv">$lock</span><span class="o">-&gt;</span><span class="n">unlock</span><span class="p">;</span> <span class="nv">$lock</span><span class="o">=</span><span class="nb">undef</span><span class="p">;</span>
-<span class="k">print</span> <span class="s">&quot;Child exiting\n&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">debug</span> <span class="p">{</span>
-    <span class="nv">$Debug</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-    <span class="nv">$</span><span class="nn">IPC::Locker::</span><span class="nv">Debug</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">service</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$cluserv</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="nb">die</span> <span class="s">&quot;Only support squid now!&quot;</span> <span class="k">unless</span> <span class="nv">$cluserv</span> <span class="ow">eq</span> <span class="s">&quot;squid&quot;</span><span class="p">;</span>
-    <span class="nb">die</span> <span class="s">&quot;Reload failed. Check squid.conf!&quot;</span> <span class="k">if</span> <span class="nb">eval</span> <span class="s">&quot;${cluserv}_reload&quot;</span><span class="p">;</span>
-    <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$hit_rate</span> <span class="o">=</span> <span class="nb">eval</span> <span class="s">&quot;${cluserv}_check&quot;</span><span class="p">;</span>
-        <span class="n">notify</span> <span class="s">&quot;HIT Ratio: ${hit_rate}% now.\n&quot;</span><span class="p">;</span>
-        <span class="nb">exit</span> <span class="k">if</span> <span class="nv">$hit_rate</span> <span class="o">&gt;</span> <span class="mi">50</span><span class="p">;</span>
-        <span class="nb">sleep</span> <span class="mi">300</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">squid_check</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$hit_rate</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;Run squid_check&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$squid_port</span> <span class="o">=</span> <span class="sb">`awk &#39;/^http_port/{print $2}&#39; /etc/squid/squid.conf`</span><span class="p">;</span>
-    <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&quot;squidclient -p ${squid_port} mgr:info |&quot;</span><span class="p">;</span>
-    <span class="k">while</span> <span class="p">(</span><span class="sr">&lt;$fh&gt;</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">next</span> <span class="k">unless</span> <span class="sr">/^\s+Request Hit Ratios:\s+5min:\s*(-?\d+\.\d)%,/</span><span class="p">;</span>
-        <span class="k">print</span> <span class="s">&quot;regex $1&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
-        <span class="nv">$hit_rate</span> <span class="o">=</span> <span class="nv">$1</span><span class="p">;</span>
-        <span class="k">last</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="nb">close</span> <span class="nv">$fh</span><span class="p">;</span>
-    <span class="k">return</span> <span class="nv">$hit_rate</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">squid_reload</span> <span class="p">{</span>
-    <span class="k">print</span> <span class="s">&quot;Reload squid daemon. Do not reload within 10 mins of squid start&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
-    <span class="nb">system</span><span class="p">(</span><span class="s">&quot;squid&quot;</span><span class="p">,</span> <span class="s">&quot;-k&quot;</span><span class="p">,</span> <span class="s">&quot;reconfigure&quot;</span><span class="p">);</span>
-    <span class="k">return</span> <span class="vg">$?</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">notify</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$furl</span> <span class="o">=</span> <span class="n">Furl</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="n">agent</span> <span class="o">=&gt;</span> <span class="s">&quot;Clustrol/0.1&quot;</span><span class="p">);</span>
-    <span class="nv">$furl</span><span class="o">-&gt;</span><span class="n">post</span><span class="p">(</span><span class="s">&quot;http://monitor.domain.com/eml/&quot;</span><span class="p">,</span>
-        <span class="p">[</span> <span class="n">data</span> <span class="o">=&gt;</span> <span class="s">&quot;$_&quot;</span> <span class="p">],</span>
-    <span class="p">);</span>
-<span class="p">}</span>
-<span class="cp">__END__</span>
-</code></pre></div>
-      <a href="/2012/07/07/intro-ipc-locker" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -3890,6 +3786,8 @@ passport的原理很简单，将原先的页面url带入session转到passport的
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
               <li><a href="http://blog.sectop.org/" title=""></a></li>
+              <li><a href="http://www.reddit.com/r/perl/" title=""></a></li>
+              <li><a href="http://bubbyroom.com/" title="守住每一天"></a></li>
           </ul>
         </div>
       </div>

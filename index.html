@@ -43,6 +43,85 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/11/04/puppet-class-parameter" title="Puppet 的类参数传递" rel="bookmark">Puppet 的类参数传递</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-11-04 00:00:00 +0800">04 Nov 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#puppet-ref" title="puppet" rel="category tag">puppet</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>之前使用 ENC 管理 puppet，尽量保持了输出 yaml 内容的简单，只提供了一个统一的全局参数定义 node 的 role。(题外话，puppetlabs 推荐了另一个通过继承关系实现 role 的示例，见：<a href="http://www.craigdunn.org/2012/05/239/">Designing Puppet - Roles and Profiles</a>。)</p>
+<p>但是 puppet 中有些配置确实修改比较频繁，文件操作不得不说是一件不甚方便的事情，于是重新考虑通过类参数的方式来灵活化某些配置的操作。</p>
+<h1 id="section">修改前</h1>
+<h3 id="nginxmanifestsinitpp">nginx/manifests/init.pp</h3>
+<div class="highlight"><pre><code class="ruby"><span class="k">class</span> <span class="n">nginx</span> <span class="p">{</span>
+    <span class="kp">include</span> <span class="s2">&quot;nginx::${::role}&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="nginxmanifestsloadbalancerpp">nginx/manifests/loadbalancer.pp</h3>
+<div class="highlight"><pre><code class="ruby"><span class="k">class</span> <span class="ss">nginx</span><span class="p">:</span><span class="ss">:loadbalancer</span> <span class="p">{</span>
+    <span class="vg">$iplist</span> <span class="o">=</span> <span class="o">[</span><span class="s1">&#39;192.168.0.2:80&#39;</span><span class="o">]</span>
+    <span class="n">file</span> <span class="p">{</span> <span class="s1">&#39;nginx.conf&#39;</span><span class="p">:</span>
+        <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s1">&#39;nginx/nginx.conf.erb&#39;</span><span class="p">),</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="enc-nginxhostname">enc nginxhostname</h3>
+<div class="highlight"><pre><code class="yaml"><span class="nn">---</span>
+<span class="l-Scalar-Plain">classes</span><span class="p-Indicator">:</span>
+  <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">nginx</span>
+  <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">base</span>
+<span class="l-Scalar-Plain">environment</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">production</span>
+<span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">role</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">loadbalancer</span>
+</code></pre></div>
+<h1 id="section-1">修改后</h1>
+<h3 id="nginxmanifestsinitpp-1">nginx/manifests/init.pp</h3>
+<div class="highlight"><pre><code class="ruby"><span class="k">class</span> <span class="n">nginx</span> <span class="p">(</span><span class="vg">$iplist</span> <span class="o">=</span> <span class="o">[]</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">class</span> <span class="p">{</span> <span class="s2">&quot;nginx::${::role}&quot;</span><span class="p">:</span>
+        <span class="n">iplist</span> <span class="o">=&gt;</span> <span class="vg">$iplist</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="nginxmanifestsloadbalancerpp-1">nginx/manifests/loadbalancer.pp</h3>
+<div class="highlight"><pre><code class="ruby"><span class="k">class</span> <span class="ss">nginx</span><span class="p">:</span><span class="ss">:loadbalancer</span> <span class="p">(</span><span class="vg">$iplist</span> <span class="o">=</span> <span class="o">[]</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">file</span> <span class="p">{</span> <span class="s1">&#39;nginx.conf&#39;</span><span class="p">:</span>
+        <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s1">&#39;nginx/nginx.conf.erb&#39;</span><span class="p">),</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="enc-nginxhostname-1">enc nginxhostname</h3>
+<div class="highlight"><pre><code class="yaml"><span class="nn">---</span>
+<span class="l-Scalar-Plain">classes</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">nginx</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">iplist</span><span class="p-Indicator">:</span>
+      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">192.168.0.2:80</span>
+  <span class="l-Scalar-Plain">base</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">~</span>
+<span class="l-Scalar-Plain">environment</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">production</span>
+<span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">role</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">loadbalancer</span>
+<span class="err">}</span>
+</code></pre></div>
+<h1 id="section-2">要点</h1>
+<ol>
+  <li>虽然真正需要 $iplist 的是下面的一个子类，但是 ENC 传值是给的父类，所以需要一层层传递下去；</li>
+  <li>ENC 中给类传参，类就要写成哈希形式，否则是数组形式；</li>
+  <li>有参数的类，在调用的时候无法使用 <code>include</code> 形式的写法，只能用资源调用形式的写法。</li>
+</ol>
+<p>修改中出现了一个很搞笑的错误，因为是在 vim 里批量转换，结果子类名字后面多了一个空格，成了<code>class { "nginx::${::role} ":</code>这样。结果 puppet 一直返回报错说 &ldquo;Invalid Parameter&rdquo;。这时候一个习惯性的思维造成了误会：我们一般会认为<code>:</code>后面的那一行行键值对才是 parameter，但其实这里子类名也是 <code>class</code> 这个资源调用的 parameter。当然，如果可以在这里报一个 <code>Class Not Found</code> 就更好了。</p>
+      <a href="/2013/11/04/puppet-class-parameter" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/10/26/selinux-affect-to-apache-documentroot" title="selinux 对 webserver 文件发布的影响" rel="bookmark">selinux 对 webserver 文件发布的影响</a>
     </h1>
     <p class="alt-font tight">
@@ -1942,80 +2021,6 @@ rex init --name<span class="o">=</span><span class="nv">$vm</span>-name --url<sp
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2013/04/03/install-graphite" title="Graphite 安装" rel="bookmark">Graphite 安装</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2013-04-03 00:00:00 +0800">03 Apr 2013</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>Graphite 是近来比较流行的类 rrd tool 系统。不过官网的安装文档真的很烂，特记录一下自己的步骤。</p>
-<p>由于是事后追忆，同样不保证好用……</p>
-<div class="highlight"><pre><code class="bash">apt-get install python-pip libapache2-mod-wsgi subversion git
-git clone https://github.com/graphite-project/graphite-web.git
-git clone https://github.com/graphite-project/carbon.git
-git clone https://github.com/graphite-project/whisper.git
-<span class="c"># 这两个是直接通过 pip 安装的不顶用，只能另外下非标准的包安装</span>
-git clone https://github.com/graphite-project/ceres.git
-svn checkout http://django-tagging.googlecode.com/svn/trunk/ tagging-trunk
-<span class="nb">cd </span>whisper
-sudo python setup.py install
-<span class="nb">cd</span> ../carbon
-python setup.py install 
-<span class="nb">cd</span> ../graphite-web
-python check-dependencies.py
-<span class="c"># 很奇怪 python 居然不自动解决依赖，check 出来一个列表还得自己来</span>
-apt-get install python-memcache python-txamqp python-rrdtool python-pyparsing python-django
-python setup.py install
-<span class="nb">cd</span> ../ceres
-python setup.py install
-<span class="nb">cd</span> ../tagging-trunk
-python setup.py install
-groupadd graphite
-ln -s /opt/graphite/examples/example-graphite-vhost.conf /etc/apache2/conf.d/graphite.conf
-<span class="c"># 默认的 run/wsgi 会在 /etc/apache2/ 目录下，权限有问题</span>
-sed -i <span class="s1">&#39;s!^\(WSGISocketPrefix\) \(run/wsgi\)$!\1 /var/\2$!&#39;</span> /etc/apache2/conf.d/graphite.conf
-chown -R www-data:graphite /opt/graphite/storage/
-service apache2 restart
-<span class="nb">cd</span> /opt/graphite/webapp/graphite
-cp local_settings.py.example local_settings.py
-<span class="c"># 默认的 database 配置是针对 python2.4 的，需要开启针对 python2.5 以上版本的配置:</span>
-<span class="c"># DATABASES = {</span>
-<span class="c">#     &#39;default&#39;: {</span>
-<span class="c">#         &#39;NAME&#39;: &#39;/opt/graphite/storage/graphite.db&#39;,</span>
-<span class="c">#         &#39;ENGINE&#39;: &#39;django.db.backends.sqlite3&#39;,</span>
-<span class="c">#         &#39;USER&#39;: &#39;&#39;,</span>
-<span class="c">#         &#39;PASSWORD&#39;: &#39;&#39;,</span>
-<span class="c">#         &#39;HOST&#39;: &#39;&#39;,</span>
-<span class="c">#         &#39;PORT&#39;: &#39;&#39;</span>
-<span class="c">#     }</span>
-<span class="c"># }</span>
-sed -i <span class="s1">&#39;167,176s/^#//&#39;</span> local_settings.py
-python manage.py syncdb
-<span class="nb">cd</span> /opt/graphite/conf
-rename <span class="s1">&#39;s/.example//&#39;</span> *.example
-<span class="nb">cd</span> /opt/graphite/
-<span class="c"># 会监听 2003 端口</span>
-./bin/carbon-cache.py start
-<span class="c"># 通过 socket 发送本机的 loadavg 到 2003 端口</span>
-python /opt/graphite/examples/example-client.py
-</code></pre></div>
-<p>效果如下：</p>
-<p><img src="/images/uploads/graphite-auto-refresh.png" alt="graphite" /></p>
-<p>还可以点击 plot 成下面这样，并且添加 event 以供查看：</p>
-<p><img src="/images/uploads/graphite-graphlot.png" alt="graphlot" /></p>
-      <a href="/2013/04/03/install-graphite" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -2144,6 +2149,8 @@ python /opt/graphite/examples/example-client.py
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
               <li><a href="http://blog.sectop.org/" title=""></a></li>
+              <li><a href="http://www.reddit.com/r/perl/" title=""></a></li>
+              <li><a href="http://bubbyroom.com/" title="守住每一天"></a></li>
           </ul>
         </div>
       </div>

@@ -43,6 +43,60 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2009/11/03/dollar-zero-in-awk" title="awk变量$0妙用" rel="bookmark">awk变量$0妙用</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>接着说上篇的脚本。
+因为看awk看的入迷，边想把exp.log的处理那段都用awk写出来。惊喜的发现awk有个内置参数NR，而且awk内部也可以进行运算。
+于是上次的脚本就改成了这个样子：</p>
+<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
+<span class="k">for </span>ip in <span class="sb">`</span>cat ip.lst<span class="sb">`</span>
+<span class="k">do</span>
+./ssh.exp <span class="nv">$ip</span> &gt; /dev/null 2&amp;&gt;1
+<span class="k">done</span>
+<span class="nv">NK</span><span class="o">=</span><span class="sb">`</span>awk <span class="s1">&#39;BEGIN{bs=4000000}/access/{if($1&gt;bs){nk=NR-1;print nk}}&#39;</span> exp.log<span class="sb">`</span>
+<span class="k">for </span>nnk in <span class="nv">$NK</span>
+<span class="k">do</span>
+awk -F<span class="s2">&quot;[@|&#39;]&quot;</span> <span class="s1">&#39;NR==&#39;</span><span class="s2">&quot;$nnk&quot;</span><span class="s1">&#39; {print $2}&#39;</span> exp.log
+<span class="k">done</span>
+</code></pre></div>
+<p>然后又发现awk中$0的鬼怪。于是进一步简化成了这个样子：</p>
+<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
+<span class="k">for </span>ip in
+<span class="sb">`</span>cat ip.lst<span class="sb">`</span>
+<span class="k">do</span>
+./ssh.exp <span class="nv">$ip</span> &gt; /dev/null 2&amp;&gt;1
+<span class="k">done</span>
+awk <span class="s1">&#39;BEGIN{bs=4000000}/access/{if($1&gt;bs)print x};{x=$0}&#39;</span> exp.log|awk -F<span class="s2">&quot;[@|&#39;]&quot;</span> <span class="s1">&#39;{print $2}&#39;</span>
+</code></pre></div>
+<p>终于算是圆了自己用一句话搞定它的梦。yeah～
+不过对这个原理还是不很明白。因为print x;x=$0出来是上一行，但print $0则是本行。why?
+网上对打印前一行还提出另一个写法，就看的更莫名其妙了：</p>
+<div class="highlight"><pre><code class="bash">awk <span class="s1">&#39;/regex/{print (x==&quot;&quot;?&quot;&quot;:x)};{x=$0}&#39;</span> <span class="nv">$1</span>
+</code></pre></div>
+<p>而打印后一行是这样：</p>
+<div class="highlight"><pre><code class="bash">awk <span class="s1">&#39;/regex/{getline;print}&#39;</span> <span class="nv">$1</span>
+</code></pre></div>
+<p>不过这毕竟是恰好上下行而已，如果是要前几行的，还是要靠NR运算了。</p>
+<hr />
+<p>这个问题现在已经知道了，因为awk的流式处理，print x;x=$0，这个时候的x要等到下一行时才print出来。</p>
+      <a href="/2009/11/03/dollar-zero-in-awk" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2009/11/03/automate-configure-squid" title="squid 自动配置脚本" rel="bookmark">squid 自动配置脚本</a>
     </h1>
     <p class="alt-font tight">
@@ -277,6 +331,8 @@
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
               <li><a href="http://blog.sectop.org/" title=""></a></li>
+              <li><a href="http://www.reddit.com/r/perl/" title=""></a></li>
+              <li><a href="http://bubbyroom.com/" title="守住每一天"></a></li>
           </ul>
         </div>
       </div>
