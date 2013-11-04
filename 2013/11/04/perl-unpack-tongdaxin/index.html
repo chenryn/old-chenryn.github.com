@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>动态页面正文部分中文乱码排障一例</title>
+    <title>用 Perl 读取通达信日线数据</title>
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -42,32 +42,28 @@
       <div class="span7">
 <div class="row">
   <div class="page-header">
-    <h1>动态页面正文部分中文乱码排障一例 <small></small></h1>
-    <div class="date"><span>26 June 2010</span></div>
-    <ul class="tag_box pull-right">
-    	<li><a href="/tags.html#apache-ref">apache <span>8</span></a></li>
-    	<li><a href="/tags.html#nginx-ref">nginx <span>12</span></a></li>
-    	<li><a href="/tags.html#resin-ref">resin <span>3</span></a></li>
-    </ul>
+    <h1>用 Perl 读取通达信日线数据 <small></small></h1>
+    <div class="date"><span>04 November 2013</span></div>
   </div>
   <div style='background-color: #FFF;'>
-    <p>公司网站一部分动态页面，早先使用apache+resin的架构运行，考虑到高并发访问下的响应性能问题，在前不久逐步开始用nginx替换掉了apache。  <br />
-不过随后发现了一个问题，随意进入某一有分页的网页，第一页是正常的（因为静态化过了）；点“下一页”，出来的页面两边正常，中间部分的标题、关键字等也正常，唯独每个标题下的正文无法正常显示。  <br />
-因为有做过系统调整，所以第一反应就是新上的nginx配置有问题。按照经验，可能是nginx.conf中指定的chaset与borwser不一致？但选定utf8后现象依旧，何苦同一页面内的其他字符又是正确显示的~~~  <br />
-然后通过内网IP+端口的方式，直接向resin请求抓取到的乱码页面url。结果，nginx+resin的机器显示乱码，apache+resin的机器显示中文——由此确认问题不是nginx，而是resin的！  <br />
-diff两台机器的resin.conf，除了开启的端口外，没有任何不同的地方。  <br />
-检查两台机器的环境变量，发现nginx这台的LANG是zh_CDN:gbk（静态化程序有需求），而apache这台是utf8。试着也修改成utf8然后重启resin，访问结果依然不对。  <br />
-这下基本没招了……完全一样的环境和配置，取的同一台nfs的数据，为啥就能显示不同呢？难道是编译参数的问题？  <br />
-去sharepoint上下载公司文档，查看原先的resin都使用了那些configure选项。结果发现为了配合apache，使用了&ndash;with-apache等。莫非就是因为这个原因导致resin脱离apache运行出现问题了？  <br />
-下载和现行resin版本一致的源码报，不再with-apache编译完成，cp一份conf过来，改用另一个端口启动，然后通过这个端口访问那个url，结果显示正常了！  <br />
-替换下原先的resin，把nginx的upstream指向新resin，故障解决。  <br />
-看来以后再替换apache+resin成nginx+resin的时候，resin也要重新编译一个了……    </p>
+    <p>之前看 skyline 的报警机制的时候，为了寻找测试数据，曾经想到是不是可以用股价走势。其实股价走势分析也是一个很深的编程领域，有些选股软件一份就好几千的卖。当然我这里没兴趣和时间搞那么复杂了。简单的说一下如何从通达信的存档里读取日线数据，说到底还是 <code>pack/unpack</code> 的运用：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!perl</span>
+<span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;&lt;&#39;</span><span class="p">,</span> <span class="s">&#39;C:\new_sxzq_v6\vipdoc\sh\lday\sh000001.day&#39;</span><span class="p">;</span>
+<span class="k">while</span> <span class="p">(</span> <span class="nb">sysread</span> <span class="nv">$fh</span><span class="p">,</span> <span class="k">my</span> <span class="nv">$buf</span><span class="p">,</span> <span class="mi">32</span> <span class="p">)</span> <span class="p">{</span>
+<span class="c1"># 日期，开盘，最高，最低，收盘，成交金额，成交量，预留位</span>
+    <span class="k">my</span> <span class="p">(</span> <span class="nv">$date</span><span class="p">,</span> <span class="nv">$open</span><span class="p">,</span> <span class="nv">$high</span><span class="p">,</span> <span class="nv">$low</span><span class="p">,</span> <span class="nv">$close</span><span class="p">,</span> <span class="nv">$amount</span><span class="p">,</span> <span class="nv">$vol</span><span class="p">,</span> <span class="nv">$reserved</span> <span class="p">)</span> <span class="o">=</span>
+      <span class="nb">unpack</span><span class="p">(</span> <span class="s">&#39;Ii4fi2&#39;</span><span class="p">,</span> <span class="nv">$buf</span> <span class="p">);</span>
+    <span class="nb">printf</span> <span class="s">&quot;%s %.2f %.2f %.2f %.2f %d %d\n&quot;</span><span class="p">,</span> <span class="nv">$date</span><span class="p">,</span> <span class="nv">$open</span> <span class="sr">/ 100, $high /</span> <span class="mi">100</span><span class="p">,</span>
+      <span class="nv">$low</span> <span class="sr">/ 100, $close /</span> <span class="mi">100</span><span class="p">,</span> <span class="nv">$amount</span><span class="p">,</span> <span class="nv">$vol</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>注意这里一定要一边 <code>sysread</code> 一边 <code>while</code>，否则一只股票的历史(上例中是上证指数)都没读完就会内存溢出的。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/06/23/intro-random-variable" title="$RANDOM变量妙用">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/10/26/selinux-affect-to-apache-documentroot" title="selinux 对 webserver 文件发布的影响">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/07/03/a-memory-error-of-java" title="Java报错一例">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/11/04/puppet-class-parameter" title="Puppet 的类参数传递">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -83,7 +79,6 @@ diff两台机器的resin.conf，除了开启的端口外，没有任何不同的
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
                  <li><a href="/2013/11/04/puppet-class-parameter">Puppet 的类参数传递</a></li>
-                 <li><a href="/2013/11/04/perl-unpack-tongdaxin">用 Perl 读取通达信日线数据</a></li>
                  <li><a href="/2013/10/26/selinux-affect-to-apache-documentroot">selinux 对 webserver 文件发布的影响</a></li>
                  <li><a href="/2013/10/25/intro-plenv">用 plenv 代替 perlbrew 管理 Perl5</a></li>
                  <li><a href="/2013/10/16/perl-overload">Perl 的 overload 妙用</a></li>
@@ -91,6 +86,7 @@ diff两台机器的resin.conf，除了开启的端口外，没有任何不同的
                  <li><a href="/2013/09/14/elasticsearch-for-rexify-website">用 ElasticSearch 支持 Rexify 网站的搜索功能</a></li>
                  <li><a href="/2013/09/10/different-format-character-of-pack-between-python-and-perl">Perl 和 Python 的 pack 函数格式字符的区别</a></li>
                  <li><a href="/2013/08/27/using-docker-on-rhel6-the-hard-way">编译最新 3.10 内核在 RHEL6 上支持 Docker</a></li>
+                 <li><a href="/2013/08/26/running-perldancer-on-docker">在 Docker 上运行 PerlDancer 示例</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

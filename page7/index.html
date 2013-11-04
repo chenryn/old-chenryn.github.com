@@ -43,6 +43,209 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2011/05/12/script-process-link-failure" title="链路故障应急处理脚本" rel="bookmark">链路故障应急处理脚本</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-05-12 00:00:00 +0800">12 May 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>话接上篇，继续完成这个perl脚本。花了今天一天的时间，基本定稿如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">use</span> <span class="nn">Net::Ping::</span><span class="n">External</span> <span class="sx">qw(ping)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Tie::</span><span class="n">File</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Getopt::</span><span class="n">Long</span><span class="p">;</span>
+<span class="nn">Getopt::Long::</span><span class="n">Configure</span> <span class="p">(</span><span class="s">&quot;bundling&quot;</span><span class="p">);</span>
+<span class="n">GetOptions</span><span class="p">(</span>
+     <span class="s">&#39;H:s&#39;</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">$ct_host</span><span class="p">,</span>  <span class="s">&#39;host:s&#39;</span>   <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">$ct_host</span><span class="p">,</span>
+     <span class="s">&#39;T:i&#39;</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">$time</span><span class="p">,</span>     <span class="s">&#39;time:i&#39;</span>   <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">$time</span><span class="p">,</span>
+     <span class="s">&#39;N:i&#39;</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">$fork_num</span><span class="p">,</span> <span class="s">&#39;number:i&#39;</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">$fork_num</span><span class="p">,</span>
+     <span class="s">&#39;h&#39;</span>   <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">$help</span><span class="p">,</span>     <span class="s">&#39;help&#39;</span>     <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">$help</span><span class="p">,</span>
+<span class="p">);</span>
+<span class="k">if</span><span class="p">(</span> <span class="nv">$help</span> <span class="p">)</span> <span class="p">{</span>
+    <span class="k">print</span> <span class="s">&quot;Usage: ping_check.pl -H 10.168.168.251 -T 30 -N 10\n&quot;</span><span class="p">;</span>
+    <span class="k">print</span> <span class="s">&quot;       -H/host:   The switch ip address to be checked in china telecom;\n&quot;</span><span class="p">;</span>
+    <span class="k">print</span> <span class="s">&quot;       -T/time:   The seconds used for pinging;\n&quot;</span><span class="p">;</span>
+    <span class="k">print</span> <span class="s">&quot;       -N/number: The number of fork processes to expect the remote hosts;\n&quot;</span><span class="p">;</span>
+    <span class="k">print</span> <span class="s">&quot;       -h/help:   The usage just you see now.\n&quot;</span><span class="p">;</span>
+    <span class="nb">exit</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">my</span> <span class="nv">$mark_file</span> <span class="o">=</span> <span class="s">&#39;/tmp/mark_file&#39;</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">@last</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$result</span> <span class="o">=</span> <span class="n">ping</span><span class="p">(</span> <span class="n">hostname</span> <span class="o">=&gt;</span> <span class="s">&quot;$ct_host&quot;</span><span class="p">,</span>
+                   <span class="n">count</span>    <span class="o">=&gt;</span> <span class="nv">$time</span> <span class="o">*</span> <span class="mi">5</span><span class="p">,</span>
+                   <span class="n">size</span>     <span class="o">=&gt;</span> <span class="s">&#39;128&#39;</span><span class="p">,</span>
+                   <span class="n">timeout</span>  <span class="o">=&gt;</span> <span class="s">&#39;1&#39;</span><span class="p">,</span>
+<span class="c1">#原生的Net::Ping模块需要自己while来控制sleep；</span>
+<span class="c1">#现在采用的Net::Ping::External是直接调用的外部ping命令，但默认也没有-i参数；</span>
+<span class="c1">#package中sub ping{}里把未定义的@_都给到了%args，</span>
+<span class="c1">#所以只需要在199行（即sub _ping_linux{}中）添加上-i $args{interval}就能用了。</span>
+                   <span class="n">interval</span> <span class="o">=&gt;</span> <span class="s">&#39;0.2&#39;</span><span class="p">,</span>
+                 <span class="p">);</span>
+<span class="c1">#用tie将数组@last锁定到文件上——我曾经想过直接锁个变量，但是似乎没有，只能数组或哈希？</span>
+<span class="nb">tie</span> <span class="nv">@last</span><span class="p">,</span> <span class="s">&#39;Tie::File&#39;</span><span class="p">,</span> <span class="nv">$mark_file</span> <span class="ow">or</span> <span class="nb">die</span> <span class="vg">$!</span><span class="p">;</span>
+<span class="k">if</span> <span class="p">(</span> <span class="nv">$result</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="nv">$last</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="p">)</span> <span class="p">{</span>
+    <span class="k">print</span> <span class="s">&quot;ok\n&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">elsif</span> <span class="p">(</span> <span class="nv">$result</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="nv">$last</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">)</span> <span class="p">{</span>
+    <span class="k">print</span> <span class="s">&quot;Beginning recovery\n&quot;</span><span class="p">;</span>
+    <span class="o">&amp;</span><span class="n">parallel_manage</span><span class="p">(</span><span class="s">&quot;recovery&quot;</span><span class="p">,</span> <span class="s">&quot;$fork_num&quot;</span><span class="p">);</span>
+    <span class="o">&amp;</span><span class="n">sms_alarm</span><span class="p">(</span><span class="s">&#39;CNC recovery peer to intranet&#39;</span><span class="p">);</span>
+    <span class="o">&amp;</span><span class="n">email_alarm</span><span class="p">(</span><span class="s">&#39;CNC recovery peer to intranet&#39;</span><span class="p">);</span>
+<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+    <span class="k">print</span> <span class="s">&quot;Error! Beginning change to template configuration\n&quot;</span><span class="p">;</span>
+    <span class="o">&amp;</span><span class="n">parallel_manage</span><span class="p">(</span><span class="s">&quot;change&quot;</span><span class="p">,</span> <span class="s">&quot;$fork_num&quot;</span><span class="p">);</span>
+    <span class="o">&amp;</span><span class="n">sms_alarm</span><span class="p">(</span><span class="s">&#39;CNC change peer to CT&#39;</span><span class="p">);</span>
+    <span class="o">&amp;</span><span class="n">email_alarm</span><span class="p">(</span><span class="s">&#39;CNC change peer to CT&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="nv">$last</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$result</span><span class="p">;</span>
+<span class="nb">untie</span> <span class="nv">@last</span><span class="p">;</span>
+<span class="k">sub </span><span class="nf">email_alarm</span> <span class="p">{</span>
+    <span class="k">use</span> <span class="nn">Net::</span><span class="n">SMTP_auth</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$email_message</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$smtp</span> <span class="o">=</span> <span class="nn">Net::</span><span class="n">SMTP_auth</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">Host</span>    <span class="o">=&gt;</span> <span class="s">&#39;smtp.domain.com&#39;</span><span class="p">,</span>
+                                    <span class="n">Timeout</span> <span class="o">=&gt;</span> <span class="s">&#39;30&#39;</span><span class="p">,</span>
+<span class="c1">#                                    Debug   =&gt; &#39;1&#39;,</span>
+                              <span class="p">);</span>
+    <span class="nv">$smtp</span><span class="o">-&gt;</span><span class="n">auth</span><span class="p">(</span><span class="s">&#39;LOGIN&#39;</span><span class="p">,</span> <span class="s">&#39;alarm@domain.com&#39;</span><span class="p">,</span> <span class="s">&#39;password&#39;</span><span class="p">);</span>
+    <span class="nv">$smtp</span><span class="o">-&gt;</span><span class="n">mail</span><span class="p">(</span><span class="s">&#39;alarm@domain.com&#39;</span><span class="p">);</span>
+    <span class="nv">$smtp</span><span class="o">-&gt;</span><span class="n">to</span><span class="p">(</span> <span class="s">&#39;netadmin@domain.com&#39;</span> <span class="p">);</span>
+    <span class="nv">$smtp</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">();</span>
+    <span class="nv">$smtp</span><span class="o">-&gt;</span><span class="n">datasend</span><span class="p">(</span><span class="s">&quot;To: Netadmin\@domain.com\n&quot;</span><span class="p">);</span>
+    <span class="nv">$smtp</span><span class="o">-&gt;</span><span class="n">datasend</span><span class="p">(</span><span class="s">&quot;\n&quot;</span><span class="p">);</span>
+    <span class="nv">$smtp</span><span class="o">-&gt;</span><span class="n">datasend</span><span class="p">(</span><span class="s">&quot;${email_message}\n&quot;</span><span class="p">);</span>
+    <span class="nv">$smtp</span><span class="o">-&gt;</span><span class="n">dataend</span><span class="p">();</span>
+    <span class="nv">$smtp</span><span class="o">-&gt;</span><span class="n">quit</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">sms_alarm</span> <span class="p">{</span>
+    <span class="k">use</span> <span class="nn">Net::</span><span class="n">MySQL</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$sms_message</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">%contacts</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">get_contacts</span><span class="p">();</span>
+    <span class="k">my</span> <span class="nv">$mysql</span> <span class="o">=</span> <span class="nn">Net::</span><span class="n">MySQL</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">hostname</span> <span class="o">=&gt;</span> <span class="s">&#39;10.1.1.45&#39;</span><span class="p">,</span>
+                                 <span class="n">database</span> <span class="o">=&gt;</span> <span class="s">&#39;smsd&#39;</span><span class="p">,</span>
+                                 <span class="n">user</span>     <span class="o">=&gt;</span> <span class="s">&#39;smsd&#39;</span><span class="p">,</span>
+                                 <span class="n">password</span> <span class="o">=&gt;</span> <span class="s">&#39;smsd&#39;</span><span class="p">,</span>
+                               <span class="p">);</span>
+    <span class="k">foreach</span> <span class="k">my</span> <span class="nv">$send_number</span> <span class="p">(</span><span class="nb">values</span> <span class="nv">%contacts</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$mysql</span><span class="o">-&gt;</span><span class="n">query</span><span class="p">(</span>
+            <span class="s">&quot;INSERT INTO outbox (number, text) VALUES ( $send_number, &#39;$sms_message&#39;)&quot;</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+    <span class="nv">$mysql</span><span class="o">-&gt;</span><span class="nb">close</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">parallel_manage</span> <span class="p">{</span>
+<span class="c1">#因为Expect模块本身使用了fork();要求运行在主进程中，所以在并发的时候不能采用多线程而得用多进程</span>
+    <span class="k">use</span> <span class="n">Expect</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Parallel::</span><span class="n">ForkManager</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$command</span> <span class="o">=</span> <span class="nb">shift</span> <span class="o">||</span> <span class="s">&#39;id&#39;</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$max_fork</span> <span class="o">=</span> <span class="nb">shift</span> <span class="o">||</span> <span class="s">&#39;10&#39;</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">@remote_list</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;10.1.1.64&#39;</span><span class="p">,</span>
+                       <span class="s">&#39;10.1.1.50&#39;</span><span class="p">,</span>
+                       <span class="s">&#39;10.1.1.35&#39;</span><span class="p">,</span>
+                      <span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$remote_host</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">%remote_result</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$pm</span> <span class="o">=</span> <span class="nn">Parallel::</span><span class="n">ForkManager</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="nv">$max_fork</span><span class="p">,</span> <span class="s">&#39;/tmp/&#39;</span><span class="p">);</span>
+<span class="c1">#采用Parallel::ForkManager模块时，如果需要子进程返回数据结果给父进程，必须把run_on_finish()放在fork之前</span>
+<span class="c1">#Parallel::ForkManager模块实际上是采用文件存储的方式进行父子进程的数据通信，所以上面new的时候定义一个临时文件路径</span>
+    <span class="nv">$pm</span><span class="o">-&gt;</span><span class="n">run_on_finish</span> <span class="p">(</span>
+        <span class="k">sub </span><span class="p">{</span>
+<span class="c1">#主要有用的是子进程pid，子进程退出状态，返回数据的引用</span>
+            <span class="k">my</span> <span class="p">(</span><span class="nv">$pid</span><span class="p">,</span> <span class="nv">$exit_code</span><span class="p">,</span> <span class="nv">$ident</span><span class="p">,</span> <span class="nv">$exit_signal</span><span class="p">,</span> <span class="nv">$core_dump</span><span class="p">,</span> <span class="nv">$reference</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nb">defined</span><span class="p">(</span><span class="nv">$reference</span><span class="p">))</span> <span class="p">{</span>
+<span class="c1">#解引用后复制到数组并转存成哈希</span>
+                <span class="k">my</span> <span class="nv">@data</span> <span class="o">=</span>  <span class="nv">@$reference</span><span class="p">;</span>
+                <span class="nv">$remote_result</span><span class="p">{</span><span class="s">&quot;$data[0]&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$data</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
+            <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+                <span class="k">print</span> <span class="sx">qq|No message received from child process $pid!\n|</span><span class="p">;</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">);</span>
+    <span class="k">foreach</span> <span class="nv">$remote_host</span> <span class="p">(</span><span class="nv">@remote_list</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$pm</span><span class="o">-&gt;</span><span class="n">start</span> <span class="ow">and</span> <span class="k">next</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">@check</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$remote_host</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ssh_expect</span><span class="p">(</span><span class="nv">$remote_host</span><span class="p">,</span> <span class="nv">$command</span><span class="p">));</span>
+<span class="c1">#默认参数就是finish(0);需要返回数据时才加上引用</span>
+        <span class="nv">$pm</span><span class="o">-&gt;</span><span class="n">finish</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">\</span><span class="nv">@check</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="nv">$pm</span><span class="o">-&gt;</span><span class="n">wait_all_children</span><span class="p">;</span>
+    <span class="k">foreach</span> <span class="k">my</span> <span class="nv">$key</span> <span class="p">(</span><span class="nb">sort</span> <span class="nb">keys</span> <span class="nv">%remote_result</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">print</span> <span class="nv">$remote_result</span><span class="p">{</span><span class="nv">$key</span><span class="p">},</span><span class="s">&quot;\n&quot;</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">ssh_expect</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$shell</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$exp</span> <span class="o">=</span> <span class="n">Expect</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$password</span> <span class="o">=</span> <span class="s">&#39;password&#39;</span><span class="p">;</span>
+    <span class="nv">$exp</span> <span class="o">=</span> <span class="n">Expect</span><span class="o">-&gt;</span><span class="n">spawn</span><span class="p">(</span><span class="s">&quot;ssh -l monitor -i /usr/local/monitor/conf/id_rsa -o ConnectTimeout=5 $host&quot;</span><span class="p">);</span>
+<span class="c1">#    $ENV{TERM}=&quot;xterm&quot;;</span>
+<span class="c1">#    $exp-&gt;exp_internal(1);</span>
+    <span class="nv">$exp</span><span class="o">-&gt;</span><span class="n">raw_pty</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="c1">#关闭输出，不然expect会把整个session都print出来（实际是到STDERR）</span>
+    <span class="nv">$exp</span><span class="o">-&gt;</span><span class="n">log_stdout</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+    <span class="nv">$exp</span><span class="o">-&gt;</span><span class="n">expect</span><span class="p">(</span><span class="mi">2</span><span class="p">,[</span>
+                    <span class="s">&#39;\$&#39;</span><span class="p">,</span>
+                    <span class="k">sub </span><span class="p">{</span>
+                            <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+                            <span class="nv">$self</span><span class="o">-&gt;</span><span class="nb">send</span><span class="p">(</span><span class="s">&quot;su -\n&quot;</span><span class="p">);</span>
+                        <span class="p">}</span>
+                   <span class="p">],</span>
+                   <span class="p">[</span>
+                    <span class="s">&#39;\(yes/no\)\?&#39;</span><span class="p">,</span>
+                    <span class="k">sub </span><span class="p">{</span>
+                            <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+                            <span class="nv">$self</span><span class="o">-&gt;</span><span class="nb">send</span><span class="p">(</span><span class="s">&quot;yes\n&quot;</span><span class="p">);</span>
+			    <span class="n">exp_continue</span><span class="p">;</span>
+                         <span class="p">}</span>
+                   <span class="p">]</span>
+               <span class="p">);</span>
+    <span class="nv">$exp</span><span class="o">-&gt;</span><span class="n">expect</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="p">[</span>
+		    <span class="s">&#39;Password:&#39;</span><span class="p">,</span>
+		    <span class="k">sub </span><span class="p">{</span>
+			    <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+			    <span class="nv">$self</span><span class="o">-&gt;</span><span class="nb">send</span><span class="p">(</span><span class="s">&quot;${password}\n&quot;</span><span class="p">);</span>
+			    <span class="n">exp_continue</span><span class="p">;</span>
+		        <span class="p">}</span>
+		   <span class="p">],</span>
+		   <span class="p">[</span>
+		    <span class="s">&#39;#&#39;</span><span class="p">,</span>
+		    <span class="k">sub </span><span class="p">{</span>
+			    <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+			    <span class="nv">$self</span><span class="o">-&gt;</span><span class="nb">send</span><span class="p">(</span><span class="s">&quot;${shell}\n&quot;</span><span class="p">);</span>
+			<span class="p">}</span>
+		   <span class="p">]</span>
+	       <span class="p">);</span>
+    <span class="nv">$exp</span><span class="o">-&gt;</span><span class="nb">send</span><span class="p">(</span><span class="s">&quot;exit\n&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="nv">$exp</span><span class="o">-&gt;</span><span class="n">expect</span><span class="p">(</span><span class="nb">undef</span><span class="p">,</span><span class="s">&#39;#&#39;</span><span class="p">));</span>
+<span class="c1">#expect有before/match/after来返回相应的数据</span>
+    <span class="k">my</span> <span class="nv">$read</span> <span class="o">=</span> <span class="nv">$exp</span><span class="o">-&gt;</span><span class="n">before</span><span class="p">();</span>
+    <span class="nv">$exp</span><span class="o">-&gt;</span><span class="nb">send</span><span class="p">(</span><span class="s">&quot;exit\n&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="nv">$exp</span><span class="o">-&gt;</span><span class="n">expect</span><span class="p">(</span><span class="nb">undef</span><span class="p">,</span><span class="s">&#39;$&#39;</span><span class="p">));</span>
+    <span class="nv">$exp</span><span class="o">-&gt;</span><span class="n">soft_close</span><span class="p">();</span>
+    <span class="k">return</span> <span class="nv">$read</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">get_contact</span> <span class="p">{</span>
+    <span class="nb">open</span> <span class="k">my</span> <span class="n">FH</span><span class="p">,</span> <span class="s">&quot;/usr/local/nagios/etc/objects/contacts.cfg&quot;</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">%hash</span><span class="p">;</span>
+    <span class="nb">local</span> <span class="vg">$/</span> <span class="o">=</span> <span class="s">&#39;define&#39;</span><span class="p">;</span>
+    <span class="k">while</span><span class="p">(</span><span class="sr">&lt;FH&gt;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">next</span> <span class="k">unless</span> <span class="sr">/pager\s+(\d{11})/</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">$sms_num</span> <span class="o">=</span> <span class="nv">$1</span><span class="p">;</span>
+        <span class="nv">$hash</span><span class="p">{</span><span class="nv">$1</span><span class="p">}</span><span class="o">=</span><span class="nv">$sms_num</span> <span class="k">if</span> <span class="sr">/email\s+([a-z\.]+?)\@bj.china.com/</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nv">%hash</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+      <a href="/2011/05/12/script-process-link-failure" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2011/05/12/learning-bless-and-write-pm-demo" title="学习pm和bless的写法" rel="bookmark">学习pm和bless的写法</a>
     </h1>
     <p class="alt-font tight">
@@ -1562,56 +1765,6 @@ B. 根据上一章节的修改结果，浏览器对&rdquo;动态html&rdquo;每�
 不过要注意，域名太多也会拖慢浏览器速度的。dns解析需要时间。</p>
 <p>总之，个人感觉这些技术还是比较现实的，但都用很强的应用场景针对性。呵呵~</p>
       <a href="/2011/01/13/learning-accel-dynamic-data" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/01/12/resin-status" title="resin-status" rel="bookmark">resin-status</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-01-12 00:00:00 +0800">12 Jan 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>和apache、nginx一样，resin也自带了一个比较简易的status模块，只需要在resin.conf里配置就行了。在里添加如下一段：</p>
-<div class="highlight"><pre><code class="xml">    <span class="nt">&lt;servlet-mapping</span> <span class="na">servlet-class=</span><span class="s">&#39;com.caucho.servlets.ResinStatusServlet&#39;</span><span class="nt">&gt;</span>
-      <span class="nt">&lt;url-pattern&gt;</span>/resin-status<span class="nt">&lt;/url-pattern&gt;</span>
-      <span class="nt">&lt;init</span> <span class="na">enable=</span><span class="s">&quot;read&quot;</span><span class="nt">/&gt;</span>
-    <span class="nt">&lt;/servlet-mapping&gt;</span>
-</code></pre></div>
-<p>重启resin即可。</p>
-<p>然后curl访问http://127.0.0.1:8080/resin-status就可以看到输出了。</p>
-<p>用浏览器的话，大致如下图：
-<img src="/images/uploads/resin.jpg" alt="resin" /></p>
-<p>可以关注线程数、连接数、内存使用大小和请求处理数。</p>
-<p>如果要做监控的话，直接从html里获取相应数值即可。</p>
-<p>唯一需要稍微注意的是请求处理数。因为其他的都是AVERAGE，只有这个是COUNTER型的。要是想很方便的看到rps。可以采用如下方法查看：</p>
-<div class="highlight"><pre><code class="bash"><span class="c"># a=`curl -s http://127.0.0.1:8081/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 1;curl -s http://10.168.168.56:8081/resin-status|awk -F/ &#39;/Invocation/{print($NF-&#39;$a&#39;}&#39;</span>
-718
-</code></pre></div>
-<p>这里比较有趣的是因为这行的数据本身是有个括号的，所以就有了各种各样的写法和报错了。一并贴上来，可以体会一下awk的系统变量/内部函数/字符类型的用法：</p>
-<div class="highlight"><pre><code class="bash"><span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&#39;$a&#39;}&#39;</span>
-awk: cmd. line:1: /Invocation/<span class="o">{</span>print <span class="nv">$NF</span>-3949612<span class="o">)}</span>
-awk: cmd. line:1:                               ^ syntax error
-<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&#39;&quot;$a&quot;&#39;}&#39;</span>
-awk: cmd. line:1: /Invocation/<span class="o">{</span>print <span class="nv">$NF</span>-4025373<span class="o">)}</span>
-awk: cmd. line:1:                               ^ syntax error
-<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&quot;&#39;$a&#39;&quot;}&#39;</span>
-7607
-<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print substr($NF,0,length($NF)-1)}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&#39;$a&#39;}&#39;</span>
-7927
-<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print($NF-&#39;$a&#39;}&#39;</span>
-7212
-</code></pre></div>
-      <a href="/2011/01/12/resin-status" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

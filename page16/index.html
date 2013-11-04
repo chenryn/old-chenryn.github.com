@@ -43,6 +43,64 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2009/11/03/expect-log-analysis" title="expect日志分析" rel="bookmark">expect日志分析</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>接着上次expect脚本那事儿往下走。
+由于不同服务的管理方法不同，上次关闭了ssh的外网登录以后，各地不断有服务器报出这样那样的问题。主管一发狠：“全面检查！”
+在检查中，还真发现不少问题。最突出的就是很多本应该上传到中心服务器的日志居然一直留在本机没动弹！时不时发作出来，就撑爆了根分区——这当然有分区规划不合理的问题。但在线业务，磁盘划分修改起来就不是那么方便了。于是退而求其次，定期监控日志文件大小吧。这回expect只要du
+-sh一下就行了，方便的很。问题在下一步的分析。
+摘举exp.log中一次循环的执行结果如下：</p>
+<div class="highlight"><pre><code class="bash">The authenticity of host <span class="s1">&#39;1.2.3.4 (1.2.3.4)&#39;</span> can<span class="s1">&#39;t be established.</span>
+<span class="s1">RSA key fingerprint is</span>
+<span class="s1">bb:d5:81:e1:84:09:c5:32:f6:fb:e1:b3:d3:de:c3:53.</span>
+<span class="s1">Are you sure you want to continue connecting (yes/no)? yes</span>
+<span class="s1">Warning: Permanently added &#39;</span>1.2.3.4<span class="s1">&#39; (RSA) to the list of known hosts.</span>
+<span class="s1">root@1.2.3.4&#39;</span>s password:
+4.0K /home/apache2/logs/access_log
+</code></pre></div>
+<p>第一步，是用如下脚本，可以做到提取日志达到50M大小的服务器IP。</p>
+<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
+<span class="nv">nk</span><span class="o">=</span><span class="sb">`</span>sed -n -e <span class="s2">&quot;/50M/=&quot;</span> exp.log<span class="sb">`</span>
+<span class="nv">nnk</span><span class="o">=</span><span class="sb">`</span>expr <span class="nv">$nk</span> - 1<span class="sb">`</span>
+sed -n <span class="s2">&quot;$nnk&quot;</span>p<span class="s2">&quot;&quot;</span> exp.log|awk -F<span class="s2">&quot;&#39;&quot;</span> <span class="s1">&#39;{print $1}&#39;</span>|awk -F<span class="s2">&quot;@&quot;</span> <span class="s1">&#39;{print $2}&#39;</span>
+</code></pre></div>
+<p>但问题是：如果同时有两台到50M呢？或者在运行到它时，已经到50M以上呢？
+于是我想，以ls -sh显示大小，人眼好看，电脑不好认啊。如果用du -b，那大小相同的几率就应该小很多很多了。然后定一个阀值，进行比较循环就可以了。
+最后脚本如下：</p>
+<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
+<span class="k">for </span>ip in <span class="sb">`</span>cat ip.lst<span class="sb">`</span>
+<span class="k">do</span>
+./ssh.exp <span class="nv">$ip</span> &gt; /dev/null 2&amp;&gt;1
+<span class="k">done</span>
+<span class="nv">bs</span><span class="o">=</span>400
+<span class="nv">size</span><span class="o">=</span><span class="sb">`</span>grep access exp.log | awk <span class="s1">&#39;{if ($1&amp;gt;&#39;</span><span class="s2">&quot;$bs&quot;</span><span class="s1">&#39;){print $1}}&#39;</span><span class="sb">`</span>
+<span class="k">for </span>so in <span class="nv">$size</span>
+<span class="k">do</span>
+<span class="nv">nk</span><span class="o">=</span><span class="sb">`</span>sed -n -e <span class="s2">&quot;/$so/=&quot;</span> exp.log<span class="sb">`</span>
+<span class="nv">nnk</span><span class="o">=</span><span class="sb">`</span>expr <span class="nv">$nk</span> - 1<span class="sb">`</span>
+sed -n <span class="s2">&quot;$nnk&quot;</span>p<span class="s2">&quot;&quot;</span> exp.log | awk -F<span class="s2">&quot;&#39;&quot;</span> <span class="s1">&#39;{print $1}&#39;</span>|awk -F@ <span class="s1">&#39;{print $2}&#39;</span>
+<span class="k">done</span>
+</code></pre></div>
+<h1 id="sed-nsng-explogexpssh">本来想用sed &lsquo;N;s/n//g&rsquo; exp.log来合并行尾，省得调行号，但exp日志的格式因为ssh登录的提示信息不一而无法统一，只能放弃。</h1>
+<p>试验性的在ip.lst中输入了15个IP，运行结果显示出来了两个。成功。</p>
+      <a href="/2009/11/03/expect-log-analysis" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2009/11/03/dollar-zero-in-awk" title="awk变量$0妙用" rel="bookmark">awk变量$0妙用</a>
     </h1>
     <p class="alt-font tight">
