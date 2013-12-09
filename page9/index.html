@@ -43,6 +43,92 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/11/17/template-problem-of-pnp4nagios-1" title="pnp4nagios的模板问题(1)" rel="bookmark">pnp4nagios的模板问题(1)</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-11-17 00:00:00 +0800">17 Nov 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>实在是看不下去pnp4nagios的丑陋的rrd效果，想着自己修改一下模板。</p>
+<p>很容易找到了目前使用的模板：nagios/share/pnp/templates.dist/default.php，不过看到目录下已经有不少其他的模板文件，为啥一个都没用上呢？</p>
+<p>从nagios/share/pnp/include/function.inc.php里看到了doFindTemplate()，定义如下：</p>
+<div class="highlight"><pre><code class="php"><span class="x">if (is_readable($conf[&#39;template_dir&#39;].&#39;/templates/&#39; . $template . &#39;.php&#39;)) {</span>
+<span class="x">$template_file = $conf[&#39;template_dir&#39;].&#39;/templates/&#39; . $template . &#39;.php&#39;;</span>
+<span class="x">}elseif (is_readable($conf[&#39;template_dir&#39;].&#39;/templates.dist/&#39; . $template . &#39;.php&#39;)) {</span>
+<span class="x">$template_file = $conf[&#39;template_dir&#39;].&#39;/templates.dist/&#39; . $template . &#39;.php&#39;;</span>
+<span class="x">}elseif (is_readable($conf[&#39;template_dir&#39;].&#39;/templates/default.php&#39;)) {</span>
+<span class="x">$template_file = $conf[&#39;template_dir&#39;].&#39;/templates/default.php&#39;;</span>
+<span class="x">}else {</span>
+<span class="x">$template_file = $conf[&#39;template_dir&#39;].&#39;/templates.dist/default.php&#39;;</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>也就是说其实pnp是找不到对应check_command的模板，才使用了最后的default.php！</p>
+<p>正巧，default.php里输出了check_command到rra上，可以看到，几乎所有的命令输出都是&rdquo;Check Command check_nrpe&rdquo;。</p>
+<p>也就是说，pnp设计者很贴心的设计了自动查找命令模板的功能，却没有考虑到nagios最广泛的应用插件nrpe……</p>
+<p>在pnp官网文档<a href="http://docs.pnp4nagios.org/pnp-0.4/tpl?s[]=template">http://docs.pnp4nagios.org/pnp-0.4/tpl?s[]=template</a>上指出，rrd使用模板是读取了perfdata中相应的xml文件，xml内容类似如下几行：</p>
+<div class="highlight"><pre><code class="xml"><span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; standalone=&quot;yes&quot;?&gt;</span>
+<span class="nt">&lt;NAGIOS&gt;</span>
+<span class="nt">&lt;DATASOURCE&gt;</span>
+<span class="nt">&lt;TEMPLATE&gt;</span>check_nrpe<span class="nt">&lt;/TEMPLATE&gt;</span>
+<span class="nt">&lt;IS_MULTI&gt;</span>0<span class="nt">&lt;/IS_MULTI&gt;</span>
+<span class="nt">&lt;DS&gt;</span>1<span class="nt">&lt;/DS&gt;</span>
+<span class="nt">&lt;NAME&gt;</span>eth0_in<span class="nt">&lt;/NAME&gt;</span>
+<span class="nt">&lt;UNIT&gt;</span>Mbps<span class="nt">&lt;/UNIT&gt;</span>
+<span class="nt">&lt;ACT&gt;</span>2.96<span class="nt">&lt;/ACT&gt;</span>
+<span class="nt">&lt;WARN&gt;</span>976.56<span class="nt">&lt;/WARN&gt;</span>
+<span class="nt">&lt;WARN_MIN&gt;&lt;/WARN_MIN&gt;</span>
+<span class="nt">&lt;WARN_MAX&gt;&lt;/WARN_MAX&gt;</span>
+<span class="nt">&lt;WARN_RANGE_TYPE&gt;&lt;/WARN_RANGE_TYPE&gt;</span>
+<span class="nt">&lt;CRIT&gt;</span>976.56<span class="nt">&lt;/CRIT&gt;</span>
+<span class="nt">&lt;CRIT_MIN&gt;&lt;/CRIT_MIN&gt;</span>
+<span class="nt">&lt;CRIT_MAX&gt;&lt;/CRIT_MAX&gt;</span>
+<span class="nt">&lt;CRIT_RANGE_TYPE&gt;&lt;/CRIT_RANGE_TYPE&gt;</span>
+<span class="nt">&lt;MIN&gt;</span>0<span class="nt">&lt;/MIN&gt;</span>
+<span class="nt">&lt;MAX&gt;</span>0<span class="nt">&lt;/MAX&gt;</span>
+<span class="nt">&lt;/DATASOURCE&gt;</span>
+</code></pre></div>
+<p>这些标签都是给模板使用的，比如default.php中输出命令的那行就是：
+$def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo;\r&rdquo; &lsquo;;</p>
+<p>如果直接修改xml中的<template>标签内容，确实可以调用成新的模板显示。但间隔时间一过，xml就自动更新成默认配置输出的结果……</template></p>
+<p>解决在大规模环境下nrpe监控数据绘图模板的问题~或许还得继续查找xml的定义，待续ing~</p>
+<p>补充：看到官网如下网页，似乎是针对这个问题的，英文慢慢啃~
+<a href="http://docs.pnp4nagios.org/pnp-0.4/tpl_custom">http://docs.pnp4nagios.org/pnp-0.4/tpl_custom</a></p>
+      <a href="/2010/11/17/template-problem-of-pnp4nagios-1" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/11/16/china-internet-sites-performance-industry-reference-data-publiced-by-networkbech" title="基调发布《中国互联网网站性能行业参考数据》" rel="bookmark">基调发布《中国互联网网站性能行业参考数据》</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-11-16 00:00:00 +0800">16 Nov 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p><a href="http://www.networkbench.com/trade-rank/index.html">http://www.networkbench.com/trade-rank/index.html</a></p>
+<p>不是做广告，不过说实话还是觉得基调很有头脑，搞出这么个东西来~~~</p>
+      <a href="/2010/11/16/china-internet-sites-performance-industry-reference-data-publiced-by-networkbech" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/11/12/intro-mysqlreport" title="mysql状态报表工具" rel="bookmark">mysql状态报表工具</a>
     </h1>
     <p class="alt-font tight">
@@ -2612,101 +2698,6 @@ define command{
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/08/13/intro-gnuplot" title="gnuplot画图" rel="bookmark">gnuplot画图</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-08-13 00:00:00 +0800">13 Aug 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>之前提高日志流量统计的问题。并给出了分时流量的计算方法。当是想的是用perl调用rrd或者gd画图，甚至有把日志统计也写成perl的打算。
-不过今天发现了一个小工具gnuplot，画图功能相当强大（在找资料的时候看到台湾有人用这个画台湾的三维地形图！），上手相当简单，尤其适合日志统计分析，相比来说，rrd还是比较适合实时监控画图的情况。
-比如当初的脚本输出如下：
-[root@Zabbix cache]# tail test.log
-23:14 506.877
-23:19 501.068
-23:24 493.254
-23:29 469.184
-23:34 460.161
-23:39 426.065
-23:44 429.734
-23:49 409.255
-23:54 423.512
-23:59 390.676
-然后编写gnuplot的配置文件如下：</p>
-<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@Zabbix cache<span class="o">]</span><span class="c"># cat log.conf</span>
-<span class="nb">set </span>terminal png truecolor size 550,250    <span class="c">#指定输出成png图片，且图片大小为550×250，需要ligpng支持，采用默认颜色设定</span>
-<span class="nb">set </span>output <span class="s2">&quot;log.png&quot;</span>    <span class="c">#指定输出png图片的文件名</span>
-<span class="nb">set </span>autoscale    <span class="c">#轴向标记自动控制</span>
-<span class="nb">set </span>xdata <span class="nb">time</span>    <span class="c">#X轴数据格式为时间</span>
-<span class="nb">set </span>timefmt <span class="s2">&quot;%H:%M&quot;</span>    <span class="c">#时间输入格式为&quot;小时:分钟&quot;</span>
-<span class="nb">set </span>style data lines    <span class="c">#数据显示方式为连线</span>
-<span class="nb">set </span>xlabel <span class="s2">&quot;time per day&quot;</span>    <span class="c">#X轴标题</span>
-<span class="nb">set </span>ylabel <span class="s2">&quot;Mbps&quot;</span>    <span class="c">#Y轴标题</span>
-<span class="nb">set </span>title <span class="s2">&quot;image.tuku.china.com flow&quot;</span>    <span class="c">#图片标题</span>
-<span class="nb">set </span>grid    <span class="c">#显示网格</span>
-plot <span class="s2">&quot;test.log&quot;</span> using 1:2 title <span class="s2">&quot;access_flow&quot;</span>    <span class="c">#从test.log文件中读取第一列和第二列作为X轴和Y轴数据，示例名&quot;log_flow&quot;</span>
-</code></pre></div>
-<p>最后运行cat log.conf | gnuplot命令，就生成了log.png文件，如下：
-<img src="/images/uploads/gnuplot.png" alt="" />
-就是不知道X轴上这个01/01怎么消除掉……
-对比帝联提供的flash图片如下：
-<img src="/images/uploads/dilian.jpg" alt="" />
-可以看出基本是一致的。</p>
-      <a href="/2010/08/13/intro-gnuplot" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/08/13/intro-bc-command" title="bc命令及其他" rel="bookmark">bc命令及其他</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-08-13 00:00:00 +0800">13 Aug 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>在写check_if_flow.sh的时候，因为要比较的值太多，几个网卡，每个都分进出、然后分w和c。如果直接if判断大小，会写的无比庞大……于是想到根据比较结果先输出一个变量，大就是1，小就是0，类似这种。</p>
-<p>于是找到了bc命令，最终结果如下：</p>
-<p>[root@test ~]# echo &ldquo;1.13 &gt; 1.2&rdquo;|bc
-0
-[root@test ~]# echo &ldquo;1.13 &lt; 1.2&rdquo;|bc
-1
-bc支持+-*/%^=!&gt;&lt;各种运算，还能通过scale指定小数点后几位；
-还能任意转换数字的进制，如下：</p>
-<p>[root@test ~]# echo &lsquo;obase=10; ibase=16; 1E79&rsquo; | bc
-7801</p>
-<p>相比之前脚本里用的awk要灵活（就是必须大写）。awk从十进制变十六进制很容易，变回去就难了……得用上函数才行：</p>
-<p>[root@test ~]# echo &lsquo;1E79&rsquo;|awk &lsquo;{printf &ldquo;%s&rdquo;,strtonum(&ldquo;0x&rdquo;$1)}&rsquo;
-7801</p>
-<p>而shell相反，从十六进制变十进制很容易，反过来去难……</p>
-<p>[root@test ~]# echo $[16#1e79]
-7801</p>
-<p>ksh中可以指定typeset -i，bash没找到~所以只能把别的进制改成10进制</p>
-<p>[root@test ~]# ksh
-# typeset -i16 num=7801
-# echo $num
-16#1e79</p>
-      <a href="/2010/08/13/intro-bc-command" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -2799,6 +2790,8 @@ bc支持+-*/%^=!&gt;&lt;各种运算，还能通过scale指定小数点后几位
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+              <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+              <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
           </ul>
         </div>
         <div class="well sidebar-nav">

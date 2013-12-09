@@ -43,6 +43,199 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/02/24/cacti-install" title="cacti安装记录" rel="bookmark">cacti安装记录</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-02-24 00:00:00 +0800">24 Feb 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>cacti运行在lamp环境下，采用net-snmp获得监控数据，由rrdtool绘图。所以cacti的安装，主要就是apache、mysql、php、rrdtool、net-snmp这几个的安装。其中apache2是我们服务器上早就有的，可以利用；而原有的php5因为不支持mysql，所以要重新编译。</p>
+<ol>
+  <li>mysql安装：</li>
+</ol>
+<div class="highlight"><pre><code class="bash">wget http://mysql.cs.pu.edu.tw/Downloads/MySQL-5.1/mysql-5.1.44.tar.gz
+tar zxvf mysql-5.1.44.tar.gz
+<span class="nb">cd </span>mysql-5.1.44
+groupadd mysql
+useradd mysql -g mysql
+./configure --prefix<span class="o">=</span>/home/mysql --with-unix-socket-path<span class="o">=</span>/tmp/mysql.sock --localstatedir<span class="o">=</span>/cache/mysql --enable-assembler --with-mysqld-ldflags<span class="o">=</span>-all-static --with-client-ldflags<span class="o">=</span>-all-static --with-extra-charsets<span class="o">=</span>gbk,gb2312,utf8 --enable-thread-safe-client --with-big-tables --enable-local-infile --with-ssl --with-mysqld-user<span class="o">=</span>mysql
+make
+make install
+<span class="nb">cd </span>support-files/
+cp my-medium.cnf /etc/my.cnf
+cp mysql.server /etc/rc.d/init.d/mysqld
+<span class="nb">cd</span> ../scripts/
+./mysql_install_db --user<span class="o">=</span>mysql
+mkdir –p /cache/mysql
+chown -R mysql.mysql /cache/mysql/
+chgrp -R mysql /home/mysql/
+chmod 700 /etc/rc.d/init.d/mysqld
+ln -s /etc/rc.d/init.d/mysqld /etc/rc.d/rc3.d/S97mysqld
+chmod 777 /tmp/
+/home/mysql/bin/mysqld_safe --user<span class="o">=</span>mysql &amp;amp;
+ln –s /home/mysql/bin/* /usr/bin/
+sed -i /^myisam/aset-variable<span class="o">=</span><span class="nv">wait_timeout</span><span class="o">=</span>200 /etc/my.cnf
+sed -i /^myisam/aset-variable<span class="o">=</span><span class="nv">max_user_connections</span><span class="o">=</span>500 /etc/my.cnf
+sed -i /^myisam/aset-variable<span class="o">=</span><span class="nv">max_connections</span><span class="o">=</span>1000 /etc/my.cnf
+/etc/init.d/mysqld restart
+</code></pre></div>
+<ol>
+  <li>php安装</li>
+</ol>
+<div class="highlight"><pre><code class="bash">wget http://cn.php.net/distributions/php-5.2.12.tar.gz
+tar zxvf php-5.2.12.tar.gz
+<span class="nb">cd </span>php-5.2.12
+./configure --prefix<span class="o">=</span>/home/php --with-apxs2<span class="o">=</span>/home/apache2/bin/apxs --with-mysql<span class="o">=</span>/home/mysql --enable-sockets --with-zlib-dir<span class="o">=</span>/usr/include --with-gd --with-snmp --enable-ucd-snmp-hack --with-ttf --enable-mbstring --enable-xml --with-mysql-sock<span class="o">=</span>/tmp/mysql.sock
+<span class="c"># (注：apache版本不同，--with-apxs2可能要写成--with-apxs)</span>
+make
+make install
+cp php.ini-dist /home/php/lib/php.ini
+ln -s /home/php/bin/* /usr/local/bin/
+</code></pre></div>
+<p>3、apache检测</p>
+<div class="highlight"><pre><code class="bash"><span class="c"># grep php /home/apache2/conf/httpd.conf</span>
+DirectoryIndex index.php index.html index.htm
+AddType application/x-httpd-php .php
+LoadModule php5_module        modules/libphp5.so
+<span class="c"># /home/apache2/bin/apachectl configtest</span>
+Syntax OK
+<span class="c"># cat &gt;&gt; /cache/data/index.php &lt;&lt;EOF</span>
+&lt;?php
+phpinfo<span class="o">()</span>;
+?&gt;
+EOF
+<span class="c"># curl http://localhost | grep module_mysql</span>
+&lt;h2&gt;&lt;a <span class="nv">name</span><span class="o">=</span><span class="s2">&quot;module_mysql&quot;</span>&gt;mysql&lt;/a&gt;&lt;/h2&gt;
+</code></pre></div>
+<p>4、rrdtool安装
+麻烦东西来了，网上很多cacti部署教程，都在rrdtool上大费周章，因为这个东东依赖的库文件很多，而且自己本身的版本不同，库文件的种类和版本要求也不一样。首先，尽可能的把这些东西都安装吧：</p>
+<pre><code>rpm -qa|grep lm_sensors
+rpm -qa|grep beecrypt
+rpm -qa|grep libpng
+rpm -qa|grep elfutils
+rpm -qa|grep sensors
+rpm -qa|grep pixman
+rpm -qa|grep freetype
+rpm -qa|grep fontconfig
+rpm -qa|grep net-snmp
+rpm -qa|grep libart_lgpl
+rpm -qa|grep zlib
+rpm -qa|grep glib
+rpm -qa|grep libxml2
+rpm -qa|grep intltool
+rpm -qa|grep cairo
+rpm -qa|grep pango
+</code></pre>
+<h1 id="find--name-pangocairopccairopangocairopango">find / –name pangocairo.pc，如果没有，就要把cairo和pango重装了，务必先cairo后pango。</h1>
+<p>如果以上齐全，可以去http://oss.oetiker.ch/rrdtool/pub/libs下载rrdtool的源码编译，然后按照make的warning信息慢慢调整库文件的相应版本号去了……</p>
+<p>如果不要求自己成为编译达人，只求搞定的，那么按照如下办法，轻松搞定吧：</p>
+<div class="highlight"><pre><code class="bash"><span class="c"># cat &gt; /etc/yum.repos.d/ct5_64.repo &lt;&lt;EOF</span>
+<span class="o">[</span>base<span class="o">]</span>
+<span class="nv">name</span><span class="o">=</span>CentOS-5.4 - Base
+<span class="nv">baseurl</span><span class="o">=</span>http://mirrors.163.com/centos/5.4/os/x86_64/
+<span class="nv">gpgcheck</span><span class="o">=</span>1
+<span class="nv">gpgkey</span><span class="o">=</span>file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-5
+EOF
+<span class="c"># yum install ruby xorg-x11-fonts-Type1</span>
+<span class="c"># cat &gt; /etc/yum.repos.d/ct5_64.repo &lt;&lt;EOF</span>
+<span class="o">[</span>base<span class="o">]</span>
+<span class="nv">name</span><span class="o">=</span>CentOS-5.4 – Base
+<span class="nv">baseurl</span><span class="o">=</span>http://apt.sw.be/redhat/el<span class="nv">$releasever</span>/en/<span class="nv">$basearch</span>/dag
+<span class="nv">gpgcheck</span><span class="o">=</span>1
+<span class="nv">gpgkey</span><span class="o">=</span>http://dag.wieers.com/rpm/packages/RPM-GPG-KEY.dag.txt
+<span class="nv">enabled</span><span class="o">=</span>1
+EOF
+<span class="c"># rpm --import &lt;a href=&quot;http://dag.wieers.com/rpm/packages/RPM-GPG-KEY.dag.txt&quot;&gt;http://dag.wieers.com/rpm/packages/RPM-GPG-KEY.dag.txt&lt;/a&gt;</span>
+<span class="c"># yum install rrdtool</span>
+</code></pre></div>
+<p>（还嫌不够简单？那还有更简单的：
+wget http://dag.wieers.com/rpm/packages/rpmforge-release/rpmforge-release-0.3.6-1.el5.rf.x86<em>64.rpm;rpm -Uvh rpmforge-release-0.3.6-1.el5.rf.x86</em>64.rpm;yum install rrdtool rrdtool-php即可）</p>
+<p>5、cacti安装</p>
+<div class="highlight"><pre><code class="bash"><span class="c"># wget http://www.cacti.net/downloads/cacti-0.8.7e.tar.gz</span>
+<span class="c"># tar zxvf cacti-0.8.7e.tar.gz –C /cache/data/</span>
+<span class="c"># mv /cache/data/cacti-0.8.7e /cache/data/cacti</span>
+<span class="c"># cd /cache/data/cacti</span>
+<span class="c"># mysql -uroot –p</span>
+mysql&gt; create database cacti;
+mysql&gt; grant all privileges on cacti.* to &lt;a <span class="nv">href</span><span class="o">=</span><span class="s2">&quot;mailto:cacti@&amp;quot;localhost&quot;</span>&gt;cacti@<span class="s2">&quot;localhost&lt;/a&gt;&quot;</span> identified by <span class="s1">&#39;123456&#39;</span>;
+mysql&gt; flush privileges;
+<span class="c"># /home/mysql/bin/mysql -ucacti -p cacti &lt; cacti.sql</span>
+<span class="c"># useradd cacti -d /cache/data/cacti -s /bin/false</span>
+<span class="c"># chown -R cacti rra</span>
+<span class="c"># chown -R cacti log</span>
+<span class="c"># sed –i &#39;s/username = &quot;cactiuser/username = &quot;cacti/&#39; include/config.php</span>
+<span class="c"># sed –i &#39;s/password = &quot;cactiuser/password = &quot;123456/&#39; include/config.php</span>
+<span class="c"># echo &#39;*/5 * * * * /home/php/bin/php /cache/data/cacti/poller.php &amp;amp;&gt; /dev/null&#39; &gt;&gt;/var/spool/cron/root</span>
+</code></pre></div>
+<p>6、web页面发布
+在httpd.conf中发布</p>
+<div class="highlight"><pre><code class="apache"><span class="nt">&lt;Directory</span> <span class="s">/cache/data</span><span class="nt">&gt;</span>
+    <span class="nb">Options</span> Indexes FollowSymLinks
+    <span class="nb">AllowOverride</span> <span class="k">None</span>
+    <span class="nb">Order</span> Allow,Deny
+    <span class="nb">Allow</span> from <span class="k">all</span>
+<span class="nt">&lt;/Directory&gt;</span>
+</code></pre></div>
+<p>大功告成，接下来都是鼠标的事了，在browser中登陆http://yourdomian/cacti，按实际情况修改php/mysql/net-snmp的which和version信息，一路next即可，最后，cacti的初始用户名密码都是admin。</p>
+      <a href="/2010/02/24/cacti-install" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/02/23/extend-shell-variables" title="shell变量扩展" rel="bookmark">shell变量扩展</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-02-23 00:00:00 +0800">23 Feb 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>第一种扩展形式，按长度截取：${PARAMETER:OFFSET:LENGTH}；例：</p>
+<p>i=http://www.baidu.com/a/b.html;j=${i:1:10};echo $j
+ttp://www.</p>
+<p>第二种扩展形式，按模式截取：${PARAMETER#WORD}、${PARAMETER##WORD}、${PARAMETER%WORD}、${PARAMETER%%WORD}；例：</p>
+<p>i=http://www.baidu.com/a/b.html;b=${i%/<em>};a=${i%%/</em>};c=${i#<em>/};d=${i##</em>/};echo $b;echo $c;echo $d;echo $a
+http://www.baidu.com/a
+/www.baidu.com/a/b.html
+b.html
+http:</p>
+<p>第三种扩展形式，按模式替换：${PARAMETER/PATTERN/STRING};${PARAMETER//PATTERN/STRING}，例：</p>
+<p>i=http://www.baidu.com/a/b.html;x=${i/baidu/google};y=${i//?a/xyz};echo $x;echo $y
+http://www.google.com/a/b.html
+http://www.xyzidu.comxyz/b.html</p>
+<p>第四种扩展形式，指定默认值：${PARAMETER:-WORD}、${PARAMETER:+WORD}、${PARAMETER:?WORD}、${PARAMETER:=WORD}，例：</p>
+<p>unset x;y=&rdquo;abc def&rdquo;; echo &ldquo;/${x:-&lsquo;XYZ&rsquo;}/${y:-&lsquo;XYZ&rsquo;}/$x/$y/&rdquo;
+/&rsquo;XYZ&rsquo;/abc def//abc def/</p>
+<p>unset x;y=&rdquo;abc def&rdquo;; echo &ldquo;/${x:=&rsquo;XYZ&rsquo;}/${y:=&rsquo;XYZ&rsquo;}/$x/$y/&rdquo;
+/&rsquo;XYZ&rsquo;/abc def/&rsquo;XYZ&rsquo;/abc def/</p>
+<p>( unset x;y=&rdquo;abc def&rdquo;; echo &ldquo;/${x:?&rsquo;XYZ&rsquo;}/${y:?&rsquo;XYZ&rsquo;}/$x/$y/&rdquo; )  &gt;so.txt 2&gt;se.txt
+cat so.txt
+cat se.txt
+-bash: x: XYZ</p>
+<p>unset x;y=&rdquo;abc def&rdquo;; echo &ldquo;/${x:+&rsquo;XYZ&rsquo;}/${y:+&rsquo;XYZ&rsquo;}/$x/$y/&rdquo;
+//&rsquo;XYZ&rsquo;//abc def/</p>
+<p>说明：-返回默认值，但不更改变量本身；=返回默认值同时更改变量为默认值；?返回默认值到标准错误；+与-相反。</p>
+      <a href="/2010/02/23/extend-shell-variables" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/02/22/esi-cache" title="ESI 语言介绍" rel="bookmark">ESI 语言介绍</a>
     </h1>
     <p class="alt-font tight">
@@ -2128,102 +2321,6 @@ types are in general not reliable in all access check clauses.
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/01/09/keep-sessions-between-client-cache-origin" title="client-cache-origin之间的session问题" rel="bookmark">client-cache-origin之间的session问题</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-01-09 00:00:00 +0800">09 Jan 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>昨天，突然接到某客户的邮件，表示他们质疑我们cache对其多originserver的轮询不均等，以至于影响到网站的访问。
-听起来不是什么难题，把服务器上的DNSCache进程中止掉，不就能平均轮询了么？可是操作完成后，客户依然不认可……于是开始细细探讨具体的错误问题所在。
-原来实际情况是这样：点击其网站的回复、收藏等动态页面时，时常会弹出错误页面。对这个错误页面，客户的解释是“session状态CDN加速未保留”。
-由此解释，我觉得cache上的问题恰恰相反，正是因为均等轮询了导致的。而客户其他一些单源的域名服务正常，也证明了这点。
-上cache服务器查看配置，使用的默认keep-alive设置，也就是对client和origin都开启了keep-alive，默认时间为2min。但实际上并没有起作用。在测试中，可以看到这样的日志：</p>
-<pre><code>[rao@localhost ~]$ tail access.log|awk '{print $4,$6,$7,$9,$10}'
-TCP_IMS_HIT/304 GET http://a.b.com/wentiyongpin/11106917.html NONE/- "http://a.b.com/wentiyongpin/"
-TCP_MISS/200 GET http://a.b.com/RelatedUserInfo.aspx?nickname=shunfataiqiu DIRECT/1.2.3.4 "http://a.b.com/wentiyongpin/11106917.html"
-TCP_MISS/200 GET http://a.b.com/postcomment/Reply.aspx?info_id=11106917 DIRECT/1.2.3.5 "http://a.b.com/wentiyongpin/11106917.html"
-TCP_MISS/302 POST http://a.b.com/postcomment/Reply.aspx?info_id=11106917 DIRECT/1.2.3.4 "http://a.b.com/postcomment/Reply.aspx?info_id=11106917"
-TCP_MISS/404 GET http://a.b.com/nf3.aspx?aspxerrorpath=/postcomment/Reply.aspx DIRECT/1.2.3.4 "http://a.b.com/postcomment/Reply.aspx?info_id=11106917"
-</code></pre>
-<p>由日志可见，在进入post页面（此时方式还是GET）时，session的origin从1.2.3.4轮询到了1.2.3.5，而填完了回复内容，点击提交（此时方式改成POST）时，origin又轮询回了1.2.3.4——而此时1.2.3.4上并没有相应ID的session存在——于是页面被302重定向去了错误提示页面，也就是下面的404。</p>
-<p>这种情况，主要来说，还是客户网站本身的架构问题。简单点，只用一个origin；复杂点，在多台webserver与后台数据库之间建共享连接池。保证session调用正常。</p>
-<p>但在客户修改origin之前，cache本身能不能作出一定的改变呢？能。放弃使用dns查询，而采用squid本身的peer功能，就能搞定它，配置如下：</p>
-<div class="highlight"><pre><code class="squid"><span class="c">#Parent</span><span class="w"></span>
-<span class="k">acl</span><span class="w"> </span>ParentDomain<span class="w"> </span><span class="k">dstdomain</span><span class="w"> </span>a.b.com<span class="w"></span>
-<span class="k">cache_peer</span><span class="w"> </span><span class="mf">1.2.3.4</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="no">no-query</span><span class="w"> </span>no-netdb-exchange<span class="w"> </span>originserver<span class="w"> </span>sourcehash<span class="w"></span>
-<span class="k">cache_peer</span><span class="w"> </span><span class="mf">1.2.3.5</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="no">no-query</span><span class="w"> </span>no-netdb-exchange<span class="w"> </span>originserver<span class="w"> </span>sourcehash<span class="w"></span>
-<span class="k">cache_peer_access</span><span class="w"> </span><span class="mf">1.2.3.4</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>ParentDomain<span class="w"></span>
-<span class="k">cache_peer_access</span><span class="w"> </span><span class="mf">1.2.3.5</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>ParentDomain<span class="w"></span>
-<span class="k">always_direct</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>!ParentDomain<span class="w"></span>
-<span class="c">#Parent end</span><span class="w"></span>
-</code></pre></div>
-<p>用的sourcehash参数，相同的clientIP，使用相同的originIP，多好的loadbalance呀，更巧的是这个option，正好是squid2.6.STABLE21能用的，连2.7都没有，哈哈~~reconfigure后的正常日志如下：</p>
-<pre><code>[rao@localhost ~]$ tail access.log|awk '{print $4,$6,$7,$9,$10}'
-TCP_IMS_HIT/304 GET http://a.b.com/wentiyongpin/11106917.html NONE/- "http://a.b.com/wentiyongpin/"
-TCP_MISS/200 GET http://a.b.com/postcomment/Reply.aspx?info_id=11106917 SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/wentiyongpin/11106917.html"
-TCP_MISS/200 GET http://a.b.com/RelatedUserInfo.aspx?nickname=shunfataiqiu SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/wentiyongpin/11106917.html"
-TCP_MISS/200 POST http://a.b.com/postcomment/Reply.aspx?info_id=11106917 SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/postcomment/Reply.aspx?info_id=11106917"
-TCP_MISS/200 GET http://a.b.com/ SOURCEHASH_PARENT/1.2.3.4 "-"
-TCP_MISS/200 GET http://a.b.com/zufang/ SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/"
-TCP_MISS/200 GET http://a.b.com/ad.ashx?ad=ad&amp;url=http://a.b.com/zufang/&amp;alias=zufang&amp;childalias=zufang SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/zufang/"
-</code></pre>
-<p>整个访问中，回源IP一直都是1.2.3.4，而且POST不再是302转404，而是200了~~</p>
-      <a href="/2010/01/09/keep-sessions-between-client-cache-origin" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/01/09/intro-http_status" title="squid3新acl类型http_status试用（源站故障转向研究）" rel="bookmark">squid3新acl类型http_status试用（源站故障转向研究）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-01-09 00:00:00 +0800">09 Jan 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天试着自己编译安装了squid3.1，然后开始移植2.6的配置文件。在squid.conf.document（2.6里的squid.conf.default）里看了很久，发现不少新东西。跟转向有关的，便发现一个：</p>
-<p>acl aclname http_status 200 301 500- 400-403
-&hellip;
-# status code in reply</p>
-<p>这个acl配合http_access和deny_info，也是个转向的办法。（相反的，大家举例时一般用来deny的正是302跳转）</p>
-<p>acl err http_status 500-
-http_access deny err
-deny_info http://err.tiaozhuan.com err</p>
-<p>不过问题依旧：这个依然没法把不同的域名分开——deny_info只针对自己上头那个http_access deny的aclname，可要是写上同样aclname的astdomain或者url_regex，整个访问就都废了……
-然后想到url_rewrite_access，如果用acl http_status配合url_rewrite_access，能不能做到避免所有请求回源确认呢？
-按照之前记录的squid处理流程，squid应该是在和client建立连接后的第二步就检查acl。但3.1中添加的这个http_status，总不可能在命中的第四步或者回源的第六步之前，就能完成访问控制呀？
-看来squid的内部机制，已经有了较大变化。
-明天做个实验，看看实际到底如何吧~</p>
-<hr />
-<p>经过试验，第一个想法不可行。因为deny_info的status是TCP_DENY/302，这和acl是冲突的，导致无法工作。从此也能看出，http_status的acl确实是在比较晚的流程中才起作用的。分别使用http_status和url_regex做deny的日志如下：
-    1263112949.310 27099 12.34.56.78 TCP_MISS/502 1878 GET http://a.b.com/duanzu/ - DIRECT/1.2.3.4 text/html &ldquo;http://a.b.com/&rdquo; &ldquo;Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; QQPinyinSetup 620; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)&rdquo;
-    1263113026.271 0 12.34.56.78 TCP_DENIED/302 331 GET http://a.b.com/duanzu/ - NONE/- text/html &ldquo;http://a.b.com/&rdquo; &ldquo;Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; QQPinyinSetup 620; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)&rdquo;</p>
-<p>acl err http_status 500-
-url_rewrite_access deny !err</p>
-<p>不起作用，所有的请求都不经过rewrite直接输出了……
-郁闷，这个新acl的用法还得慢慢找资料~~</p>
-      <a href="/2010/01/09/intro-http_status" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -2316,6 +2413,8 @@ url_rewrite_access deny !err</p>
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+              <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+              <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
           </ul>
         </div>
         <div class="well sidebar-nav">

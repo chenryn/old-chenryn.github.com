@@ -43,6 +43,101 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/08/13/intro-gnuplot" title="gnuplot画图" rel="bookmark">gnuplot画图</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-08-13 00:00:00 +0800">13 Aug 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>之前提高日志流量统计的问题。并给出了分时流量的计算方法。当是想的是用perl调用rrd或者gd画图，甚至有把日志统计也写成perl的打算。
+不过今天发现了一个小工具gnuplot，画图功能相当强大（在找资料的时候看到台湾有人用这个画台湾的三维地形图！），上手相当简单，尤其适合日志统计分析，相比来说，rrd还是比较适合实时监控画图的情况。
+比如当初的脚本输出如下：
+[root@Zabbix cache]# tail test.log
+23:14 506.877
+23:19 501.068
+23:24 493.254
+23:29 469.184
+23:34 460.161
+23:39 426.065
+23:44 429.734
+23:49 409.255
+23:54 423.512
+23:59 390.676
+然后编写gnuplot的配置文件如下：</p>
+<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@Zabbix cache<span class="o">]</span><span class="c"># cat log.conf</span>
+<span class="nb">set </span>terminal png truecolor size 550,250    <span class="c">#指定输出成png图片，且图片大小为550×250，需要ligpng支持，采用默认颜色设定</span>
+<span class="nb">set </span>output <span class="s2">&quot;log.png&quot;</span>    <span class="c">#指定输出png图片的文件名</span>
+<span class="nb">set </span>autoscale    <span class="c">#轴向标记自动控制</span>
+<span class="nb">set </span>xdata <span class="nb">time</span>    <span class="c">#X轴数据格式为时间</span>
+<span class="nb">set </span>timefmt <span class="s2">&quot;%H:%M&quot;</span>    <span class="c">#时间输入格式为&quot;小时:分钟&quot;</span>
+<span class="nb">set </span>style data lines    <span class="c">#数据显示方式为连线</span>
+<span class="nb">set </span>xlabel <span class="s2">&quot;time per day&quot;</span>    <span class="c">#X轴标题</span>
+<span class="nb">set </span>ylabel <span class="s2">&quot;Mbps&quot;</span>    <span class="c">#Y轴标题</span>
+<span class="nb">set </span>title <span class="s2">&quot;image.tuku.china.com flow&quot;</span>    <span class="c">#图片标题</span>
+<span class="nb">set </span>grid    <span class="c">#显示网格</span>
+plot <span class="s2">&quot;test.log&quot;</span> using 1:2 title <span class="s2">&quot;access_flow&quot;</span>    <span class="c">#从test.log文件中读取第一列和第二列作为X轴和Y轴数据，示例名&quot;log_flow&quot;</span>
+</code></pre></div>
+<p>最后运行cat log.conf | gnuplot命令，就生成了log.png文件，如下：
+<img src="/images/uploads/gnuplot.png" alt="" />
+就是不知道X轴上这个01/01怎么消除掉……
+对比帝联提供的flash图片如下：
+<img src="/images/uploads/dilian.jpg" alt="" />
+可以看出基本是一致的。</p>
+      <a href="/2010/08/13/intro-gnuplot" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/08/13/intro-bc-command" title="bc命令及其他" rel="bookmark">bc命令及其他</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-08-13 00:00:00 +0800">13 Aug 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>在写check_if_flow.sh的时候，因为要比较的值太多，几个网卡，每个都分进出、然后分w和c。如果直接if判断大小，会写的无比庞大……于是想到根据比较结果先输出一个变量，大就是1，小就是0，类似这种。</p>
+<p>于是找到了bc命令，最终结果如下：</p>
+<p>[root@test ~]# echo &ldquo;1.13 &gt; 1.2&rdquo;|bc
+0
+[root@test ~]# echo &ldquo;1.13 &lt; 1.2&rdquo;|bc
+1
+bc支持+-*/%^=!&gt;&lt;各种运算，还能通过scale指定小数点后几位；
+还能任意转换数字的进制，如下：</p>
+<p>[root@test ~]# echo &lsquo;obase=10; ibase=16; 1E79&rsquo; | bc
+7801</p>
+<p>相比之前脚本里用的awk要灵活（就是必须大写）。awk从十进制变十六进制很容易，变回去就难了……得用上函数才行：</p>
+<p>[root@test ~]# echo &lsquo;1E79&rsquo;|awk &lsquo;{printf &ldquo;%s&rdquo;,strtonum(&ldquo;0x&rdquo;$1)}&rsquo;
+7801</p>
+<p>而shell相反，从十六进制变十进制很容易，反过来去难……</p>
+<p>[root@test ~]# echo $[16#1e79]
+7801</p>
+<p>ksh中可以指定typeset -i，bash没找到~所以只能把别的进制改成10进制</p>
+<p>[root@test ~]# ksh
+# typeset -i16 num=7801
+# echo $num
+16#1e79</p>
+      <a href="/2010/08/13/intro-bc-command" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/08/05/traffic-monitor" title="流量监控" rel="bookmark">流量监控</a>
     </h1>
     <p class="alt-font tight">
@@ -1269,62 +1364,6 @@ select(18, [4 6], [6], NULL, NULL)      = 1 (out [6])  <br />
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/05/20/little-diff-in-url_rewrite" title="url_rewrite配置的小区别" rel="bookmark">url_rewrite配置的小区别</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-05-20 00:00:00 +0800">20 May 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>一直以为squid的url_rewrite就是改写url后，传给squid分析是否缓存，然后返回缓存或者回源。在浏览器地址栏上的url是不变的。
-今天才知道在print $uri的时候，可以给他加上http_code。变成print 302:$uri的格式，然后就可以由浏览器发起302跳转到新页面了。</p>
-      <a href="/2010/05/20/little-diff-in-url_rewrite" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/05/18/intro-motd" title="服务器登陆欢迎信息~" rel="bookmark">服务器登陆欢迎信息~</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-05-18 00:00:00 +0800">18 May 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>上同事的测试机，发现登陆的时候在显示PS1前还显了一行&rsquo;Welcome to Cloudex&rsquo;的欢迎信息，蛮好玩的。
-于是去百度一下，原来是设置/etc/issue和/etc/motd文件就可以了。打开/etc/issue，里面已经有两行centos5的信息，先加这里试试，保存退出，重新ssh上服务器，结果还是默认的：
-    Connecting to 192.168.0.1:22&hellip;
-    Connection established.
-    Escape character is <a href="mailto:'^@]'">&rsquo;^@]&rsquo;</a>.
-    Last login: Tue May 18 16:04:38 2010 from 192.168.1.1
-    [root@test ~]#
-再仔细看看，似乎这个文件得restart后才能生效。
-再去修改motd，退出重登陆。还是不行……这就怪了~~~
-这事儿过身就忘了，直到今天，看/etc/ssh/sshd_config，正好看到里面有一条PrintMotd no，莫非就是这个！？赶紧改成PrintMotd yes，/etc/init.d/sshd restart;exit，重登陆。果然看到之前卸载motd里的欢迎信息了~
-    Last login: Tue May 18 16:04:38 2010 from 192.168.1.2
-    haha,I&rsquo;m Raocl!
-    [root@sdl4 ~ 16:04:46]#
-OK啦~~</p>
-      <a href="/2010/05/18/intro-motd" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -1417,6 +1456,8 @@ OK啦~~</p>
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+              <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+              <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
           </ul>
         </div>
         <div class="well sidebar-nav">
