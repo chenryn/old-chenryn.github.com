@@ -43,6 +43,63 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/03/30/purge-script-by-perl" title="perl边学边练（purge脚本）" rel="bookmark">perl边学边练（purge脚本）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-03-30 00:00:00 +0800">30 Mar 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>squid的purge，一般有两种方式，squidclient -m purge url或者http request (method)purge url。如果任务不太多的情况下，直接使用squidclient -p 80 -h 1.2.3.4 -m purge url即可。如果任务比较繁重的情况下，telnet80后直接发送purge请求稍微好一些。作为初学perl的练手，写一个purge脚本。如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">use</span> <span class="nn">IO::</span><span class="n">Socket</span><span class="p">;</span>
+<span class="c1">#检测脚本参数个数</span>
+<span class="k">unless</span> <span class="p">(</span><span class="nv">@ARGV</span> <span class="o">&amp;</span><span class="ow">gt</span><span class="p">;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span> <span class="nb">die</span> <span class="s">&quot;usage: $0 url&quot;</span> <span class="p">}</span>
+<span class="c1">#打开ip列表文件，定义文件句柄HOST</span>
+<span class="nb">open</span><span class="p">(</span><span class="n">HOST</span><span class="p">,</span><span class="s">&quot;./ip&quot;</span><span class="p">);</span>
+<span class="c1">#定义连接结束符，然后翻倍（汗这个方式~）</span>
+<span class="nv">$EOL</span> <span class="o">=</span> <span class="s">&quot;1512&quot;</span><span class="p">;</span>
+<span class="nv">$BLANK</span> <span class="o">=</span> <span class="nv">$EOL</span> <span class="n">x</span> <span class="mi">2</span><span class="p">;</span>
+<span class="c1">#从打开的文件中读取具体ip</span>
+<span class="c1">#@host = HOST;</span>
+<span class="c1">#my $ip;</span>
+<span class="c1">#foreach $ip(@host){</span>
+<span class="c1">#当ip列表较大时，采用@host的方法可能out of memory，所以采取逐行读取</span>
+<span class="k">while</span> <span class="p">(</span><span class="nb">defined</span><span class="p">(</span><span class="nv">$ip</span><span class="o">=</span><span class="sr">&lt;HOST&gt;</span><span class="p">)){</span>
+    <span class="c1">#从参数中默认读取url变量</span>
+    <span class="k">foreach</span> <span class="nv">$document</span> <span class="p">(</span> <span class="nv">@ARGV</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="c1">#利用IO::Socket::INET模块定义TCP80连接，port可以读取/etc/services文件里的定义</span>
+        <span class="nv">$remote</span> <span class="o">=</span> <span class="nn">IO::Socket::</span><span class="n">INET</span><span class="o">-&amp;</span><span class="ow">gt</span><span class="p">;</span><span class="k">new</span><span class="p">(</span> <span class="n">Proto</span>     <span class="o">=&gt;</span> <span class="s">&quot;tcp&quot;</span><span class="p">,</span>
+                                            <span class="n">PeerAddr</span><span class="err"> </span> <span class="o">=&gt;</span> <span class="nv">$ip</span><span class="p">,</span>
+                                            <span class="n">PeerPort</span><span class="err"> </span> <span class="o">=&gt;</span> <span class="s">&quot;http(80)&quot;</span><span class="p">,</span>
+                                          <span class="p">);</span>
+        <span class="k">unless</span> <span class="p">(</span><span class="nv">$remote</span><span class="p">)</span> <span class="p">{</span> <span class="nb">die</span> <span class="s">&quot;cannot connect to http daemon on $ip&quot;</span> <span class="p">}</span>
+        <span class="c1">#立即输出</span>
+        <span class="nv">$remote</span><span class="o">-&gt;</span><span class="n">autoflush</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+        <span class="c1">#向定义的TCP连接文件句柄发送purge请求</span>
+        <span class="c1">#这里可以直接&quot;\n\n&quot;，不过采用&quot;&quot;.$BLANK的方式可能规范一些，因为在win或者mac的平台上，是不一样的</span>
+        <span class="k">print</span> <span class="nv">$remote</span> <span class="s">&quot;PURGE $document HTTP/1.0&quot;</span> <span class="o">.</span> <span class="nv">$BLANK</span><span class="p">;</span>
+        <span class="k">while</span> <span class="p">(</span> <span class="sr">&lt;$remote&gt;</span> <span class="p">)</span> <span class="p">{</span> <span class="k">print</span> <span class="p">}</span>
+        <span class="c1">#关闭tcp连接</span>
+        <span class="nb">close</span> <span class="nv">$remote</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="c1">#关闭ip列表文件</span>
+<span class="nb">close</span><span class="p">(</span><span class="n">HOST</span><span class="p">);</span>
+</code></pre></div>
+      <a href="/2010/03/30/purge-script-by-perl" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/03/28/modify-error_page-src-for-location" title="squid源站故障转向（终结篇）" rel="bookmark">squid源站故障转向（终结篇）</a>
     </h1>
     <p class="alt-font tight">
@@ -1707,133 +1764,6 @@ make <span class="o">&amp;&amp;</span> make install
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/02/25/memcached-install" title="memcached部署" rel="bookmark">memcached部署</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-02-25 00:00:00 +0800">25 Feb 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-<div class="highlight"><pre><code class="bash">wget http://www.monkey.org/~provos/libevent-1.4.13-stable.tar.gz
-wget http://memcached.googlecode.com/files/memcached-1.4.4.tar.gz
-wget http://pecl.php.net/get/memcache-2.2.5.tgz
-tar zxvf libevent-1.4.13-stable.tar.gz
-tar zxvf memcached-1.4.4.tar.gz
-<span class="nb">cd </span>libevent-1.4.13-stable
-./configure --prefix<span class="o">=</span>/usr
-make
-make install
-ln -s /usr/lib/libevent-1.4.so.2 /usr/lib64/libevent-1.4.so.2
-<span class="nb">cd </span>memcached-1.4.4
-./configure --prefix<span class="o">=</span>/home/memcached --enable-64bit
-make
-make install
-/home/memcached/bin/memcached -d -m 1024 -p 11211 -u root
-</code></pre></div>
-<p>参数说明：
-    -d 启动为守护进程
-    -m <num> 分配给Memcached使用的内存数量，单位是MB，默认为64MB
-    -u <username> 运行Memcached的用户，仅当作为root运行时
-    -l <ip_addr> 监听的服务器IP地址，默认为环境变量INDRR_ANY的值
-    -p <num> 设置Memcached监听的端口，最好是1024以上的端口
-    -c <num> 设置最大并发连接数，默认为1024
-    -P <file> 设置保存Memcached的pid文件，与-d选择同时使用</file></num></num></ip_addr></username></num></p>
-<div class="highlight"><pre><code class="bash"><span class="nb">cd </span>memcache-2.2.5
-/home/php/bin/phpize
-./configure --prefix<span class="o">=</span>/home/phpmemcache --with-php-config<span class="o">=</span>/home/php/bin/php-config
-make
-make install
-sed –i ‘s:./:/home/php/lib/php/extensions/no-debug-zts-20060613/:g’ /home/php/lib/php.ini
-sed –i ‘/zip.dll/aextension<span class="o">=</span>memcache.so’ /home/php/lib/php.ini
-cat &gt;&gt; /cache/data/test.php <span class="s">&lt;&lt;EOF</span>
-<span class="s">&lt;?php</span>
-<span class="s">$memcache = new Memcache;</span>
-<span class="s">/*$memcache-&gt;connect(&#39;localhost&#39;, 11211) or die (&quot;Could not connect&quot;);</span>
-<span class="s">/*addServer方式更能体现分布式的优势，也完成故障转移，就是转移的时候HIT要重新开始*/</span>
-<span class="s">$memcache-&gt;addServer(&#39;127.0.0.1&#39;, 11211);</span>
-<span class="s">$memcache-&gt;addServer(&#39;192.168.0.2&#39;, 11212);</span>
-<span class="s">$version = $memcache-&gt;getVersion();</span>
-<span class="s">echo &quot;Server&#39;s version: &quot;.$version.&quot;&lt;br/&gt;n&quot;;</span>
-<span class="s">$tmp_object = new stdClass;</span>
-<span class="s">$tmp_object-&gt;str_attr = &#39;test&#39;;</span>
-<span class="s">$tmp_object-&gt;int_attr = 123;</span>
-<span class="s">$memcache-&gt;set(&#39;key&#39;, $tmp_object, false, 10) or die (&quot;Failed to save data at the server&quot;);</span>
-<span class="s">echo &quot;Store data in the cache (data will expire in 10 seconds)&lt;br/&gt;n&quot;;</span>
-<span class="s">$get_result = $memcache-&gt;get(&#39;key&#39;);</span>
-<span class="s">echo &quot;Data from the cache:&lt;br/&gt;n&quot;;</span>
-<span class="s">var_dump($get_result);</span>
-<span class="s">?&gt;</span>
-<span class="s">EOF</span>
-</code></pre></div>
-<div class="highlight"><pre><code class="bash">curl &lt;a <span class="nv">href</span><span class="o">=</span><span class="s2">&quot;http://localhost/test.php&quot;</span>&gt;http://localhost/test.ph&lt;/a&gt;
-Server<span class="err">&#39;</span>s version: 1.4.4&lt;br/&gt;
-Store data in the cache <span class="o">(</span>data will expire in 10 seconds<span class="o">)</span>&lt;br/&gt;
-Data from the cache:&lt;br/&gt;
-object<span class="o">(</span>stdClass<span class="o">)</span><span class="c">#3 (2) {</span>
-<span class="o">[</span><span class="s2">&quot;str_attr&quot;</span><span class="o">]=</span>&gt;
-string<span class="o">(</span>4<span class="o">)</span> <span class="s2">&quot;test&quot;</span>
-<span class="o">[</span><span class="s2">&quot;int_attr&quot;</span><span class="o">]=</span>&gt;
-int<span class="o">(</span>123<span class="o">)</span>
-<span class="o">}</span>
-<span class="c"># telnet localhost 11211</span>
-</code></pre></div>
-<pre><code>Trying 127.0.0.1...
-Connected to localhost.localdomain (127.0.0.1).
-Escape character is '^]'.
-stats
-STAT pid 3015
-STAT uptime 3185                                 memcached运行的秒数
-STAT time 1267090234
-STAT version 1.4.4
-STAT pointer_size 64
-STAT rusage_user 0.000000
-STAT rusage_system 0.000000
-STAT curr_connections 10
-STAT total_connections 18
-STAT connection_structures 11
-STAT cmd_get 3                                   查询缓存的次数
-STAT cmd_set 5                                   设置key=&gt;value的次数
-STAT cmd_flush 0
-STAT get_hits 3                                    缓存命中的次数
-STAT get_misses 0
-STAT delete_misses 0
-STAT delete_hits 0
-STAT incr_misses 0
-STAT incr_hits 0
-STAT decr_misses 0
-STAT decr_hits 0
-STAT cas_misses 0
-STAT cas_hits 0
-STAT cas_badval 0
-STAT auth_cmds 0
-STAT auth_errors 0
-STAT bytes_read 2697
-STAT bytes_written 1150
-STAT limit_maxbytes 1073741824
-STAT accepting_conns 1
-STAT listen_disabled_num 0
-STAT threads 4
-STAT conn_yields 0
-STAT bytes 1255
-STAT curr_items 2
-STAT total_items 5
-STAT evictions 0
-END
-</code></pre>
-<p>完成~~~以上仅为试验，如果只是一个小web单机环境的话，只需要php+eaccelerator（或者apc/xcache等）就足够了。用php+memcached+mysql-proxy+mysql是大型网站架构的事情~~</p>
-      <a href="/2010/02/25/memcached-install" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -1928,6 +1858,7 @@ END
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+              <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
           </ul>
         </div>
         <div class="well sidebar-nav">

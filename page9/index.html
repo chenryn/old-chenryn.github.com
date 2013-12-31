@@ -43,6 +43,63 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/11/18/template-problem-of-pnp4nagios-2" title="pnp4nagios的模板问题(2)" rel="bookmark">pnp4nagios的模板问题(2)</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-11-18 00:00:00 +0800">18 Nov 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>接上篇。结尾时找到的url确实就是解决这个问题的。我错怪作者鸟~~</p>
+<p>在 <code>nagios/etc/pnp/check_commands</code> 文件夹下，可以添加 <code>%check_command%.cfg</code> 配置文件，以定义pnp在使用模板时的一些参数。在我的应用环境下，只需要添加如下一个 <code>check_nrpe.cfg</code> 即可：</p>
+<pre><code>CUSTOM_TEMPLATE = 1   #使用命令的第一个参数做自定义模板名
+DATATYPE = GAUGE       #数据类型为即时数值
+USE_MIN_ON_CREATE = 0    #绘图数据最小值为0，用来排除某些错误溢出导致的负值
+</code></pre>
+<p>然后就可以进 <code>nagios/share/pnp/templates/</code> 下去创建自己需要的模板了。仿照cacti的样子写个loadavg的如下：</p>
+<div class="highlight"><pre><code class="php"><span class="cp">&lt;?php</span>
+<span class="nv">$opt</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;--vertical-label Load -l0  --title </span><span class="se">\&quot;</span><span class="s2">CPU Load for </span><span class="si">$hostname</span><span class="s2"> / </span><span class="si">$servicedesc</span><span class="se">\&quot;</span><span class="s2"> &quot;</span><span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="err"> </span><span class="s2">&quot;DEF:var1=</span><span class="si">$rrdfile</span><span class="s2">:</span><span class="si">$DS[1]</span><span class="s2">:AVERAGE &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;DEF:var2=</span><span class="si">$rrdfile</span><span class="s2">:</span><span class="si">$DS[2]</span><span class="s2">:AVERAGE &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;DEF:var3=</span><span class="si">$rrdfile</span><span class="s2">:</span><span class="si">$DS[3]</span><span class="s2">:AVERAGE &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;CDEF:total=var1,var2,+,var3,+ &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;HRULE:</span><span class="si">$WARN[1]</span><span class="s2">#FFFF00 &quot;</span><span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;HRULE:</span><span class="si">$CRIT[1]</span><span class="s2">#FF0000 &quot;</span><span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;AREA:var1#FFD700:</span><span class="se">\&quot;</span><span class="s2">load 1 </span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var1:LAST:</span><span class="se">\&quot;</span><span class="s2">%6.2lf last</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var1:AVERAGE:</span><span class="se">\&quot;</span><span class="s2">%6.2lf avg</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var1:MAX:</span><span class="se">\&quot;</span><span class="s2">%6.2lf max</span><span class="se">\\</span><span class="s2">n</span><span class="se">\&quot;</span><span class="s2"> &quot;</span><span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;AREA:var2#7FFF00:</span><span class="se">\&quot;</span><span class="s2">Load 5 </span><span class="se">\&quot;</span><span class="s2">:STACK &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var2:LAST:</span><span class="se">\&quot;</span><span class="s2">%6.2lf last</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var2:AVERAGE:</span><span class="se">\&quot;</span><span class="s2">%6.2lf avg</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var2:MAX:</span><span class="se">\&quot;</span><span class="s2">%6.2lf max</span><span class="se">\\</span><span class="s2">n</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;AREA:var3#FF0000:</span><span class="se">\&quot;</span><span class="s2">Load 15</span><span class="se">\&quot;</span><span class="s2">:STACK &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var3:LAST:</span><span class="se">\&quot;</span><span class="s2">%6.2lf last</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var3:AVERAGE:</span><span class="se">\&quot;</span><span class="s2">%6.2lf avg</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var3:MAX:</span><span class="se">\&quot;</span><span class="s2">%6.2lf max</span><span class="se">\\</span><span class="s2">n</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
+<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;LINE1:total#000000 &quot;</span> <span class="p">;</span>
+<span class="cp">?&gt;</span><span class="x"></span>
+</code></pre></div>
+<p>采用DEF方式定义数据，CDEF方式计算总和，HRULE画水平线，AREA画涂层，LINE画连线(有1/2/3种粗细)，STACK累加数值绘图效果，GPRINT计算并显示数据。</p>
+<p>只画一个图就都是$def[1]，如果需要两个图就是$def[2]，依次类推，不过页面上的Datesource是读取的*.xml文件中的<name>，如果合并数据绘图，显示就会有问题，所以最好就把所有数据都画一张图里。比如网卡流量。用CDEF取反，我不知道RPN中有没有特定函数，简单的采用了0,var,-方式，将部分数据倒到x轴下方~~</name></p>
+<p>如果不是STACK的话，需要注意一点，AREA方式是不透明的，单纯的图层覆盖，所以一定要把最大的值放在最前面绘制，然后才能有效果。像流量这种没谱的事情，最好就采用LINE方式~~</p>
+<p>目前我绘制的load、conn、flow三个rra如下：</p>
+<p><img src="/images/uploads/load.jpg" alt="load" /></p>
+<p><img src="/images/uploads/conn.jpg" alt="conn" /></p>
+<p><img src="/images/uploads/flow.jpg" alt="flow" /></p>
+      <a href="/2010/11/18/template-problem-of-pnp4nagios-2" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/11/17/template-problem-of-pnp4nagios-1" title="pnp4nagios的模板问题(1)" rel="bookmark">pnp4nagios的模板问题(1)</a>
     </h1>
     <p class="alt-font tight">
@@ -2643,61 +2700,6 @@ inotifywait -mrq --format <span class="s1">&#39;%f&#39;</span> -e modify,delete,
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/08/13/intro-pnp4nagios" title="nagios绘图" rel="bookmark">nagios绘图</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-08-13 00:00:00 +0800">13 Aug 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>nagios默认command中，有个未开启的process_performance_data。可以开启它来保存数据，然后提供给rrdtools绘图。</p>
-<p>下载pnp插件包，官网是<a href="http://www.pnp4nagios.org/">http://www.pnp4nagios.org</a>，和cacti一样，保证有lamp、rrdtool（低版本的还要GD），然后和其他插件一样./configure &amp;&amp; make &amp;&amp; make all &amp;&amp; make install &amp;&amp; make install-config &amp;&amp; make install-init就行了。
-然后修改nagios.cfg如下：</p>
-<p>process_performance_data=1
-service_perfdata_command=process-service-perfdata
-host_perfdata_file=/usr/local/nagios/var/host-perfdata</p>
-<p>修改commands.cfg如下：</p>
-<p>define command{
-    command_name          process-service-perfdata-file
-    command_line          $USER1$/process_perfdata.pl
-}
-define command{
-    command_name          process-host-perfdata-file
-    command_line          $USER1$/process_perfdata.pl
-}</p>
-<p>再修改pnp/process_perfdata.cfg-sample，设定好rrdtool等的路径，另存为process_perfdata.cfg。重启nagios即可。</p>
-<p>过一会图就出来了，不过我自己写的两个脚本，随意检测正常，页面上也看到了输出值，就是没图……报出来***.rrd not found。进目录一看，其他图都创建出来了，就自定义脚本的没有……</p>
-<p>咬牙看了会include/function.inc.php，发现php在调用rrdtool create的时候，使用的直接就是$data[1][&rsquo;*&lsquo;]这样的数据，整个functions里都没有看到怎么匹配切割数据的部分。可是看页面上nagios自带的command输出，也没什么明显标记啊？</p>
-<table>
-  <tbody>
-    <tr>
-      <td>上服务器看脚本，试着手动运行了一次check_http，发现输出结果比页面上显示的还多了一串“</td>
-      <td>time=0.003329s;5.000000;10.000000;0.000000 size=1576B;;;0”！这个明显有着固定的格式！</td>
-    </tr>
-  </tbody>
-</table>
-<p>然后在页面上点开check_http看，发现在报警状态“Status Information:  HTTP OK HTTP/1.0 200 OK - 1576 bytes in 0.003 seconds”下还有一行“ Performance Data: time=0.003329s;5.000000;10.000000;0.000000 size=1576B;;;0”。原来如此……</p>
-<table>
-  <tbody>
-    <tr>
-      <td>修改shell脚本的echo内容，也照葫芦画瓢的加上了“</td>
-      <td>port ${PORT}=${PORT_CONN};${WARNING};${CRITICAL};;”等五分钟后，再点开pnp图，果然出现了！</td>
-    </tr>
-  </tbody>
-</table>
-      <a href="/2010/08/13/intro-pnp4nagios" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -2792,6 +2794,7 @@ define command{
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+              <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
           </ul>
         </div>
         <div class="well sidebar-nav">

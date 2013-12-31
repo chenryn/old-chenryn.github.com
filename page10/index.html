@@ -43,6 +43,61 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/08/13/intro-pnp4nagios" title="nagios绘图" rel="bookmark">nagios绘图</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-08-13 00:00:00 +0800">13 Aug 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>nagios默认command中，有个未开启的process_performance_data。可以开启它来保存数据，然后提供给rrdtools绘图。</p>
+<p>下载pnp插件包，官网是<a href="http://www.pnp4nagios.org/">http://www.pnp4nagios.org</a>，和cacti一样，保证有lamp、rrdtool（低版本的还要GD），然后和其他插件一样./configure &amp;&amp; make &amp;&amp; make all &amp;&amp; make install &amp;&amp; make install-config &amp;&amp; make install-init就行了。
+然后修改nagios.cfg如下：</p>
+<p>process_performance_data=1
+service_perfdata_command=process-service-perfdata
+host_perfdata_file=/usr/local/nagios/var/host-perfdata</p>
+<p>修改commands.cfg如下：</p>
+<p>define command{
+    command_name          process-service-perfdata-file
+    command_line          $USER1$/process_perfdata.pl
+}
+define command{
+    command_name          process-host-perfdata-file
+    command_line          $USER1$/process_perfdata.pl
+}</p>
+<p>再修改pnp/process_perfdata.cfg-sample，设定好rrdtool等的路径，另存为process_perfdata.cfg。重启nagios即可。</p>
+<p>过一会图就出来了，不过我自己写的两个脚本，随意检测正常，页面上也看到了输出值，就是没图……报出来***.rrd not found。进目录一看，其他图都创建出来了，就自定义脚本的没有……</p>
+<p>咬牙看了会include/function.inc.php，发现php在调用rrdtool create的时候，使用的直接就是$data[1][&rsquo;*&lsquo;]这样的数据，整个functions里都没有看到怎么匹配切割数据的部分。可是看页面上nagios自带的command输出，也没什么明显标记啊？</p>
+<table>
+  <tbody>
+    <tr>
+      <td>上服务器看脚本，试着手动运行了一次check_http，发现输出结果比页面上显示的还多了一串“</td>
+      <td>time=0.003329s;5.000000;10.000000;0.000000 size=1576B;;;0”！这个明显有着固定的格式！</td>
+    </tr>
+  </tbody>
+</table>
+<p>然后在页面上点开check_http看，发现在报警状态“Status Information:  HTTP OK HTTP/1.0 200 OK - 1576 bytes in 0.003 seconds”下还有一行“ Performance Data: time=0.003329s;5.000000;10.000000;0.000000 size=1576B;;;0”。原来如此……</p>
+<table>
+  <tbody>
+    <tr>
+      <td>修改shell脚本的echo内容，也照葫芦画瓢的加上了“</td>
+      <td>port ${PORT}=${PORT_CONN};${WARNING};${CRITICAL};;”等五分钟后，再点开pnp图，果然出现了！</td>
+    </tr>
+  </tbody>
+</table>
+      <a href="/2010/08/13/intro-pnp4nagios" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/08/13/intro-gnuplot" title="gnuplot画图" rel="bookmark">gnuplot画图</a>
     </h1>
     <p class="alt-font tight">
@@ -1278,92 +1333,6 @@ ignorespace如果在命令前加个空格，这条命令就不记录进history�
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/05/21/intro-strace" title="strace进程跟踪排错一例" rel="bookmark">strace进程跟踪排错一例</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-05-21 00:00:00 +0800">21 May 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>在对HTTPS进行反向代理的时候，如果源站未能提供SSL的cert和key，可以采用TCP协议的端口转发完成。最常见的是iptables，还有rinetd。之前的博文中都有提到。  <br />
-今天碰到一个事情，使用rinetd进行443转发的客户，全网都无法访问了……  <br />
-proxy上对源站443端口能telnet通，绑定ie访问源站是没有问题；proxy的443端口本地也能telnet通，但是ie访问就是打不开任何页面。  <br />
-偶然想起strace，觉得对rinetd进程进行跟踪试试。strace -p 13916，然后这边打开ie，输入https的域名，回车……  <br />
-看到服务器tty上显示如下信息：  <br />
-select(16, [4], [], NULL, NULL)         = 1 (in [4])  <br />
-#rinetd程序处于select()，运行的FD为4  <br />
-accept(4, {sa_family=AF_INET, sin_port=htons(3766), sin_addr=inet_addr(&ldquo;211.99.216.18&rdquo;)}, [16]) = 6  <br />
-#从我本机的3766端口发起请求，被服务器接受，FD为6  <br />
-ioctl(6, FIONBIO, [1])                  = 0  <br />
-#设定该socket为阻塞状态  <br />
-setsockopt(6, SOL_SOCKET, SO_LINGER, [0], 4) = -1 EINVAL (Invalid argument)  <br />
-#设定其为异步处理方式，不错失败了……汗  <br />
-socket(PF_INET, SOCK_STREAM, IPPROTO_TCP) = 7  <br />
-#打开FD为7的socket，tcp传输方式为stream流方式  <br />
-bind(7, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr(&ldquo;0.0.0.0&rdquo;)}, 16) = 0  <br />
-#服务器打开对任一端口的监听  <br />
-setsockopt(7, SOL_SOCKET, SO_LINGER, [0], 4) = -1 EINVAL (Invalid argument)  <br />
-ioctl(7, FIONBIO, [1])                  = 0  <br />
-#设定这个向源请求的socket为已阻塞  <br />
-connect(7, {sa_family=AF_INET, sin_port=htons(443), sin_addr=inet_addr(&ldquo;222.73.34.25&rdquo;)}, 16) = -1 EINPROGRESS (Operation now in progress)  <br />
-#向222.73.34.25的443端口发送请求  <br />
-select(16, [4 6 7], [], NULL, NULL)     = 1 (in [6])  <br />
-recvfrom(6, &ldquo;2631A1=31K36536423&rdquo;217:352346225207N7qP&rsquo;342!2008&rdquo;&hellip;, 1024, 0, NULL, NULL) = 70  <br />
-#从FD6即连接客户电脑的socket收到的内容  <br />
-select(16, [4 6 7], [7], NULL, NULL)    = 2 (in [7], out [7])  <br />
-recvfrom(7, 0x111e6860, 1024, 0, 0, 0)  = -1 EHOSTUNREACH (No route to host)  <br />
-#从FD7即回源的socket收到的内容——“无法找到连接主机的路由”！！  <br />
-close(7)                                = 0  <br />
-#关闭FD7  <br />
-select(16, [4 6], [6], NULL, NULL)      = 1 (out [6])  <br />
-time(NULL)                              = 1274410006  <br />
-stat(&ldquo;/etc/localtime&rdquo;, {st_mode=S_IFREG|0644, st_size=405, &hellip;}) = 0  <br />
-close(6)                                = 0  <br />
-#关闭FD6，这个是我关闭ie后关闭的。  <br />
-很奇怪呀，这个222.73.34.25是什么地址？ping客户域名返回的明明不是这个ip呀？  <br />
-试着kill rinetd，然后重启动rinetd服务。再重复如上操作。相关内容如下：  <br />
-accept(4, {sa_family=AF_INET, sin_port=htons(3917), sin_addr=inet_addr(&ldquo;211.99.216.18&rdquo;)}, [16]) = 6  <br />
-ioctl(6, FIONBIO, [1])                  = 0  <br />
-setsockopt(6, SOL_SOCKET, SO_LINGER, [0], 4) = -1 EINVAL (Invalid argument)  <br />
-socket(PF_INET, SOCK_STREAM, IPPROTO_TCP) = 7  <br />
-bind(7, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr(&ldquo;0.0.0.0&rdquo;)}, 16) = 0  <br />
-setsockopt(7, SOL_SOCKET, SO_LINGER, [0], 4) = -1 EINVAL (Invalid argument)  <br />
-ioctl(7, FIONBIO, [1])                  = 0  <br />
-connect(7, {sa_family=AF_INET, sin_port=htons(443), sin_addr=inet_addr(&ldquo;219.235.4.17&rdquo;)}, 16) = -1 EINPROGRESS (Operation now in progress)  <br />
-#回源地址是219.235.4.17，这个正是ping出来的正确源ip！  <br />
-select(18, [4 6 7], [], NULL, NULL)     = 1 (in [6])  <br />
-recvfrom(6, &ldquo;2631A1=31K365365f334370210367202260B33332E3337232423340s21&rdquo;&hellip;, 1024, 0, NULL, NULL) = 70  <br />
-select(18, [4 6 7], [7], NULL, NULL)    = 1 (out [7])  <br />
-sendto(7, &ldquo;2631A1=31K365365f334370210367202260B33332E3337232423340s21&rdquo;&hellip;, 70, 0, NULL, 0) = 70  <br />
-select(18, [4 6 7], [], NULL, NULL)     = 1 (in [7])  <br />
-recvfrom(7, &ldquo;2631r2432F31K365365U10200u236332*Mf316l2252306v254350364&rdquo;&hellip;, 1024, 0, NULL, NULL) = 1024  <br />
-select(18, [4 6], [6], NULL, NULL)      = 1 (out [6])  <br />
-……  <br />
-#这些recv和send就是页面请求的传输过程，ie上显示出来正确的页面了。
-返回去查找之前的工单，也确认了222.73.34.25正是该客户之前的源站ip，而后改成219.235.4.17的。
-由此看来rinetd虽然可以在conf里写域名，但其对域名的解析，只会在启动的时候执行一次，之后就一直持续对固定的那个ip进行转发了！</p>
-<hr />
-<table>
-  <tbody>
-    <tr>
-      <td>马后炮的说：这个问题其实被我搞复杂了。因为连接是stream的方式，有一个keepalive的时间，所以完全可以在ie访问的时候用netstat -an</td>
-      <td>grep :443，就能看到回源的ip，很轻松的就能判定源站ip有问题了——不过这是现在按图索骥，在不知道是源ip不对之前，谁会想到呢~~~</td>
-    </tr>
-  </tbody>
-</table>
-      <a href="/2010/05/21/intro-strace" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -1458,6 +1427,7 @@ select(18, [4 6], [6], NULL, NULL)      = 1 (out [6])  <br />
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+              <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
           </ul>
         </div>
         <div class="well sidebar-nav">
