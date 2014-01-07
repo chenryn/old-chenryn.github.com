@@ -43,6 +43,118 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/04/08/url_rewrite_concurrency" title="url_rewrite_concurrency" rel="bookmark">url_rewrite_concurrency</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-04-08 00:00:00 +0800">08 Apr 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>squid的重定向，我看网上一般都采用 <code>redirect_children</code> (即 <code>url_rewrite_children</code>)。估计是因为中文权威指南的原因吧。不过中文权威指南还是2.5版的时候出的。有些新东西没有。比如 <code>squid.conf.default</code> 中提供的另一种 <code>url_rewrite_concurrency</code>。</p>
+<p>官方使用说明如右：<a href="http://wiki.squid-cache.org/Features/Redirectors#How_do_I_make_it_concurrent.3F">http://wiki.squid-cache.org/Features/Redirectors#How_do_I_make_it_concurrent.3F</a></p>
+<p>简单的说，就是开启 <code>url_rewrite_concurrency</code> 后，squid传递给rewriter的流由四个域增加为五个——最前头多了一个ID。然后rewriter返回的，也就有两个域，ID和uri。</p>
+<p>简单修改一下原来的脚本如下即可：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -wl</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="vg">$|</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span>
+<span class="k">while</span> <span class="p">()</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="p">(</span><span class="nv">$id</span><span class="p">,</span><span class="nv">$url</span><span class="p">,</span><span class="nv">$client</span><span class="p">,</span><span class="nv">$ident</span><span class="p">,</span><span class="nv">$method</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span> <span class="p">);</span>
+    <span class="p">(</span><span class="nv">$id</span><span class="p">,</span> <span class="nv">$url</span><span class="p">,</span> <span class="nv">$client</span><span class="p">,</span> <span class="nv">$ident</span><span class="p">,</span> <span class="nv">$method</span><span class="p">)</span> <span class="o">=</span> <span class="nb">split</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$url</span> <span class="o">=~</span><span class="n">m</span><span class="c1">#^(.*)(?.*)#i) {</span>
+        <span class="k">my</span> <span class="p">(</span><span class="nv">$domain</span><span class="p">,</span><span class="nv">$option</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$1</span><span class="p">,</span><span class="nv">$2</span><span class="p">);</span>
+        <span class="k">print</span> <span class="s">&quot;$id $domain\n&quot;</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="k">print</span> <span class="s">&quot;$id\n&quot;</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>然后squid.conf里修改如下：</p>
+<div class="highlight"><pre><code class="squid"><span class="k">acl</span><span class="w"> </span>rewriteurl<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^http://drag.g1d.net/.*.mp40drag?<span class="w"></span>
+url_rewrite_access<span class="w"> </span><span class="no">deny</span><span class="w"> </span>!rewriteurl<span class="w"></span>
+url_rewrite_program<span class="w"> </span>/home/squid/etc/redirect.pl<span class="w"></span>
+<span class="c">#url_rewrite_children 10</span><span class="w"></span>
+url_rewrite_concurrency<span class="w"> </span><span class="m">10</span><span class="w"></span>
+</code></pre></div>
+      <a href="/2010/04/08/url_rewrite_concurrency" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/04/03/a-unfound-option-of-date-command" title="date的一个怪问题" rel="bookmark">date的一个怪问题</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-04-03 00:00:00 +0800">03 Apr 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>今天看同事的一个备份脚本，在取昨天的日期时，采用了YESTERDAY_NAME=<code>date -I -d'-1 day' +"%Y-%m-%d"</code>的方法。</p>
+<p>我对这个方法比较感兴趣，赶紧试试，结果赫然返回“date: multiple output formats specified”的报错来！</p>
+<p>而单独采用date -I -d&rsquo;-1 day&rsquo;或者date -d&rsquo;-1 day&rsquo; +&rdquo;%Y-%m-%d&rdquo;这两种方法，都能返回正确结果。</p>
+<p>返回同事的机器上，运行原命令确实没有问题。于是开始查版本，我的机器bash是3.2.25，date是5.97；他的bash是3.0.0.9，date是5.2.1。</p>
+<p>不过在date -help中，不论是我的，还是他的机器上，都没发现-I这个option！！</p>
+<p>为了移植性，同事也更改脚本删除了-I。不过之前脚本中为什么有这个，为什么还就真能跑，真是怪事~~</p>
+      <a href="/2010/04/03/a-unfound-option-of-date-command" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/04/02/diff-between-lvs-active_conn-and-netstat-conn" title="lvs的activeconn与netstat的conn" rel="bookmark">lvs的activeconn与netstat的conn</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-04-02 00:00:00 +0800">02 Apr 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>曾经有过一组高并发请求的服务器，在lvs上看到单台 activeconn 约等于 220000；同时，在RS上执行 <code>netstat -s -t|grep "connections established"</code> 结果大概是 65000，而 <code>squidclient mgr:5min|grep client_http.requests</code> 结果却只有 180。后来说起并发数的时候，有些茫然，到底哪个才算是呢？</p>
+<p>今天在squid-user里问起，居然有幸碰见另一位中国订阅者，夏兄随后提供给我一个06年的帖子，所述甚详。算是解惑了~
+<a href="http://www.linuxsir.org/bbs/showthread.php?t=248500">http://www.linuxsir.org/bbs/showthread.php?t=248500</a></p>
+<p>原来 lvs 默认有个超时时间，可以用 <code>ipvsadm -L --timeout</code> 查看，默认是 <code>900 120 300</code> ，分别是 <code>TCP TCPFIN UDP</code> 的时间。</p>
+<p>而RS上参数如下：</p>
+<div class="highlight"><pre><code class="bash">net.ipv4.tcp_keepalive_time <span class="o">=</span> 600
+net.ipv4.route.gc_timeout <span class="o">=</span> 100
+net.ipv4.tcp_fin_timeout <span class="o">=</span> 30
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_close <span class="o">=</span> 10
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_max_retrans <span class="o">=</span> 300
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_time_wait <span class="o">=</span> 120
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_last_ack <span class="o">=</span> 30
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_close_wait <span class="o">=</span> 60
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_fin_wait <span class="o">=</span> 120
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_established <span class="o">=</span> 300
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_syn_recv <span class="o">=</span> 60
+net.ipv4.netfilter.ip_conntrack_tcp_timeout_syn_sent <span class="o">=</span> 120
+net.ipv4.netfilter.ip_conntrack_udp_timeout_stream <span class="o">=</span> 180
+net.ipv4.netfilter.ip_conntrack_udp_timeout <span class="o">=</span> 30
+</code></pre></div>
+<p>可见 RS 的超时时间（仅指 <code>ESTABLISHED</code> ）比 LVS 小了 3 倍。再加上 <code>WAIT</code> 和 <code>SYN_RECV</code> 等状态，差不多就是 220000/65000 的比例了。而 squid 的 RPS 是按秒计算的，<code>180*300=~55000</code> ，在数量级上和 netstat 的结果也就差不多了~ </p>
+      <a href="/2010/04/02/diff-between-lvs-active_conn-and-netstat-conn" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/03/30/purge-script-by-perl" title="perl边学边练（purge脚本）" rel="bookmark">perl边学边练（purge脚本）</a>
     </h1>
     <p class="alt-font tight">
@@ -1545,220 +1657,6 @@ make <span class="o">&amp;&amp;</span> make install
 </code></pre></div>
 <p>注意：=200里的等号，左边有空格，右边没空格。</p>
       <a href="/2010/03/03/loadbalance-in-nginx-using-consistent_hash-error_page" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/03/03/an-alarm-shell-using-sendemail" title="服务器监控报警小脚本（shell+sendEmail）" rel="bookmark">服务器监控报警小脚本（shell+sendEmail）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-03-03 00:00:00 +0800">03 Mar 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>这种email报警脚本遍地都是，很多用的sendmail、postfix，感觉有些大材小用了；也有些用perl的NET::SMTP和Authen::SASL模块发信的，不过我perl用的不好，老发出些莫名其妙的邮件来（比如if(a&gt;1){print(a);}，最后邮件里的显示的是0.99……）；最后采用sendEmail这个成型的perl程序发信报警，而实时监控部分回归shell，终于完成。</p>
-<div class="highlight"><pre><code class="bash">wget &lt;a <span class="nv">href</span><span class="o">=</span><span class="s2">&quot;http://caspian.dotconf.net/menu/Software/SendEmail/sendEmail-v1.56.tar.gz&quot;</span>&gt;http://caspian.dotconf.net/menu/Software/SendEmail/sendEmail-v1.56.tar.gz&lt;/a&gt;
-tar zxvf sendEmail-v1.56.tar.gz
-cp sendEmail-v1.56/sendEmail /shell/check/
-cat &gt;&gt; check.sh <span class="s">&lt;&lt;EOF</span>
-<span class="s">#!/bin/bash</span>
-<span class="s">checkmail() {</span>
-<span class="s">    /usr/bin/perl ./sendEmail -f userid@mail.com -t oneuserid@mail.com –cc twouserid@mail.com threeuserid@mail.com -u &quot;$subject&quot; -m &quot;$data&quot; -s smtp.mail.com -xu userid -xp password</span>
-<span class="s">    sleep 300</span>
-<span class="s">}</span>
-<span class="s">while true;do</span>
-<span class="s">    loadavg=`awk &#39;{print $2}&#39; /proc/loadavg`</span>
-<span class="s">    diskuse=`df |awk &#39;/cache/{print $5}&#39;`</span>
-<span class="s">    servrun=`netstat -pln|awk -F/ &#39;/:80/{print $NF}&#39;`</span>
-<span class="s">    </span>
-<span class="s">    ip=`ifconfig|awk &#39;/cast/{print $2}&#39;|awk -F: &#39;{if(NR==1){a=$2}else if(NR==2){b=$2}}END{print b&quot;-&quot;a}&#39;`</span>
-<span class="s">    data=`echo -e &quot;ip:$ip\nloadavg/5min:$loadavg\tcacheuse%:$diskuse\tservice:$servrun&quot;`</span>
-<span class="s">    diskper=`echo $diskuse|sed &#39;s/%//&#39;`</span>
-<span class="s">    </span>
-<span class="s">    num=`ps aux|grep check.sh|grep -v grep|wc -l`</span>
-<span class="s">    </span>
-<span class="s">    if [[ $num &gt; 2 ]];then</span>
-<span class="s">        break 2</span>
-<span class="s">    fi</span>
-<span class="s">    </span>
-<span class="s">    if [[ $loadavg &gt; 1.00 ]] &amp;amp;&amp;amp; [[ $diskper &gt; 90 ]];then</span>
-<span class="s">        subject=&quot;warning-$ip-loadavg-disk&quot;</span>
-<span class="s">        checkmail</span>
-<span class="s">    else if [[ $loadavg &gt; 1.00 ]];then</span>
-<span class="s">        subject=&quot;warning-$ip-loadavg&quot;</span>
-<span class="s">        checkmail</span>
-<span class="s">    else if [[ $diskper &gt; 90 ]];then</span>
-<span class="s">        subject=&quot;warning-$ip-disk&quot;</span>
-<span class="s">        checkmail</span>
-<span class="s">    fi</span>
-<span class="s">    sleep 60</span>
-<span class="s">done</span>
-<span class="s">EOF</span>
-</code></pre></div>
-<p>完成，执行sh check.sh &amp;&gt; /dev/null即可。报警邮件如下：</p>
-<p>标题：warning-192.168.0.100-10.10.10.10-disk
-ip:192.168.0.100-10.10.10.10
-loadavg/5min:0.38 cacheuse%:94% service:nginx</p>
-      <a href="/2010/03/03/an-alarm-shell-using-sendemail" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/03/02/loadbalance-in-nginx-using-url_hash" title="nginx负载均衡（url_hash）配置" rel="bookmark">nginx负载均衡（url_hash）配置</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-03-02 00:00:00 +0800">02 Mar 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#nginx-ref" title="nginx" rel="category tag">nginx</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>nginx是著名的非专职全七层负载均衡器，在用惯了四层LVS后，终于碰上了麻烦：LVS后端的4台RS磁盘都较小（20G），跑不到一天就塞满了东西；而根据预估，实际上一天时间该节点也就只有20G的文件增长。很显然，因为lvs转发的轮询算法，导致RS重复缓存了相同的文件。</p>
-<p>针对这个情况，可以有两个办法（我只想到两个，欢迎大家补充）：</p>
-<ol>
-  <li>架构拆分，把不同的几个域名分别指向不同的server，这个在DNS上就能完成，不过就丧失了lvs的冗余；也可以用nginx的upstream+server配置，分别指向不通的RS，不过不同域名文件数量如果相差比较大的话，RS的负载就不均衡了……</li>
-  <li>url_hash，采用HAproxy的loadbalance uri或者nginx的upstream_hash模块，都可以做到针对url进行哈希算法式的负载均衡转发。</li>
-</ol>
-<p>那么，就开始试试nginx的url_hash负载均衡吧：</p>
-<ol>
-  <li>安装部署：</li>
-</ol>
-<div class="highlight"><pre><code class="bash">wget ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre-8.01.tar.gz
-tar zxvf pcre-8.01.tar.gz
-wget http://wiki.nginx.org/images/7/78/Nginx_upstream_hash-0.3.tar.gz
-tar zxvf Nginx_upstream_hash-0.3.tar.gz
-wget http://sysoev.ru/nginx/nginx-0.7.65.tar.gz
-tar zxvf nginx-0.7.65.tar.gz
-</code></pre></div>
-<p>vi nginx-0.7.65/src/http/ngx_http_upstream.h</p>
-<div class="highlight"><pre><code class="c"><span class="k">struct</span> <span class="n">ngx_http_upstream_srv_conf_s</span> <span class="p">{</span>
-<span class="kt">ngx_http_upstream_peer_t</span><span class="err">        </span> <span class="n">peer</span><span class="p">;</span>
-<span class="kt">void</span><span class="err">                          </span> <span class="o">**</span><span class="n">srv_conf</span><span class="p">;</span>
-<span class="kt">ngx_array_t</span><span class="err">                    </span> <span class="o">*</span><span class="n">servers</span><span class="p">;</span><span class="err"> </span> <span class="cm">/* ngx_http_upstream_server_t */</span>
-<span class="o">+</span><span class="kt">ngx_array_t</span><span class="err">                    </span> <span class="o">*</span><span class="n">values</span><span class="p">;</span>
-<span class="o">+</span><span class="kt">ngx_array_t</span><span class="err">                    </span> <span class="o">*</span><span class="n">lengths</span><span class="p">;</span>
-<span class="o">+</span><span class="kt">ngx_uint_t</span><span class="err">                      </span> <span class="n">retries</span><span class="p">;</span>
-<span class="kt">ngx_uint_t</span><span class="err">                      </span> <span class="n">flags</span><span class="p">;</span>
-<span class="kt">ngx_str_t</span><span class="err">                       </span> <span class="n">host</span><span class="p">;</span>
-<span class="n">u_char</span><span class="err">                         </span> <span class="o">*</span><span class="n">file_name</span><span class="p">;</span>
-<span class="kt">ngx_uint_t</span><span class="err">                      </span> <span class="n">line</span><span class="p">;</span>
-<span class="kt">in_port_t</span><span class="err">                       </span> <span class="n">port</span><span class="p">;</span>
-<span class="kt">in_port_t</span><span class="err">                       </span> <span class="n">default_port</span><span class="p">;</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>为了安全，可以修改一下nginx的version信息：vi nginx-0.7.65/src/core/nginx.h</p>
-<div class="highlight"><pre><code class="c"><span class="cp">#define NGINX_VERSION      &quot;2.6.STABLE21&quot;</span>
-<span class="cp">#define NGINX_VER          &quot;squid/&quot; NGINX_VERSION</span>
-</code></pre></div>
-<p>vi nginx-0.7.65/src/http/ngx_http_header_filter_module.c</p>
-<div class="highlight"><pre><code class="c"><span class="k">static</span> <span class="kt">char</span> <span class="n">ngx_http_server_string</span><span class="p">[]</span> <span class="o">=</span> <span class="s">&quot;Server: squid/2.6.STABLE21&quot;</span> <span class="n">CRLF</span><span class="p">;</span>
-</code></pre></div>
-<p>vi nginx-0.7.65/src/http/ngx_http_special_response.c</p>
-<div class="highlight"><pre><code class="c"><span class="k">static</span> <span class="n">u_char</span> <span class="n">ngx_http_error_tail</span><span class="p">[]</span> <span class="o">=</span>
-<span class="s">&quot;&lt;hr&gt;&lt;center&gt;squid/2.6.STABLE21&lt;/center&gt;&quot;</span> <span class="n">CRLF</span>
-<span class="s">&quot;&lt;/body&gt;&quot;</span> <span class="n">CRLF</span>
-<span class="s">&quot;&lt;/html&gt;&quot;</span> <span class="n">CRLF</span>
-</code></pre></div>
-<div class="highlight"><pre><code class="bash"><span class="nb">cd </span>pcre-8.01
-./configure --prefix<span class="o">=</span>/usr
-make <span class="o">&amp;&amp;</span> make install
-<span class="nb">cd </span>nginx-0.7.65
-./configure --prefix<span class="o">=</span>/home/nginx  --with-pcre --with-http_stub_status_module --with-http_ssl_module --without-http_rewrite_module --add-module<span class="o">=</span>/tmp/nginx_upstream_hash-0.3
-</code></pre></div>
-<p>vi auto/cc/gcc</p>
-<div class="highlight"><pre><code class="c"><span class="cp"># debug</span>
-<span class="cp">#CFLAGS=&quot;$CFLAGS -g&quot;</span>
-</code></pre></div>
-<div class="highlight"><pre><code class="bash">make <span class="o">&amp;&amp;</span> make install
-</code></pre></div>
-<p>这样就安装完成了。</p>
-<p>2、配置文件</p>
-<div class="highlight"><pre><code class="nginx"><span class="k">upstream</span> <span class="s">images6.static.com</span> <span class="p">{</span>
-    <span class="kn">server</span> <span class="n">11.11.11.11</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
-    <span class="kn">server</span> <span class="n">11.11.21.12</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
-    <span class="kn">server</span> <span class="n">11.11.21.13</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
-    <span class="kn">server</span> <span class="n">11.11.21.14</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
-    <span class="kn">hash   </span> <span class="nv">$request_uri</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">server</span> <span class="p">{</span>
-    <span class="kn">listen      </span> <span class="mi">80</span><span class="p">;</span>
-    <span class="kn">server_name </span> <span class="s">images6.static.com</span><span class="p">;</span>
-    <span class="kn">access_log </span> <span class="s">/dev/null </span> <span class="s">main</span><span class="p">;</span>
-    <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
-        <span class="kn">proxy_pass       </span>  <span class="s">http://images6.static.com</span><span class="p">;</span>
-        <span class="kn">proxy_set_header  </span> <span class="s">Host            </span> <span class="nv">$host</span><span class="p">;</span>
-        <span class="kn">proxy_set_header  </span> <span class="s">X-Real-IP       </span> <span class="nv">$remote_addr</span><span class="p">;</span>
-        <span class="kn">proxy_set_header  </span> <span class="s">X-Forwarded-For</span> <span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>以上配置的问题：</p>
-<ol>
-  <li>RS中不能设置nginx本机的其他端口，我本来设定的server 11.11.11.10:3128，希望能把nginx本机也开上squid，省出一台机器来。结果在确认配置了DNS的情况下，返回状态码全是503……</li>
-  <li>RS一旦有宕机的，nginx不会重算hash，导致部分url返回错误信息；而启用hash_again标签的话，其他RS就都乱了。</li>
-  <li>RS中默认logformat中将显示nginx的IP。</li>
-</ol>
-<p>解决办法：
-1. 不知道
-2. 不采用hash_again标签而采用error_page重定向到专门的备份服务器保障访问
-3. 修改RS的logformat，把%&gt;a改成%{X-Real_IP}&gt;h即可。</p>
-<p>最后的根本性问题：</p>
-<p>对nginx下的RS集群进行增减操作，是否会对hash表产生影响？nginx_upstream_hash目录中的CHANGES有如下三条：</p>
-<pre><code>Changes with upstream_hash 0.3                                   06 Aug 2008
-*) Bugfix: infinite loop when retrying after a 404 and the "not_found" flag of *_next_upstream was set.
-*) Change: no more "hash_method" directive. Hash method is always CRC-32.
-*) Change: failover strategy is compatible with PECL Memcache.
-</code></pre>
-<p>nginx的wiki上，关于hash_again的doc这么写到：</p>
-<pre><code>Number of times to rehash the value and choose a different server if the backend connection fails. Increase this number to provide high availability.
-</code></pre>
-<p>关于PECL Memcache，请参考下列链接：</p>
-<p><a title="http://www.surfchen.org/archives/348" href="http://www.surfchen.org/archives/348">http://www.surfchen.org/archives/348</a>
-<a href="http://tech.idv2.com/2008/07/24/memcached-004/">http://tech.idv2.com/2008/07/24/memcached-004/</a></p>
-<p>尤其是第二个链接，其中关于rehash的解释，很好的解释了为什么大家都不推荐使用hash_again标签。
-由此可知，upstream_hash模块，使用的是余数计算standard+CRC32方式，10+2的存活率是17%，3+1的存活率是23%！
-而存活率最高的是consistent+CRC32方式，存活率是n/(n+m)*100%，10+2是83%，3+1是75%。</p>
-<p>nginx的wiki中，还有另一个3rd模块upstream_consistent_hash，下回可以试试；
-网上还有针对upstream_hash模块的补丁<a href="http://www.sanotes.net/wp-content/uploads/2009/06/nginx_upstream_hash.pdf">http://www.sanotes.net/wp-content/uploads/2009/06/nginx_upstream_hash.pdf</a>，好模块就是有人研究呀~~</p>
-      <a href="/2010/03/02/loadbalance-in-nginx-using-url_hash" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/02/25/php-problem-of-wordpress-install" title="wordpress部署时碰到的php小问题~" rel="bookmark">wordpress部署时碰到的php小问题~</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-02-25 00:00:00 +0800">25 Feb 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>看到windows live writer也支持wordpress，感觉这个博客系统确实流行，决定自己也试一把~install时，出了点问题，选择好sqlname和user、passwd信息后，另存为wp-config.php，next生成管理账户和密码的页面，居然顶上出现了“Warning: Cannot modify header information - headers already sent by &hellip;”，无视之，记下随机密码，下一步login——彻底废了，整个页面都是这个warning提示~~</p>
-<p>百度了一下这个问题，原因真是多种多样，php不支持UTF8的BOM、php的output_buffering没打开、php中setcookie的使用限制等等，不过我这是从wp自己的页面文本框里复制出来的东东，应该问题不大才对。结果回去一看，原来是最最简单的问题：<?php...?>后面，多了一个空行！！</p>
-<p>ctrl+a后ctrl+c复制文本，一般都会多出来一个\r\n，insert进vi的时候自然也就多了一个空行，不巧的是，在include或者require的php里，如果首尾有空行的话，程序就很有可能出问题…………</p>
-<p>del掉这个空行，退出刷新页面，OK！</p>
-      <a href="/2010/02/25/php-problem-of-wordpress-install" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

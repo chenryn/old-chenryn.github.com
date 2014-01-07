@@ -43,6 +43,321 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/01/19/sysctl-about-tcp" title="系统优化——TCP参数" rel="bookmark">系统优化——TCP参数</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-01-19 00:00:00 +0800">19 Jan 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>tcp_syn_retries ：INTEGER
+默认值是5
+对于一个新建连接，内核要发送多少个 SYN 连接请求才决定放弃。不应该大于255，默认值是5，对应于180秒左右时间。(对于大负载而物理通信良好的网络而言,这个值偏高,可修改为2.这个值仅仅是针对对外的连接,对进来的连接,是由tcp_retries1决定的)</p>
+<p>tcp_synack_retries ：INTEGER
+默认值是5
+对于远端的连接请求SYN，内核会发送SYN ＋ ACK数据报，以确认收到上一个 SYN连接请求包。这是所谓的三次握手(threeway handshake)机制的第二个步骤。这里决定内核在放弃连接之前所送出的 SYN+ACK数目。不应该大于255，默认值是5 ，对应于180秒左右时间。(可以根据上面的 tcp_syn_retries来决定这个值)</p>
+<p>tcp_keepalive_time ：INTEGER
+默认值是7200(2小时)
+当keepalive打开的情况下，TCP发送keepalive消息的频率。(由于目前网络攻击等因素,造成了利用这个进行的攻击很频繁,曾经也有cu的朋友提到过,说如果2边建立了连接,然后不发送任何数据或者rst/fin消息,那么持续的时间是不是就是2小时,空连接攻击?tcp_keepalive_time就是预防此情形的.我个人在做nat服务的时候的修改值为 1800 秒)</p>
+<p>tcp_keepalive_probes： INTEGER
+默认值是9
+TCP发送keepalive探测以确定该连接已经断开的次数。(注意:保持连接仅在SO_KEEPALIVE套接字选项被打开是才发送.次数默认不需要修改,当然根据情形也可以适当地缩短此值.设置为5比较合适)</p>
+<p>tcp_keepalive_intvl ：INTEGER
+默认值为75
+探测消息发送的频率，乘以tcp_keepalive_probes就得到对于从开始探测以来没有响应的连接杀除的时间。默认值为75秒，也就是没有活动的连接将在大约11分钟以后将被丢弃。(对于普通应用来说,这个值有一些偏大,可以根据需要改小.特别是web类服务器需要改小该值,15是个比较合适的值)</p>
+<p>tcp_retries1 ：INTEGER
+默认值是3
+放弃回应一个TCP连接请求前﹐需要进行多少次重试。RFC 规定最低的数值是3 ﹐这也是默认值﹐根据RTO的值大约在3秒 - 8分钟之间。(注意:这个值同时还决定进入的syn连接)
+tcp_retries2 ：INTEGER
+默认值为15
+在丢弃激活(已建立通讯状况)的TCP连接之前﹐需要进行多少次重试。默认值为15
+，根据RTO的值来决定，相当于13-30分钟(RFC1122规定，必须大于100秒).(这个值根据目前的网络设置,可以适当地改小,我的网络内修改为了5)
+tcp_orphan_retries ：INTEGER
+默认值是7
+在近端丢弃TCP连接之前﹐要进行多少次重试。默认值是7
+个﹐相当于 50秒 - 16分钟﹐视 RTO 而定。如果您的系统是负载很大的web服务器﹐那么也许需要降低该值﹐这类 sockets
+可能会耗费大量的资源。另外参的考 tcp_max_orphans 。(事实上做NAT的时候,降低该值也是好处显著的,我本人的网络环境中降低该值为3)
+tcp_fin_timeout ：INTEGER
+默认值是 60
+对于本端断开的socket连接，TCP保持在FIN-WAIT-2状态的时间。对方可能会断开连接或一直不结束连接或不可预料的进程死亡。默认值为
+60 秒。过去在2.2版本的内核中是 180
+秒。您可以设置该值﹐但需要注意﹐如果您的机器为负载很重的web服务器﹐您可能要冒内存被大量无效数据报填满的风险﹐FIN-WAIT-2
+sockets 的危险性低于 FIN-WAIT-1 ﹐因为它们最多只吃 1.5K 的内存﹐但是它们存在时间更长。另外参考
+tcp_max_orphans 。(事实上做NAT的时候,降低该值也是好处显著的,我本人的网络环境中降低该值为30)
+tcp_max_tw_buckets ：INTEGER
+默认值是180000
+系统在同时所处理的最大 timewait sockets
+数目。如果超过此数的话﹐time-wait socket 会被立即砍除并且显示警告信息。之所以要设定这个限制﹐纯粹为了抵御那些简单的
+DoS
+攻击﹐千万不要人为的降低这个限制﹐不过﹐如果网络条件需要比默认值更多﹐则可以提高它(或许还要增加内存)。(事实上做NAT的时候最好可以适当地增加该值)
+tcp_tw_recycle ：BOOLEAN
+默认值是0
+打开快速
+TIME-WAIT sockets 回收。除非得到技术专家的建议或要求﹐请不要随意修改这个值。(做NAT的时候，建议打开它)
+tcp_tw_reuse ：BOOLEAN
+默认值是0
+该文件表示是否允许重新应用处于TIME-WAIT状态的socket用于新的TCP连接(这个对快速重启动某些服务,而启动后提示端口已经被使用的情形非常有帮助)
+tcp_max_orphans ：INTEGER
+缺省值是8192
+系统所能处理不属于任何进程的TCP
+sockets最大数量。假如超过这个数量﹐那么不属于任何进程的连接会被立即reset，并同时显示警告信息。之所以要设定这个限制﹐纯粹为了抵御那些简单的
+DoS 攻击﹐千万不要依赖这个或是人为的降低这个限制(这个值Redhat
+AS版本中设置为 32768
+,但是很多防火墙修改的时候,建议该值修改为
+2000 )
+tcp_abort_on_overflow ：BOOLEAN
+缺省值是0
+当守护进程太忙而不能接受新的连接，就象对方发送reset消息，默认值是false。这意味着当溢出的原因是因为一个偶然的猝发，那么连接将恢复状态。只有在你确信守护进程真的不能完成连接请求时才打开该选项，该选项会影响客户的使用。(对待已经满载的sendmail,apache这类服务的时候,这个可以很快让客户端终止连接,可以给予服务程序处理已有连接的缓冲机会,所以很多防火墙上推荐打开它)
+tcp_syncookies ：BOOLEAN
+默认值是 0
+只有在内核编译时选择了CONFIG_SYNCOOKIES时才会发生作用。当出现syn等候队列出现溢出时象对方发送syncookies。目的是为了防止syn
+flood攻击。
+注意：该选项千万不能用于那些没有收到攻击的高负载服务器，如果在日志中出现synflood消息，但是调查发现没有收到synflood攻击，而是合法用户的连接负载过高的原因，你应该调整其它参数来提高服务器性能。参考:
+tcp_max_syn_backlog
+tcp_synack_retries
+tcp_abort_on_overflow
+syncookie严重的违背TCP协议，不允许使用TCP扩展，可能对某些服务导致严重的性能影响(如SMTP转发)。(注意,该实现与BSD上面使用的tcp
+proxy一样,是违反了RFC中关于tcp连接的三次握手实现的,但是对于防御syn-flood的确很有用.)
+tcp_stdurg ：BOOLEAN
+默认值为0
+使用 TCP urg pointer 字段中的主机请求解释功能。大部份的主机都使用老旧的 BSD解释，因此如果您在 Linux
+打开它﹐或会导致不能和它们正确沟通。
+tcp_max_syn_backlog ：INTEGER
+对于那些依然还未获得客户端确认的连接请求﹐需要保存在队列中最大数目。对于超过 128Mb 内存的系统﹐默认值是
+1024 ﹐低于 128Mb 的则为 128 。如果服务器经常出现过载﹐可以尝试增加这个数字。警告﹗假如您将此值设为大于
+1024 ﹐最好修改
+include/net/tcp.h 里面的
+TCP_SYNQ_HSIZE ﹐以保持
+TCP_SYNQ_HSIZE*16
+﹐并且编进核心之内。(SYN
+Flood攻击利用TCP协议散布握手的缺陷，伪造虚假源IP地址发送大量TCP-SYN半打开连接到目标系统，最终导致目标系统Socket队列资源耗尽而无法接受新的连接。为了应付这种攻击，现代Unix系统中普遍采用多连接队列处理的方式来缓冲(而不是解决)这种攻击，是用一个基本队列处理正常的完全连接应用(Connect()和Accept()
+)，是用另一个队列单独存放半打开连接。这种双队列处理方式和其他一些系统内核措施(例如Syn-Cookies/Caches)联合应用时，能够比较有效的缓解小规模的SYN
+Flood攻击(事实证明
+)
+tcp_window_scaling ：INTEGER
+缺省值为1
+该文件表示设置tcp/ip会话的滑动窗口大小是否可变。参数值为布尔值，为1时表示可变，为0时表示不可变。tcp/ip通常使用的窗口最大可达到65535字节，对于高速网络，该值可能太小，这时候如果启用了该功能，可以使tcp/ip滑动窗口大小增大数个数量级，从而提高数据传输的能力(RFC1323)。（对普通地百M网络而言，关闭会降低开销，所以如果不是高速网络，可以考虑设置为0 ）</p>
+<p>tcp_timestamps ：BOOLEAN
+缺省值为1
+Timestamps用在其它一些东西中﹐可以防范那些伪造的 sequence 号码。一条1G的宽带线路或许会重遇到带out-of-line数值的旧sequence 号码(假如它是由于上次产生的)。Timestamp 会让它知道这是个&rsquo;旧封包&rsquo;。(该文件表示是否启用以一种比超时重发更精确的方法（RFC1323）来启用对 RTT 的计算；为了实现更好的性能应该启用这个选项。)</p>
+<p>tcp_sack ：BOOLEAN
+缺省值为1
+使用 Selective ACK﹐它可以用来查找特定的遗失的数据报&mdash;因此有助于快速恢复状态。该文件表示是否启用有选择的应答（Selective Acknowledgment），这可以通过有选择地应答乱序接收到的报文来提高性能（这样可以让发送者只发送丢失的报文段）。(对于广域网通信来说这个选项应该启用，但是这会增加对CPU 的占用。)</p>
+<p>tcp_fack ：BOOLEAN
+缺省值为1
+打开FACK拥塞避免和快速重传功能。(注意，当tcp_sack 设置为0 的时候，这个值即使设置为1 也无效)</p>
+<p>tcp_dsack ：BOOLEAN
+缺省值为1
+允许TCP发送&rdquo;两个完全相同&rdquo;的SACK。</p>
+<p>tcp_ecn ：BOOLEAN
+缺省值为0
+打开TCP的直接拥塞通告功能。</p>
+<p>tcp_reordering ：INTEGER
+默认值是3
+TCP流中重排序的数据报最大数量 。 (一般有看到推荐把这个数值略微调整大一些,比如5 )</p>
+<p>tcp_retrans_collapse ：BOOLEAN
+缺省值为1
+对于某些有bug的打印机提供针对其bug的兼容性。(一般不需要这个支持,可以关闭它)</p>
+<p>tcp_wmem (3个INTEGER 变量)： min, default, max
+    min ：为TCP socket预留用于发送 缓冲 的内存最小值。每个tcp socket都可以在建议以后都可以使用它。默认值为4096(4K) 。
+default ：为TCP socket预留用于发送缓冲的内存数量，默认情况下该值会影响其它协议使用的net.core.wmem_default值，一般要低于net.core.wmem_default 的值。默认值为16384(16K) 。
+    max : 用于TCP socket发送缓冲的内存最大值。该值不会影响net.core.wmem_max，&rdquo;静态&rdquo;选择参数SO_SNDBUF则不受该值影响。默认值为131072(128K) 。（对于服务器而言，增加这个参数的值对于发送数据很有帮助,在我的网络环境中,修改为了51200 131072 204800）</p>
+<p>tcp_rmem (3个INTEGER 变量)： min , default , max</p>
+<pre><code>min ：为TCP socket预留用于接收缓冲 的内存数量，即使在内存出现紧张情况下tcp socket都至少会有这么多数量的内存用于接收缓冲，默认值为8K 。
+default ：为TCP socket预留用于接收缓冲的内存数量，默认情况下该值影响其它协议使用的net.core.wmem_default值。该值决定了在tcp_adv_win_scale、tcp_app_win 和tcp_app_win=0默认值情况下，TCP窗口大小为65535。默认值为87380
+max ：用于TCP socket接收缓冲的内存最大值。该值不会影响net.core.wmem_max，"静态"选择参数 SO_SNDBUF则不受该值影响。默认值为 128K 。默认值为87380*2 bytes。（可以看出，.max的设置最好是default的两倍,对于NAT来说主要该增加它,我的网络里为51200 131072 204800）
+</code></pre>
+<p>tcp_mem (3个INTEGER 变量)：low , pressure , high
+    low ：当TCP使用了低于该值的内存页面数 时，TCP不会考虑释放内存。(理想情况下，这个值应与指定给 tcp_wmem 的第 2 个值相匹配 - 这第 2 个值表明，最大页面大小乘以最大并发请求数除以页大小 (131072 * 300 / 4096 )。 )
+    pressure ：当TCP使用了超过该值的内存页面数量时，TCP试图稳定其内存使用，进入pressure模式，当内存消耗低于low值时则退出pressure状态。(理想情况下这个值应该是TCP 可以使用的总缓冲区大小的最大值 (204800 * 300 / 4096 )。 )
+    high ：允许所有tcp sockets用于排队缓冲数据报的页面量。(如果超过这个值，TCP 连接将被拒绝，这就是为什么不要令其过于保守 (512000 * 300 / 4096 ) 的原因了。</p>
+<p>在这种情况下，提供的价值很大，它能处理很多连接，是所预期的 2.5 倍；或者使现有连接能够传输 2.5 倍的数据。我的网络里为192000 300000 732000)一般情况下这些值是在系统启动时根据系统内存数量计算得到的。</p>
+<p>tcp_app_win : INTEGER
+默认值是31
+保留max(window/2^tcp_app_win, mss)数量的窗口由于应用缓冲。当为0时表示不需要缓冲。</p>
+<p>tcp_adv_win_scale : INTEGER
+默认值为2
+计算缓冲开销bytes/2^tcp_adv_win_scale(如果tcp_adv_win_scale &gt; 0)或者bytes-bytes/2^(-tcp_adv_win_scale)(如果tcp_adv_win_scale &lt;= 0）。</p>
+<p>tcp_rfc1337 :BOOLEAN
+缺省值为0
+这个开关可以启动对于在RFC1337中描述的&rdquo;tcp的time-wait暗杀危机&rdquo;问题的修复。启用后，内核将丢弃那些发往time-wait状态TCP套接字的RST包.</p>
+<p>tcp_low_latency: BOOLEAN
+缺省值为0
+允许 TCP/IP 栈适应在高吞吐量情况下低延时的情况；这个选项一般情形是的禁用。(但在构建Beowulf集群的时候,打开它很有帮助)</p>
+<p>tcp_westwood :BOOLEAN
+缺省值为0
+启用发送者端的拥塞控制算法，它可以维护对吞吐量的评估，并试图对带宽的整体利用情况进行优化；对于 WAN通信来说应该启用这个选项。</p>
+<p>tcp_bic :BOOLEAN
+缺省值为0
+为快速长距离网络启用 Binary Increase Congestion；这样可以更好地利用以 GB 速度进行操作的链接；对于WAN 通信应该启用这个选项。</p>
+      <a href="/2010/01/19/sysctl-about-tcp" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/01/13/refresh-cache-of-interrogation-url" title="squid刷新缓存" rel="bookmark">squid刷新缓存</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-01-13 00:00:00 +0800">13 Jan 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>这篇博文的起因是最近犯的一个低级错误。某客户要求立刻刷新掉一批url。格式是http://a.b.com/index.jsp?pid=123456&amp;id=654321这样的。
+我也没多想，上去就执行“squidclient -p 80  -m purge
+http://a.b.com/index.jsp?pid=123456&amp;id=654321”。结果硬是刷不掉……明明访问源站已经没有这个url了。我wget居然还能MISS/200~~~
+直到同事提醒。才赫然发现其实我一直在purge和wget的，不是http://a.b.com/index.jsp?pid=123456&amp;id=654321，而是http://a.b.com/index.jsp?pid=123456。linux把url里的&amp;当作后台运行的命令执行了……而access.log中为了安全又没记录?后的具体参数，于是傻傻的跟客户客服扯皮了N久……
+“squidclient -p 80  -m purge &lsquo;http://a.b.com/index.jsp?pid=123456&amp;amp;id=654321&rsquo;”这么一刷立刻就好了~~
+由此告诫自己，以后一定要严谨行事，引号最好还是要养成习惯都给带上~~</p>
+<p>以下具体总结摘录squid缓存刷新的几种办法，随便感谢百度，悼念谷歌：</p>
+<p>第一种——当squid的refresh_pattern未使用任何options，即squid缓存遵循http协议精神时有效。原理是模拟no-cache头的request（即ctrl+F5刷新）：
+【nnd，一帖就错误，单独放一个帖子，大家看下一贴吧】</p>
+<p>第二种，采用PURGE方式刷新，request的header如下：</p>
+<p>PURGE http://www.lrrr.org/junk HTTP/1.0
+Accept: <em>/</em></p>
+<p>脚本类似第一种方法，修改其中的HEAD为PURGE即可：</p>
+<p>$head = &ldquo;PURGE $url_component[&lsquo;path&rsquo;] HTTP/1.1\r\n&rdquo;;</p>
+<p>按照《squid中文权威指南》的说法，当squid收到purge指令的时候，也是采用head和get的方式去处理请求，然后找到cache的文件进行删除的。</p>
+<p>第三种，采用多播HTCP包。这是 MediaWiki 目前正在使用的方法，当wiki 更新时用于更新全球的 Squid缓存服务器，实现原理为：发送 PURGE 请求到特定的多播组，所有Squid服务器通过订阅该多播组信息完成删除操作，这种实现方式非常高效，避免了 Squid 服务器处理响应和建立 TCP连接的开销。参考资料： Multicast HTCP purging。</p>
+<p>第五种，小工具：<a href="http://www.wa.apana.org.au/~dean/squidpurge/">http://www.wa.apana.org.au/~dean/squidpurge/</a>
+wget http://www.wa.apana.org.au/~dean/sources/purge-20040201-src.tar.gz
+tar zxvf purge-20040201-src.tar.gz
+cd purge
+make
+./purge -help
+    ### Use at your own risk! No guarantees whatsoever. You were warned. ###
+    $Id: purge.cc,v 1.17 2000/09/21 10:59:53 cached Exp $
+    Usage: purge [-a] [-c cf] [-d l] [-(f|F) fn | -(e|E) re] [-ph[:p]]
+    [-P #] [-s] [-v] [-C dir [-H]] [-n]
+    -a display a little rotating thingy to indicate that I am alive
+    (tty only).
+    -c c squid.conf location, default
+    &ldquo;/usr/local/squid/etc/squid.conf&rdquo;.
+    -C dir base directory for content extraction (copy-out mode).
+    -d l debug level, an or of different debug options.
+    -e re single regular expression_r_r per -e instance (use
+    quotes!).
+    -E re single case sensitive regular expression_r_r like -e.
+    -f fn name of textfile containing one regular
+    expression_r_r per line.
+    -F fn name of textfile like -f containing case sensitive REs.
+    -H prepend HTTP reply header to destination files in copy-out
+    mode.
+    -n do not fork() when using more than one cache_dir.
+    -p h:p cache runs on host h and optional port p, default is
+    localhost:3128.
+    -P # if 0, just print matches; otherwise or the following purge
+    modes:
+    0x01 really send PURGE to the cache.
+    0x02 remove all caches files reported as 404 (not found).
+    0x04 remove all weird (inaccessible or too small) cache
+    files.
+    0 and 1 are recommended - slow rebuild your cache with other modes.
+    -s show all options after option parsing, but before really
+    starting.
+    -v show more information about the file, e.g. MD5, timestamps and
+    flags.</p>
+<p>使用示例：</p>
+<ol>
+  <li>清除URL中包含jackbillow.com的所有缓存
+ ./purge -p 127.0.0.1:80 -P 1 -se &lsquo;jackbillow.com&rsquo;</li>
+  <li>清除 URL 以“.mp3”结尾的缓存文件，例如：http://www.dzend.com/abc/test.mp3
+ ./purge -p 127.0.0.1:80 -P 1 -se &lsquo;.mp3$&rsquo;</li>
+</ol>
+<p>第五种，张宴的脚本clear_squid_cache.sh。（老小注：还是这个熟悉，呵呵）</p>
+<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/sh</span>
+<span class="nv">squidcache_path</span><span class="o">=</span><span class="s2">&quot;/data1/squid/var/cache&quot;</span>
+<span class="nv">squidclient_path</span><span class="o">=</span><span class="s2">&quot;/usr/local/squid/bin/squidclient&quot;</span>
+grep -a -r <span class="nv">$1</span> <span class="nv">$squidcache_path</span>/* | strings | grep <span class="s2">&quot;http:&quot;</span> | awk -F<span class="s1">&#39;http:&#39;</span> <span class="s1">&#39;{print &quot;http:&quot;$2;}&#39;</span> &gt;cache_list.txt
+<span class="k">for </span>url in <span class="sb">`</span>cat cache_list.txt<span class="sb">`</span>; <span class="k">do</span>
+    <span class="nv">$squidclient_path</span> -m PURGE -p 80 <span class="nv">$url</span>
+<span class="k">done</span>
+</code></pre></div>
+<p>据说：经测试，在DELL 2950上清除26000个缓存文件用时2分钟左右。平均每秒可清除缓存文件177个。
+看到了吧，网上流传的这个脚本里，$url也没有用&rdquo;&ldquo;引起来，所以用这个sh刷新的时候，也失败了……</p>
+      <a href="/2010/01/13/refresh-cache-of-interrogation-url" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/01/13/refresh-cache-by-php" title="刷新squid缓存的php脚本" rel="bookmark">刷新squid缓存的php脚本</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-01-13 00:00:00 +0800">13 Jan 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+<div class="highlight"><pre><code class="php"><span class="cp">&lt;?php</span>
+<span class="k">interface</span> <span class="nx">Flush_Cache</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">flush</span><span class="p">(</span><span class="nv">$url</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="k">class</span> <span class="nc">Flush_Cache_HTTP_Header_Impl</span> <span class="k">implements</span> <span class="nx">Flush_Cache</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">flush</span><span class="p">(</span><span class="nv">$url</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">if</span><span class="p">(</span><span class="k">empty</span><span class="p">(</span><span class="nv">$url</span><span class="p">))</span>
+        <span class="p">{</span>
+            <span class="k">return</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="nv">$url_component</span> <span class="o">=</span> <span class="nb">parse_url</span><span class="p">(</span><span class="nv">$url</span><span class="p">);</span>
+        <span class="k">global</span> <span class="nv">$g_squid_servers</span><span class="p">;</span>
+        <span class="k">foreach</span> <span class="p">(</span><span class="nv">$g_squid_servers</span> <span class="k">as</span> <span class="nv">$server</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="nv">$squid_params</span> <span class="o">=</span> <span class="nb">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span> <span class="p">,</span> <span class="nv">$server</span><span class="p">);</span>
+            <span class="nv">$fsocket</span> <span class="o">=</span> <span class="nb">fsockopen</span><span class="p">(</span><span class="nv">$squid_params</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">intval</span><span class="p">(</span><span class="nv">$squid_params</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="nv">$errono</span><span class="p">,</span> <span class="nv">$errstr</span><span class="p">,</span> <span class="mi">3</span><span class="p">);</span>
+            <span class="k">if</span><span class="p">(</span><span class="k">FALSE</span> <span class="o">!=</span> <span class="nv">$fsocket</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="nv">$head</span> <span class="o">=</span> <span class="s2">&quot;HEAD </span><span class="si">{</span><span class="nv">$url_component</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> HTTP/1.1rn&quot;</span><span class="p">;</span>
+                <span class="nv">$head</span> <span class="o">.=</span> <span class="s2">&quot;Accept: */*rn&quot;</span><span class="p">;</span>
+                <span class="nv">$head</span> <span class="o">.=</span> <span class="s2">&quot;Host: </span><span class="si">{</span><span class="nv">$url_component</span><span class="p">[</span><span class="s1">&#39;host&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">rn&quot;</span><span class="p">;</span>
+                <span class="nv">$head</span> <span class="o">.=</span> <span class="s2">&quot;Cache-Control: no-cachern&quot;</span><span class="p">;</span>
+                <span class="nv">$head</span> <span class="o">.=</span> <span class="s2">&quot;rn&quot;</span><span class="p">;</span>
+                <span class="k">echo</span> <span class="nv">$head</span><span class="p">;</span>
+                <span class="nb">fwrite</span><span class="p">(</span><span class="nv">$fsocket</span> <span class="p">,</span> <span class="nv">$head</span><span class="p">);</span>
+                <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="nb">feof</span><span class="p">(</span><span class="nv">$fsocket</span><span class="p">))</span>
+                <span class="p">{</span>
+                    <span class="nv">$line</span> <span class="o">=</span> <span class="nb">fread</span><span class="p">(</span><span class="nv">$fsocket</span> <span class="p">,</span> <span class="mi">4096</span><span class="p">);</span>
+                    <span class="k">echo</span> <span class="nv">$line</span><span class="p">;</span>
+                <span class="p">}</span>
+                <span class="nb">fclose</span><span class="p">(</span><span class="nv">$fsocket</span><span class="p">);</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="nv">$g_squid_servers</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;192.168.2.88:80&#39;</span><span class="p">);</span>
+<span class="nv">$flush_cache</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Flush_Cache_HTTP_Header_Impl</span><span class="p">();</span>
+<span class="nv">$flush_cache</span><span class="o">-&gt;</span><span class="na">flush</span><span class="p">(</span><span class="s1">&#39;http://ent.cdqss.com/index.html&#39;</span><span class="p">);</span>
+<span class="cp">?&gt;</span><span class="x"></span>
+</code></pre></div>
+      <a href="/2010/01/13/refresh-cache-by-php" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/01/10/zz-intro-acls-in-squid" title="Squid的ACL分类" rel="bookmark">Squid的ACL分类</a>
     </h1>
     <p class="alt-font tight">
@@ -1860,128 +2175,6 @@ msecs/first-response: 45.4883 mean, 287.113 max, 3.336 min
 <p>默认的Etag计算是：FileETag INode MTime Size，如果改全局，只要改成FileETag MTime Size就可以了。如果是下面的某一部分，则写成FileETag -INode也行。
 header信息就说到这里吧，最后提供一个<a href="http://en.wikipedia.org/wiki/List_of_HTTP_headers">wiki</a></p>
       <a href="/2009/11/21/intro-etag" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/21/intro-cache-object-size" title="cache驻留时间（六、大文件）" rel="bookmark">cache驻留时间（六、大文件）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-21 00:00:00 +0800">21 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>话说上回提到大文件下载，公司除了apache以外，有些也是用squid做的。这回说说这方面的设置。
-下载业务，首先要注意到的，第一是多线程，第二是断点续传。</p>
-<p>第一个参数：maximum_object_size——这个参数规定了squid能缓存的最大文件大小；
-第二个参数：range_offset_limit——这个参数规定了squid能预先读取的文件大小；
-第三个参数：quick_abort_(min|max|pct)——这几个参数规定了squid是否继续传输中断请求的文件；</p>
-<p>第一个参数很熟悉，就不用说了。</p>
-<p>第二个参数，squid的官方解释是：Sets a upper limit on how far into the the file a Range request may be to cause Squid to prefetch the whole file.</p>
-<p>也就是说这个参数当客户端请求的header中带有range标签时（也就是多线程下载），如果文件大小在这个参数的规定范围内，squid会预读取这段文件作为缓存。
-但是要注意了：如果你把range_offset_limit设的比maximum_object_size还大的话，squid按规则，会每次预读取完文件之后，再毫不犹豫的把它从cache里扔出去！！</p>
-<p>这还不算完…如果网民这个线程开的比较猛，并发上20个线程来下载，对于squid，它却只认其中一个最快的一个线程，也就是说很有可能在第一次缓存的时候，真正下载的流量，是文件大小的20倍，于是很大可能又超过了maximum_object_size，squid又毫不犹豫抛弃掉……带宽不是用来这么玩的呀~~其结果我们也看得到，那就是cacti上上窜下跳的流量图。</p>
-<p>第三个参数，当客户端中断请求后，squid会比对文件剩余部分的大小，如果小于min，就继续从源站下载；如果大于max，就放弃；如果达到了pct的比率，也继续——嗯，很像refresh_pattern的定义模式。</p>
-<p>【基本上就是这些，另外，和maximum_object_size相关的还有一个maximum_object_size_in_memory，也就是能缓存在内存里的大小。这是另一个方向，要是够狠，完全可以把squid全跑在mem里（&ndash;enable-storeio）把cache_dir设成null……】</p>
-<p>最后，如果修改了这些参数，对普通的小文件加速服务，会有一定的冲击，最好的办法，还是在后端的web架构上进行区分；其次，把squid进行区分，一部分专门跑下载，而其他的禁用掉range，向跑下载的邻居转发请求。不过sibling靠ICP获取一个列表的摘要，很可能假命中。这又需要对下载邻居进行详细限定，架构变得复杂无比。。。</p>
-      <a href="/2009/11/21/intro-cache-object-size" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/20/intro-expires-cache-control" title="cache驻留时间（三、Expires/Cache-Control）" rel="bookmark">cache驻留时间（三、Expires/Cache-Control）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-20 00:00:00 +0800">20 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>在谈cache的时候插入了上一篇回忆正则表达式的内容，是因为最近一个客户的古怪要求“url以/结尾或文件夹结尾的不能缓存”。</p>
-<p>惯常的要求，大多有.*/$的缓存或者不缓存，这个文件夹不带/的结尾，可就没见过了。</p>
-<p>思前想后，我觉得大概文件夹和文件的区别就是没有后缀名了吧。于是回忆了好一番正则表达式，最后写成下面那么一句：</p>
-<div class="highlight"><pre><code class="squid"><span class="k">acl</span><span class="w"> </span>test<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^&lt;a<span class="w"> </span>href=&quot;http://www.test.com/.*/[^.]*&quot;&gt;http://www.test.com/.*/[^.]*&lt;/a&gt;$<span class="w"></span>
-cache<span class="w"> </span><span class="no">deny</span><span class="w"> </span>test<span class="w"></span>
-</code></pre></div>
-<p>测试访问结果都是MISS/200——可惜还没高兴起来呢，赫然发现其header里写着：</p>
-<pre><code>Expires: Thu, 19 Nov 1981 08:52:00 GMT
-Cache-Control: no-store, no-cache, must-ridate, post-check=0,
-pre-check=0
-Pragma: no-cache
-</code></pre>
-<p>敢情MISS不是我的acl起作用了，是人家web端早就定义好了……
-转过头来，继续研究cache和header的关系。今天就看这个Expires、Cache-Control和Pragma：</p>
-<ul>
-  <li>
-    <p>Expires 申明文件的过期时间，比如这里申明的是1981年——默认不缓存的设置一般就是1981年；</p>
-  </li>
-  <li>
-    <p>Cache-Control 常见设定和说明见下图：
-<img src="/images/uploads/cache-control.jpg" alt="" />
-而且对于网民本地的浏览器来说，不同的操作，导致的结果也不同；</p>
-  </li>
-  <li>
-    <p>Pragma
-这个的说明不好找，大约是在HTTP1.0里使用的一种定义，我就见过no-cache一个选项，而且在HTTP1.1里，强烈警告不要使用这个标签。</p>
-  </li>
-</ul>
-<p>概念都复述完了，然后是办法：squid可以在refresh_pattern段里使用各种选项把这些header一一忽略，当然，这些个个都是有违http精神的做法~~除了上期提到的ignore-reload以外，还有：ignore-no-cache ignore-private ignore-no-store ignore-auth ignore-revalidate(这些对2.6都要打补丁，更高版本集成了)。
-这样的处理以后，关于客户端的网页缓存控制，就由web服务器对浏览器的If-Modified-Since进行判别控制了，可以说，除非是web方面有经验的做这方面的工作，不然的话，CDN上出错的概率很大……
-最后提一句：文前提到的这个客户，后来我居然发现他有个文件夹目录是http://www.test.com/update/v2.4，无语了，天知道还有什么别的稀奇古怪的目录命名……</p>
-      <a href="/2009/11/20/intro-expires-cache-control" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/19/use-awk-as-one-line-command" title="awk单行实践" rel="bookmark">awk单行实践</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-19 00:00:00 +0800">19 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>客户提交一份预加载文件列表，采用了如下格式：
-http://www.a.com/a/b/
-a b c d e f g
-h i j k l m n
-http://www.b.com/b/c/
-o p q r s t
-u v w x y z
-http://www.c.com/d/e
-http://www.d.com/f/g
-必须要把文件整理成完整的url，才好操作。
-最初的设想，是以带http开头的行为RS，以n为OFS，然后打印RS
-$0。随后发现这个想法问题多多——最主要的一点是：直接print $0的话，输出结果是不显示OFS的。
-然后我才想到用for循环打印所有列的话，默认就已经分行了，不用定义OFS和ORS。
-剩下的问题就是RS，然而不管我怎么写正则匹配表达式，结果都搞不定……唉
-最后只能放弃这个想法，采用比较繁琐的办法：</p>
-<p>awk -v RS=&rdquo;http&rdquo; &lsquo;{if($2==&rdquo;&rdquo;){print RS$1&gt;url}else{for(i=2;i&lt;=NF;i++){print RS$1$i&gt;url}}}&rsquo; URLFILE</p>
-<p>需要注意的一点，这里RS$1$i之间有没有空格（但不能是逗号）都不影响结果，但如果是{x=$1}{print RS x$i}的话，RS和x之间就必须有空格！
-这样5000个错乱的url，一敲回车就输出成一个url文件，列好了完整的url列表。然后for;do wget;done搞定预加载~~</p>
-      <a href="/2009/11/19/use-awk-as-one-line-command" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

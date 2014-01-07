@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>通过网页运行 Perl 代码的安全实现</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/tags.html">Tags</a></li>
+      	<li><a href="/archive.html">Archive</a></li>
+      	<li><a href="/categories.html">Categories</a></li>
+      	<li><a href="/pages.html">Pages</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>通过网页运行 Perl 代码的安全实现 <small></small></h1>
+    <div class="date"><span>05 January 2014</span></div>
+    <ul class="tag_box pull-right">
+    	<li><a href="/tags.html#perl-ref">perl <span>61</span></a></li>
+    	<li><a href="/tags.html#docker-ref">docker <span>1</span></a></li>
+    	<li><a href="/tags.html#javascript-ref">javascript <span>7</span></a></li>
+    </ul>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>这几天折腾<a href="http://www.perl-china.com">Perl中国用户组网站</a>，觉得类似 Ruby 的 tryruby，Scala 的 scala-tour 这样的新手入门教程非常好玩。于是准备自己也尝试一下。</p>
+<p>理论上，通过 Ajax 传递代码到服务器上，直接 <code>eval {}</code> 即可。不过这样会导致一个安全问题。如何防止用户执行错误代码导致严重后果呢？</p>
+<p>我想到了最近一直在跟踪看的 Docker 容器。如果我们把代码放在 Docker 里运行，不就不怕了么。</p>
+<p>首先要构建一个可以运行大多数示例代码的 Docker 镜像。</p>
+<h3 id="section">首先打开一个终端运行初始镜像：</h3>
+<div class="highlight"><pre><code class="bash"><span class="c"># docker run -i -t ubuntu /bin/sh</span>
+<span class="c"># apt-get install -y wget gcc make</span>
+<span class="c"># useradd tour</span>
+<span class="c"># echo &#39;tour hard nproc 8&#39; &gt;&gt; /etc/security/limits.conf</span>
+<span class="c"># wget http://cpanmin.us -O bin/cpanm</span>
+<span class="c"># cpanm List::AllUtils Moo Path::Tiny DBD::SQLite AnyEvent::HTTP DateTime</span>
+</code></pre></div>
+<h3 id="section-1">然后打开另一个终端保存前一个终端的变更：</h3>
+<div class="highlight"><pre><code class="bash"><span class="c"># docker ps</span>
+CONTAINER ID ...
+<span class="c"># docker commit &lt;ID&gt; perl-tour</span>
+</code></pre></div>
+<p>注意一定要在之前 <code>cpanm</code> 已经成功执行完毕后保存，但是前面登录进 docker 的会话千万不要退出，否则后面的 <code>docker ps</code> 就查看不到 id 了。退出时这些临时变更都毁掉了。</p>
+<p><strong>2014 年 1 月 7 日补充</strong></p>
+<p>被莫莫用死循环 <code>fork()</code> 轰炸了一回，发现 docker 容器的一个问题，容器技术本身没有对用户最大进程数的限制。因为其实际运行的是 <code>docker -d</code> 服务进程的子进程。</p>
+<p>直接在镜像里编辑 <code>/etc/security/limits.conf</code> 实测没有作用。而主机上限定普通用户的 nproc 也没用(因为普通用户运行不了 docker )。</p>
+<p>最后想到的办法，是启动 <code>docker -d</code> 的时候，先 <code>ulimit -HSu 16</code>，这样这个 docker 下一共也跑不了多少 fork 了。</p>
+<p>顺带提一句，查阅系统日志可以发现，在 fork 的时候，其实触发了主机的 OOM-killer，但是这个机制在死循环这个变态攻击下挽救不了主机……</p>
+<p><strong>END</strong></p>
+<p>现在我们已经有了一个安装好很多常用 CPAN 模块的镜像了。可以取构建网站了。</p>
+<p>网站里添加下面一段：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Dancer::Plugin::</span><span class="n">Ajax</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">File::</span><span class="n">Temp</span> <span class="sx">qw(tempfile)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">IPC::</span><span class="n">Run</span> <span class="sx">qw(run timeout)</span><span class="p">;</span>
+<span class="n">ajax</span> <span class="s">&#39;/run&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$code</span> <span class="o">=</span> <span class="n">param</span><span class="p">(</span><span class="s">&#39;code&#39;</span><span class="p">);</span>
+    <span class="k">my</span> <span class="nv">@cmd</span> <span class="o">=</span> <span class="sx">qw(docker run -m 128m -u tour -v /tmp/:/tmp:ro perl-tour perl)</span><span class="p">;</span>
+    <span class="k">my</span> <span class="p">(</span><span class="nv">$fh</span><span class="p">,</span> <span class="nv">$temp</span><span class="p">)</span> <span class="o">=</span> <span class="n">tempfile</span><span class="p">();</span>
+    <span class="nb">binmode</span><span class="p">(</span><span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;:utf8&#39;</span><span class="p">);</span>
+    <span class="k">print</span> <span class="nv">$fh</span> <span class="nv">$code</span><span class="p">;</span>
+    <span class="nb">push</span> <span class="nv">@cmd</span><span class="p">,</span> <span class="nv">$temp</span><span class="p">;</span>
+    <span class="n">run</span> <span class="o">\</span><span class="nv">@cmd</span><span class="p">,</span> <span class="o">\</span><span class="nv">$in</span><span class="p">,</span> <span class="o">\</span><span class="nv">$out</span><span class="p">,</span> <span class="o">\</span><span class="nv">$err</span><span class="p">,</span> <span class="n">timeout</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span> <span class="ow">or</span> <span class="n">debug</span><span class="p">(</span><span class="vg">$?</span><span class="p">);</span>
+    <span class="nb">unlink</span> <span class="nv">$temp</span><span class="p">;</span>
+    <span class="k">return</span> <span class="n">to_json</span><span class="p">({</span>
+        <span class="n">Errors</span> <span class="o">=&gt;</span> <span class="p">[</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/\n/</span><span class="p">,</span> <span class="nv">$err</span><span class="p">)</span> <span class="p">],</span>
+        <span class="n">Events</span> <span class="o">=&gt;</span> <span class="p">[</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/\n/</span><span class="p">,</span> <span class="nv">$out</span><span class="p">)</span> <span class="p">],</span>
+    <span class="p">});</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>页面上通过 Ajax 请求交互：</p>
+<div class="highlight"><pre><code class="javascript">  <span class="nx">$</span><span class="p">.</span><span class="nx">ajax</span><span class="p">(</span><span class="s2">&quot;/run?code=&quot;</span> <span class="o">+</span> <span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">codeStr</span><span class="p">),</span> <span class="p">{</span>
+    <span class="nx">type</span><span class="o">:</span> <span class="s2">&quot;GET&quot;</span><span class="p">,</span>
+    <span class="nx">dataType</span><span class="o">:</span> <span class="s2">&quot;json&quot;</span><span class="p">,</span>
+    <span class="nx">success</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+      <span class="p">}</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nx">data</span><span class="p">.</span><span class="nx">Errors</span> <span class="o">&amp;&amp;</span> <span class="nx">data</span><span class="p">.</span><span class="nx">Errors</span><span class="p">.</span><span class="nx">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">setOutput</span><span class="p">(</span><span class="nx">outputDiv</span><span class="p">,</span> <span class="kc">null</span><span class="p">,</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">data</span><span class="p">.</span><span class="nx">Errors</span><span class="p">);</span>
+        <span class="k">return</span><span class="p">;</span>
+      <span class="p">}</span>
+      <span class="nx">setOutput</span><span class="p">(</span><span class="nx">outputDiv</span><span class="p">,</span> <span class="nx">data</span><span class="p">.</span><span class="nx">Events</span><span class="p">,</span> <span class="nx">data</span><span class="p">.</span><span class="nx">ErrEvents</span><span class="p">,</span> <span class="kc">false</span><span class="p">);</span>
+    <span class="p">},</span>
+    <span class="nx">error</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+      <span class="nx">outputDiv</span><span class="p">.</span><span class="nx">addClass</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">).</span><span class="nx">text</span><span class="p">(</span>
+        <span class="s2">&quot;Error communicating with remote server.&quot;</span><span class="p">);</span>
+    <span class="p">}</span>
+  <span class="p">});</span>
+</code></pre></div>
+<p>静态页面部分严重参考了 Scala 的 Tour 页。趁机学习了 impress.js 制作幻灯片效果、codemirror 实现代码高亮效果。</p>
+<p>最终效果见 <a href="http://www.perl-china.com/tour.html">少年 Perl 的魔法世界</a>。欢迎大家莅临指导~</p>
+<p>最后，阅读了 Golang Tour 关于 <a href="http://play.golang.org">Go Playground</a> 的原理说明，发现它们是在 Google App Engine 上运行实例，然后走消息队列把代码发送给后台实例运行结果。</p>
+<p>当然，Go Playground 不单单是支持 Tour，而且还包括社区各式第三方模块的测试和使用。把角色拆分出来也是正常的。</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2014/01/05/future-with-anyevent" title="Future模块和AnyEvent事件驱动的结合">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next"><a href="/2014/01/06/staticperl-and-upx" title="利用 staticperl 和 upx 生成 单个可执行 perl">Next &rarr;</a></li>
+      </ul>
+    </div>
+    <hr>
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li><a href="/2014/01/06/staticperl-and-upx">利用 staticperl 和 upx 生成 单个可执行 perl</a></li>
+                 <li><a href="/2014/01/05/future-with-anyevent">Future模块和AnyEvent事件驱动的结合</a></li>
+                 <li><a href="/2013/12/31/report-of-this-year">2013 年度个人总结</a></li>
+                 <li><a href="/2013/12/09/draw-charts-of-bitcoin">为比特币绘制 MACD、BOLL、KDJ 指标图</a></li>
+                 <li><a href="/2013/12/09/add-mailinglist-command-to-gitolite">为 gitolite 实现 mailinglist 命令行操控</a></li>
+                 <li><a href="/2013/11/04/puppet-class-parameter">Puppet 的类参数传递</a></li>
+                 <li><a href="/2013/11/04/perl-unpack-tongdaxin">用 Perl 读取通达信日线数据</a></li>
+                 <li><a href="/2013/10/26/selinux-affect-to-apache-documentroot">selinux 对 webserver 文件发布的影响</a></li>
+                 <li><a href="/2013/10/25/intro-plenv">用 plenv 代替 perlbrew 管理 Perl5</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(英文)</li>
+              <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+              <li><a href="http://blog.dotcloud.com/" title="dotCloud 官方博客">dotCloud-Blog</a></li>
+              <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+              <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+              <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+              <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+              <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+              <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+              <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+              <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+              <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+              <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+              <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+              <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(中文)</li>
+              <li><a href="http://www.icylife.net/blog/" title="">心路</a></li>
+              <li><a href="http://dbahacker.com/" title="TB 杨德华">DBA Hacker</a></li>
+              <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+              <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+              <li><a href="http://blog.laird-sa.com/" title="">Laird-SA</a></li>
+              <li><a href="http://www.linuxsee.com/" title="">LinuxSEE</a></li>
+              <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+              <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+              <li><a href="http://www.puppeter.cn/" title="">piol</a></li>
+              <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+              <li><a href="http://www.sanote.org/" title="">sa note</a></li>
+              <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
+              <li><a href="http://julyclyde.org/" title="新浪系统工程师">七月的夏天</a></li>
+              <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+              <li><a href="http://blog.s135.com/" title="金山·张宴">回忆未来</a></li>
+              <li><a href="http://blog.ops.tudou.com/wp/" title="">土豆运营团队</a></li>
+              <li><a href="http://www.91tuanfang.com/" title="安居客运维">家欣的天空</a></li>
+              <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+              <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+              <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+              <li><a href="http://www.wenzizone.cn/" title="">蚊子世界</a></li>
+              <li><a href="http://www.opboy.com" title="">运维小子</a></li>
+              <li><a href="http://blog.liuts.com/" title="前天涯SA 刘天斯">运维进行时</a></li>
+              <li><a href="http://www.lark.net.cn/" title="lark's cloud">lark's cloud</a></li>
+              <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+              <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+              <li><a href="http://l09.me/" title="风声">风声</a></li>
+              <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+              <li><a href="http://mooser.me/" title="牛氓">牛氓</a></li>
+              <li><a href="http://http://www.yinwang.org/" title="当然我在扯淡">当然我在扯淡</a></li>
+              <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+              <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+              <li><a href="http://muxueqz.laou.me" title="muxueqz">聊逍遥兮容与</a></li>
+              <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+              <li><a href="http://paperplane.ruhoh.com/" title="深入研究puppet">纸飞机</a></li>
+              <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+              <li><a href="http://blog.sectop.org/" title="">kindle</a></li>
+              <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+          </ul>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>

@@ -43,6 +43,154 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/11/24/learning-weathermap-cacti-plugin-1" title="weathermap-cacti-plugin学习(1)" rel="bookmark">weathermap-cacti-plugin学习(1)</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-11-24 00:00:00 +0800">24 Nov 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>weathermap是一个利用php的gd库画图的程序，它可以自主运行，但更多情况下是作为cacti等监控工具的插件，通过rra数据库获取数据完成绘图。其官网地址如右：<a href="http://www.network-weathermap.com">http://www.network-weathermap.com</a></p>
+<p>正常情况下，其link的color是由浅到深，当链路接近满载时，显示为鲜红色~然而这个设定遗漏了一个更加严重的情况——链路中断！在完全没有流量的情况下，weathermap应该会按照默认的0%处理——显示为白色（有+1的黑色边框）。</p>
+<p>当然，这么可怕的事情，肯定会有多种手段来完成报警，不至于靠人眼盯着weathermap来汇报。但毕竟算是个功能上的缺失。</p>
+<p>很巧，在zenoss（和cacti类似的另一款监控软件）的wiki上，看到有网友修改的perl版的weathermap，网址如右：<a href="http://community.zenoss.org/docs/DOC-2543">http://community.zenoss.org/docs/DOC-2543</a>。其配置文件中的WIDTH标签，比php的多出了&lt;%status-width(device name,component name)%&gt;配置，其解释说“draw link with width 0 if it is down otherwise draw it with width_ok width”。相关代码如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">while</span><span class="p">(</span><span class="nv">$line</span><span class="o">=~</span><span class="sr">m/&lt;%status-width([^%]+)%&gt;/</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="k">my</span> <span class="nv">$tmp</span><span class="p">;</span>
+<span class="nv">$tmp</span><span class="o">=</span><span class="nv">$1</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$res</span><span class="p">;</span>
+<span class="c1">#WidthIfOK, device, port</span>
+<span class="k">if</span> <span class="p">(</span><span class="nv">$tmp</span><span class="o">=~</span><span class="sr">m/\((.+),(.+),(.+)\)/</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="k">my</span> <span class="nv">$url</span><span class="o">=</span><span class="n">get_device_url</span><span class="p">(</span><span class="nv">$2</span><span class="p">);</span>
+<span class="nv">$res</span><span class="o">=</span><span class="n">get_port_status</span><span class="p">(</span><span class="s">&quot;$url/$3&quot;</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">(</span><span class="nv">$res</span><span class="o">==</span><span class="mi">1</span><span class="p">)</span> <span class="c1">#OK</span>
+<span class="p">{</span>
+<span class="nv">$res</span><span class="o">=</span><span class="nv">$1</span><span class="p">;</span> <span class="c1">#default width</span>
+<span class="p">}</span>
+<span class="k">else</span>
+<span class="p">{</span>
+<span class="nv">$res</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="p">}</span>
+<span class="k">else</span>
+<span class="p">{</span>
+<span class="nb">die</span> <span class="p">(</span><span class="s">&quot;Bad format $line&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="k">if</span> <span class="p">(</span><span class="nv">$line</span><span class="o">!~</span><span class="sr">s/&lt;%status-width([^%]+)%&gt;/$res/</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="nb">die</span> <span class="p">(</span><span class="s">&quot;Error 1&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>思路是通过wget数据获取状态，一旦错误就至width为0，否则读取正常设定值绘图。</p>
+<p>在原版的php中相关部分如下：</p>
+<div class="highlight"><pre><code class="php"><span class="x">if (preg_match(&quot;/^\s*WIDTH\s+(\d+)\s*$/i&quot;, $buffer, $matches))</span>
+<span class="x">{</span>
+<span class="x">if ($last_seen == &#39;LINK&#39;)</span>
+<span class="x">{</span>
+<span class="x">$curlink-&gt;width=$matches[1];</span>
+<span class="x">$linematched++;</span>
+<span class="x">}</span>
+<span class="x">else // we&#39;re talking about the global WIDTH</span>
+<span class="x">{</span>
+<span class="x">$this-&gt;width=$matches[1];</span>
+<span class="x">$linematched++;</span>
+<span class="x">}</span>
+<span class="x">}</span>
+</code></pre></div>
+<p>显然只要在这里加上一个else{}就可以了。</p>
+<p>至于如何判定链路中断，有待继续学习~是外挂一个ping？或者读取rra中的数值？下一步先看懂Weathermap.class.php是怎么读取rra数值的吧~</p>
+<p>（题外话，在baidu该字眼的第一页结果，看到中南民族大学的校园网cacti页面。他们居然开放匿名访问，甚至settings都能点开，无语~网址如右：<a href="http://210.42.159.3/cacti/plugins/weathermap/weathermap-cacti-plugin.php">http://210.42.159.3/cacti/plugins/weathermap/weathermap-cacti-plugin.php</a>）</p>
+      <a href="/2010/11/24/learning-weathermap-cacti-plugin-1" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/11/22/pureftpd-problem-about-symbolic-links" title="ftp中的软连接问题" rel="bookmark">ftp中的软连接问题</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-11-22 00:00:00 +0800">22 Nov 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>数据临时迁移，为了尽量不影响业务，创建了一个软连接。不料pureftpd出了一点小问题。</p>
+<p>当ln -s /text /www/text的时候，如果pureftpd.passwd中指定的是/www/text，访问没有问题；如果是/www的话，再cd text会出问题。</p>
+<p>搞怪的是，text1出的报错是Too many levels of symbolic links，而text2出的报错是No such file or directory……</p>
+<p>进pureftpd的src里看./configure &ndash;help，看到如下一行：</p>
+<p>&ndash;with-virtualchroot    Enable the ability to follow symlinks outside a chroot jail</p>
+<p>以前的编译，都只用了&ndash;with-everything       Build a big server with almost everything</p>
+<p>看来almost里还真就不包括virtualchroot……</p>
+<p>重新编译pureftpd，加上了virtualchroot参数。然后cp原ftp的pdb过来，启动一试，OK~</p>
+      <a href="/2010/11/22/pureftpd-problem-about-symbolic-links" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/11/19/intro-sersync2-5" title="sersync2.5试用~" rel="bookmark">sersync2.5试用~</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-11-19 00:00:00 +0800">19 Nov 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>之前采用 inotify-tools 来触发 purge，实际运行中碰上一些问题：</p>
+<p>1、因为一个文件的更新，可能伴随着 <code>create</code>、<code>modify</code>、<code>close_write</code> 等等过程，而文件稍大一些，甚至就有连续的 <code>modify</code> 出现。于是一个文件的更新，通过管道发送的 purge 请求经常可以看到三四个！如果量不大的情况下，倒也没什么，可如果更新比较频繁的情况下，再翻上三四倍，任务就比较拥挤了。</p>
+<p>2、cms 程序通常是通过 ftp 等方式，将页面上传的文件 move 到指定位置。而 ftp 本身在接受过程中也会产生名叫 <code>.pureftpd-upload.****</code> 的临时文件。</p>
+<p>第二个倒可以在管道后面再 grep 一次解决，但第一个问题在管道这种流形式的简单处理中就没办法了。预想了几个办法，先一个是记录日志，然后每次管道接受时比对日志中最近十条是否有重复，不过这么频繁的读写日志文件，也会很郁闷~；后一个是把日志文件转进内存去，即管道获取的信息 push 进一个 hash，然后 sleep 后再 poll 这个 hash 出来，不过 shell 没有 hash，就得把简单的 shell 重写成比较复杂的 perl 了……</p>
+<p>今天刚想起来半年前曾经看到过金山逍遥运维部开源的一个项目，也是基于 inotify 完成的。去翻来看看，很好很强大，感觉完全能满足我目前的想法。</p>
+<p>项目网址：<a href="http://code.google.com/p/sersync/">http://code.google.com/p/sersync/</a></p>
+<p>提供了 bin 和 src 两个版本，直接下 bin 来用：</p>
+<div class="highlight"><pre><code class="bash">wget http://sersync.googlecode.com/files/sersync2.5_64bit_binary_stable_final.tar.gz
+tar zxvf sersync2.5_64bit_binary_stable_final.tar.gz
+<span class="nb">cd </span>GNU-Linux-x86/
+</code></pre></div>
+<p>很简单，只有两个文件，一个是程序，一个是 xml 配置文件。配置包括 debug 模式、xfs 支持、过滤器配置（默认已过滤<code>^.</code>和<code>~$</code>）、inotify 监听（推荐是创建目录、完成输入和移动）、本地监听路径和 rsync 远程主机（ip，rsync 模块名、用户名密码）、失败重试及日志、多次失败后的定时任务、插件（通过socket 向远程主机传输 inotify 日志、通过 http 向 cdn 的 api 发送 purge 请求、调用外部命令处理文件）。</p>
+<p>本来直接就有 purge 功能，可惜我的环境下域名比较多，目前的功能上只能对 url 做 regex，不能反引用到 domain 上。所以是写个 shell，然后采用 command 插件传递参数~</p>
+<p>先最简单的实验，写个write.sh如下：</p>
+<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/sh</span>
+<span class="nb">echo</span> <span class="nv">$1</span> &gt;&gt; <span class="nv">$0</span>.log
+</code></pre></div>
+<p>然后修改xml如下句：</p>
+<div class="highlight"><pre><code class="xml">    <span class="nt">&lt;param</span> <span class="na">prefix=</span><span class="s">&quot;GNU-Linux-x86/write.sh&quot;</span> <span class="na">suffix=</span><span class="s">&quot;&quot;</span> <span class="na">ignoreError=</span><span class="s">&quot;true&quot;</span><span class="nt">/&gt;</span>
+</code></pre></div>
+<p>运行 <code>GNU-Linux-x86/sersync2 -d -m command</code> 即可后台运行 command 插件且不启用 rsync。</p>
+<p>然后 <code>tailf write.sh.log</code> 看，果然每条 url 都不重复了~~</p>
+<p>（看了作者周洋的 blog，其中提到文件如果比较大，更新完成时间超过一定值，也会导致队列重复，我猜估计思路和我的第二种想法应该是类似的。）</p>
+<p>另，<code>sersync -h</code> 可以看到其固定修改 sysctl 如下：</p>
+<div class="highlight"><pre><code class="bash"><span class="nb">echo </span>50000000 &gt; /proc/sys/fs/inotify/max_user_watches
+<span class="nb">echo </span>327679 &gt; /proc/sys/fs/inotify/max_queued_events
+</code></pre></div>
+<p>据周洋的说法是 inotify 最多只能监听到五千万个文件夹~~在我的环境下，1300 万 inode，add watch 就花了1个多小时……</p>
+      <a href="/2010/11/19/intro-sersync2-5" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/11/18/template-problem-of-pnp4nagios-2" title="pnp4nagios的模板问题(2)" rel="bookmark">pnp4nagios的模板问题(2)</a>
     </h1>
     <p class="alt-font tight">
@@ -2565,136 +2713,6 @@ echo $c | cut -c $b-$d</p>
 <p>GNU下的expr substr和awk的substr函数一样，都是从$b位开始，截取$d位数的字符子串；而cut命令则是从$b位开始截取到$d位为止的字符子串。</p>
 <p>其实cut这种方法才是最符合前面的length的，不过substr的时候，位数多设一些，也不影响结果~~</p>
       <a href="/2010/08/25/string-operator-on-bsd" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/08/24/received-a-mail-from-jwplayer" title="收到jwplayer的推广邮件" rel="bookmark">收到jwplayer的推广邮件</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-08-24 00:00:00 +0800">24 Aug 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>在做CDN的时候，曾经有一个客户加速视频播放，所以去注册下载了JWPlayer尝尝鲜。
-转眼几个月了，今天突然收到一封信，《Introducing Open Video Ads》，原来是JWPlayer的开发者，新出的基于GPL3的一个开源插件，可以在jwplayer和flowplayer播放正式视频前，插播一段自定义广告~~
-记得离职前还有同事专门在研究如何在播放rtmp流时切换插播广告，不知道现在搞定没。
-不过，这还是我第一次收到开源软件开发者推广自己软件的邮件。。。</p>
-      <a href="/2010/08/24/received-a-mail-from-jwplayer" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/08/24/intro-pmap" title="pmap命令" rel="bookmark">pmap命令</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-08-24 00:00:00 +0800">24 Aug 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>继pgrep之后，又发现一个pmap命令，有些不错的小作用~
-比方说，用pgrep java得出pid后，用pmap $pid，得出输出结果如下：</p>
-<pre><code>23792:   /usr/java/jdk1.5.0_14/bin/java -Djava.util.logging.manager=com.caucho.log.LogManagerImpl -Djava.system.class.loader=com.caucho.loader.SystemClassLoader -Djavax.management.builder.initial=com.caucho.jmx.MBeanServerBuilderImpl -Djava.awt.headless=true -Dresin.home=/usr/local/resin3.1.8-rtuku/ -Xmx256m -Xss1m -Xdebug -Dcom.sun.management.jmxremote -Djava.util.logging.manager=com.caucho.log.LogManagerImpl -Djavax.management.builder.initial=com.caucho.jmx.MBeanServerBuilderImpl -Djava.awt.headless=true -Dresin.
-0028f000     72K r-x--  /lib/libnsl-2.3.4.so
-002a1000      8K rwx--  /lib/libnsl-2.3.4.so
-002a3000      8K rwx--    [ anon ]
-0031c000     84K r-x--  /lib/ld-2.3.4.so
-00331000      4K r-x--  /lib/ld-2.3.4.so
-00332000      4K rwx--  /lib/ld-2.3.4.so
-0033a000   1172K r-x--  /lib/tls/libc-2.3.4.so
-0045f000      4K r-x--  /lib/tls/libc-2.3.4.so
-00460000     12K rwx--  /lib/tls/libc-2.3.4.so
-00463000      8K rwx--    [ anon ]
-00467000    132K r-x--  /lib/tls/libm-2.3.4.so
-……
-b7f50000      4K rwx--    [ anon ]
-b7f51000      4K r-x--    [ anon ]
-b7f52000      4K r-x--    [ anon ]
-bfcf1000     12K -----    [ anon ]
-bfcf4000   1012K rwx--    [ stack ]
-total   652340K
-</code></pre>
-<p>从中可以看出来加载的所有so和线程堆栈用掉的内存。据称，当anon在512K-4M之间的超过上千个的时候，可能就是在多线程上有问题了。</p>
-<p>还有一个用途，比较偏门的。
-比如一个squid服务器，前人直接cd进目录，然后./squid启用的服务。那怎么去知道这个squid到底在那个目录里呢？（尤其是发现惯用的/usr/local下哗哗的摆着五个squid目录……）</p>
-<p>现在只要pmap 一下，第一条就给出了全路径。哈哈~~</p>
-      <a href="/2010/08/24/intro-pmap" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/08/24/inotifypurge_cache" title="inotify+purge_cache" rel="bookmark">inotify+purge_cache</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-08-24 00:00:00 +0800">24 Aug 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>linux内核从2.6.13开始，加入了inotify特性。对目录、文件的各种修改，都会发出inotify信号。包括
-    IN_ACCESS
-    IN_MODIFY
-    IN_ATTRIB
-    IN_CLOSE_WRITE
-    IN_CLOSE_NOWRITE
-    IN_OPEN
-    IN_MOVED_FROM
-    IN_MOVED_TO
-    IN_CREATE
-    IN_DELETE
-    IN_DELETE_SELF
-    IN_MOVE_SELF
-    IN_UNMOUNT
-    IN_CLOSE
-    IN_MOVE
-目前最常见的inotify应用，就是和rsync配合进行实时同步。
-而对web发布路径进行inotify监听的话，可以实时PURGE掉前端cache，保证网民访问的实效性。内容更新周期不固定的一些网站，大可以设定长一些的expires（也不要太长，不然浏览器端本身的缓存影响比较大），然后通过inotify监听来强制控制缓存时间，应该是比较有效果的。
-最早的思路，先用perl的Linux::Inotify模块watch目录，read出每次event的name；再用IO::Socket模块向squid发送&rdquo;PURGE $url HTTP/1.0\n\n&rdquo;请求，最后用WWW::Curl::Form模块POST数据到CDN的刷新接口。洋洋洒洒好几十行后，发现利用inotify-tools、curl、squidclient等现成的工具，写成的shell脚本更加简单而且方便。
-先修改squid.conf，添加web服务器ip的purge权限，重读配置；
-在web服务器上，从sourceforge下载inotify-tools源码编译：wget http://github.com/downloads/rvoicilas/inotify-tools/inotify-tools-3.14.tar.gz &amp;&amp; tar zxf inotify-tools-3.14.tar.gz &amp;&amp; cd inotify-tools-3.14 &amp;&amp; ./configure &ndash;prefix=/usr &amp;&amp; make &amp;&amp; make install
-从squid上scp /usr/local/squid/bin/squidclient 到web服务器上；
-要是没有curl的话，yum install一个。
-最后创建inotify-purge.sh脚本如下：</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
-<span class="nv">WEB_DIR</span><span class="o">=</span>/path/to/example
-<span class="nv">IPLIST</span><span class="o">=</span><span class="s2">&quot;1.2.3.4</span>
-<span class="s2">1.2.3.5</span>
-<span class="s2">1.2.3.6</span>
-<span class="s2">1.2.3.7</span>
-<span class="s2">1.2.3.8</span>
-<span class="s2">&quot;</span>
-inotifywait -mrq --format <span class="s1">&#39;%f&#39;</span> -e modify,delete,create,move <span class="k">${</span><span class="nv">WEB_DIR</span><span class="k">}</span> | <span class="k">while </span><span class="nb">read </span>file
-<span class="k">do</span>
-<span class="k">    </span><span class="nv">PURGE_URL</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="s2">&quot;http://dvs.china.com/$file&quot;</span><span class="sb">`</span>
-    <span class="k">for </span>i in <span class="nv">$IPLIST</span>;<span class="k">do</span>
-        /home/tools/squidclient -p 80 -h <span class="nv">$i</span> -m purge <span class="s2">&quot;$PURGE_URL&quot;</span>
-    <span class="k">done</span>
-<span class="k">    </span>curl -s -d <span class="s2">&quot;username=test&amp;amp;password=123456&amp;amp;type=1&amp;amp;url=$PURGE_URL&quot;</span> http://pushwt.dnion.com/cdnUrlPush.do
-<span class="k">done</span>
-</code></pre></div>
-      <a href="/2010/08/24/inotifypurge_cache" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

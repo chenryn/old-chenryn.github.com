@@ -43,6 +43,213 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2009/11/03/tcpwrapper" title="tcpwrapper" rel="bookmark">tcpwrapper</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>今天去新浪面试。有一道笔试题，考的是tcpwrapper的用法。因为没见过这个东东，所以百度一下，选几篇文章总结一下。</p>
+<p>首先，tcpwrapper是unix上的工具，1990年就诞生了。至于它和iptables的不同，看到有人说是TCP/IP层的不同。说iptables是网络层的，tcpwrapper是应用层的。对不对，且看tcpwrapper的使用先：</p>
+<ol>
+  <li>
+    <p>部署：首选当然是用安装包，要是编译源码，参见如下文：http://echo.sharera.com/blog/BlogTopic/9379.htm，虽然作者说自己笨笨的乱写，那也比我强多了</p>
+  </li>
+  <li>
+    <p>开启日志：在/etc/syslog.conf里添加如下字段即可</p>
+  </li>
+</ol>
+<p>tcpwrapper loglocal3.info /var/log/tcplog</p>
+<p>这个时候要记得重启日志服务。可以使用kill -HUP syslogd进程号的方法（nnd，这也是今天的笔试题之一）。</p>
+<ol>
+  <li>配置文件：/etc/hosts.allow</li>
+</ol>
+<p>（本来还有个hosts.deny的）
+编写规则是“servicename:hostname[:shellcmd]”</p>
+<p>tcpwrapper监控的是inetd里的启动服务，用telnet举例如下</p>
+<div class="highlight"><pre><code class="bash">telnet:ALL
+EXCEPT LOCAL, .M-gtuiw.com
+<span class="nb">echo</span> <span class="s2">&quot;request from %d@%h:&quot;</span> &gt;&gt; /var/log/telnet.log;
+<span class="k">if</span> <span class="o">[</span> %h !<span class="o">=</span> <span class="s2">&quot;OS.M-gtuiw.com:&quot;</span> <span class="o">]</span> ; <span class="k">then</span>
+<span class="k">    </span>finge -l @%h &gt;&gt; /var/log/telnet.log
+<span class="k">fi</span>
+</code></pre></div>
+<p>意即允许除了本机和M-gtuiw.com域下主机以外的所有telnet请求，并以“请求来自服务名@主机名”的方式记录进日志。（注意：EXCEPT也可以用在servicename后面）</p>
+<p>和iptables一样（好像说反了，其实应该是iptables和tcpd一样），这个allow和deny的规则也是讲究先来后到的，所以会有个ALL:ALL:deny收尾（如果单有deny文件，就在里头写ALL:ALL就可以了）。</p>
+<ol>
+  <li>调试</li>
+</ol>
+<p>tcpdchk -v可以看到tcpd的全部规则设置和错误提示
+tcpdmatch servicename hostname可以具体查询某条规则</p>
+<ol>
+  <li>inetd服务配置</li>
+</ol>
+<p>相关的有两个文件，一个是/etc/services，这里定义了各种服务使用的协议和占用的端口（本文中出现的第三个新浪笔试考题了哦~~）；一个是/etc/inetd.conf，这里定义了各项服务的类型、协议、监听方式、用户、程序、参数——如果启用tcpwrapper的话，程序就都是/usr/sbin/tcpd了。比如telnet的配置行如下：</p>
+<p>telnet    stream    tcp    nowait    root    /usr/sbin/tcpd    in.telnetd</p>
+<ol>
+  <li>日志结果，直接摘抄一段如下：</li>
+</ol>
+<div class="highlight"><pre><code class="bash">Jul 31 22:00:52 <span class="o">[</span>url<span class="o">]</span>www.test.org<span class="o">[</span>/url<span class="o">]</span> in.telnetd<span class="o">[</span>4365<span class="o">]</span>: connect from 10.68.32.1
+Jul 31 22:02:10 <span class="o">[</span>url<span class="o">]</span>www.test.org<span class="o">[</span>/url<span class="o">]</span> in.telnetd<span class="o">[</span>4389<span class="o">]</span>: connect from 10.68.32.5
+Jul 31 22:04:58 <span class="o">[</span>url<span class="o">]</span>www.test.org<span class="o">[</span>/url<span class="o">]</span> in.ftpd<span class="o">[</span>4429<span class="o">]</span>: connect from 10.68.32.3
+</code></pre></div>
+<p>以上说了这么多，都是unix上的，最后来一句，在linux上，xinetd就是这个inetd+tcpwrapper了。何况还有强大的iptables……它可不像tcpwrapper只能管tcp协议的服务哦~~</p>
+<p>参考文章：</p>
+<p><a href="http://jianjian.blog.51cto.com/35031/41949">http://jianjian.blog.51cto.com/35031/41949</a>
+<a href="http://echo.sharera.com/blog/BlogTopic/9379.htm">http://echo.sharera.com/blog/BlogTopic/9379.htm</a>
+<a href="http://blog.chinaunix.net/u/26264/showart_971334.html">http://blog.chinaunix.net/u/26264/showart_971334.html</a>
+http://www.linuxdiyf.com/viewarticle.php?id=18335</p>
+      <a href="/2009/11/03/tcpwrapper" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2009/11/03/some-useful-shell-techniques" title="shell处理技巧" rel="bookmark">shell处理技巧</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>脚本经常用的上，但老是记不住的一些东西：</p>
+<p>一、逻辑运算</p>
+<pre><code>eq 相等
+ne、neq 不相等
+gt 大于
+lt 小于
+gte、ge 大于等于
+lte、le 小于等于
+not 非
+mod 求模
+is [not] div by 是否能被某数整除
+is [not] even 是否为偶数
+is [not] odd 是否为奇数
+-a  存在则为真
+-b  存在且是一个块特殊文件则为真
+-c  存在且是一个字特殊文件则为真
+-d  存在且是一个目录则为真
+-e  存在则为真
+-f  存在且是一个普通文件则为真
+-g  存在且已经设置了SGID则为真
+-h  存在且是一个符号连接则为真
+-k  存在且已经设置了粘制位则为真
+-p  存在且是一个名字管道(F如果O)则为真
+-r  存在且是可读的则为真
+-s  存在且大小不为0则为真
+-t  打开且指向一个终端则为真
+-u  存在且设置了SUID则为真
+-w  存在且是可写的则为真
+-x  存在且是可执行的则为真
+-O  存在且属有效用户ID则为真
+-G  存在且属有效用户组则为真
+-L  存在且是一个符号连接则为真
+-N  存在 and has been mod如果ied since it was last
+read则为真
+-S  存在且是一个套接字则为真
+</code></pre>
+<p>二、特殊变量</p>
+<pre><code>$# 传递到脚本的参数个数
+$* 以一个单字符串显示所有向脚本传递的参数。与位置变量不同，此选项参数可超过9个
+$$ 脚本运行的当前进程ID号
+$! 后台运行的最后一个进程的进程ID号
+$@ 与$#相同，但是使用时加引号，并在引号中返回每个参数
+$- 显示shell使用的当前选项，与set命令功能相同
+$? 显示最后命令的退出状态。0表示没有错误，其他任何值表明有错误
+$((...)) 对括号内的表达式求值
+</code></pre>
+<p>三、打印格式</p>
+<table>
+  <tbody>
+    <tr>
+      <td>free -m</td>
+      <td>awk &lsquo;/Mem/{printf &ldquo;%.0fn&rdquo;,$1*0.9}&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<p>自动取整数: ％代表任意长度，0表示保留.后0位数字</p>
+<p>四、翻转文件</p>
+<p>sed &lsquo;1!G;h;$!d&rsquo; file
+sed -n &lsquo;1!G;h;$p&rsquo; file</p>
+<p>sed的man说法如下：
+    h
+    H        Copy/append
+    pattern space to hold space.
+    g
+    G        Copy/append
+    hold space to pattern space.
+这两个space，我的理解就是hold是厂房（原料和成品都放这，汗～），pattern是流水线。  <br />
+如果是正常的sed，应该是所有的原料一起上流水线处理，然后统一成品输出。所以顺序不变；但上面这个命令，每处理一行就清空一次流水线，最后成品就成倒序了。
+还有一个x，用来互换两个space的文本。</p>
+<p>五、正则表达式</p>
+<pre><code>pattern{n}：只用来匹配前面pattern出现的次数.n为次数。如a{2}匹配aa.
+pattern{n,}：含义同上，但次数最少为n.如a{2,}匹配aa,aaa,aaaa,.....
+pattern{n,m}：含义同上，但次数在n和m之间。如a{2,4}匹配aa,aaa,aaaa三个
+[0123456789]或[0-9] ：假定要匹配任意一个数字
+[a-z] ：任意小写字母
+[A-Za-z] ：任意大小写字母
+[S,s] ：匹配大小写S
+[0-9]{3}.[0-9]{3}.[0-9]{3}.[0-9]{3} ：匹配IP地址 [0-9]{3}三个0-9组成的字符串；. ：匹配点（注意这里点是特殊的字符，所以要用""来屏蔽其含义）
+用于grep和awk的类名（其他能不能我还不知道）
+[[:upper:]]   表示[A-Z]
+[[:alnum:]]   表示[0-9a-zA-Z]
+[[:lower:]]   表示[a-z]
+[[:space:]]   表示空格或者tab键
+[[:digit:]]   表示[0-9]
+[[:alpha:]]   表示[a-zA-Z]
+</code></pre>
+      <a href="/2009/11/03/some-useful-shell-techniques" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2009/11/03/priority-of-squid-domain-resolve" title="squid问题-域名解析" rel="bookmark">squid问题-域名解析</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>今天有老客户下单修改源IP地址1.2.3.4为1.2.3.7，一切正常操作过后进行测试，其中有台机器就是狂报404。
+在用/home/squid/bin/squidclient -p 80 -m PURGE http://测试url
+命令清除缓存，甚至重启dns/squid服务后，其测试访问的first-to-parent地址还是1.2.3.4！！</p>
+<p>用dig检查确认内部DNS配置已经生效后，又检查了hosts文件也没有问题。</p>
+<p>最后发现是squid.conf里的泛域名配置问题。</p>
+<p>这批服务器在升级squid前，曾经在一台机器上测试新版本配置，之后一直没有更改，其中有如下字段：</p>
+<div class="highlight"><pre><code class="squid"><span class="k">cache_peer</span><span class="w"> </span><span class="mf">1.2.3.4</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="no">no-query</span><span class="w"> </span>no-netdb-exchange<span class="w"> </span>originserver<span class="w"></span>
+cache_peer_domain<span class="w"> </span><span class="mf">1.2.3.4</span><span class="w"> </span>www.test.com<span class="w"></span>
+</code></pre></div>
+<p>所以在系统上怎么修改，都没法成功了。
+由此可知，CDN加速对域名的解析，是squid配置文件最优先，然后才是系统的hosts文件，最后是DNS服务器。</p>
+      <a href="/2009/11/03/priority-of-squid-domain-resolve" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2009/11/03/nid-00135-of-dbname" title="修改dbname常见的一个错误NID-00135及解决…" rel="bookmark">修改dbname常见的一个错误NID-00135及解决…</a>
     </h1>
     <p class="alt-font tight">

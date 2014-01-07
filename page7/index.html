@@ -43,6 +43,262 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2011/06/03/aggregate-multi-servers-rollback-log-by-gearmand" title="用gearman汇总多台服务器的回滚日志" rel="bookmark">用gearman汇总多台服务器的回滚日志</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-06-03 00:00:00 +0800">03 Jun 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>gearman其实不是重点，因为我就是抄了一遍perldoc的样例而已。关键在服务器上的log4j日志是回滚的，所以需要配合回滚（猜测log4j的DailyRollingFile回滚方式类似mv resin.log resin.log-ymd &amp;&amp; reload，这样在回滚后，FH还在resin.log-ymd上，就读不到新日志了）重启FH。
+另：tail命令有个参数-F/&ndash;follow=name，可以锁定文件名而不是文件描述符，不知道这个功能是怎么做到的？
+一步一步来：</p>
+<ul>
+  <li>jobserver</li>
+</ul>
+<div class="highlight"><pre><code class="bash">cpan -i Gearman::Server
+gearmand -d -L 10.168.170.25 -p 7003
+</code></pre></div>
+<ul>
+  <li>worker</li>
+</ul>
+<div class="highlight"><pre><code class="bash">cpan -i Gearman::Worker
+</code></pre></div>
+<p>然后看日志的脚本，其实也就是样例：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">use</span> <span class="nn">Gearman::</span><span class="n">Worker</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$worker</span> <span class="o">=</span> <span class="nn">Gearman::</span><span class="n">Worker</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
+<span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">job_servers</span><span class="p">(</span><span class="s">&#39;10.1.1.25:7003&#39;</span><span class="p">);</span>
+<span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">register_function</span><span class="p">(</span> <span class="n">watchlog</span> <span class="o">=&gt;</span> <span class="o">\&amp;</span><span class="n">watchlog</span> <span class="p">);</span>
+<span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">work</span> <span class="k">while</span> <span class="mi">1</span><span class="p">;</span>
+<span class="k">sub </span><span class="nf">watchlog</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$job</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">print</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">arg</span><span class="p">,</span><span class="s">&quot;\n&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<ul>
+  <li>client（也就是多台resin服务器上）</li>
+</ul>
+<div class="highlight"><pre><code class="bash">cpan -i Gearman::Client
+</code></pre></div>
+<p>然后是脚本：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">use</span> <span class="nn">Gearman::</span><span class="n">Client</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(strftime)</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$client</span> <span class="o">=</span> <span class="nn">Gearman::</span><span class="n">Client</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
+<span class="nv">$client</span><span class="o">-&gt;</span><span class="n">job_servers</span><span class="p">(</span><span class="s">&#39;10.1.1.25:7003&#39;</span><span class="p">);</span>
+<span class="o">&amp;</span><span class="nb">read</span><span class="p">;</span>
+<span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nb">open</span> <span class="n">FH1</span><span class="p">,</span><span class="s">&#39;&lt;&#39;</span><span class="p">,</span><span class="s">&#39;/tmp/pid.txt&#39;</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$childpid</span> <span class="o">=</span> <span class="sr">&lt;FH1&gt;</span><span class="p">;</span>
+    <span class="nb">close</span> <span class="n">FH1</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$date</span><span class="o">=</span><span class="n">strftime</span><span class="p">(</span><span class="s">&quot;%H:%M:%S&quot;</span><span class="p">,</span><span class="nb">localtime</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$date</span> <span class="ow">eq</span> <span class="s">&#39;00:00:00&#39;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nb">kill</span> <span class="mi">9</span><span class="p">,</span><span class="nv">$childpid</span><span class="p">;</span>
+        <span class="nb">sleep</span> <span class="mi">1</span><span class="p">;</span>
+        <span class="o">&amp;</span><span class="nb">read</span><span class="p">;</span>   
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">read</span> <span class="p">{</span>
+<span class="k">my</span> <span class="nv">$pid</span> <span class="o">=</span> <span class="nb">fork</span><span class="p">();</span>
+<span class="k">if</span> <span class="p">(</span><span class="nv">$pid</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+<span class="c1">#这个$$不能直接赋值出去，所以采用文件方式，以后研究一下pipe啊之类的办法。</span>
+    <span class="nb">open</span> <span class="n">FH</span><span class="p">,</span><span class="s">&#39;&gt;&#39;</span><span class="p">,</span><span class="s">&#39;/tmp/pid.txt&#39;</span><span class="p">;</span>
+    <span class="k">print</span> <span class="n">FH</span> <span class="vg">$$</span><span class="p">;</span>
+    <span class="nb">close</span> <span class="n">FH</span><span class="p">;</span>
+    <span class="nb">open</span> <span class="p">(</span><span class="n">FD</span><span class="p">,</span><span class="s">&#39;&lt;&#39;</span><span class="p">,</span><span class="s">&#39;resin.log&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">die</span> <span class="vg">$!</span><span class="p">;</span>
+    <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+       <span class="k">my</span> <span class="nv">$log</span> <span class="o">=</span> <span class="sr">&lt;FD&gt;</span><span class="p">;</span>
+       <span class="nb">sleep</span> <span class="mi">1</span> <span class="ow">and</span> <span class="k">next</span> <span class="k">unless</span> <span class="nv">$log</span><span class="p">;</span>
+       <span class="nb">chomp</span> <span class="nv">$log</span><span class="p">;</span>
+       <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">dispatch_background</span><span class="p">(</span><span class="s">&#39;watchlog&#39;</span><span class="p">,</span><span class="nv">$log</span><span class="p">);</span>
+       <span class="p">}</span>
+    <span class="nb">close</span> <span class="n">FD</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+      <a href="/2011/06/03/aggregate-multi-servers-rollback-log-by-gearmand" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2011/06/01/intro-html-template" title="HTML::Template试用" rel="bookmark">HTML::Template试用</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-06-01 00:00:00 +0800">01 Jun 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>给我自己的学习计划做个开头，从html::template开始试用。
+首先利用上上篇的nmap.pl脚本，提取一些数据，然后展示在页面上。
+cgi脚本如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">use</span> <span class="nn">HTML::</span><span class="n">Template</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">XML::</span><span class="n">Simple</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Net::</span><span class="n">MySQL</span><span class="p">;</span>
+<span class="c1">#定期执行这个</span>
+<span class="c1">#system(&quot;nmap -n -p 22,5666 10.168.168.0/23 10.168.170.0/24 -oX output.xml&quot;);</span>
+<span class="k">my</span> <span class="nv">$text</span> <span class="o">=</span> <span class="n">XMLin</span><span class="p">(</span><span class="s">&quot;output.xml&quot;</span><span class="p">);</span>
+<span class="c1">#读取html模版</span>
+<span class="k">my</span> <span class="nv">$temp</span> <span class="o">=</span> <span class="nn">HTML::</span><span class="n">Template</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="n">filename</span> <span class="o">=&gt;</span> <span class="s">&#39;../template/html/server.tmpl&#39;</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$localhost</span> <span class="o">=</span> <span class="s">&#39;127.0.0.1&#39;</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">@array</span> <span class="o">=</span> <span class="p">();</span>
+<span class="k">my</span> <span class="nv">$i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$hash</span> <span class="o">=</span> <span class="p">{};</span>
+<span class="k">while</span> <span class="p">(</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span> <span class="p">)</span> <span class="p">{</span>
+<span class="c1">#因为新增了ssh端口扫描，所以xml解析和前例稍有不同</span>
+    <span class="k">my</span> <span class="nv">$ssh_state</span> <span class="o">=</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">ports</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">port</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">};</span>
+    <span class="k">my</span> <span class="nv">$nrpe_state</span> <span class="o">=</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">ports</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">port</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">};</span>
+    <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="nb">ref</span><span class="p">(</span><span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">})</span> <span class="ow">eq</span> <span class="s">&#39;ARRAY&#39;</span> <span class="p">?</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">addr</span><span class="p">}</span> <span class="p">:</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">addr</span><span class="p">};</span>
+    <span class="k">my</span> <span class="nv">$mac</span> <span class="o">=</span> <span class="nb">ref</span><span class="p">(</span><span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">})</span> <span class="ow">eq</span> <span class="s">&#39;ARRAY&#39;</span> <span class="p">?</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">addr</span><span class="p">}</span> <span class="p">:</span> <span class="s">&#39;00:1E:C9:E6:E1:7C&#39;</span><span class="p">;</span>
+    <span class="nv">$i</span><span class="o">++</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$channel</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">amp</span><span class="p">;</span><span class="n">mysql_query</span><span class="p">(</span><span class="nv">$mac</span><span class="p">);</span>
+<span class="c1">#将ip按照频道排成列表，每个ip存有ssh和nrpe状态</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="nb">exists</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$channel</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="nb">push</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$channel</span><span class="p">}},</span> <span class="p">{</span> <span class="s">&#39;IP&#39;</span> <span class="o">=&gt;</span> <span class="nv">$ip</span><span class="p">,</span> <span class="s">&#39;SSH&#39;</span> <span class="o">=&gt;</span> <span class="nv">$ssh_state</span><span class="p">,</span> <span class="s">&#39;NRPE&#39;</span> <span class="o">=&gt;</span> <span class="nv">$nrpe_state</span><span class="p">,</span> <span class="p">};</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$channel</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span> <span class="s">&#39;IP&#39;</span> <span class="o">=&gt;</span> <span class="nv">$ip</span><span class="p">,</span> <span class="s">&#39;SSH&#39;</span> <span class="o">=&gt;</span> <span class="nv">$ssh_state</span><span class="p">,</span> <span class="s">&#39;NRPE&#39;</span> <span class="o">=&gt;</span> <span class="nv">$nrpe_state</span><span class="p">,</span> <span class="p">};</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="c1">#将上面while生成的hash转成HTML::Template认可的array，不过array的单个元素可以是hash</span>
+<span class="k">foreach</span> <span class="k">my</span> <span class="nv">$key</span><span class="p">(</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$hash</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$onechannel</span> <span class="o">=</span> <span class="p">{};</span>
+    <span class="nv">$onechannel</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;CHANNEL&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$key</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="k">foreach</span> <span class="k">my</span> <span class="nv">$ip</span><span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$key</span><span class="p">}}</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$onechannel</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;IP_LOOP&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$j</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$ip</span><span class="p">;</span>
+        <span class="nv">$j</span><span class="o">++</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="nb">push</span> <span class="nv">@array</span><span class="p">,</span> <span class="nv">$onechannel</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="c1">#将array传递给之前定义的html模版</span>
+<span class="c1">#注意：不管是param还是@array里，所有的key必须都在tmpl里使用，冗余也会报错</span>
+<span class="nv">$temp</span><span class="o">-&gt;</span><span class="n">param</span><span class="p">(</span><span class="n">CHANNEL_LOOP</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@array</span><span class="p">);</span>
+<span class="c1">#输出成html格式</span>
+<span class="k">print</span> <span class="s">&quot;Content-Type: text/html\n\n&quot;</span><span class="p">,</span> <span class="nv">$temp</span><span class="o">-&gt;</span><span class="n">output</span><span class="p">;</span>
+<span class="c1">#这段没什么说的，根据mac获取频道</span>
+<span class="k">sub </span><span class="nf">mysql_query</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$mac</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$mysql</span> <span class="o">=</span> <span class="nn">Net::</span><span class="n">MySQL</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">hostname</span> <span class="o">=&gt;</span> <span class="nv">$localhost</span><span class="p">,</span>
+                                 <span class="n">database</span> <span class="o">=&gt;</span> <span class="s">&#39;myops&#39;</span><span class="p">,</span>
+                                 <span class="n">user</span>     <span class="o">=&gt;</span> <span class="s">&#39;myops&#39;</span><span class="p">,</span>
+                                 <span class="n">password</span> <span class="o">=&gt;</span> <span class="s">&#39;myops&#39;</span><span class="p">,</span>
+                               <span class="p">);</span>
+    <span class="nv">$mysql</span><span class="o">-&gt;</span><span class="n">query</span><span class="p">(</span><span class="s">&quot;select channel from myhost where mac=&#39;$mac&#39;&quot;</span><span class="p">);</span>
+    <span class="o">&amp;</span><span class="n">amp</span><span class="p">;</span><span class="n">alert</span><span class="p">(</span><span class="s">&quot;New server&quot;</span><span class="p">)</span> <span class="k">unless</span> <span class="nv">$mysql</span><span class="o">-&gt;</span><span class="n">has_selected_record</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$a_record_iterator</span> <span class="o">=</span> <span class="nv">$mysql</span><span class="o">-&gt;</span><span class="n">create_record_iterator</span><span class="p">();</span>
+    <span class="k">while</span> <span class="p">(</span><span class="k">my</span> <span class="nv">$record</span> <span class="o">=</span> <span class="nv">$a_record_iterator</span><span class="o">-&gt;</span><span class="nb">each</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$record</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+    <span class="p">};</span>
+<span class="p">}</span>
+<span class="c1">#留着后续继续处理</span>
+<span class="k">sub </span><span class="nf">alert</span> <span class="p">{</span>
+    <span class="k">print</span> <span class="nv">@_</span><span class="p">,</span><span class="s">&quot;\n&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>然后是template文件server.tmpl：</p>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;html&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+<span class="nt">&lt;title&gt;</span>Server Plate<span class="nt">&lt;/title&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;body&gt;</span>
+<span class="nt">&lt;table</span> <span class="na">width=</span><span class="s">&quot;100%&quot;</span> <span class="na">cellspacing=</span><span class="s">&quot;0&quot;</span> <span class="na">cellpadding=</span><span class="s">&quot;0&quot;</span> <span class="na">border=</span><span class="s">&quot;1&quot;</span><span class="nt">&gt;</span>
+<span class="c">&lt;!--TMPL_LOOP循环格式，使用的是array里channel_loop的每个元素--&gt;</span>
+<span class="nt">&lt;TMPL</span><span class="na">_LOOP</span> <span class="na">NAME=</span><span class="s">&quot;CHANNEL_LOOP&quot;</span><span class="nt">&gt;</span>
+<span class="nt">&lt;tr&gt;</span>
+<span class="c">&lt;!--根据本层loop中的某个元素的channel的value开始表格的一行--&gt;</span>
+<span class="nt">&lt;th&gt;&lt;center&gt;&lt;TMPL</span><span class="na">_VAR</span> <span class="na">NAME=</span><span class="s">&quot;CHANNEL&quot;</span><span class="nt">&gt;&lt;/center&gt;&lt;/th&gt;</span>
+<span class="c">&lt;!--本层loop中另一个元素ip_loop，也是array格式，所以继续循环，每个元素使用一列--&gt;</span>
+<span class="nt">&lt;TMPL</span><span class="na">_LOOP</span> <span class="na">NAME=</span><span class="s">&quot;IP_LOOP&quot;</span><span class="nt">&gt;</span>
+<span class="nt">&lt;td</span> <span class="na">valign=</span><span class="s">top</span><span class="nt">&gt;&lt;center&gt;</span>
+//根据本层loop的ssh情况选择显示哪个图标；TMPL_IF只能判断key的真假，所以用js
+<span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span><span class="nt">&gt;</span>
+<span class="k">if</span> <span class="p">(</span><span class="s1">&#39;&lt;TMPL_VAR NAME=&quot;SSH&quot;&gt;&#39;</span> <span class="o">==</span> <span class="s1">&#39;open&#39;</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nb">document</span><span class="p">.</span><span class="nx">write</span><span class="p">(</span><span class="s2">&quot;&lt;img src=&#39;../template/images/unlock_server.png&#39;&gt;&quot;</span><span class="p">);</span>
+<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+    <span class="nb">document</span><span class="p">.</span><span class="nx">write</span><span class="p">(</span><span class="s2">&quot;&lt;img src=&#39;../template/images/desable_server.png&#39;&gt;&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="nt">&lt;/script&gt;</span>
+<span class="c">&lt;!--显示第二层loop里元素的几个value--&gt;</span>
+<span class="nt">&lt;hr&gt;</span>nrpe:<span class="nt">&lt;TMPL</span><span class="na">_VAR</span> <span class="na">NAME=</span><span class="s">&quot;NRPE&quot;</span><span class="nt">&gt;&lt;hr&gt;</span>ssh :<span class="nt">&lt;TMPL</span><span class="na">_VAR</span> <span class="na">NAME=</span><span class="s">&quot;SSH&quot;</span><span class="nt">&gt;&lt;hr&gt;&lt;TMPL</span><span class="na">_VAR</span> <span class="na">NAME=</span><span class="s">&quot;IP&quot;</span><span class="nt">&gt;</span>
+<span class="nt">&lt;/center&gt;&lt;/td&gt;</span>
+<span class="c">&lt;!--结束里层loop，即完成一行表格--&gt;</span>
+<span class="err">&lt;</span>/TMPL_LOOP&gt;
+<span class="nt">&lt;/tr&gt;</span>
+<span class="c">&lt;!--结束顶层loop，即完成表格--&gt;</span>
+<span class="err">&lt;</span>/TMPL_LOOP&gt;
+<span class="nt">&lt;/table&gt;&lt;/center&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;center&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div>
+<p>用apache分别发布cgi目录和静态目录。然后访问一下；OK。</p>
+      <a href="/2011/06/01/intro-html-template" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2011/05/30/intro-perl_set-image_filter" title="nginx两个小测试(perl_set/image_filter)" rel="bookmark">nginx两个小测试(perl_set/image_filter)</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-05-30 00:00:00 +0800">30 May 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#nginx-ref" title="nginx" rel="category tag">nginx</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>第一个测试，关于http_perl_module。之前写过一篇关于nginx忽略大小写的博文，今天被朋友问上门来，url是类似/Upload/Dir/2011/123_D.jpg的形式。如果单纯的lc($r-&gt;uri)，得到的url会变成/upload/dir/2011/123_d.jpg，目录是不存在的。所以要稍微改进一下。如下：</p>
+<div class="highlight"><pre><code class="perl">    <span class="n">perl_set</span> <span class="nv">$url</span> <span class="s">&#39;</span>
+<span class="s">        sub {</span>
+<span class="s">            my $r = shift;</span>
+<span class="s">            return $1.lc($2) if ($r-&gt;uri =~ m/^(.+\/)([^\/]+)$/);</span>
+<span class="s">            return $r-&gt;uri;</span>
+<span class="s">        }</span>
+<span class="s">    &#39;</span><span class="p">;</span>
+</code></pre></div>
+<p>这样就行了。</p>
+<p>另一个测试，关于http_image_filter_module。配置语句很简单，就一行image_filter [size|resize|corp] wight height;就行了——如果图片太大，那还要加大image_filter_buffer，默认1M，大于这个大小的图片就不会缩略了。
+比如配置如下：</p>
+<div class="highlight"><pre><code class="nginx">        <span class="k">location</span> <span class="s">/</span> <span class="p">{</span>
+            <span class="kn">root</span>   <span class="s">/var/www/html</span><span class="p">;</span>
+            <span class="kn">index</span>  <span class="s">index.html</span> <span class="s">index.htm</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="k">location</span> <span class="p">~</span><span class="sr">*</span> <span class="s">^/small/w_(\d+)/h_(\d+)/(.*)</span>$ <span class="p">{</span>
+            <span class="kn">rewrite</span> <span class="s">/small/w_(\d+)/h_(\d+)/(.*)</span>$ <span class="s">/</span><span class="nv">$3</span> <span class="s">break</span><span class="p">;</span>
+            <span class="kn">image_filter</span> <span class="s">resize</span> <span class="nv">$1</span> <span class="nv">$2</span><span class="p">;</span>
+            <span class="kn">root</span>   <span class="s">/var/www/html</span><span class="p">;</span>
+            <span class="kn">index</span>  <span class="s">index.html</span> <span class="s">index.htm</span><span class="p">;</span>
+        <span class="p">}</span>
+</code></pre></div>
+<p>这样通过/small/w<em>100/h</em>50/path/to/text.jpg，就能访问到/path/to/text.jpg的100*50大小的缩略图了。
+如果只需要修改h或者w，其他的等比缩略，把另一项写成&rsquo;-&lsquo;即可。
+其他参数介绍：test，返回是否真的是图片；corp，截取图片的一部分；size，以json格式返回图片的长宽数据。</p>
+      <a href="/2011/05/30/intro-perl_set-image_filter" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2011/05/27/analyze-the-xml-which-nmap-output" title="nmap扫描结果xml解析脚本" rel="bookmark">nmap扫描结果xml解析脚本</a>
     </h1>
     <p class="alt-font tight">
@@ -1616,172 +1872,6 @@ Red Hat System Administration III with RHCSA and RHCE Exams (RH255)</em>
 在HTTP/1.1协议下，单个域名的最大连接数在IE6中是2个，而在其它浏览器中一般4-8个，而整体最大链接数在30左右</p>
 <p>而在HTTP/1.0协议下，IE6、7单个域名的最大链接数可以达到4个，在Even Faster Web Sites一书中的11章还推荐了对静态文件服务使用HTTP/1.0协议来提高IE6、7浏览器的速度</p>
       <a href="/2011/02/19/conns-diff-between-browsers" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/02/16/pseudo-static-problem-of-js-rewrite" title="apache的rewrite伪静态化问题一例" rel="bookmark">apache的rewrite伪静态化问题一例</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-02-16 00:00:00 +0800">16 Feb 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#apache-ref" title="apache" rel="category tag">apache</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>某应用系统有一个产品翻页浏览，为了利于搜索引擎，准备把/search.html?param=1-2-3-4-5做伪静态化，变成/search/1-2-3-4-5.html的url显示。</p>
-<p>想来很简单，确认apache有mod_rewrite后，加入如下配置，重启即可：</p>
-<div class="highlight"><pre><code class="apache"><span class="nt">&lt;IfModule</span> <span class="s">mod_rewrite.c</span><span class="nt">&gt;</span>
-<span class="nb">RewriteEngine</span> <span class="k">on</span>
-<span class="nb">RewriteCond</span> %{HTTP_HOST} ^example\.domain\.com [NC]
-<span class="nb">RewriteCond</span> %{REQUEST_URI} ^/search/.*\.html
-<span class="nb">RewriteRule</span> ^/search/(.*)\.html <span class="sx">/search.html</span>?param=$1 [P,L]
-<span class="nt">&lt;/IfModule&gt;</span>
-</code></pre></div>
-<p>不过很不幸的事情出现了：不管点击页面搜索结果的哪个页码，看到的永远都是第一页的内容！！</p>
-<p>是搜索程序有问题么？试着直接访问/search.html?param=1-2-3-4-6，能看到之后某页的新内容。</p>
-<p>于是打开apache的rewritelog看看究竟：</p>
-<div class="highlight"><pre><code class="apache"><span class="nb">RewriteLog</span> <span class="sx">/www/admin.game.china.com/logs/rewrite.log</span>
-<span class="nb">RewriteLogLevel</span> <span class="m">9</span>
-</code></pre></div>
-<p>在rewrite.log中看到如下记录：</p>
-<div class="highlight"><pre><code class="apache"><span class="err">[rid</span><span class="c">#13c4e40/initial] (2) init rewrite engine with requested uri /search/0-0-0-0-0-0-0-0-0-2.html</span>
-<span class="err">[rid</span><span class="c">#13c4e40/initial] (3) applying pattern &#39;^/search/(.*)\.html&#39; to uri &#39;/search/0-0-0-0-0-0-0-0-0-2.html&#39;</span>
-<span class="err">[rid</span><span class="c">#13c4e40/initial] (4) RewriteCond: input=&#39;example.domain.com&#39; pattern=&#39;^example\.domain\.com&#39; =&gt; matched</span>
-<span class="err">[rid</span><span class="c">#13c4e40/initial] (4) RewriteCond: input=&#39;/search/0-0-0-0-0-0-0-0-0-2.html&#39; pattern=&#39;^/search/.*\.html&#39; =&gt; matched</span>
-<span class="err">[rid</span><span class="c">#13c4e40/initial] (2) rewrite /search/0-0-0-0-0-0-0-0-0-2.html -&gt; /search.html?param|0-0-0-0-0-0-0-0-0-2</span>
-<span class="err">[rid</span><span class="c">#13c4e40/initial] (3) split uri=/search.html?param|0-0-0-0-0-0-0-0-0-2 -&gt; uri=/search.html, args=param|0-0-0-0-0-0-0-0-0-2</span>
-<span class="err">[rid</span><span class="c">#13c4e40/initial] (2) local path result: /search.html</span>
-<span class="err">[rid</span><span class="c">#13c4e40/initial] (2) prefixed with document_root to /www/example.domain.com/search.html</span>
-<span class="err">[rid</span><span class="c">#13c4e40/initial] (1) go-ahead with /www/example.domain.com/search.html [OK]</span>
-</code></pre></div>
-<p>看起来似乎没有问题……</p>
-<p>为了更细致一点，在测试环境中用单进程方式启动apache，通过strace来跟踪httpd。更明确看到了rewrite之后的内部请求&rdquo;GET /search.html?param=0-0-0&hellip;&ldquo;完全没有问题。</p>
-<p>于是找开发同事商量，询问这个.html?param=是如何完成翻页功能的。结果得知是html中有javascript，翻页就是通过js来完成的。</p>
-<p>恍然大悟！js是在浏览器端完成解析工作的，那么在apache里rewrite的时候传输过去的args没有起到作用，服务器返回的永远是默认的html内容，即第一页内容。同事修改程序，将翻页方式改成另外的jsp来完成，我再修改rewrite规则到jsp上。一切OK了！</p>
-      <a href="/2011/02/16/pseudo-static-problem-of-js-rewrite" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/02/14/compile-and-upgrading-of-the-linux-kernel" title="linux内核编译升级" rel="bookmark">linux内核编译升级</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-02-14 00:00:00 +0800">14 Feb 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>N年没更新的ipvsadm终于在今年春节前更新了，正好手头有lvs的任务，赶紧试试。lvs上说的很清楚，ipvsadm的1.2.26版仅工作于linux kernel2.6.28以上版本。所以首先要把现有的2.6.18的linux kernel升级。</p>
-<ol>
-  <li>
-    <p>从kernel.org上获取高版本的kernel原文件：
-wget http://www.kernel.org/pub/linux/kernel/v2.6/linux-2.6.37.tar.bz2
-tar jxvf linux-2.6.37.tar.bz2 -C /usr/src</p>
-  </li>
-  <li>
-    <p>做好源代码连接
-ln -s /usr/src/linux-2.6.37 /usr/src/linux</p>
-  </li>
-  <li>
-    <p>开始选择编译参数
-cd /usr/src/linux
-make mrproper #这一步是清除可能存在的其他内核编译结果
-make menuconfig #采用字符界面选择，初次操作的就别改什么了。
-make bzImage #生成vmlinuz
-make modules
-make modules_install #生成模块
-make install  #把生成的System.map/initrd/vmlinuz等都mv到/boot下，并修改grub配置</p>
-  </li>
-  <li>
-    <p>重启
-sed -i &lsquo;s/default=1/default=0/&rsquo; /boot/grub/menu.lst
-reboot</p>
-  </li>
-</ol>
-<p>嗯，很好，然后等待，十分钟过去，依然ping不通(这么简单就搞定，我也懒得写这篇博文啦)……赶紧接显示器看看进展。启动界面停留在如下画面：
-Unable to access resume device (LABEL=SWAP-sda9)
-mount : could not find filesystem &lsquo;/dev/root&rsquo;
-setup other filesystem
-setting up now root fs
-set up root :moving /dev faild:No such file or directory
-no fstab.sys,mounting inernal defaults
-setuproot:error mounting /proc :No such file or directory
-setuproot:error mounting /sys:No such file or directory
-switching to new root and running init
-umounting old /dev
-umounting old /proc
-umounting old /sys
-switchroot : mount faild : No such file or directory
-kernel panic:not syncing :attempted to kill init
-call trace
-sysfs系统无法挂载……原来linux kernel2.6.3*中，在menuconfig中有个很重要的选项：
-enable deprecated sysfs features which may confuse old userspace tools
-help文档对这个选项的解释是：“<strong>Do not say Y, if the original kernel, that came with your distribution, has this option set to N.</strong>”</p>
-<p><span style="color: #ff0000;">很不幸，RHEL5的/usr/src/kernels/2.6.18-92.el5-x86_64/.config中压根就没有CONFIG_SYSFS_DEPRECATED这行……所以必须选上这个选项。</span></p>
-<p>选择老内核进入系统，重新来过一次编译，除了这个选项以外一切相同。重启就成功进入了！</p>
-      <a href="/2011/02/14/compile-and-upgrading-of-the-linux-kernel" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/01/26/direct-operate-xen-vm-image" title="直接操作xen虚拟机镜像的办法" rel="bookmark">直接操作xen虚拟机镜像的办法</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-01-26 00:00:00 +0800">26 Jan 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cloud-ref" title="cloud" rel="category tag">cloud</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>一台xen虚拟机，root密码忘记了，必须进入single模式修改root密码。步骤很熟练，xm shutdown domain &amp;&amp; xm create -c domain——但是出问题了——没出现grub的启动界面，直接进入系统启动过程了！</p>
-<p>无法从正常操作流程上搞定，那么换一个思路，直接操作镜像文件（谢天谢地，还好是虚拟机），采用loop方式挂载镜像，然后上去改文件好了~</p>
-<p>方法如下：</p>
-<p>mount -o loop,offset=32256 /xen/disk.img /mnt
-然后看/mnt/下的grub.conf，timeout=0，修改成timeout=5，保存退出。umount /mnt后重新使用xm cre -c就可以看到grub界面了~~</p>
-<p>现在解释一下这个offset=32256是怎么来的。因为如果不加这串会报出“mount: you must specify the filesystem type”错误。</p>
-<p>1、先file确定img文件，如下：</p>
-<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@localhost xen<span class="o">]</span><span class="c"># file /xen/cvs_backup</span>
-/xen/cvs_backup: x86 boot sector;
-partition 1: <span class="nv">ID</span><span class="o">=</span>0x83, active, starthead 1, startsector 63, 208782 sectors;
-partition 2: <span class="nv">ID</span><span class="o">=</span>0x8e, starthead 0, startsector 208845, 62701695 sectors, code offset 0x48
-</code></pre></div>
-<p>可以看到这个镜像文件其实被格式化成了两个分区，其中第一个分区的起始块位置是63；
-2、用fdisk确定具体的units，如下：</p>
-<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@localhost xen<span class="o">]</span><span class="c"># fdisk -lu /xen/cvs_backup</span>
-last_lba<span class="o">()</span>: I don<span class="err">&#39;</span>t know how to handle files with mode 81ed
-You must <span class="nb">set </span>cylinders.
-You can <span class="k">do </span>this from the extra functions menu.
-Disk /xen/cvs_backup: 0 MB, 0 bytes
-255 heads, 63 sectors/track, 0 cylinders, total 0 sectors
-<span class="nv">Units</span> <span class="o">=</span> sectors of 1 * <span class="nv">512</span> <span class="o">=</span> 512 bytes
-Device Boot      Start         End      Blocks   Id  System
-/xen/cvs_backup1   *          63      208844      104391   83  Linux
-/xen/cvs_backup2          208845    62910539    31350847+  8e  Linux LVM
-Partition 2 has different physical/logical endings:
-<span class="nv">phys</span><span class="o">=(</span>1023, 254, 63<span class="o">)</span> <span class="nv">logical</span><span class="o">=(</span>3915, 254, 63<span class="o">)</span>
-</code></pre></div>
-<p>可见每个块的大小是512字节。那么虚拟机镜像文件对应的真实起始字节位置就是63*512=32256了。</p>
-      <a href="/2011/01/26/direct-operate-xen-vm-image" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

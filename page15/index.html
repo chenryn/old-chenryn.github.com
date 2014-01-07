@@ -43,6 +43,128 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2009/11/21/intro-cache-object-size" title="cache驻留时间（六、大文件）" rel="bookmark">cache驻留时间（六、大文件）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-11-21 00:00:00 +0800">21 Nov 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>话说上回提到大文件下载，公司除了apache以外，有些也是用squid做的。这回说说这方面的设置。
+下载业务，首先要注意到的，第一是多线程，第二是断点续传。</p>
+<p>第一个参数：maximum_object_size——这个参数规定了squid能缓存的最大文件大小；
+第二个参数：range_offset_limit——这个参数规定了squid能预先读取的文件大小；
+第三个参数：quick_abort_(min|max|pct)——这几个参数规定了squid是否继续传输中断请求的文件；</p>
+<p>第一个参数很熟悉，就不用说了。</p>
+<p>第二个参数，squid的官方解释是：Sets a upper limit on how far into the the file a Range request may be to cause Squid to prefetch the whole file.</p>
+<p>也就是说这个参数当客户端请求的header中带有range标签时（也就是多线程下载），如果文件大小在这个参数的规定范围内，squid会预读取这段文件作为缓存。
+但是要注意了：如果你把range_offset_limit设的比maximum_object_size还大的话，squid按规则，会每次预读取完文件之后，再毫不犹豫的把它从cache里扔出去！！</p>
+<p>这还不算完…如果网民这个线程开的比较猛，并发上20个线程来下载，对于squid，它却只认其中一个最快的一个线程，也就是说很有可能在第一次缓存的时候，真正下载的流量，是文件大小的20倍，于是很大可能又超过了maximum_object_size，squid又毫不犹豫抛弃掉……带宽不是用来这么玩的呀~~其结果我们也看得到，那就是cacti上上窜下跳的流量图。</p>
+<p>第三个参数，当客户端中断请求后，squid会比对文件剩余部分的大小，如果小于min，就继续从源站下载；如果大于max，就放弃；如果达到了pct的比率，也继续——嗯，很像refresh_pattern的定义模式。</p>
+<p>【基本上就是这些，另外，和maximum_object_size相关的还有一个maximum_object_size_in_memory，也就是能缓存在内存里的大小。这是另一个方向，要是够狠，完全可以把squid全跑在mem里（&ndash;enable-storeio）把cache_dir设成null……】</p>
+<p>最后，如果修改了这些参数，对普通的小文件加速服务，会有一定的冲击，最好的办法，还是在后端的web架构上进行区分；其次，把squid进行区分，一部分专门跑下载，而其他的禁用掉range，向跑下载的邻居转发请求。不过sibling靠ICP获取一个列表的摘要，很可能假命中。这又需要对下载邻居进行详细限定，架构变得复杂无比。。。</p>
+      <a href="/2009/11/21/intro-cache-object-size" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2009/11/20/intro-expires-cache-control" title="cache驻留时间（三、Expires/Cache-Control）" rel="bookmark">cache驻留时间（三、Expires/Cache-Control）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-11-20 00:00:00 +0800">20 Nov 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>在谈cache的时候插入了上一篇回忆正则表达式的内容，是因为最近一个客户的古怪要求“url以/结尾或文件夹结尾的不能缓存”。</p>
+<p>惯常的要求，大多有.*/$的缓存或者不缓存，这个文件夹不带/的结尾，可就没见过了。</p>
+<p>思前想后，我觉得大概文件夹和文件的区别就是没有后缀名了吧。于是回忆了好一番正则表达式，最后写成下面那么一句：</p>
+<div class="highlight"><pre><code class="squid"><span class="k">acl</span><span class="w"> </span>test<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^&lt;a<span class="w"> </span>href=&quot;http://www.test.com/.*/[^.]*&quot;&gt;http://www.test.com/.*/[^.]*&lt;/a&gt;$<span class="w"></span>
+cache<span class="w"> </span><span class="no">deny</span><span class="w"> </span>test<span class="w"></span>
+</code></pre></div>
+<p>测试访问结果都是MISS/200——可惜还没高兴起来呢，赫然发现其header里写着：</p>
+<pre><code>Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Cache-Control: no-store, no-cache, must-ridate, post-check=0,
+pre-check=0
+Pragma: no-cache
+</code></pre>
+<p>敢情MISS不是我的acl起作用了，是人家web端早就定义好了……
+转过头来，继续研究cache和header的关系。今天就看这个Expires、Cache-Control和Pragma：</p>
+<ul>
+  <li>
+    <p>Expires 申明文件的过期时间，比如这里申明的是1981年——默认不缓存的设置一般就是1981年；</p>
+  </li>
+  <li>
+    <p>Cache-Control 常见设定和说明见下图：
+<img src="/images/uploads/cache-control.jpg" alt="" />
+而且对于网民本地的浏览器来说，不同的操作，导致的结果也不同；</p>
+  </li>
+  <li>
+    <p>Pragma
+这个的说明不好找，大约是在HTTP1.0里使用的一种定义，我就见过no-cache一个选项，而且在HTTP1.1里，强烈警告不要使用这个标签。</p>
+  </li>
+</ul>
+<p>概念都复述完了，然后是办法：squid可以在refresh_pattern段里使用各种选项把这些header一一忽略，当然，这些个个都是有违http精神的做法~~除了上期提到的ignore-reload以外，还有：ignore-no-cache ignore-private ignore-no-store ignore-auth ignore-revalidate(这些对2.6都要打补丁，更高版本集成了)。
+这样的处理以后，关于客户端的网页缓存控制，就由web服务器对浏览器的If-Modified-Since进行判别控制了，可以说，除非是web方面有经验的做这方面的工作，不然的话，CDN上出错的概率很大……
+最后提一句：文前提到的这个客户，后来我居然发现他有个文件夹目录是http://www.test.com/update/v2.4，无语了，天知道还有什么别的稀奇古怪的目录命名……</p>
+      <a href="/2009/11/20/intro-expires-cache-control" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2009/11/19/use-awk-as-one-line-command" title="awk单行实践" rel="bookmark">awk单行实践</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-11-19 00:00:00 +0800">19 Nov 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>客户提交一份预加载文件列表，采用了如下格式：
+http://www.a.com/a/b/
+a b c d e f g
+h i j k l m n
+http://www.b.com/b/c/
+o p q r s t
+u v w x y z
+http://www.c.com/d/e
+http://www.d.com/f/g
+必须要把文件整理成完整的url，才好操作。
+最初的设想，是以带http开头的行为RS，以n为OFS，然后打印RS
+$0。随后发现这个想法问题多多——最主要的一点是：直接print $0的话，输出结果是不显示OFS的。
+然后我才想到用for循环打印所有列的话，默认就已经分行了，不用定义OFS和ORS。
+剩下的问题就是RS，然而不管我怎么写正则匹配表达式，结果都搞不定……唉
+最后只能放弃这个想法，采用比较繁琐的办法：</p>
+<p>awk -v RS=&rdquo;http&rdquo; &lsquo;{if($2==&rdquo;&rdquo;){print RS$1&gt;url}else{for(i=2;i&lt;=NF;i++){print RS$1$i&gt;url}}}&rsquo; URLFILE</p>
+<p>需要注意的一点，这里RS$1$i之间有没有空格（但不能是逗号）都不影响结果，但如果是{x=$1}{print RS x$i}的话，RS和x之间就必须有空格！
+这样5000个错乱的url，一敲回车就输出成一个url文件，列好了完整的url列表。然后for;do wget;done搞定预加载~~</p>
+      <a href="/2009/11/19/use-awk-as-one-line-command" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2009/11/19/regular-expression" title="正则表达式" rel="bookmark">正则表达式</a>
     </h1>
     <p class="alt-font tight">
@@ -1638,213 +1760,6 @@ http://www.test.com/ts.js: byte count wrong
   如果是动态页面,由于返回数据内容不同.则此报错可以忽略</li>
 </ul>
       <a href="/2009/11/03/test-squid-by-http_load" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/03/tcpwrapper" title="tcpwrapper" rel="bookmark">tcpwrapper</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天去新浪面试。有一道笔试题，考的是tcpwrapper的用法。因为没见过这个东东，所以百度一下，选几篇文章总结一下。</p>
-<p>首先，tcpwrapper是unix上的工具，1990年就诞生了。至于它和iptables的不同，看到有人说是TCP/IP层的不同。说iptables是网络层的，tcpwrapper是应用层的。对不对，且看tcpwrapper的使用先：</p>
-<ol>
-  <li>
-    <p>部署：首选当然是用安装包，要是编译源码，参见如下文：http://echo.sharera.com/blog/BlogTopic/9379.htm，虽然作者说自己笨笨的乱写，那也比我强多了</p>
-  </li>
-  <li>
-    <p>开启日志：在/etc/syslog.conf里添加如下字段即可</p>
-  </li>
-</ol>
-<p>tcpwrapper loglocal3.info /var/log/tcplog</p>
-<p>这个时候要记得重启日志服务。可以使用kill -HUP syslogd进程号的方法（nnd，这也是今天的笔试题之一）。</p>
-<ol>
-  <li>配置文件：/etc/hosts.allow</li>
-</ol>
-<p>（本来还有个hosts.deny的）
-编写规则是“servicename:hostname[:shellcmd]”</p>
-<p>tcpwrapper监控的是inetd里的启动服务，用telnet举例如下</p>
-<div class="highlight"><pre><code class="bash">telnet:ALL
-EXCEPT LOCAL, .M-gtuiw.com
-<span class="nb">echo</span> <span class="s2">&quot;request from %d@%h:&quot;</span> &gt;&gt; /var/log/telnet.log;
-<span class="k">if</span> <span class="o">[</span> %h !<span class="o">=</span> <span class="s2">&quot;OS.M-gtuiw.com:&quot;</span> <span class="o">]</span> ; <span class="k">then</span>
-<span class="k">    </span>finge -l @%h &gt;&gt; /var/log/telnet.log
-<span class="k">fi</span>
-</code></pre></div>
-<p>意即允许除了本机和M-gtuiw.com域下主机以外的所有telnet请求，并以“请求来自服务名@主机名”的方式记录进日志。（注意：EXCEPT也可以用在servicename后面）</p>
-<p>和iptables一样（好像说反了，其实应该是iptables和tcpd一样），这个allow和deny的规则也是讲究先来后到的，所以会有个ALL:ALL:deny收尾（如果单有deny文件，就在里头写ALL:ALL就可以了）。</p>
-<ol>
-  <li>调试</li>
-</ol>
-<p>tcpdchk -v可以看到tcpd的全部规则设置和错误提示
-tcpdmatch servicename hostname可以具体查询某条规则</p>
-<ol>
-  <li>inetd服务配置</li>
-</ol>
-<p>相关的有两个文件，一个是/etc/services，这里定义了各种服务使用的协议和占用的端口（本文中出现的第三个新浪笔试考题了哦~~）；一个是/etc/inetd.conf，这里定义了各项服务的类型、协议、监听方式、用户、程序、参数——如果启用tcpwrapper的话，程序就都是/usr/sbin/tcpd了。比如telnet的配置行如下：</p>
-<p>telnet    stream    tcp    nowait    root    /usr/sbin/tcpd    in.telnetd</p>
-<ol>
-  <li>日志结果，直接摘抄一段如下：</li>
-</ol>
-<div class="highlight"><pre><code class="bash">Jul 31 22:00:52 <span class="o">[</span>url<span class="o">]</span>www.test.org<span class="o">[</span>/url<span class="o">]</span> in.telnetd<span class="o">[</span>4365<span class="o">]</span>: connect from 10.68.32.1
-Jul 31 22:02:10 <span class="o">[</span>url<span class="o">]</span>www.test.org<span class="o">[</span>/url<span class="o">]</span> in.telnetd<span class="o">[</span>4389<span class="o">]</span>: connect from 10.68.32.5
-Jul 31 22:04:58 <span class="o">[</span>url<span class="o">]</span>www.test.org<span class="o">[</span>/url<span class="o">]</span> in.ftpd<span class="o">[</span>4429<span class="o">]</span>: connect from 10.68.32.3
-</code></pre></div>
-<p>以上说了这么多，都是unix上的，最后来一句，在linux上，xinetd就是这个inetd+tcpwrapper了。何况还有强大的iptables……它可不像tcpwrapper只能管tcp协议的服务哦~~</p>
-<p>参考文章：</p>
-<p><a href="http://jianjian.blog.51cto.com/35031/41949">http://jianjian.blog.51cto.com/35031/41949</a>
-<a href="http://echo.sharera.com/blog/BlogTopic/9379.htm">http://echo.sharera.com/blog/BlogTopic/9379.htm</a>
-<a href="http://blog.chinaunix.net/u/26264/showart_971334.html">http://blog.chinaunix.net/u/26264/showart_971334.html</a>
-http://www.linuxdiyf.com/viewarticle.php?id=18335</p>
-      <a href="/2009/11/03/tcpwrapper" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/03/some-useful-shell-techniques" title="shell处理技巧" rel="bookmark">shell处理技巧</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>脚本经常用的上，但老是记不住的一些东西：</p>
-<p>一、逻辑运算</p>
-<pre><code>eq 相等
-ne、neq 不相等
-gt 大于
-lt 小于
-gte、ge 大于等于
-lte、le 小于等于
-not 非
-mod 求模
-is [not] div by 是否能被某数整除
-is [not] even 是否为偶数
-is [not] odd 是否为奇数
--a  存在则为真
--b  存在且是一个块特殊文件则为真
--c  存在且是一个字特殊文件则为真
--d  存在且是一个目录则为真
--e  存在则为真
--f  存在且是一个普通文件则为真
--g  存在且已经设置了SGID则为真
--h  存在且是一个符号连接则为真
--k  存在且已经设置了粘制位则为真
--p  存在且是一个名字管道(F如果O)则为真
--r  存在且是可读的则为真
--s  存在且大小不为0则为真
--t  打开且指向一个终端则为真
--u  存在且设置了SUID则为真
--w  存在且是可写的则为真
--x  存在且是可执行的则为真
--O  存在且属有效用户ID则为真
--G  存在且属有效用户组则为真
--L  存在且是一个符号连接则为真
--N  存在 and has been mod如果ied since it was last
-read则为真
--S  存在且是一个套接字则为真
-</code></pre>
-<p>二、特殊变量</p>
-<pre><code>$# 传递到脚本的参数个数
-$* 以一个单字符串显示所有向脚本传递的参数。与位置变量不同，此选项参数可超过9个
-$$ 脚本运行的当前进程ID号
-$! 后台运行的最后一个进程的进程ID号
-$@ 与$#相同，但是使用时加引号，并在引号中返回每个参数
-$- 显示shell使用的当前选项，与set命令功能相同
-$? 显示最后命令的退出状态。0表示没有错误，其他任何值表明有错误
-$((...)) 对括号内的表达式求值
-</code></pre>
-<p>三、打印格式</p>
-<table>
-  <tbody>
-    <tr>
-      <td>free -m</td>
-      <td>awk &lsquo;/Mem/{printf &ldquo;%.0fn&rdquo;,$1*0.9}&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<p>自动取整数: ％代表任意长度，0表示保留.后0位数字</p>
-<p>四、翻转文件</p>
-<p>sed &lsquo;1!G;h;$!d&rsquo; file
-sed -n &lsquo;1!G;h;$p&rsquo; file</p>
-<p>sed的man说法如下：
-    h
-    H        Copy/append
-    pattern space to hold space.
-    g
-    G        Copy/append
-    hold space to pattern space.
-这两个space，我的理解就是hold是厂房（原料和成品都放这，汗～），pattern是流水线。  <br />
-如果是正常的sed，应该是所有的原料一起上流水线处理，然后统一成品输出。所以顺序不变；但上面这个命令，每处理一行就清空一次流水线，最后成品就成倒序了。
-还有一个x，用来互换两个space的文本。</p>
-<p>五、正则表达式</p>
-<pre><code>pattern{n}：只用来匹配前面pattern出现的次数.n为次数。如a{2}匹配aa.
-pattern{n,}：含义同上，但次数最少为n.如a{2,}匹配aa,aaa,aaaa,.....
-pattern{n,m}：含义同上，但次数在n和m之间。如a{2,4}匹配aa,aaa,aaaa三个
-[0123456789]或[0-9] ：假定要匹配任意一个数字
-[a-z] ：任意小写字母
-[A-Za-z] ：任意大小写字母
-[S,s] ：匹配大小写S
-[0-9]{3}.[0-9]{3}.[0-9]{3}.[0-9]{3} ：匹配IP地址 [0-9]{3}三个0-9组成的字符串；. ：匹配点（注意这里点是特殊的字符，所以要用""来屏蔽其含义）
-用于grep和awk的类名（其他能不能我还不知道）
-[[:upper:]]   表示[A-Z]
-[[:alnum:]]   表示[0-9a-zA-Z]
-[[:lower:]]   表示[a-z]
-[[:space:]]   表示空格或者tab键
-[[:digit:]]   表示[0-9]
-[[:alpha:]]   表示[a-zA-Z]
-</code></pre>
-      <a href="/2009/11/03/some-useful-shell-techniques" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/03/priority-of-squid-domain-resolve" title="squid问题-域名解析" rel="bookmark">squid问题-域名解析</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天有老客户下单修改源IP地址1.2.3.4为1.2.3.7，一切正常操作过后进行测试，其中有台机器就是狂报404。
-在用/home/squid/bin/squidclient -p 80 -m PURGE http://测试url
-命令清除缓存，甚至重启dns/squid服务后，其测试访问的first-to-parent地址还是1.2.3.4！！</p>
-<p>用dig检查确认内部DNS配置已经生效后，又检查了hosts文件也没有问题。</p>
-<p>最后发现是squid.conf里的泛域名配置问题。</p>
-<p>这批服务器在升级squid前，曾经在一台机器上测试新版本配置，之后一直没有更改，其中有如下字段：</p>
-<div class="highlight"><pre><code class="squid"><span class="k">cache_peer</span><span class="w"> </span><span class="mf">1.2.3.4</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="no">no-query</span><span class="w"> </span>no-netdb-exchange<span class="w"> </span>originserver<span class="w"></span>
-cache_peer_domain<span class="w"> </span><span class="mf">1.2.3.4</span><span class="w"> </span>www.test.com<span class="w"></span>
-</code></pre></div>
-<p>所以在系统上怎么修改，都没法成功了。
-由此可知，CDN加速对域名的解析，是squid配置文件最优先，然后才是系统的hosts文件，最后是DNS服务器。</p>
-      <a href="/2009/11/03/priority-of-squid-domain-resolve" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

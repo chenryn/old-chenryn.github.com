@@ -43,6 +43,631 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/06/18/etsy-kale-intro" title="【Etsy 的 Kale 系统】简介、部署和应用" rel="bookmark">【Etsy 的 Kale 系统】简介、部署和应用</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-06-18 00:00:00 +0800">18 Jun 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>监控大户 Etsy 最近有公布了一个全新的监控分析系统，叫 Kale，博客地址：<a href="http://codeascraft.com/2013/06/11/introducing-kale/">http://codeascraft.com/2013/06/11/introducing-kale/</a>。</p>
+<p>目前的介绍内容比较简单。两个组件 <code>skyline</code> 和 <code>oculus</code> 之间的关系也还没搞清楚。大概上， <code>skyline</code> 是一个 python 程序，接受 <code>cPickle</code> 和 <code>MessagePack</code> 两种数据包，解压后的数据格式类似 <code>graphite</code> 接收的，然后存在 <code>Redis-server</code> 中。在 webapp 上提供一个类似 <code>rrdtool</code> 的功能，显示触发阈值线的趋势图(不触发的不会显示，自动过滤了)。</p>
+<p>安装步骤：</p>
+<div class="highlight"><pre><code class="bash">    pip install -r requirements.txt
+    apt-get install -y numpy scipy
+    pip install pandas patsy statsmodels msgpack_python
+    cp src/settings.py.example src/settings.py
+    mkdir /var/log/skyline
+    mkdir /var/run/skyline
+    mkdir /var/log/redis
+    <span class="c"># 必须用最新版的 redis-server 才能正常存储</span>
+    wget http://redis.googlecode.com/files/redis-2.6.13.tar.gz
+    tar zxvf redis-2.6.13.tar.gz
+    <span class="nb">cd </span>redis-2.6.13
+    make
+    ./src/redis-server ../bin/redis.conf
+    <span class="nb">cd</span> ../src
+    <span class="c"># 这里会启动 UDP 2024 端口接受 cpickle 包，2025 端口接受 msgpack 包</span>
+    ../bin/horizon.d start
+    ../bin/analyzer.d start
+    <span class="c"># 这里会启动 TCP 1500 端口接受 web 访问</span>
+    ../bin/webapp.d start
+    <span class="c"># 测试是否正常</span>
+    <span class="nb">cd</span> ../utils
+    ./seed_data.py
+</code></pre></div>
+<p><code>oculus</code> 是一个 rack 应用，需要定时从 <code>skyline</code> 中导入数据到 <code>ElasticSearch</code> 中。同时，<code>oculus</code> 还提供了一个 <code>ElasticSearch</code> 分析器插件，可以在 ES 中完成 <code>FastDTW</code> 和 <code>Euclidian</code> 两种位移算法（用来给不同时间序列的近似度打分）。在rack 页面上，提供搜索框，你可以提交一个 metric 名称——经过测试，目前应该是采用完全匹配的方式搜索——然后展示这个 metric 的图形，以及按照 score 打分排序的近似时间序列。</p>
+<ul>
+  <li>欧几里德算法原理：根据两点的坐标系计算直线距离；</li>
+  <li>动态时间归整原理：将时间序列进行延伸或者缩短，然后再计算。
+<a href="http://www.cnblogs.com/kemaswill/archive/2013/04/18/3028610.html">http://www.cnblogs.com/kemaswill/archive/2013/04/18/3028610.html</a></li>
+</ul>
+<p>安装步骤：</p>
+<div class="highlight"><pre><code class="bash">    <span class="c"># 只能用 0.20.5 版，0.90 版目前不支持</span>
+    wget https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-0.20.5.tar.gz
+    tar zxvf elasticsearch-0.20.5.tar.gz
+    mv elasticsearch-0.20.5 /opt/elasticsearch
+    <span class="c"># 编译插件</span>
+    cp -r resources/elasticsearch-oculus-plugin /opt/elasticsearch/
+    <span class="nb">pushd</span> /opt/elasticsearch/elasticsearch-oculus-plugin
+    rake build
+    cp OculusPlugins.jar /opt/elasticsearch/lib/OculusPlugins.jar
+    <span class="c"># 加载分析器和脚本</span>
+    cat &gt;&gt;/opt/elasticsearch/config/elasticsearch.yml<span class="s">&lt;&lt;EOF</span>
+<span class="s">    script.native:</span>
+<span class="s">      oculus_euclidian.type: com.etsy.oculus.tsscorers.EuclidianScriptFactory</span>
+<span class="s">      oculus_dtw.type: com.etsy.oculus.tsscorers.DTWScriptFactory</span>
+<span class="s">    EOF</span>
+    <span class="c"># 启动</span>
+    /opt/elasticsearch/bin/elasticsearch
+    <span class="nb">popd</span>
+<span class="nb">    </span>bundle install
+    mkdir /var/run/oculus
+    mkdir /var/log/oculus
+    <span class="c"># 启动 worker 进程，这是import.rb 和 ES 交流的渠道</span>
+    rake resque:start_workers
+    <span class="c"># 编辑 config/config.yml，注意里面ES一定要提供两台，哪怕写一个127.0.0.1一个localhost，后面 import 会验证数目</span>
+    vi config/config.yml
+    <span class="c"># 从 skyline 导入数据</span>
+    ./scripts/import.rb
+    <span class="nb">echo</span> <span class="s1">&#39;*/2 * * * * ~/oculus/scripts/import.rb &amp;&gt; /var/log/oculus/import.log&#39;</span> &gt;&gt; cron.list
+    crontab -u root cron.list
+    <span class="c"># 启动web</span>
+    thin start
+    <span class="c"># 默认用户密码都是admin，需要先点击初始化</span>
+    gnome-open localhost:3000/admin
+</code></pre></div>
+<p><code>oculus</code> 的测试我是做出来了。如图：</p>
+<p><img src="/images/uploads/oculus.png" alt="oculus" /></p>
+<p>这个数据我是通过 perl 生成的随机数，所以也没什么近似队列了。展示一下脚本，这样说明我们可以通过其他脚本扩展 Kale 系统的用途。</p>
+<div class="highlight"><pre><code class="perl">    <span class="c1">#!/usr/bin/env perl</span>
+    <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+    <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Data::</span><span class="n">MessagePack</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">AnyEvent::Handle::</span><span class="n">UDP</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$mp</span> <span class="o">=</span> <span class="nn">Data::</span><span class="n">MessagePack</span><span class="o">-&gt;</span><span class="k">new</span><span class="o">-&gt;</span><span class="n">utf8</span><span class="o">-&gt;</span><span class="n">prefer_integer</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$cv</span>   <span class="o">=</span> <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">condvar</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$sock</span> <span class="o">=</span> <span class="nn">AnyEvent::Handle::</span><span class="n">UDP</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+        <span class="nb">connect</span>   <span class="o">=&gt;</span> <span class="p">[</span> <span class="s">&#39;127.0.0.1&#39;</span><span class="p">,</span> <span class="s">&#39;2025&#39;</span> <span class="p">],</span>
+        <span class="n">on_recv</span>   <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="p">},</span>
+        <span class="n">autoflush</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$timer</span> <span class="o">=</span> <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">timer</span><span class="p">(</span>
+        <span class="n">after</span>    <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">interval</span> <span class="o">=&gt;</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="n">cb</span>       <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+            <span class="k">print</span> <span class="s">&quot;send...\n&quot;</span><span class="p">;</span>
+            <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="p">[</span> <span class="s">&#39;localhost.loadavg&#39;</span><span class="p">,</span> <span class="p">[</span> <span class="nb">time</span><span class="p">(),</span> <span class="nb">rand</span><span class="p">()</span> <span class="o">*</span> <span class="mi">2</span> <span class="p">]</span> <span class="p">];</span>
+            <span class="k">my</span> <span class="nv">$packed</span> <span class="o">=</span> <span class="nv">$mp</span><span class="o">-&gt;</span><span class="nb">pack</span><span class="p">(</span><span class="nv">$data</span><span class="p">);</span>
+            <span class="nv">$sock</span><span class="o">-&gt;</span><span class="n">push_send</span><span class="p">(</span><span class="s">&quot;$packed&quot;</span><span class="p">);</span>
+        <span class="p">},</span>
+    <span class="p">);</span>
+    <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nb">recv</span><span class="p">;</span>
+</code></pre></div>
+<p>从源码中，看到还有 <code>ganglia_to_skyline.rb</code> 脚本。目前看，<code>Kale</code> 应该是想着用 <code>skyline</code> 代替 <code>graphite-web</code>，得用 <code>redis</code> 来代替 <code>graphite-whisper</code>，不过我觉得似乎意义不是很大，还不如直接把数据存入 <code>ElasticSearch</code>，形成一套类似 <code>openTSDB</code> 的，但是完全基于 ES 的高扩展分布式方案。</p>
+      <a href="/2013/06/18/etsy-kale-intro" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2013/06/12/translate-85-operational-rules" title="【翻译】运维的85条规则" rel="bookmark">【翻译】运维的85条规则</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-06-12 00:00:00 +0800">12 Jun 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>2007 年，时任虚拟世界游戏公司 Vivaty 运维副总裁的 Jon Prall 在他的个人博客上发表过一篇<a href="http://jprall.typepad.com/blog/2010/10/85-operational-rules.html">《运维的85条规则》</a>。2010 年他跳槽到视频电话公司 Tango 之初，做了两处更新，兹翻译如下：</p>
+<ol>
+  <li>
+    <p>容量第一，优化第二——这条规则在故障发生时生效。在宕机的时候别研究什么优化，先恢复设备。</p>
+  </li>
+  <li>
+    <p>保留所有可以捕获的记录——以 PostgresQL 为例，包括有 WAL 文件，Slony 复制，快照技术，基于硬盘的 DB 版本(快照附带的)</p>
+  </li>
+  <li>
+    <p>不要因为优化引入更多问题。通常我们解决问题时做出来的东西都会转变成之后运维工作的负担。请确认为运维工作开发的那些工具已经完全交付使用。这些东西经常无法正常运行结果要返回开发组重来。更重要的，这种变更请求通常会打破团队原本安排好的工作计划。</p>
+  </li>
+  <li>
+    <p>保持简单，不要让事情变得太复杂，聪明的你一定可以做到的。</p>
+  </li>
+  <li>
+    <p>谨慎使用缓存以保护那些难以水平扩展的资源。当然，如果你可以水平扩展它，那么给他加缓存层就不用考虑太多。一旦用上了缓存层，它的目的应该是提高最终用户的访问性能，而不是增加网站的容量。否则，你不过是给自己加上了一个新的非常不可靠的瓶颈。他们潜在的负面影响可能危及整个系统。事实上缓存层失效带来的，经常是雪崩式的级联故障。</p>
+  </li>
+  <li>
+    <p>不要什么都自己写代码实现，也不要什么都从厂家买——要在适当的时候采用适当的工具。</p>
+  </li>
+  <li>
+    <p>谈判——和真正有实力的厂家谈判的唯一办法就是提前做好功课，准备好一切可行项。这样一旦有必要，你可以从你的首选厂家里选择离开。不用搞虚张声势那套了。</p>
+  </li>
+  <li>
+    <p>永远要准备好 N+1 的服务器。如果 N 等于 1，那么不管什么情况都不要动用这个 +1 的设备，专职等待 N 失效后的接管。当你使用冗余的服务器来均衡负载的时候，就只有49%或者更少的容量可管理了。通常我们会获得 N+2 的机会——一定要好好利用起来。</p>
+  </li>
+  <li>
+    <p>数据丢失是任何一家公司都不敢冒的风险——这是一条普遍真理。丢失数据造成的损耗远远超过用于保证数据不丢失的花费。</p>
+  </li>
+  <li>
+    <p>随时随地的并行化——这是一种很重要的思维方式。比如，如果 MogileFS 设置为位置感知的方式并且需要实时复制，那么每个 MogileFS 服务器都必须可以复制自己的数据到负载均衡器指定的另一端。只要有可能，尽量实现这种多对多的方式。</p>
+  </li>
+  <li>
+    <p>RTFM——就在今天我还要阅读一对 RAID 卡的说明书来比较他们微妙的差异。魔鬼在于细节。像做家庭作业一样读文档吧！</p>
+  </li>
+  <li>
+    <p>了解每一层上的瓶颈以及如何发现瓶颈。必须要知道你是在磁盘，内存，还是 CPU 上受限制了，搞清楚这个其实挺简单的。</p>
+  </li>
+  <li>
+    <p>要有一个固定的容量管理流程——而且是主动式的，不是被动式的。要知道系统的弱点在哪里，让实际负荷曲线跑到容量曲线之上是极度危险的。</p>
+  </li>
+  <li>
+    <p>不促成失败，也不惧怕改变。</p>
+  </li>
+  <li>
+    <p>不要吸进你自己的废气。别以为你现在的工作结果会变成未来你如何工作的动力。</p>
+  </li>
+  <li>
+    <p>运维人员要写的代码是运维工具，而不是应用软件。</p>
+  </li>
+  <li>
+    <p>不要低估运维团队中项目经理、技术作者、金融分析师的价值。这些人通常比你给的工资值钱多了。</p>
+  </li>
+  <li>
+    <p>监控所有的东西——报警只用在异动的时候，其他的都记录下来供趋势分析。</p>
+  </li>
+  <li>
+    <p>要有一个固定的流程来查看每个地方的趋势数据。</p>
+  </li>
+  <li>
+    <p>不要让监控太吵闹，那样很快就变得没作用了。</p>
+  </li>
+  <li>
+    <p>确保你的监控系统简单易用到公司里每个人都能上手。监控数据指标转换成为业务指标、市场指标和销售指标等等的频率可能高的让你吃惊。</p>
+  </li>
+  <li>
+    <p>只在可以做出相应改变的地方做总结，否则就是白白浪费时间。</p>
+  </li>
+  <li>
+    <p>总结要公开，同时附上事件相关的数据。这样大家可以很容易的找到总结的关键点并且跳转到对应数据。</p>
+  </li>
+  <li>
+    <p>要让技术的每一个点都有人员在负责。</p>
+  </li>
+  <li>
+    <p>同时为这些负责人准备好备份人员。</p>
+  </li>
+  <li>
+    <p>不断发招聘——哪怕没有名额了。</p>
+  </li>
+  <li>
+    <p>做自己最严厉的批评者。不管自己或者自认多聪明，总有可以提高的地方。</p>
+  </li>
+  <li>
+    <p>多往外看，拿自身的水平和尽量多的公司的职位需求做对比。</p>
+  </li>
+  <li>
+    <p>每年参加一个技术交流大会。如果一年有好几个，那选最好的那一个去就够了。</p>
+  </li>
+  <li>
+    <p>买你需要的而不是你想要的。绝不摘下你公司的帽子换上那个写着“对我来说什么最简单最安全”的。</p>
+  </li>
+  <li>
+    <p>只做对业务最好的事情，哪怕这件事是让你滚蛋……</p>
+  </li>
+  <li>
+    <p>问责制度正规化——记录承诺，事后追究没有完成者。</p>
+  </li>
+  <li>
+    <p>不允许重复失败。听起来有些过于苛责了。不过要区分不可挽回的失误和失误的差别。</p>
+  </li>
+  <li>
+    <p>无情——因为对手都是无情的。</p>
+  </li>
+  <li>
+    <p>工作是你要在完成的时候亲自署名的东西。署名同时也意味着完成任务。</p>
+  </li>
+  <li>
+    <p>保持对外的可用联络。</p>
+  </li>
+  <li>
+    <p>创业的伙伴——告诉他们你的专长和能力范围。你会得到免费的产品回报，有时候是生活中的。</p>
+  </li>
+  <li>
+    <p>容量是一个业务/产品问题。也就是说每个页面、上传或者登录等请求的网络消耗，都必须是可见的，以协助完成正确的业务/产品决策。</p>
+  </li>
+  <li>
+    <p>一定要打败预算！运维团队总是预算金额最大的挥霍者。公司的收入目标经常达不到，运维团队应该有很多办法来推迟自己的花费。</p>
+  </li>
+  <li>
+    <p>过去的经验不一定适用于现在乃至将来——多尝试没错，而且要有恰当的测试工具来做这件事。</p>
+  </li>
+  <li>
+    <p>文档——所有事情都应该好好记录成文档。避免团队的新成员绕着圈的找遍全团队逐一了解工作内容。</p>
+  </li>
+  <li>
+    <p>画一张超大尺寸的网络拓扑图，描绘你的数据中心。</p>
+  </li>
+  <li>
+    <p>为你的每个产品都画一个逻辑流程图。</p>
+  </li>
+  <li>
+    <p>维基——让大家可以很容易的发布“如何修复这个问题”的文档并且容易查找。这是技术作者发挥作用的地方，不过维基可以让哪怕非正式的文档或者增增改改的小段落也更好查看。</p>
+  </li>
+  <li>
+    <p>确保团队的每个成员，对，是每一个，都是可以替换的。</p>
+  </li>
+  <li>
+    <p>有些人在家里干活比在公司的时候还好，但有些人却不行。</p>
+  </li>
+  <li>
+    <p>订单打包签订——把硬件需求打包成大订单后再去咨询最大的折扣合同，记得订单里要包括所有一切，比如备件包，租赁条件等等。</p>
+  </li>
+  <li>
+    <p>和供应商保持长期联系，哪怕你换到下一份工作的时候也能联系上他们。</p>
+  </li>
+  <li>
+    <p>给运维团队每个人都配上一切他们可以远程操控的东西——掌上电脑， 3G 网卡，24 寸 LCD 屏幕……你为有才华的人付出得到的回报，远超过在远程雇佣的现场工程师。记住，运维工程师都是电力狂人，他们知道并且能充分利用屏幕上每个像素。</p>
+  </li>
+  <li>
+    <p>除非 Mac 可以运行 office 2007 和 outlook，否则团队里总需要几个 windows。这事很破坏团队的会议安排，联系人管理和邮件列表等等。</p>
+  </li>
+  <li>
+    <p>要有一个简化的采购流程——前提是你要了解自己的预算，并且能够管理好。我们可以从财务报告中得到实际。技术驱动的报告和财务驱动的报告之间通常存在差距。一个好的运维经理可以创建一些模型，将这些差别计入销售总成本中。而理解这些的 CFO 才可以帮助推动业务决策。</p>
+  </li>
+  <li>
+    <p>周会一定要持续举行，对上周的事件逐一总结和问责。</p>
+  </li>
+  <li>
+    <p>创建一个独立的升级系统，来管理那些对运维产生负面影响的代码开发工程。这个想法的来源是：一个同时涉及运维和开发的问题，在运维或者开发的跟踪系统里大多被湮没无视，最后没人理睬，所以给这些问题单独创建一个跟踪系统反而更加简单清楚。</p>
+  </li>
+  <li>
+    <p>产品开发从设计开始的每个阶段都要和运维技术相结合。这样，扩展性，监控和可靠性都融入到产品里。这样同时也可以确保运维负责的硬件采购、监控系统按时到位，运行手册即时更新，最后产品按照预计时间上线运行并且都符合运维标准。</p>
+  </li>
+  <li>
+    <p>像一个真正的公司一样运作——萨班斯法案，WebTrust 安全审计认证，SAS 70 审计标准，Visa 组织和银行等等。如果你真的成功了，这些都是你不得不打交道的。早点开始这些准备其实很简单，不需要太多的知识。不过就是开发一个工单/任务跟踪工具，然后好好使用。把变更控制和管理放进同样的系统里，好好使用。其他信息也放进来。系统就可以帮助我们找出像“上周变更了什么”这类信息。</p>
+  </li>
+  <li>
+    <p>给冗余留空间。一开始或许很难，但是一个没有真正的扩展性和可靠性的系统，才会真正耽误你获得成功的时间。</p>
+  </li>
+  <li>
+    <p>买个 Oracle 标准版(或者微软 SQL Server 标准版)是值得的。如果你可以限制住自己不超过标准版的需求，那就绝对值得买，哪怕你刚刚开始创业。</p>
+  </li>
+  <li>
+    <p>Postgres 和 MySQL 的免费不错。如果你不是特别在意事务完整性，MySQL 其实挺好的。</p>
+  </li>
+  <li>
+    <p>容量设计应该按照每日峰值再上抛 20% 到 30% 的冗余。除非你是个 vmotion(译注：VMWare 的热迁移技术)达人。</p>
+  </li>
+  <li>
+    <p>尽量多读一些贸易杂志。它们通常是免费的，只要你填写一些调查问卷就好了。新闻的价值是巨大的。对了，记得让他们投递到你家里，工作的时候读杂志的机会趋近于零。</p>
+  </li>
+  <li>
+    <p>注意安全。开发人员不应该有生产线的权限，而应该去做代码复核。这是和运维之间的职责分离。然后运维中应该有人控制设置其他运维人员权限的权限。创建一个员工手册，警告大家违反安全条例会有很严重的后果。从一开始就要记住从物理的、逻辑的、功能的各个方面来保护客户的数据安全和隐私。万一有客户要和你对簿公堂，你回忆起来发现自己只是靠勇气和勤奋来保护客户数据，这感觉可不怎么好。</p>
+  </li>
+  <li>
+    <p>控制好访问入口。首先要保证大家可以正常完成工作；其次要确保你知道他们是从哪里进来的。快去实现双因素身份验证方法吧。</p>
+  </li>
+  <li>
+    <p>对于人们访问生产环境必经之路的堡垒机和网关，键盘记录是至关重要的。对于 Windows 可能稍微有点难度，不过有些网关可以提供自动截屏功能。</p>
+  </li>
+  <li>
+    <p>确保有多种办法登录生产环境。不要期望公司的 VPN 在网络中断的时候还能起作用。直接把 VPN 架设在生产环境里。</p>
+  </li>
+  <li>
+    <p>使用 LDAP 做认证，哪怕你只有 10 台机器，通过复制 passwd 和 shadow 文件的方式来管理，你也要 LDAP 认证。</p>
+  </li>
+  <li>
+    <p>不要低估在 UNIX 环境中一台 Windows Server 2008 设备是多么有用。如果只是因为不懂 Windows，那么去学，而不是贬低它。</p>
+  </li>
+  <li>
+    <p>不要用那些无效的无线方案浪费大家的时间。公司里所有人都在移动，沙发上，会议室里，门口，到处都要上网。千万维护好你的无线路由。</p>
+  </li>
+  <li>
+    <p>总有些人把额外的精力和时间都投入到工作上——直接通过他们的请假单好了。而另一些人恰恰相反只把注意力放在怎么通过自己的请假单。在个人时间安排上，运维人员总是做出巨大的牺牲，他们随时准备凌晨3点爬起床快速响应排障需求。</p>
+  </li>
+  <li>
+    <p>通过集中式的 RDBMS 管理你所有的设备资产。然后复制资产，人员，网络，合同等所有数据到异地。没错，要的是一个在线的实时可用的复制，而不是每天晚上备份到磁带。</p>
+  </li>
+  <li>
+    <p>自动使用多进程以确认安全，包括操作系统或者产品的上线，文件的推送，日志的分析等。</p>
+  </li>
+  <li>
+    <p>自动化操作必须和运维的 RDBMS 数据相关联。</p>
+  </li>
+  <li>
+    <p>设备通常有三种状态——离线，服务中，预备。预备状态就是说正在通过 cfengine、rsync 或者其他你在使用的工具完成配置。服务中就是已经运行着流量了。同时还需要一个状态，这个状态下的设备可以在不提供生产服务的情况下收集或者测试数据。</p>
+  </li>
+  <li>
+    <p>尊重日志数据。在设备下线或者重建之前，一定要先导出日志。</p>
+  </li>
+  <li>
+    <p>如果业务飞速发展让你没有太多时间来做优化，那就尽力锁定一切——进程还能工作，就不要改变它，直到后来有了绝对必要的理由。总之，锁定默认值，等待成长到必要时再审视。</p>
+  </li>
+  <li>
+    <p>你永远无法避免运维工程师在你基础设施最关键的地方犯点啥错——比如在哪台机器上不小心执行 <code>rm -rf /</code> 命令。</p>
+  </li>
+  <li>
+    <p>为团队保持好玩和有趣的气氛——如果他们不再享受他们的工作，他们就会找别的事情来消遣。要让团队有主人翁意识，运维不是哪个经理的个人任务。</p>
+  </li>
+  <li>
+    <p>提供 99.999% 可用性的真正价值在于让我们有能力保持灵活。这意味着当你需要的时候可以充分利用系统冗余。物理变更、设备迁移、代码修改和回退等等都游刃有余。这个对于公司本身价值巨大，甚至比对客户还大。</p>
+  </li>
+  <li>
+    <p>如果你能做到 99.999%，那就给客户一个 100% 的SLA承诺。</p>
+  </li>
+  <li>
+    <p>不要湮没软件热更新的能力。应该被湮没的是你自己回滚或者转移到旧版本代码的能力。压根就不应该“处理”这种徒劳的失败转移。当事情变得不如人意的时候，你更应该做的是找个大玩意儿来挡住你的肥屁股。CYA（译注：Cover Your Ass，就是前面说的盖屁股） = 保持敏捷 = 成功的公司。</p>
+  </li>
+  <li>
+    <p>记住你为客户构建产品的思路里每一步的原因和目的——不管你部署给最终用户的是什么，把这些放在最先考虑，即你所有（基础设施、流程和人员）的设计都是为了提供最好的服务和产品。</p>
+  </li>
+  <li>
+    <p>第一次就要成功。很少有机会让你回去重新开始的。重做是对公司资源的巨大浪费。</p>
+  </li>
+  <li>
+    <p>多联系业内的合作伙伴、盟友和类似的企业，看看他们的运维是怎么做的。很可能他们碰到了跟你一样的挑战，而解决的更为巧妙。不要害怕分享自己的经验和处理过程，因为别人也会回馈的。</p>
+  </li>
+  <li>
+    <p>招人就要招那些足以让自己担心会被挤掉目前工作的，招那些你欣赏和可以学习的榜样，招那些你愿意和他一起工作的。这感觉甚至超过你招聘一个工作考评为A的员工。</p>
+  </li>
+  <li>
+    <p>IT 和运维是完全不同的两个概念。一个不错的运维经理应该可以管理好企业 IT，但是一个传统的 IT 工程师很难有能力处理互联网运维任务。</p>
+  </li>
+  <li>
+    <p>当你开始一份新工作或者在每年的起始，都应该去争取预算。这不是说滚着那个滋滋响的轮子往前走(应该是指循规蹈矩照本宣科)，而是要一个基于历史数据做出的优秀的文案。如果你正在评估一份新工作，请确认你完完全全的知道预算以及预算的来源。同时，还应该有的是改善这份预算的权利。</p>
+  </li>
+</ol>
+      <a href="/2013/06/12/translate-85-operational-rules" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2013/05/28/compare-dsl-of-puppet-with-rex" title="puppet和rex的常用资源写法类比" rel="bookmark">puppet和rex的常用资源写法类比</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-05-28 00:00:00 +0800">28 May 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#devops-ref" title="devops" rel="category tag">devops</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>首先要申明，rex 和 puppet 本质上是不同的，puppet 追求的是状态，rex 追求的是操作。puppet 用户经常关心的是 agent 运行了没，而 rex 用户关心的是怎么写 Rexfile 能让中控运行 rex 时的命令参数更简洁漂亮(个人感受==!)。所以哪怕在本文中列举的这些资源写法很类似，也请读者们注意：rex 的资源关键词命名，都是带有动作性的，比如 <code>create</code>，<code>add</code>，<code>install</code>，<code>upload</code>，<code>download</code>，<code>sync</code> 等等。甚至精确的说，rex 里这些不是资源(<code>Puppet::Types::***</code>)，他们是 <code>Rex::Commands::***</code>。</p>
+<p>因为 rex 基于并发 ssh 连接，所以它有一些操作是 puppet 所没有的，比如 <code>tail</code>，<code>file_append</code>，<code>fdisk</code>，<code>sysctl</code> 和 <code>iptables</code> 等等，这里暂时不列举。总的来说，本文目的是总结类似的部分，而不是不同的用法……</p>
+<h1 id="cron-">Cron 资源</h1>
+<h3 id="puppet-">puppet 写法</h3>
+<div class="highlight"><pre><code class="ruby">    <span class="n">cron</span> <span class="p">{</span> <span class="s1">&#39;check_starttime&#39;</span><span class="p">:</span>
+        <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="n">present</span><span class="p">,</span>
+        <span class="n">minute</span>  <span class="o">=&gt;</span> <span class="mi">30</span><span class="p">,</span>
+        <span class="n">hour</span>    <span class="o">=&gt;</span> <span class="s1">&#39;*/2&#39;</span><span class="p">,</span>
+        <span class="n">user</span>    <span class="o">=&gt;</span> <span class="s1">&#39;root&#39;</span><span class="p">,</span>
+        <span class="n">command</span> <span class="o">=&gt;</span> <span class="s1">&#39;sh /usr/local/bin/check_start_time.sh&#39;</span><span class="p">,</span>
+        <span class="nb">require</span> <span class="o">=&gt;</span> <span class="no">File</span><span class="o">[</span><span class="s1">&#39;/usr/local/bin/check_start_time.sh&#39;</span><span class="o">]</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre></div>
+<h3 id="rex-">rex 写法</h3>
+<div class="highlight"><pre><code class="perl">    <span class="n">cron</span> <span class="n">add</span> <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span> <span class="p">{</span>
+        <span class="n">minute</span>       <span class="o">=&gt;</span> <span class="s">&#39;5&#39;</span><span class="p">,</span>
+        <span class="n">hour</span>         <span class="o">=&gt;</span> <span class="s">&#39;*&#39;</span><span class="p">,</span>
+        <span class="n">day_of_month</span> <span class="o">=&gt;</span> <span class="s">&#39;*&#39;</span><span class="p">,</span>
+        <span class="n">month</span>        <span class="o">=&gt;</span> <span class="s">&#39;*&#39;</span><span class="p">,</span>
+        <span class="n">day_of_week</span>  <span class="o">=&gt;</span> <span class="s">&#39;*&#39;</span><span class="p">,</span>
+        <span class="n">command</span>      <span class="o">=&gt;</span> <span class="s">&#39;/path/to/your/cronjob&#39;</span><span class="p">,</span>
+    <span class="p">};</span>
+</code></pre></div>
+<h1 id="file-">File 资源</h1>
+<h3 id="puppet--1">puppet 写法</h3>
+<div class="highlight"><pre><code class="ruby">    <span class="n">file</span> <span class="p">{</span> <span class="s1">&#39;/etc/squid/squid.conf&#39;</span><span class="p">:</span>
+        <span class="k">ensure</span>    <span class="o">=&gt;</span> <span class="n">file</span><span class="p">,</span>
+        <span class="n">mode</span>      <span class="o">=&gt;</span> <span class="s1">&#39;0755&#39;</span><span class="p">,</span>
+        <span class="n">content</span>   <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s1">&#39;squid/squid.conf.erb&#39;</span><span class="p">),</span>
+        <span class="nb">require</span>   <span class="o">=&gt;</span> <span class="no">Package</span><span class="o">[</span><span class="s1">&#39;squid&#39;</span><span class="o">]</span><span class="p">,</span>
+        <span class="n">subscribe</span> <span class="o">=&gt;</span> <span class="no">Service</span><span class="o">[</span><span class="s1">&#39;squid&#39;</span><span class="o">]</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre></div>
+<h3 id="rex--1">rex 写法</h3>
+<div class="highlight"><pre><code class="perl">    <span class="n">file</span> <span class="s">&quot;/etc/squid/squid.conf&quot;</span><span class="p">,</span>
+        <span class="n">content</span>   <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s">&quot;templates/squid.tpl&quot;</span><span class="p">,</span> <span class="n">vars</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">%var</span> <span class="p">),</span>
+        <span class="n">owner</span>     <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span>
+        <span class="n">group</span>     <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span>
+        <span class="n">mode</span>      <span class="o">=&gt;</span> <span class="mi">700</span><span class="p">,</span>
+        <span class="n">needs</span>     <span class="o">=&gt;</span> <span class="n">SquidPkgTask</span><span class="p">,</span>
+        <span class="n">on_change</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="n">service</span> <span class="n">squid</span> <span class="o">=&gt;</span> <span class="s">&#39;restart&#39;</span> <span class="p">};</span>
+</code></pre></div>
+<p>这里的 <code>on_change</code> 是 File 资源独有的。</p>
+<p><strong>通用资源方面，rex 中在同一个 task 内，是按照书写顺序执行；在 task 之间，通过 <code>needs</code> 可以定义依赖。</strong></p>
+<p>另外 rex 还有 <code>before</code>，<code>after</code>，<code>around</code> 三个关键字作用于 task 上。不过这三个是在 rex 控制端执行，不是在远端主机上执行。</p>
+<p>注意这里，这个 file 看起来没有使用操作性的动词，但其实他是下面这个写法的简写而已：</p>
+<div class="highlight"><pre><code class="perl">    <span class="n">install</span> <span class="n">file</span>  <span class="o">=&gt;</span> <span class="s">&#39;templates/etc/hosts.tpl&#39;</span><span class="p">,</span> <span class="p">{</span>
+        <span class="n">source</span>    <span class="o">=&gt;</span> <span class="s">&quot;/etc/hosts&quot;</span><span class="p">,</span>
+        <span class="n">owner</span>     <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span>
+        <span class="n">group</span>     <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span>
+        <span class="n">mode</span>      <span class="o">=&gt;</span> <span class="mi">700</span><span class="p">,</span>
+        <span class="n">on_change</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="n">say</span> <span class="s">&quot;Something was changed.&quot;</span> <span class="p">},</span>
+        <span class="n">template</span>  <span class="o">=&gt;</span> <span class="p">{</span>
+                        <span class="n">greeting</span> <span class="o">=&gt;</span> <span class="s">&quot;hello&quot;</span><span class="p">,</span>
+                        <span class="n">name</span>     <span class="o">=&gt;</span> <span class="s">&quot;Ben&quot;</span><span class="p">,</span>
+                     <span class="p">},</span>
+    <span class="p">};</span>
+</code></pre></div>
+<p>另外，还有一个通过 SFTP 接口上传的写法：</p>
+<div class="highlight"><pre><code class="perl">    <span class="n">upload</span> <span class="s">&quot;hosts&quot;</span> <span class="o">=&gt;</span> <span class="s">&quot;/etc/&quot;</span><span class="p">;</span>
+</code></pre></div>
+<h1 id="package-">Package 资源</h1>
+<h3 id="puppet--2">puppet 写法</h3>
+<div class="highlight"><pre><code class="ruby">    <span class="n">package</span> <span class="p">{</span> <span class="s1">&#39;ganglia-gmond-modules-python-plugin&#39;</span><span class="p">:</span>
+        <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="n">installed</span><span class="p">,</span>
+        <span class="nb">require</span> <span class="o">=&gt;</span> <span class="no">Class</span><span class="o">[</span><span class="s1">&#39;repos&#39;</span><span class="o">]</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre></div>
+<h3 id="rex--2">rex 写法</h3>
+<div class="highlight"><pre><code class="perl">    <span class="n">repository</span> <span class="n">add</span> <span class="o">=&gt;</span> <span class="n">myrepo</span><span class="p">,</span>
+        <span class="n">url</span> <span class="o">=&gt;</span> <span class="s">&#39;http://rex.linux-files.org/CentOS/$releasever/rex/$basearch/&#39;</span><span class="p">;</span>
+    <span class="n">update_package_db</span><span class="p">;</span>
+    <span class="n">install</span> <span class="nb">package</span> <span class="o">=&gt;</span> <span class="s">&#39;vim&#39;</span><span class="p">;</span>
+</code></pre></div>
+<h1 id="class-">Class 定义</h1>
+<h3 id="puppet--3">puppet 写法</h3>
+<div class="highlight"><pre><code class="ruby">    <span class="k">class</span> <span class="n">squid</span> <span class="p">{</span>
+        <span class="kp">include</span> <span class="ss">squid</span><span class="p">:</span><span class="ss">:install</span>
+    <span class="p">}</span>
+</code></pre></div>
+<h3 id="rex--3">rex 写法</h3>
+<p>rex 执行的 Rexfile 其实就是 perl 的模块文件，所以写法就是标准的 perl 写法。</p>
+<div class="highlight"><pre><code class="perl">    <span class="nb">package</span> <span class="n">Squid</span> <span class="p">{</span>
+        <span class="nb">require</span> <span class="nn">Squid::</span><span class="n">Install</span><span class="p">;</span>
+    <span class="p">}</span>
+</code></pre></div>
+<p>呼呼，新版本的 Perl 中可以用 <code>{}</code> 来包裹 package 定义的内容，看起来是不是更像一些？不过 CentOS6 的 5.10 版还不支持，所以通用起见，还是这样写吧：</p>
+<div class="highlight"><pre><code class="perl">    <span class="nb">package</span> <span class="n">Squid</span><span class="p">;</span>
+    <span class="nb">require</span> <span class="nn">Squid::</span><span class="n">Install</span><span class="p">;</span>
+    <span class="mi">1</span><span class="p">;</span>
+</code></pre></div>
+<h1 id="directory-">Directory 资源</h1>
+<h3 id="puppet--4">puppet 写法</h3>
+<div class="highlight"><pre><code class="ruby">    <span class="n">file</span> <span class="p">{</span> <span class="s1">&#39;murder-client&#39;</span><span class="p">:</span>
+        <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="s1">&#39;directory&#39;</span><span class="p">,</span>
+        <span class="n">path</span>    <span class="o">=&gt;</span> <span class="s1">&#39;/usr/local/murder&#39;</span><span class="p">,</span>
+        <span class="n">recurse</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
+        <span class="n">purge</span>   <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
+        <span class="n">source</span>  <span class="o">=&gt;</span> <span class="s1">&#39;puppet:///modules/murder/dist&#39;</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre></div>
+<h3 id="rex--4">rex 写法</h3>
+<p>rex 中采用 rsync 来完成目录文件的同步：</p>
+<div class="highlight"><pre><code class="perl">    <span class="nb">mkdir</span><span class="p">(</span><span class="s">&#39;/usr/local/murder&#39;</span><span class="p">);</span>
+    <span class="n">sync</span> <span class="s">&#39;dist/*&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;/usr/local/murder&#39;</span><span class="p">,</span> <span class="p">{</span>
+        <span class="n">exclude</span>    <span class="o">=&gt;</span> <span class="s">&quot;*.sw*&quot;</span><span class="p">,</span>
+        <span class="n">parameters</span> <span class="o">=&gt;</span> <span class="s">&#39;--backup --delete&#39;</span><span class="p">,</span>
+    <span class="p">};</span>
+</code></pre></div>
+<h1 id="shell-">Shell 资源</h1>
+<h3 id="puppet--5">puppet 写法</h3>
+<div class="highlight"><pre><code class="ruby">    <span class="nb">exec</span> <span class="p">{</span><span class="s1">&#39;init-reload&#39;</span><span class="p">:</span>
+        <span class="n">command</span>     <span class="o">=&gt;</span> <span class="s1">&#39;/sbin/initctl reload-configuration &amp;&amp; /sbin/initctl start svscan&#39;</span><span class="p">,</span>
+        <span class="n">subscribe</span>   <span class="o">=&gt;</span> <span class="no">File</span><span class="o">[</span><span class="s1">&#39;/etc/init/svscan.conf&#39;</span><span class="o">]</span><span class="p">,</span>
+        <span class="n">refreshonly</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre></div>
+<h3 id="rex--5">rex 写法</h3>
+<div class="highlight"><pre><code class="perl">    <span class="n">run</span> <span class="s">&quot;cmd&quot;</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+        <span class="k">my</span> <span class="p">(</span><span class="nv">$out</span><span class="p">,</span> <span class="nv">$err</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+    <span class="p">};</span>
+</code></pre></div>
+<p>这个回调函数可以不要，那么 <code>run</code> 命令返回输出到变量。这种用法在单行命令中最常用，比如这样：</p>
+<div class="highlight"><pre><code class="bash">    rex -H <span class="s1">&#39;192.168.0.[10..30]&#39;</span> -e <span class="s1">&#39;say run &quot;df -h&quot;&#39;</span>
+</code></pre></div>
+<h1 id="usergroup-">User/Group 资源</h1>
+<h3 id="puppet--6">puppet 写法</h3>
+<div class="highlight"><pre><code class="ruby">    <span class="n">group</span> <span class="p">{</span><span class="s1">&#39;puppet&#39;</span><span class="p">:</span>
+        <span class="k">ensure</span> <span class="o">=&gt;</span> <span class="n">present</span><span class="p">,</span>
+        <span class="n">gid</span>    <span class="o">=&gt;</span> <span class="mi">501</span><span class="p">,</span>
+        <span class="nb">system</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">user</span> <span class="p">{</span><span class="s1">&#39;puppet&#39;</span><span class="p">:</span>
+        <span class="k">ensure</span> <span class="o">=&gt;</span> <span class="n">present</span><span class="p">,</span>
+        <span class="n">uid</span>    <span class="o">=&gt;</span> <span class="mi">501</span><span class="p">,</span>
+        <span class="nb">system</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
+        <span class="n">groups</span> <span class="o">=&gt;</span> <span class="o">[</span><span class="s1">&#39;puppet&#39;</span><span class="p">,</span> <span class="s1">&#39;...&#39;</span><span class="o">]</span><span class="p">,</span>
+        <span class="n">expiry</span> <span class="o">=&gt;</span> <span class="s1">&#39;2013-05-30&#39;</span><span class="p">,</span>
+        <span class="n">managehome</span> <span class="o">=&gt;</span> <span class="kp">false</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre></div>
+<h3 id="rex--6">rex 写法</h3>
+<div class="highlight"><pre><code class="perl">    <span class="n">create_group</span> <span class="s">&#39;puppet&#39;</span><span class="p">,</span> <span class="p">{</span>
+        <span class="n">gid</span>    <span class="o">=&gt;</span> <span class="mi">501</span><span class="p">,</span>
+        <span class="nb">system</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">create_user</span> <span class="s">&#39;puppet&#39;</span><span class="p">,</span>
+       <span class="n">uid</span> <span class="o">=&gt;</span> <span class="mi">501</span><span class="p">,</span>
+       <span class="n">home</span> <span class="o">=&gt;</span> <span class="s">&#39;/etc/puppet&#39;</span><span class="p">,</span>
+       <span class="n">expire</span> <span class="o">=&gt;</span> <span class="s">&#39;2013-05-30&#39;</span><span class="p">,</span>
+       <span class="n">groups</span>  <span class="o">=&gt;</span> <span class="p">[</span><span class="s">&#39;puppet&#39;</span><span class="p">,</span> <span class="s">&#39;...&#39;</span><span class="p">],</span>
+       <span class="n">password</span> <span class="o">=&gt;</span> <span class="s">&#39;blahblah&#39;</span><span class="p">,</span>
+       <span class="nb">system</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
+       <span class="n">no_create_home</span> <span class="o">=&gt;</span> <span class="n">TRUE</span><span class="p">,</span>
+       <span class="n">ssh_key</span> <span class="o">=&gt;</span> <span class="s">&quot;ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQChUw...&quot;</span><span class="p">;</span>
+</code></pre></div>
+<h1 id="service-">Service 资源</h1>
+<h3 id="puppet--7">puppet 写法</h3>
+<div class="highlight"><pre><code class="ruby">    <span class="n">service</span> <span class="p">{</span><span class="s1">&#39;nginx&#39;</span><span class="p">:</span>
+        <span class="k">ensure</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
+        <span class="n">enable</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre></div>
+<h3 id="rex--7">rex 写法</h3>
+<div class="highlight"><pre><code class="perl">    <span class="n">service</span> <span class="n">apache2</span> <span class="o">=&gt;</span> <span class="n">ensure</span> <span class="o">=&gt;</span> <span class="s">&quot;started&quot;</span><span class="p">;</span>
+    <span class="n">service</span> <span class="n">apache2</span> <span class="o">=&gt;</span> <span class="s">&quot;start&quot;</span><span class="p">;</span>
+</code></pre></div>
+<p>再次可见，rex 认为 <code>service</code> 命令和 <code>chkconfig</code>/<code>update-rc.d</code> 命令是两件事情，所以要分开两个写法。</p>
+<h1 id="mount-">Mount 资源</h1>
+<h3 id="puppet--8">puppet 写法</h3>
+<div class="highlight"><pre><code class="ruby">    <span class="n">mount</span> <span class="p">{</span><span class="s1">&#39;/mnt/sda6&#39;</span><span class="p">:</span>
+        <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="n">present</span><span class="p">;</span>
+        <span class="n">device</span>  <span class="o">=&gt;</span> <span class="s1">&#39;/dev/sda6&#39;</span><span class="p">,</span>
+        <span class="n">fstype</span>  <span class="o">=&gt;</span> <span class="s1">&#39;ext3&#39;</span><span class="p">,</span>
+        <span class="n">options</span> <span class="o">=&gt;</span> <span class="s1">&#39;noatime,async&#39;</span><span class="p">;</span>
+    <span class="p">}</span>
+</code></pre></div>
+<h3 id="rex--8">rex 写法</h3>
+<div class="highlight"><pre><code class="perl">    <span class="n">mount</span> <span class="s">&quot;/dev/sda6&quot;</span><span class="p">,</span> <span class="s">&quot;/mnt/sda6&quot;</span><span class="p">,</span>
+       <span class="n">fs</span> <span class="o">=&gt;</span> <span class="s">&quot;ext3&quot;</span><span class="p">,</span>
+       <span class="n">options</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw/noatime async/</span><span class="p">];</span>
+</code></pre></div>
+<h1 id="facts-">Facts 变量和模板</h1>
+<h3 id="puppet--9">puppet 写法</h3>
+<p>在 puppet 中，Facts 变量有两种用法，一个是 <code>*.pp</code> 里的写法：</p>
+<div class="highlight"><pre><code class="ruby">    <span class="vg">$:</span><span class="ss">:lsbdistid</span>
+</code></pre></div>
+<p>另一种是在 <code>*.erb</code> 里的写法，值得注意的是变量的作用域：</p>
+<div class="highlight"><pre><code class="ruby">    <span class="o">&lt;</span><span class="sx">%= scope::lookupvar(&#39;ipaddress&#39;) %&gt;</span>
+<span class="sx">    &lt;%=</span> <span class="ss">scope</span><span class="p">:</span><span class="ss">:lookupvar</span><span class="p">(</span><span class="s1">&#39;nginx::name&#39;</span><span class="p">)</span> <span class="o">%&gt;</span>
+</code></pre></div>
+<h3 id="rex--9">rex 写法</h3>
+<p>在 rex 中，远端主机的系统状态有多种获取方式，比如：</p>
+<div class="highlight"><pre><code class="perl">    <span class="c1"># 全部，这些变量默认会传递给 template</span>
+    <span class="k">my</span> <span class="nv">$sysinfo</span> <span class="o">=</span> <span class="nn">Rex::Helper::System::</span><span class="n">info</span><span class="p">;</span>
+    <span class="c1"># 实际就是从上面info里取具体的变量</span>
+    <span class="k">my</span> <span class="nv">$lsd</span> <span class="o">=</span> <span class="n">get_operating_system</span><span class="p">;</span>
+    <span class="c1"># 这个慎用，会死人的</span>
+    <span class="k">my</span> <span class="nv">@ns</span> <span class="o">=</span> <span class="n">netstat</span><span class="p">;</span>
+</code></pre></div>
+<p>也可以使用 <code>set</code> 指令，这种变量和使用 perl 标准 <code>my $name</code> 方式不同的是它可以直接在模板中读取：</p>
+<div class="highlight"><pre><code class="perl">    <span class="n">set</span> <span class="n">name</span> <span class="o">=&gt;</span> <span class="s">&#39;CDN&#39;</span><span class="p">;</span>
+</code></pre></div>
+<p>至于 rex 的模板，它默认没有使用 CPAN 上任何一种现成的模块，而是自己实现了一个，写法如下：</p>
+<div class="highlight"><pre><code class="perl">    <span class="n">template</span><span class="p">(</span><span class="s">&#39;your.tpl&#39;</span><span class="p">,</span> <span class="n">yourvars</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">%hash</span> <span class="p">);</span>
+</code></pre></div>
+<p>然后在模板中这样引用：</p>
+<div class="highlight"><pre><code class="perl">    <span class="n">My</span> <span class="n">variable</span> <span class="n">is</span> <span class="o">&lt;</span><span class="nv">%</span><span class="err">=</span> <span class="err">$</span><span class="nv">::yourvars</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">key</span><span class="p">}</span> <span class="nv">%</span><span class="err">&gt;</span>
+    <span class="nv">My</span> <span class="n">name</span> <span class="n">is</span> <span class="o">&lt;</span><span class="nv">%</span><span class="err">=</span> <span class="err">$</span><span class="nv">::name</span> <span class="nv">%</span><span class="err">&gt;</span>
+    <span class="nv">My</span> <span class="n">lsd</span> <span class="n">is</span> <span class="o">&lt;</span><span class="nv">%</span><span class="err">=</span> <span class="err">$</span><span class="nv">::operatingsystem</span> <span class="nv">%</span><span class="err">&gt;</span>
+</code></pre></div>
+<p>明显有模仿 puppet 的痕迹，传递进模版的变量以 <code>$::</code> 开头，个人比较汗……</p>
+<p>所以个人建议还是更换成 CPAN 上的流行模板，比如 <code>Text::Xslate</code> 或者 <code>Text::MicroTemplate</code> 等等，使用 <code>set_template_option</code> 即可。</p>
+      <a href="/2013/05/28/compare-dsl-of-puppet-with-rex" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/05/27/use-rex-box-replace-vagrant" title="使用 Rex::Box 代替 Vagrant 的工作" rel="bookmark">使用 Rex::Box 代替 Vagrant 的工作</a>
     </h1>
     <p class="alt-font tight">
@@ -2526,688 +3151,6 @@ idle都在85%以上。平均响应时间长达40ms。限于环境，压力测试
   </tbody>
 </table>
       <a href="/2012/12/22/simple-local-website-for-sysadmin-advent-clone" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/12/22/intro-dancer-plugin-adapter" title="Dancer::Plugin::Adapter 模块介绍" rel="bookmark">Dancer::Plugin::Adapter 模块介绍</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-12-22 00:00:00 +0800">22 Dec 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#dancer-ref" title="dancer" rel="category tag">dancer</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>Dancer 活跃的社区和强大又方便的插件开发导致出现了太多好玩的插件，有位新同学在刚上手的这两周内就已经往 CPAN 提交了四个插件了。</p>
-<p>今天这里介绍一个刚在 IRC 上被推荐的东东，额，这个插件的作者跟上面提到的同学说：大哥，看看偶这个模块吧，就不用你这么辛苦的啥都写新插件了。</p>
-<p><a href="https://metacpan.org/module/Dancer::Plugin::Adapter">Dancer::Plugin::Adapter</a> 模块的作用，就是当你的项目需要在多处使用某个模块的时候，不用频繁的到处去new，直接在 config.yml 里一定义，它会自动给你实例化成 <code>Dancer::Object</code>，然后缓存住，你就可以直接用 service 关键词调用了。</p>
-<p>用法示例：</p>
-<div class="highlight"><pre><code class="perl">    <span class="c1"># in config.yml</span>
-    <span class="n">plugins:</span>
-      <span class="n">Adapter:</span>
-        <span class="n">ua:</span>
-          <span class="n">class:</span> <span class="nn">HTTP::</span><span class="n">Tiny</span>
-          <span class="n">options:</span>
-            <span class="n">max_redirect:</span> <span class="mi">3</span>
-        <span class="n">postmark:</span>
-          <span class="n">class:</span> <span class="nn">WWW::</span><span class="n">Postmark</span>
-          <span class="n">options:</span> <span class="n">POSTMARK_API_TEST</span>
-    <span class="c1"># in your app</span>
-    <span class="k">use</span> <span class="nn">Dancer::Plugin::</span><span class="n">Adapter</span><span class="p">;</span>
-    <span class="n">get</span> <span class="s">&#39;/&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-      <span class="nb">eval</span> <span class="p">{</span>
-        <span class="n">service</span><span class="p">(</span><span class="s">&quot;postmark&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="nb">send</span><span class="p">(</span>
-          <span class="n">from</span>    <span class="o">=&gt;</span> <span class="s">&#39;me@domain.tld&#39;</span><span class="p">,</span>
-          <span class="n">to</span>      <span class="o">=&gt;</span> <span class="s">&#39;you@domain.tld, them@domain.tld&#39;</span><span class="p">,</span>
-          <span class="n">subject</span> <span class="o">=&gt;</span> <span class="s">&#39;an email message&#39;</span><span class="p">,</span>
-          <span class="n">body</span>    <span class="o">=&gt;</span> <span class="s">&quot;hi guys, what&#39;s up?&quot;</span>
-        <span class="p">);</span>
-      <span class="p">};</span>
-      <span class="k">return</span> <span class="vg">$@</span> <span class="p">?</span> <span class="s">&quot;Error: $@&quot;</span> <span class="p">:</span> <span class="s">&quot;Mail sent&quot;</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="n">get</span> <span class="s">&#39;/proxy/:url&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-      <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="n">service</span><span class="p">(</span><span class="s">&#39;ua&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;url&#39;</span><span class="p">}</span> <span class="p">);</span>
-      <span class="k">if</span> <span class="p">(</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">success</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="k">return</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">content</span><span class="p">};</span>
-      <span class="p">}</span>
-      <span class="k">else</span> <span class="p">{</span>
-        <span class="n">template</span> <span class="s">&#39;error&#39;</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="n">response</span> <span class="o">=&gt;</span> <span class="nv">$res</span> <span class="p">};</span>
-      <span class="p">}</span>
-    <span class="p">};</span>
-</code></pre></div>
-<p>话说我还是喜欢上代码，不喜欢完整的翻译 POD 啊…………</p>
-      <a href="/2012/12/22/intro-dancer-plugin-adapter" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/12/22/elasticsearch-amcharts-demo" title="用 Amcharts 和 ElasticSearch 做日志分析" rel="bookmark">用 Amcharts 和 ElasticSearch 做日志分析</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-12-22 00:00:00 +0800">22 Dec 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>之前有一篇从 ElasticSearch 官网摘下来的博客<a href="http://chenlinux.com/2012/11/18/data-visualization-with-elasticsearch-and-protovis">《【翻译】用ElasticSearch和Protovis实现数据可视化》</a>。不过一来 Protovis 已经过时，二来 不管是 Protovis 的进化品 D3 还是 Highchart 什么的，我觉得在多图方面都还不如 amcharts 好用。所以在最后依然选择了老牌的 amcharts 完成。</p>
-<p>展示品的大概背景还是 webserver 日志，嗯，这个需求应该是最有代表性的了。我们需要对webserver的性能有所了解。之前有一篇文章<a href="http://chenlinux.com/2012/11/22/tatsumaki-demo/">《Tatsumaki框架的小demo一个》</a>，讲的是通过 <code>terms_stats</code> 获取固定时段内请求时间的平均值。其实这个demo是可以参照官网博客修改成纯js应用的。因为 Tatsumaki 在这里除了处理 HTTP 请求参数，什么都没干。而且这个demo目的是展示 perl 框架的处理，所以amchart方面直接就写死了各种变量。</p>
-<p>但是还有一种需求，比如你需要的是针对某个情况超过某个百分比的分时走势统计。这时候必须多次请求 ES 来做运算，再让 js 做，不是说不行，但是多一倍数据在网络中传输，就不如在服务器端封装 API 了 —— 其实是我 js 太烂这种事情，我会告诉你们么。。。</p>
-<p>先上两张效果图，其实这个布局我是从 facetgrapher 项目偷来的，但这个项目只适合比较不同 index 之间同时间段的数据，我建议作者修改，作者说&rdquo;我自己js也是半吊子水平&rdquo;。。。</p>
-<p><img src="/images/uploads/amchart-column.png" alt="分地区错误情况统计" title="分地区错误情况统计" /></p>
-<p><img src="/images/uploads/amchart-line.png" alt="实时分运营商错误比例统计" title="实时分运营商错误比例统计" /></p>
-<p><strong>2013 年 2 月 21 日更新：利用 bullet 大小来表示 hasErr 的程度</strong></p>
-<p>查询的 ES 库情况如下：</p>
-<div class="highlight"><pre><code class="bash">    <span class="nv">$ </span>curl <span class="s2">&quot;http://10.4.16.68:9200/demo-photo/log/_mapping?pretty=1&quot;</span>
-    <span class="o">{</span>
-      <span class="s2">&quot;log&quot;</span> : <span class="o">{</span>
-        <span class="s2">&quot;properties&quot;</span> : <span class="o">{</span>
-          <span class="s2">&quot;brower&quot;</span> : <span class="o">{</span>
-            <span class="s2">&quot;type&quot;</span> : <span class="s2">&quot;string&quot;</span>
-          <span class="o">}</span>,
-          <span class="s2">&quot;date&quot;</span> : <span class="o">{</span>
-            <span class="s2">&quot;type&quot;</span> : <span class="s2">&quot;date&quot;</span>,
-            <span class="s2">&quot;format&quot;</span> : <span class="s2">&quot;dateOptionalTime&quot;</span>
-          <span class="o">}</span>,
-          <span class="s2">&quot;fromArea&quot;</span> : <span class="o">{</span>
-            <span class="s2">&quot;type&quot;</span> : <span class="s2">&quot;string&quot;</span>,
-            <span class="s2">&quot;index&quot;</span> : <span class="s2">&quot;not_analyzed&quot;</span>
-          <span class="o">}</span>,
-          <span class="s2">&quot;hasErr&quot;</span> : <span class="o">{</span>
-            <span class="s2">&quot;type&quot;</span> : <span class="s2">&quot;string&quot;</span>
-          <span class="o">}</span>,
-          <span class="s2">&quot;requestUrl&quot;</span> : <span class="o">{</span>
-            <span class="s2">&quot;type&quot;</span> : <span class="s2">&quot;string&quot;</span>,
-            <span class="s2">&quot;index&quot;</span> : <span class="s2">&quot;not_analyzed&quot;</span>
-          <span class="o">}</span>,
-          <span class="s2">&quot;timeCost&quot;</span> : <span class="o">{</span>
-            <span class="s2">&quot;type&quot;</span> : <span class="s2">&quot;long&quot;</span>
-          <span class="o">}</span>,
-          <span class="s2">&quot;userId&quot;</span> : <span class="o">{</span>
-            <span class="s2">&quot;type&quot;</span> : <span class="s2">&quot;string&quot;</span>
-          <span class="o">}</span>,
-          <span class="s2">&quot;xnforword&quot;</span> : <span class="o">{</span>
-            <span class="s2">&quot;type&quot;</span> : <span class="s2">&quot;string&quot;</span>
-          <span class="o">}</span>
-        <span class="o">}</span>
-      <span class="o">}</span>
-    <span class="o">}</span>
-    <span class="nv">$ </span>curl <span class="s2">&quot;http://10.4.16.68:9200/demo-photo/log/_search?pretty=1&amp;size=1&quot;</span> -d <span class="s1">&#39;{&quot;query&quot;:{&quot;match_all&quot;:{}}}&#39;</span>
-    <span class="o">{</span>
-      <span class="s2">&quot;took&quot;</span> : 14,
-      <span class="s2">&quot;timed_out&quot;</span> : <span class="nb">false</span>,
-      <span class="s2">&quot;_shards&quot;</span> : <span class="o">{</span>
-        <span class="s2">&quot;total&quot;</span> : 10,
-        <span class="s2">&quot;successful&quot;</span> : 10,
-        <span class="s2">&quot;failed&quot;</span> : 0
-      <span class="o">}</span>,
-      <span class="s2">&quot;hits&quot;</span> : <span class="o">{</span>
-        <span class="s2">&quot;total&quot;</span> : 2330679,
-        <span class="s2">&quot;max_score&quot;</span> : 1.0,
-        <span class="s2">&quot;hits&quot;</span> : <span class="o">[</span> <span class="o">{</span>
-          <span class="s2">&quot;_index&quot;</span> : <span class="s2">&quot;demo-photo&quot;</span>,
-          <span class="s2">&quot;_type&quot;</span> : <span class="s2">&quot;log&quot;</span>,
-          <span class="s2">&quot;_id&quot;</span> : <span class="s2">&quot;iSI5xic7Qg2p9Sqk5yp-pQ&quot;</span>,
-          <span class="s2">&quot;_score&quot;</span> : 1.0, <span class="s2">&quot;_source&quot;</span> : <span class="o">{</span><span class="s2">&quot;hasErr&quot;</span>:<span class="s2">&quot;false&quot;</span>,<span class="s2">&quot;date&quot;</span>:<span class="s2">&quot;2012-12-06T15:04:21,983&quot;</span>,<span class="s2">&quot;userId&quot;</span>:<span class="s2">&quot;123456789&quot;</span>,<span class="s2">&quot;requestUrl&quot;</span>:<span class="s2">&quot;http://photo.demo.domain.com/path/to/your/app/test.jpg&quot;</span>,<span class="s2">&quot;brower&quot;</span>:<span class="s2">&quot;chrome17.0.963.84&quot;</span>,<span class="s2">&quot;timeCost&quot;</span>:750,<span class="s2">&quot;xnforword&quot;</span>:<span class="o">[</span><span class="s2">&quot;192.168.1.123&quot;</span>,<span class="s2">&quot;10.10.10.10&quot;</span><span class="o">]</span>,<span class="s2">&quot;fromArea&quot;</span>:<span class="s2">&quot;CN-UNI-OTHER&quot;</span><span class="o">}</span>
-        <span class="o">}</span> <span class="o">]</span>
-      <span class="o">}</span>
-    <span class="o">}</span>
-</code></pre></div>
-<p>然后后台是我惯用的 Dancer 框架：</p>
-<div class="highlight"><pre><code class="perl">    <span class="nb">package</span> <span class="n">AnalysisDemo</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">Dancer</span> <span class="s">&#39;:syntax&#39;</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">Dancer::Plugin::</span><span class="n">Ajax</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">ElasticSearch</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(strftime)</span><span class="p">;</span>
-    <span class="nb">no</span>  <span class="n">warnings</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$elsearch</span>         <span class="o">=</span> <span class="n">ElasticSearch</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="p">{</span> <span class="nv">%</span><span class="p">{</span> <span class="n">config</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">plugins</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">ElasticSearch</span><span class="p">}</span> <span class="p">}</span> <span class="p">}</span> <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$index_prefix</span>     <span class="o">=</span> <span class="s">&#39;demo-&#39;</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$type</span>             <span class="o">=</span> <span class="s">&#39;log&#39;</span><span class="p">;</span>
-    <span class="c1"># 这里是对ip库的归类。数据是需要提前导入ES的，这可以是logstash发挥作用</span>
-    <span class="k">my</span> <span class="nv">$default_provider</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="n">yidong</span>    <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw(CN-CRN CN-CMN)</span><span class="p">],</span>
-        <span class="n">jiaoyu</span>    <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw(CN-CER CN-CST)</span><span class="p">],</span>
-        <span class="n">dianxin</span>   <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw(CN-CHN)</span><span class="p">],</span>
-        <span class="n">liantong</span>  <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw(CN-UNI CN-CNC)</span><span class="p">],</span>
-        <span class="n">guangdian</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw(CN-SCN)</span><span class="p">],</span>
-        <span class="n">haiwai</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw(OS)</span><span class="p">],</span>
-    <span class="p">};</span>
-    <span class="n">get</span> <span class="s">&#39;/&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-        <span class="c1"># 通过 state API 获取 ES 集群现有的所有index列表</span>
-        <span class="c1"># 因为是一个域名一个index，这样就有了前段页面上的域名下拉选择框</span>
-        <span class="k">my</span> <span class="nv">$indices</span> <span class="o">=</span> <span class="nv">$elsearch</span><span class="o">-&gt;</span><span class="n">cluster_state</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">routing_table</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">indices</span><span class="p">};</span>
-        <span class="n">template</span> <span class="s">&#39;demo/chart&#39;</span><span class="p">,</span>
-          <span class="p">{</span>
-            <span class="n">providers</span> <span class="o">=&gt;</span> <span class="p">[</span> <span class="nb">sort</span> <span class="nb">keys</span> <span class="nv">%$default_provider</span> <span class="p">],</span>
-            <span class="n">datasources</span> <span class="o">=&gt;</span>
-              <span class="p">[</span> <span class="nb">grep</span> <span class="p">{</span> <span class="sr">/^$index_prefix/</span> <span class="o">&amp;&amp;</span> <span class="sr">s/$index_prefix//</span> <span class="p">}</span> <span class="nb">keys</span> <span class="nv">%$indices</span> <span class="p">],</span>
-            <span class="n">inputfrom</span> <span class="o">=&gt;</span> <span class="n">strftime</span><span class="p">(</span><span class="s">&quot;%F\T%T&quot;</span><span class="p">,</span> <span class="nb">localtime</span><span class="p">(</span><span class="nb">time</span><span class="p">()</span><span class="o">-</span><span class="mi">864000</span><span class="p">)),</span>
-            <span class="n">inputto</span> <span class="o">=&gt;</span> <span class="n">strftime</span><span class="p">(</span><span class="s">&quot;%F\T%T&quot;</span><span class="p">,</span> <span class="nb">localtime</span><span class="p">()),</span>
-          <span class="p">};</span>
-    <span class="p">};</span>
-    <span class="c1"># 这里把 api 拆成服务商和区域两个，没啥特殊原因，因为是分两回写的，汗</span>
-    <span class="c1"># 其实可以看到最开始的请求参数类似，最后json的field名字都一样</span>
-    <span class="n">ajax</span> <span class="s">&#39;/api/provider&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$param</span> <span class="o">=</span> <span class="n">from_json</span><span class="p">(</span><span class="n">request</span><span class="o">-&gt;</span><span class="n">body</span><span class="p">);</span>
-        <span class="k">my</span> <span class="nv">$index</span> <span class="o">=</span> <span class="nv">$index_prefix</span> <span class="o">.</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;datasource&#39;</span><span class="p">};</span>
-        <span class="k">my</span> <span class="nv">$from</span>  <span class="o">=</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;from&#39;</span><span class="p">}</span> <span class="o">||</span> <span class="s">&#39;now-10d&#39;</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$to</span>    <span class="o">=</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;to&#39;</span><span class="p">}</span> <span class="o">||</span> <span class="s">&#39;now&#39;</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$providers</span> <span class="o">=</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;provider&#39;</span><span class="p">};</span>
-        <span class="k">my</span> <span class="p">(</span> <span class="nv">$pct</span><span class="p">,</span> <span class="nv">$chartData</span> <span class="p">);</span>
-        <span class="k">for</span> <span class="k">my</span> <span class="nv">$provider</span> <span class="p">(</span> <span class="nb">sort</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$providers</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="k">my</span> <span class="nv">$provider_pct</span><span class="p">;</span>
-            <span class="c1"># 这里是比较麻烦的一点，因为一个区域在ip库里可能标记成多个，比如铁通和移动，现在都是移动</span>
-            <span class="k">for</span> <span class="k">my</span> <span class="nv">$area</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span> <span class="nv">$default_provider</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$provider</span><span class="p">}</span> <span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-                <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="n">pct_count</span><span class="p">(</span> <span class="nv">$index</span><span class="p">,</span> <span class="nv">$area</span><span class="p">,</span> <span class="nv">$from</span><span class="p">,</span> <span class="nv">$to</span> <span class="p">);</span>
-                <span class="k">for</span> <span class="k">my</span> <span class="nv">$time</span> <span class="p">(</span> <span class="nb">sort</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$res</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-                    <span class="nv">$provider_pct</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">count</span><span class="p">}</span> <span class="o">+=</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">count</span><span class="p">};</span>
-                    <span class="nv">$provider_pct</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">error</span><span class="p">}</span> <span class="o">+=</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">error</span><span class="p">};</span>
-                    <span class="nv">$provider_pct</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">slow</span><span class="p">}</span>  <span class="o">+=</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">slow</span><span class="p">};</span>
-                <span class="p">}</span>
-            <span class="p">}</span>
-            <span class="c1"># 这里因为可能没有错误，所以前面关闭了常用的 warnings 警告</span>
-            <span class="k">for</span> <span class="k">my</span> <span class="nv">$time</span> <span class="p">(</span> <span class="nb">sort</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$provider_pct</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-                <span class="k">my</span> <span class="nv">$right_pct</span> <span class="o">=</span> <span class="mi">100</span><span class="p">;</span>
-                <span class="nv">$right_pct</span> <span class="o">=</span>
-                  <span class="mi">100</span> <span class="o">-</span>
-                  <span class="nv">$provider_pct</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">slow</span><span class="p">}</span> <span class="o">/</span> <span class="nv">$provider_pct</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">count</span><span class="p">}</span>
-                  <span class="o">*</span> <span class="mi">100</span><span class="p">;</span>
-                <span class="nv">$pct</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$provider</span><span class="p">}</span> <span class="o">=</span> <span class="nb">sprintf</span> <span class="s">&quot;%.2f&quot;</span><span class="p">,</span> <span class="nv">$right_pct</span><span class="p">;</span>
-                <span class="nv">$pct</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;${provider}Err&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nb">sprintf</span> <span class="s">&quot;%.2f&quot;</span><span class="p">,</span>
-                  <span class="nv">$provider_pct</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">error</span><span class="p">}</span> <span class="o">/</span> <span class="nv">$provider_pct</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">count</span><span class="p">}</span>
-                  <span class="o">*</span> <span class="mi">100</span><span class="p">;</span>
-                <span class="nv">$pct</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;${provider}Size&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nb">sprintf</span> <span class="s">&quot;%.0f&quot;</span><span class="p">,</span>
-                  <span class="nv">$pct</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;${provider}Err&quot;</span><span class="p">};</span>
-            <span class="p">}</span>
-        <span class="p">};</span>
-        <span class="k">for</span> <span class="k">my</span> <span class="nv">$time</span> <span class="p">(</span> <span class="nb">sort</span> <span class="nb">keys</span> <span class="nv">%$pct</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="k">my</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">date</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$time</span><span class="p">;</span>
-            <span class="k">for</span> <span class="k">my</span> <span class="nv">$provider</span> <span class="p">(</span> <span class="nv">@$providers</span> <span class="p">)</span> <span class="p">{</span>
-                <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$provider</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$pct</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$provider</span><span class="p">}</span> <span class="o">||</span> <span class="mi">100</span><span class="p">;</span>
-                <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;${provider}Err&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$pct</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;${provider}Err&quot;</span><span class="p">}</span> <span class="o">||</span> <span class="mi">0</span><span class="p">;</span>
-                <span class="c1"># 百分比太低，所以翻 5 倍来作为 bullet 的大小</span>
-                <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;${provider}Size&quot;</span><span class="p">}</span> <span class="o">=</span>
-                  <span class="nv">$pct</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$time</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;${provider}Size&quot;</span><span class="p">}</span> <span class="o">*</span> <span class="mi">5</span> <span class="o">||</span> <span class="mi">0</span><span class="p">;</span>
-            <span class="p">};</span>
-            <span class="nb">push</span> <span class="nv">@$chartData</span><span class="p">,</span> <span class="nv">$data</span><span class="p">;</span>
-        <span class="p">};</span>
-        <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">type</span> <span class="o">=&gt;</span> <span class="s">&quot;line&quot;</span><span class="p">,</span>
-            <span class="n">categoryField</span> <span class="o">=&gt;</span> <span class="s">&quot;date&quot;</span><span class="p">,</span>
-            <span class="n">graphList</span> <span class="o">=&gt;</span> <span class="nv">$providers</span><span class="p">,</span>
-            <span class="n">chartData</span> <span class="o">=&gt;</span> <span class="nv">$chartData</span><span class="p">,</span>
-        <span class="p">};</span>
-        <span class="k">return</span> <span class="n">to_json</span><span class="p">(</span><span class="nv">$res</span><span class="p">);</span>
-    <span class="p">};</span>
-    <span class="n">ajax</span> <span class="s">&#39;/api/area&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$param</span> <span class="o">=</span> <span class="n">from_json</span><span class="p">(</span><span class="n">request</span><span class="o">-&gt;</span><span class="n">body</span><span class="p">);</span>
-        <span class="k">my</span> <span class="nv">$index</span> <span class="o">=</span> <span class="nv">$index_prefix</span> <span class="o">.</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;datasource&#39;</span><span class="p">};</span>
-        <span class="k">my</span> <span class="nv">$limit</span> <span class="o">=</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;limit&#39;</span><span class="p">}</span> <span class="o">||</span> <span class="mi">50</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$from</span>  <span class="o">=</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;from&#39;</span><span class="p">}</span> <span class="o">||</span> <span class="s">&#39;now-10d&#39;</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$to</span>    <span class="o">=</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;to&#39;</span><span class="p">}</span> <span class="o">||</span> <span class="s">&#39;now&#39;</span><span class="p">;</span>
-        <span class="c1"># 这是后来写的，尽可能把 sub 拆分了，所以 ajax 这里就很简略</span>
-        <span class="c1"># 当然因为不考虑多运营商的问题，本身也容易一些</span>
-        <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="n">pct_terms</span><span class="p">(</span> <span class="nv">$index</span><span class="p">,</span> <span class="nv">$limit</span><span class="p">,</span> <span class="nv">$from</span><span class="p">,</span> <span class="nv">$to</span> <span class="p">);</span>
-        <span class="k">return</span> <span class="n">to_json</span><span class="p">(</span><span class="nv">$res</span><span class="p">);</span>
-    <span class="p">};</span>
-    <span class="k">sub </span><span class="nf">pct_terms</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="p">(</span> <span class="nv">$index</span><span class="p">,</span> <span class="nv">$limit</span><span class="p">,</span> <span class="nv">$from</span><span class="p">,</span> <span class="nv">$to</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$area_all_count</span> <span class="o">=</span> <span class="n">area_terms</span><span class="p">(</span> <span class="nv">$index</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span>    <span class="nv">$limit</span><span class="p">,</span> <span class="nv">$from</span><span class="p">,</span> <span class="nv">$to</span> <span class="p">);</span>
-        <span class="k">my</span> <span class="nv">$area_err_count</span> <span class="o">=</span> <span class="n">area_terms</span><span class="p">(</span> <span class="nv">$index</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="nv">$limit</span><span class="p">,</span> <span class="nv">$from</span><span class="p">,</span> <span class="nv">$to</span> <span class="p">);</span>
-        <span class="k">my</span> <span class="p">(</span> <span class="nv">$error</span><span class="p">,</span> <span class="nv">$chartData</span> <span class="p">);</span>
-        <span class="k">for</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$area_err_count</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nv">$error</span><span class="o">-&gt;</span><span class="p">{</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">term</span><span class="p">}</span> <span class="p">}</span> <span class="o">=</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">count</span><span class="p">};</span>
-        <span class="p">}</span>
-        <span class="k">for</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$area_all_count</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nb">push</span> <span class="nv">@$chartData</span><span class="p">,</span> <span class="p">{</span>
-                <span class="n">area</span>  <span class="o">=&gt;</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">term</span><span class="p">},</span>
-                <span class="n">error</span> <span class="o">=&gt;</span> <span class="nv">$error</span><span class="o">-&gt;</span><span class="p">{</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">term</span><span class="p">}</span> <span class="p">}</span> <span class="o">||</span> <span class="mi">0</span><span class="p">,</span>
-                <span class="n">right</span> <span class="o">=&gt;</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">count</span><span class="p">}</span> <span class="o">-</span> <span class="nv">$error</span><span class="o">-&gt;</span><span class="p">{</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">term</span><span class="p">}</span> <span class="p">},</span>
-            <span class="p">};</span>
-        <span class="p">}</span>
-        <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">type</span> <span class="o">=&gt;</span> <span class="s">&quot;column&quot;</span><span class="p">,</span>
-            <span class="n">categoryField</span> <span class="o">=&gt;</span> <span class="s">&quot;area&quot;</span><span class="p">,</span>
-            <span class="n">graphList</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw(right error)</span><span class="p">],</span>
-            <span class="n">chartData</span> <span class="o">=&gt;</span> <span class="nv">$chartData</span><span class="p">,</span>
-        <span class="p">};</span>
-        <span class="k">return</span> <span class="nv">$res</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="k">sub </span><span class="nf">pct_count</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="p">(</span> <span class="nv">$index</span><span class="p">,</span> <span class="nv">$area</span><span class="p">,</span> <span class="nv">$from</span><span class="p">,</span> <span class="nv">$to</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$level</span> <span class="o">=</span> <span class="nv">$area</span> <span class="ow">eq</span> <span class="s">&#39;OS&#39;</span> <span class="p">?</span> <span class="mi">3000</span> <span class="p">:</span> <span class="mi">2000</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$all_count</span>  <span class="o">=</span> <span class="n">histo_count</span><span class="p">(</span> <span class="nv">$index</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span>      <span class="nv">$area</span><span class="p">,</span> <span class="nv">$from</span><span class="p">,</span> <span class="nv">$to</span> <span class="p">);</span>
-        <span class="k">my</span> <span class="nv">$slow_count</span> <span class="o">=</span> <span class="n">histo_count</span><span class="p">(</span> <span class="nv">$index</span><span class="p">,</span> <span class="nv">$level</span><span class="p">,</span>   <span class="nv">$area</span><span class="p">,</span> <span class="nv">$from</span><span class="p">,</span> <span class="nv">$to</span> <span class="p">);</span>
-        <span class="k">my</span> <span class="nv">$err_count</span>  <span class="o">=</span> <span class="n">histo_count</span><span class="p">(</span> <span class="nv">$index</span><span class="p">,</span> <span class="s">&#39;hasErr&#39;</span><span class="p">,</span> <span class="nv">$area</span><span class="p">,</span> <span class="nv">$from</span><span class="p">,</span> <span class="nv">$to</span> <span class="p">);</span>
-        <span class="k">my</span> <span class="nv">$res</span><span class="p">;</span>
-        <span class="k">for</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$slow_count</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="nb">time</span><span class="p">}</span> <span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">slow</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">count</span><span class="p">};</span>
-        <span class="p">}</span>
-        <span class="k">for</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$err_count</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="nb">time</span><span class="p">}</span> <span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">error</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">count</span><span class="p">};</span>
-        <span class="p">}</span>
-        <span class="k">for</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$all_count</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="nb">time</span><span class="p">}</span> <span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">count</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">count</span><span class="p">};</span>
-        <span class="p">}</span>
-        <span class="k">return</span> <span class="nv">$res</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="c1"># 下面开始的两个才是真正发 ES 请求的地方</span>
-    <span class="k">sub </span><span class="nf">area_terms</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="p">(</span> <span class="nv">$index</span><span class="p">,</span> <span class="nv">$level</span><span class="p">,</span> <span class="nv">$limit</span><span class="p">,</span> <span class="nv">$from</span><span class="p">,</span> <span class="nv">$to</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="nv">$elsearch</span><span class="o">-&gt;</span><span class="n">search</span><span class="p">(</span>
-            <span class="nb">index</span>  <span class="o">=&gt;</span> <span class="nv">$index</span><span class="p">,</span>
-            <span class="n">type</span>   <span class="o">=&gt;</span> <span class="nv">$type</span><span class="p">,</span>
-            <span class="n">size</span>   <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span>
-            <span class="n">facets</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                <span class="n">area</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                    <span class="n">facet_filter</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                        <span class="ow">and</span> <span class="o">=&gt;</span> <span class="p">[</span>
-                            <span class="p">{</span>
-                                <span class="n">range</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                                    <span class="n">date</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                                        <span class="n">from</span> <span class="o">=&gt;</span> <span class="nv">$from</span><span class="p">,</span>
-                                        <span class="n">to</span>   <span class="o">=&gt;</span> <span class="nv">$to</span>
-                                    <span class="p">},</span>
-                                <span class="p">},</span>
-                            <span class="p">},</span>
-                            <span class="p">{</span>
-                                <span class="n">numeric_range</span> <span class="o">=&gt;</span>
-                                  <span class="p">{</span> <span class="n">timeCost</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="n">gte</span> <span class="o">=&gt;</span> <span class="nv">$level</span><span class="p">,</span> <span class="p">},</span> <span class="p">},</span>
-                            <span class="p">},</span>
-                        <span class="p">],</span>
-                    <span class="p">},</span>
-                    <span class="c1"># 使用最简单的 terms facets API，因为只用计数就好了</span>
-                    <span class="n">terms</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                        <span class="n">field</span> <span class="o">=&gt;</span> <span class="s">&quot;fromArea&quot;</span><span class="p">,</span>
-                        <span class="n">size</span>  <span class="o">=&gt;</span> <span class="nv">$limit</span><span class="p">,</span>
-                    <span class="p">}</span>
-                <span class="p">}</span>
-            <span class="p">}</span>
-        <span class="p">);</span>
-        <span class="k">return</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">facets</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">area</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">terms</span><span class="p">};</span>
-    <span class="p">}</span>
-    <span class="k">sub </span><span class="nf">histo_count</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="p">(</span> <span class="nv">$index</span><span class="p">,</span> <span class="nv">$level</span><span class="p">,</span> <span class="nv">$area</span><span class="p">,</span> <span class="nv">$from</span><span class="p">,</span> <span class="nv">$to</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-        <span class="c1"># 根据 level 参数判断使用 hasErr 还是 timeCost 列数据</span>
-        <span class="k">my</span> <span class="nv">$level_ref</span> <span class="o">=</span>
-          <span class="nv">$level</span> <span class="ow">eq</span> <span class="s">&#39;hasErr&#39;</span>
-          <span class="p">?</span> <span class="p">{</span> <span class="n">term</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="n">hasErr</span> <span class="o">=&gt;</span> <span class="s">&#39;true&#39;</span> <span class="p">}</span> <span class="p">}</span>
-          <span class="p">:</span> <span class="p">{</span> <span class="n">numeric_range</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="n">timeCost</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="ow">gt</span> <span class="o">=&gt;</span> <span class="nv">$level</span> <span class="p">}</span> <span class="p">}</span> <span class="p">};</span>
-        <span class="k">my</span> <span class="nv">$facets</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">pct</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                <span class="n">facet_filter</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                    <span class="c1"># 这里条件比较多，所以要用 bool API，不能用 and 了</span>
-                    <span class="n">bool</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                        <span class="c1"># must 可以提供多个条件作为 AND 数组</span>
-                        <span class="c1"># 此外还有 must_not 作为 AND NOT 数组</span>
-                        <span class="c1"># should 作为 OR 数组</span>
-                        <span class="n">must</span> <span class="o">=&gt;</span> <span class="p">[</span>
-                            <span class="p">{</span>
-                                <span class="n">range</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                                    <span class="n">date</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                                        <span class="n">from</span> <span class="o">=&gt;</span> <span class="nv">$from</span><span class="p">,</span>
-                                        <span class="n">to</span>   <span class="o">=&gt;</span> <span class="nv">$to</span>
-                                    <span class="p">},</span>
-                                <span class="p">},</span>
-                            <span class="p">},</span>
-                            <span class="p">{</span> <span class="n">prefix</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="n">fromArea</span> <span class="o">=&gt;</span> <span class="nv">$area</span> <span class="p">}</span> <span class="p">},</span>
-                            <span class="nv">$level_ref</span><span class="p">,</span>
-                        <span class="p">],</span>
-                    <span class="p">},</span>
-                <span class="p">},</span>
-                <span class="c1"># 这里是需要针对专门的时间列做汇总，所以用 date_histogram 了，具体说明之前有博客</span>
-                <span class="n">date_histogram</span> <span class="o">=&gt;</span> <span class="p">{</span>
-                    <span class="n">field</span>    <span class="o">=&gt;</span> <span class="s">&quot;date&quot;</span><span class="p">,</span>
-                    <span class="n">interval</span> <span class="o">=&gt;</span> <span class="s">&quot;1h&quot;</span><span class="p">,</span>
-                <span class="p">}</span>
-            <span class="p">}</span>
-        <span class="p">};</span>
-        <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="nv">$elsearch</span><span class="o">-&gt;</span><span class="n">search</span><span class="p">(</span>
-            <span class="nb">index</span>  <span class="o">=&gt;</span> <span class="nv">$index</span><span class="p">,</span>
-            <span class="n">type</span>   <span class="o">=&gt;</span> <span class="nv">$type</span><span class="p">,</span>
-            <span class="n">facets</span> <span class="o">=&gt;</span> <span class="nv">$facets</span><span class="p">,</span>
-            <span class="n">size</span>   <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span>
-        <span class="p">);</span>
-        <span class="k">return</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">facets</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">pct</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">entries</span><span class="p">};</span>
-    <span class="p">}</span>
-</code></pre></div>
-<p>其实把里面请求的hash拆开来一个个定义，然后根据情况组合，但是不方便察看作为 demo 的整体情况。</p>
-<p>然后看template里怎么写。这里虽然有两个效果图，但是只有一个template哟：</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">&quot;stylesheet&quot;</span> <span class="na">href=</span><span class="s">&quot;[% $request.uri_base %]/amcharts/style.css&quot;</span> <span class="na">type=</span><span class="s">&quot;text/css&quot;</span><span class="nt">&gt;</span>
-<span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;[% $request.uri_base %]/amcharts/amcharts.js&quot;</span> <span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
-<span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span><span class="nt">&gt;</span>
-  <span class="kd">var</span> <span class="nx">chart</span><span class="p">;</span>
-  <span class="kd">function</span> <span class="nx">createAmChart</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
-    <span class="c1">// 清空原有图形</span>
-    <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;#chartdiv&quot;</span><span class="p">).</span><span class="nx">empty</span><span class="p">();</span>
-    <span class="c1">// 如果是时间轴线图，需要把date字符转成Date对象</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nx">data</span><span class="p">.</span><span class="nx">categoryField</span> <span class="o">==</span> <span class="s2">&quot;date&quot;</span> <span class="p">)</span> <span class="p">{</span>
-      <span class="k">for</span> <span class="p">(</span> <span class="kd">var</span> <span class="nx">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">j</span> <span class="o">&lt;</span> <span class="nx">data</span><span class="p">.</span><span class="nx">chartData</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">j</span><span class="o">++</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nx">data</span><span class="p">.</span><span class="nx">chartData</span><span class="p">[</span><span class="nx">j</span><span class="p">].</span><span class="nx">date</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">(</span><span class="nb">Number</span><span class="p">(</span><span class="nx">data</span><span class="p">.</span><span class="nx">chartData</span><span class="p">[</span><span class="nx">j</span><span class="p">].</span><span class="nx">date</span><span class="p">));</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-    <span class="nx">chart</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">AmSerialChart</span><span class="p">();</span>
-    <span class="c1">// 拖动条等图片的路径</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">pathToImages</span> <span class="o">=</span> <span class="s2">&quot;/amcharts/images/&quot;</span><span class="p">;</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">dataProvider</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">chartData</span><span class="p">;</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">categoryField</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">categoryField</span><span class="p">;</span>
-    <span class="c1">// 如果是柱状图，可以显示 3D 效果</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nx">data</span><span class="p">.</span><span class="nx">type</span> <span class="o">==</span> <span class="s1">&#39;column&#39;</span> <span class="p">)</span> <span class="p">{</span>
-<span class="c1">//      chart.rotate = true;</span>
-      <span class="nx">chart</span><span class="p">.</span><span class="nx">depth3D</span> <span class="o">=</span> <span class="mi">20</span><span class="p">;</span>
-      <span class="nx">chart</span><span class="p">.</span><span class="nx">angle</span> <span class="o">=</span> <span class="mi">30</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="kd">var</span> <span class="nx">categoryAxis</span> <span class="o">=</span> <span class="nx">chart</span><span class="p">.</span><span class="nx">categoryAxis</span><span class="p">;</span>
-    <span class="nx">categoryAxis</span><span class="p">.</span><span class="nx">fillAlpha</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-    <span class="nx">categoryAxis</span><span class="p">.</span><span class="nx">fillColor</span> <span class="o">=</span> <span class="s2">&quot;#FAFAFA&quot;</span><span class="p">;</span>
-    <span class="nx">categoryAxis</span><span class="p">.</span><span class="nx">axisAlpha</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="nx">categoryAxis</span><span class="p">.</span><span class="nx">gridPosition</span> <span class="o">=</span> <span class="s2">&quot;start&quot;</span><span class="p">;</span>
-    <span class="c1">// 时间轴需要解析Date对象</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nx">data</span><span class="p">.</span><span class="nx">categoryField</span> <span class="o">==</span> <span class="s2">&quot;date&quot;</span> <span class="p">)</span> <span class="p">{</span>
-      <span class="nx">categoryAxis</span><span class="p">.</span><span class="nx">parseDates</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
-      <span class="nx">categoryAxis</span><span class="p">.</span><span class="nx">minPeriod</span> <span class="o">=</span> <span class="s2">&quot;hh&quot;</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="kd">var</span> <span class="nx">valueAxis</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">ValueAxis</span><span class="p">();</span>
-    <span class="nx">valueAxis</span><span class="p">.</span><span class="nx">dashLength</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
-    <span class="nx">valueAxis</span><span class="p">.</span><span class="nx">axisAlpha</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="c1">// 指定柱状图为叠加模式，这里有多种模式可以看文档</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nx">data</span><span class="p">.</span><span class="nx">type</span> <span class="o">==</span> <span class="s1">&#39;column&#39;</span> <span class="p">)</span> <span class="p">{</span>
-      <span class="nx">valueAxis</span><span class="p">.</span><span class="nx">stackType</span> <span class="o">=</span> <span class="s2">&quot;regular&quot;</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">addValueAxis</span><span class="p">(</span><span class="nx">valueAxis</span><span class="p">);</span>
-    <span class="c1">// 这里有个有趣的事情，如果不把graph当数组直接循环，效果也没问题</span>
-    <span class="c1">// 我只能猜测是 addGraph 后数据其实已经缓存到 chart 了</span>
-    <span class="kd">var</span> <span class="nx">graph</span> <span class="o">=</span> <span class="p">[];</span>
-    <span class="kd">var</span> <span class="nx">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;#FF6600&#39;</span><span class="p">,</span> <span class="s1">&#39;#FCD202&#39;</span><span class="p">,</span> <span class="s1">&#39;#B0DE09&#39;</span><span class="p">,</span> <span class="s1">&#39;#0D8ECF&#39;</span><span class="p">,</span> <span class="s1">&#39;#2A0CD0&#39;</span><span class="p">,</span> <span class="s1">&#39;#CD0D74&#39;</span><span class="p">,</span> <span class="s1">&#39;#CC0000&#39;</span><span class="p">,</span> <span class="s1">&#39;#00CC00&#39;</span><span class="p">,</span> <span class="s1">&#39;#0000CC&#39;</span><span class="p">,</span> <span class="s1">&#39;#DDDDDD&#39;</span><span class="p">,</span> <span class="s1">&#39;#999999&#39;</span><span class="p">,</span> <span class="s1">&#39;#333333&#39;</span><span class="p">,</span> <span class="s1">&#39;#990000&#39;</span><span class="p">];</span>
-    <span class="k">for</span> <span class="p">(</span> <span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">data</span><span class="p">.</span><span class="nx">graphList</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span> <span class="p">)</span> <span class="p">{</span>
-      <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">AmGraph</span><span class="p">();</span>
-      <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">title</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">graphList</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
-      <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">valueField</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">graphList</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
-      <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">type</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">type</span><span class="p">;</span>
-      <span class="k">if</span> <span class="p">(</span> <span class="nx">data</span><span class="p">.</span><span class="nx">type</span> <span class="o">==</span> <span class="s1">&#39;column&#39;</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">lineAlpha</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-        <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">fillAlphas</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-      <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-        <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">valueField</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">graphList</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
-        <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">descriptionField</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">graphList</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;Err&quot;</span><span class="p">;</span>
-        <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">bulletSizeField</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">graphList</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;Size&quot;</span><span class="p">;</span>
-        <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">bullet</span> <span class="o">=</span> <span class="s2">&quot;round&quot;</span><span class="p">;</span>
-        <span class="c1">// 设定为空心圆圈</span>
-        <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">bulletColor</span> <span class="o">=</span> <span class="s2">&quot;#ffffff&quot;</span><span class="p">;</span>
-        <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">bulletBorderAlpha</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-        <span class="c1">// amchart 本来有默认颜色，不过前面因为修改了圆内的颜色，所以其他颜色无法继承默认设定了</span>
-        <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">bulletBorderColor</span> <span class="o">=</span>  <span class="nx">colors</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
-        <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">lineColor</span> <span class="o">=</span>  <span class="nx">colors</span><span class="p">[</span><span class="nx">i</span><span class="p">];</span>
-        <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">lineAlpha</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-        <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">lineThickness</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-        <span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">balloonText</span> <span class="o">=</span> <span class="s2">&quot;[[value]]% / hasErr:[[description]]%&quot;</span><span class="p">;</span>
-      <span class="p">}</span>
-      <span class="nx">chart</span><span class="p">.</span><span class="nx">addGraph</span><span class="p">(</span><span class="nx">graph</span><span class="p">[</span><span class="nx">i</span><span class="p">]);</span>
-    <span class="p">}</span>
-    <span class="c1">// 加图例，这样可以在图上随时勾选察看具体某个数据，也方便某数据异常的时候影响察看其他</span>
-    <span class="kd">var</span> <span class="nx">legend</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">AmLegend</span><span class="p">();</span>
-    <span class="nx">legend</span><span class="p">.</span><span class="nx">position</span> <span class="o">=</span> <span class="s2">&quot;right&quot;</span><span class="p">;</span>
-    <span class="nx">legend</span><span class="p">.</span><span class="nx">horizontalGap</span> <span class="o">=</span> <span class="mi">10</span><span class="p">;</span>
-    <span class="nx">legend</span><span class="p">.</span><span class="nx">switchType</span> <span class="o">=</span> <span class="s2">&quot;v&quot;</span><span class="p">;</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">addLegend</span><span class="p">(</span><span class="nx">legend</span><span class="p">);</span>
-    <span class="c1">// 加拖拉轴，这样可以拖动察看细节，这个功能很赞</span>
-    <span class="kd">var</span> <span class="nx">scrollbar</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">ChartScrollbar</span><span class="p">();</span>
-    <span class="nx">scrollbar</span><span class="p">.</span><span class="nx">graph</span> <span class="o">=</span> <span class="nx">graph</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
-    <span class="nx">scrollbar</span><span class="p">.</span><span class="nx">graphType</span> <span class="o">=</span> <span class="s2">&quot;line&quot;</span><span class="p">;</span>
-    <span class="nx">scrollbar</span><span class="p">.</span><span class="nx">height</span> <span class="o">=</span> <span class="mi">30</span><span class="p">;</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">addChartScrollbar</span><span class="p">(</span><span class="nx">scrollbar</span><span class="p">);</span>
-    <span class="kd">var</span> <span class="nx">cursor</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">ChartCursor</span><span class="p">();</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">addChartCursor</span><span class="p">(</span><span class="nx">cursor</span><span class="p">);</span>
-    <span class="nx">chart</span><span class="p">.</span><span class="nx">write</span><span class="p">(</span><span class="s2">&quot;chartdiv&quot;</span><span class="p">);</span>
-  <span class="p">};</span>
-  <span class="kd">function</span> <span class="nx">drawChart</span><span class="p">()</span> <span class="p">{</span>
-    <span class="kd">var</span> <span class="nx">provider</span> <span class="o">=</span> <span class="p">[];</span>
-    <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;#provider :selected&quot;</span><span class="p">).</span><span class="nx">each</span><span class="p">(</span><span class="kd">function</span><span class="p">(){</span>
-       <span class="nx">provider</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span> <span class="nx">$</span><span class="p">(</span><span class="k">this</span><span class="p">).</span><span class="nx">val</span><span class="p">()</span> <span class="p">);</span>
-    <span class="p">});</span>
-    <span class="kd">var</span> <span class="nx">datasource</span> <span class="o">=</span> <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;#datasource :selected&quot;</span><span class="p">).</span><span class="nx">val</span><span class="p">();</span>
-    <span class="kd">var</span> <span class="nx">apitype</span> <span class="o">=</span> <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;:radio:checked&quot;</span><span class="p">).</span><span class="nx">val</span><span class="p">();</span>
-    <span class="kd">var</span> <span class="nx">from</span> <span class="o">=</span> <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;#from&quot;</span><span class="p">).</span><span class="nx">val</span><span class="p">();</span>
-    <span class="kd">var</span> <span class="nx">to</span> <span class="o">=</span> <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;#to&quot;</span><span class="p">).</span><span class="nx">val</span><span class="p">();</span>
-    <span class="nx">$</span><span class="p">.</span><span class="nx">ajax</span><span class="p">({</span>
-      <span class="nx">processData</span><span class="o">:</span> <span class="kc">false</span><span class="p">,</span>
-      <span class="nx">url</span><span class="o">:</span> <span class="s2">&quot;[% $request.uri_base %]/demo/api/&quot;</span> <span class="o">+</span> <span class="nx">apitype</span><span class="p">,</span>
-      <span class="nx">data</span><span class="o">:</span> <span class="nx">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">({</span><span class="s2">&quot;provider&quot;</span><span class="o">:</span><span class="nx">provider</span><span class="p">,</span> <span class="s2">&quot;datasource&quot;</span><span class="o">:</span><span class="nx">datasource</span><span class="p">,</span> <span class="s2">&quot;from&quot;</span><span class="o">:</span><span class="nx">from</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="o">:</span><span class="nx">to</span><span class="p">}),</span>
-      <span class="nx">type</span><span class="o">:</span> <span class="s2">&quot;POST&quot;</span><span class="p">,</span>
-      <span class="nx">dataType</span><span class="o">:</span> <span class="s2">&quot;json&quot;</span><span class="p">,</span>
-      <span class="nx">success</span> <span class="o">:</span> <span class="nx">createAmChart</span>
-    <span class="p">});</span>
-  <span class="p">};</span>
-  <span class="kd">function</span> <span class="nx">showselect</span><span class="p">()</span> <span class="p">{</span>
-    <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;#providers&quot;</span><span class="p">).</span><span class="nx">show</span><span class="p">();</span>
-  <span class="p">};</span>
-  <span class="kd">function</span> <span class="nx">hideselect</span><span class="p">()</span> <span class="p">{</span>
-    <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;#providers&quot;</span><span class="p">).</span><span class="nx">hide</span><span class="p">();</span>
-  <span class="p">};</span>
-<span class="nt">&lt;/script&gt;</span>
-      <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;well&quot;</span><span class="nt">&gt;</span>
-        <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;span8&quot;</span><span class="nt">&gt;</span>
-          <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">&quot;text&quot;</span> <span class="na">class=</span><span class="s">&quot;input-medium&quot;</span> <span class="na">id=</span><span class="s">&quot;from&quot;</span> <span class="na">name=</span><span class="s">&quot;from&quot;</span> <span class="na">value=</span><span class="s">&quot;[% $inputfrom %]&quot;</span><span class="nt">&gt;</span>
-          <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">&quot;text&quot;</span> <span class="na">class=</span><span class="s">&quot;input-medium&quot;</span> <span class="na">id=</span><span class="s">&quot;to&quot;</span> <span class="na">name=</span><span class="s">&quot;to&quot;</span> <span class="na">value=</span><span class="s">&quot;[% $inputto %]&quot;</span><span class="nt">&gt;</span>
-          <span class="nt">&lt;select</span> <span class="na">class=</span><span class="s">&quot;input-medium&quot;</span> <span class="na">id=</span><span class="s">&quot;datasource&quot;</span><span class="nt">&gt;</span>
-%% for $datasources -&gt; $datasource {
-            <span class="nt">&lt;option</span> <span class="na">value=</span><span class="s">&quot;[% $datasource %]&quot;</span><span class="nt">&gt;</span>[% $datasource %]<span class="nt">&lt;/option&gt;</span>
-%% }
-          <span class="nt">&lt;/select&gt;</span>
-        <span class="nt">&lt;/div&gt;</span>
-        <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;span2&quot;</span><span class="nt">&gt;</span>
-          <span class="nt">&lt;label</span> <span class="na">class=</span><span class="s">&quot;radio&quot;</span><span class="nt">&gt;</span>
-            <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">&quot;radio&quot;</span> <span class="na">name=</span><span class="s">&quot;querytype&quot;</span> <span class="na">value=</span><span class="s">&quot;provider&quot;</span> <span class="na">onclick=</span><span class="s">&quot;showselect()&quot;</span><span class="nt">&gt;</span>服务商趋势
-          <span class="nt">&lt;/label&gt;</span>
-          <span class="nt">&lt;label</span> <span class="na">class=</span><span class="s">&quot;radio&quot;</span><span class="nt">&gt;</span>
-            <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">&quot;radio&quot;</span> <span class="na">name=</span><span class="s">&quot;querytype&quot;</span> <span class="na">value=</span><span class="s">&quot;area&quot;</span> <span class="na">checked</span> <span class="na">onclick=</span><span class="s">&quot;hideselect()&quot;</span><span class="nt">&gt;</span>分地区统计
-          <span class="nt">&lt;/label&gt;</span>
-        <span class="nt">&lt;/div&gt;</span>
-        <span class="nt">&lt;button</span> <span class="na">type=</span><span class="s">&quot;submit&quot;</span> <span class="na">class=</span><span class="s">&quot;btn btn-primary&quot;</span> <span class="na">onclick=</span><span class="s">&quot;drawChart()&quot;</span><span class="nt">&gt;</span>查询<span class="nt">&lt;/button&gt;</span>
-        <span class="nt">&lt;div</span> <span class="na">id =</span><span class="s">&quot;providers&quot;</span> <span class="na">class=</span><span class="s">&quot;controls hide&quot;</span><span class="nt">&gt;</span>
-          <span class="nt">&lt;select</span> <span class="na">class=</span><span class="s">&quot;input-medium&quot;</span> <span class="na">id=</span><span class="s">&quot;provider&quot;</span> <span class="na">multiple=</span><span class="s">&quot;mulitiple&quot;</span><span class="nt">&gt;</span>
-%% for $providers -&gt; $provider {
-            <span class="nt">&lt;option</span> <span class="na">value=</span><span class="s">&quot;[% $provider %]&quot;</span> <span class="na">selected</span><span class="nt">&gt;</span>[% $provider %]<span class="nt">&lt;/option&gt;</span>
-%% }
-          <span class="nt">&lt;/select&gt;</span>
-        <span class="nt">&lt;/div&gt;</span>
-      <span class="nt">&lt;/div&gt;</span><span class="c">&lt;!--/well--&gt;</span>
-      <span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">&quot;chartdiv&quot;</span> <span class="na">style=</span><span class="s">&quot;width: 100%; height: 400px;&quot;</span><span class="nt">&gt;</span>
-      <span class="nt">&lt;/div&gt;</span>
-</code></pre></div>
-      <a href="/2012/12/22/elasticsearch-amcharts-demo" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/12/21/dancer-plugin-auth-extensible" title="学习 Dancer::Plugin::Auth::Extensible 模块" rel="bookmark">学习 Dancer::Plugin::Auth::Extensible 模块</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-12-21 00:00:00 +0800">21 Dec 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#dancer-ref" title="dancer" rel="category tag">dancer</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>首先介绍一下 <code>Dancer::Plugin::Auth::Extensible</code> 模块。这是一个认证验证的框架，之前 Dancer 里这方面的框架是 RBAC ，不过 RBAC 是实现的 auth 对象，然后提供 <code>-&gt;asa</code>，<code>-&gt;can</code>，<code>-&gt;roles</code> 等方法。在使用的时候，需要自己在每个 route 里写 if 或者 switch 代码，显得比较繁琐。而 Extensible 模块提供了另一个（或者说是两个）思路。同时借此深入了解 <code>Dancer::Plugin</code> 和 <code>Dancer::Hook</code> 的用法，外加熟悉 perl 的一些不常见的对象使用。收获良多，不可不记。</p>
-<p>上面之所以说算是两个思路。是因为在这个模块出来的短短十天内，其 0.001 和 0.010 版本已经完全从实现到使用方法都变了样子。下面先说 0.001 版。</p>
-<p>这个原始版本的使用方法大概是这样的：</p>
-<div class="highlight"><pre><code class="perl">    <span class="n">get</span> <span class="s">&#39;/secret&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">:RequireRole(God) {</span> <span class="n">DestroyWorld</span><span class="p">();</span> <span class="p">};</span>
-    <span class="n">get</span> <span class="s">&#39;/users&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">:RequireLogin {</span>
-        <span class="k">my</span> <span class="nv">$user</span> <span class="o">=</span> <span class="n">logged_in_user</span><span class="p">;</span>
-        <span class="k">return</span> <span class="s">&quot;Hi there, $user-&gt;{username}&quot;</span><span class="p">;</span>
-    <span class="p">};</span>
-</code></pre></div>
-<p>哇，我是第一次见到在 <code>sub</code> 后面还可以写这样的东西（好吧，暴露了本人的菜鸟本质）！赶紧打开模块的源代码，然后找到了相关的几行：</p>
-<div class="highlight"><pre><code class="perl">    <span class="k">use</span> <span class="n">attributes</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">Scalar::</span><span class="n">Util</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">Exporter</span> <span class="s">&#39;import&#39;</span><span class="p">;</span>
-    <span class="k">our</span> <span class="nv">@EXPORT</span><span class="o">=</span><span class="sx">qw(MODIFY_CODE_ATTRIBUTES FETCH_CODE_ATTRIBUTES)</span><span class="p">;</span>
-    <span class="n">hook</span> <span class="n">before</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$route_handler</span> <span class="o">=</span> <span class="nb">shift</span> <span class="o">||</span> <span class="k">return</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$requires_login</span> <span class="o">=</span> <span class="n">get_attribs_by_type</span><span class="p">(</span>
-            <span class="s">&#39;RequireLogin&#39;</span><span class="p">,</span> <span class="nv">$route_handler</span><span class="o">-&gt;</span><span class="n">code</span>
-        <span class="p">);</span>
-        <span class="k">my</span> <span class="nv">$roles_required</span> <span class="o">=</span> <span class="n">get_attribs_by_type</span><span class="p">(</span>
-            <span class="s">&#39;RequireRole&#39;</span><span class="p">,</span> <span class="nv">$route_handler</span><span class="o">-&gt;</span><span class="n">code</span>
-        <span class="p">);</span>
-        <span class="o">...</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="k">my</span> <span class="nv">%attrs</span><span class="p">;</span>
-    <span class="k">sub </span><span class="nf">MODIFY_CODE_ATTRIBUTES</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="p">(</span><span class="nv">$package</span><span class="p">,</span> <span class="nv">$subref</span><span class="p">,</span> <span class="nv">@attrs</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-        <span class="nv">$attrs</span><span class="p">{</span> <span class="n">refaddr</span> <span class="nv">$subref</span> <span class="p">}</span> <span class="o">=</span> <span class="o">\</span><span class="nv">@attrs</span><span class="p">;</span>
-        <span class="k">return</span><span class="p">;</span>
-    <span class="p">}</span> 
-    <span class="k">sub </span><span class="nf">FETCH_CODE_ATTRIBUTES</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="p">(</span><span class="nv">$package</span><span class="p">,</span> <span class="nv">$subref</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$attrs</span> <span class="o">=</span> <span class="nv">$attrs</span><span class="p">{</span> <span class="n">refaddr</span> <span class="nv">$subref</span> <span class="p">};</span>
-        <span class="k">return</span> <span class="nv">$attrs</span> <span class="p">?</span> <span class="nv">@$attrs</span> <span class="p">:</span> <span class="p">();</span>
-    <span class="p">}</span>
-    <span class="k">sub </span><span class="nf">get_attribs_by_type</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="p">(</span><span class="nv">$type</span><span class="p">,</span> <span class="nv">$coderef</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-        <span class="k">return</span> <span class="k">unless</span> <span class="nv">$coderef</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">@desired_attribs</span> <span class="o">=</span> <span class="nb">grep</span> <span class="p">{</span> 
-            <span class="sr">/^$type(?:\([^)]*\))?$/</span> 
-        <span class="p">}</span> <span class="nn">attributes::</span><span class="n">get</span><span class="p">(</span><span class="nv">$coderef</span><span class="p">);</span>
-        <span class="k">return</span> <span class="k">if</span> <span class="o">!</span><span class="nv">@desired_attribs</span><span class="p">;</span>
-        <span class="k">return</span> <span class="p">[</span>
-            <span class="nb">map</span> <span class="p">{</span>
-                <span class="k">my</span> <span class="nv">$f</span> <span class="o">=</span> <span class="nv">$_</span><span class="p">;</span>
-                <span class="nv">$f</span> <span class="o">=~</span> <span class="sr">s/^$type\(\s*([^)]*)\s*\)$/$1/</span><span class="p">;</span>
-                <span class="nb">split</span><span class="p">(</span><span class="sr">/\s+/</span><span class="p">,</span> <span class="nv">$f</span><span class="p">);</span>
-            <span class="p">}</span> <span class="nv">@desired_attribs</span>
-        <span class="p">];</span>
-    <span class="p">}</span>
-</code></pre></div>
-<p>代码中的 <code>$route_handler-&gt;code</code> 就是应用中写的 <code>sub {}</code>。<strong>整个代码中，最关键的部分是这句 <code>attributes::get($coderef)</code> ！</strong></p>
-<p>首先有个小问题，因为 Dancer 里，get 是关键词，所以这里写了全路径。<code>attributes::get</code> 的介绍见 <a href="https://metacpan.org/module/attributes#Available-Subroutines">POD</a>，大意是会使用 <code>FETCH_type_ATTRIBUTES</code> 方法获取列表。因为这里 attribute 是 sub 的，所以 type 就是 CODE ，也就是用前面定义的 <code>FETCH_CODE_ATTRIBUTES</code>。<code>FETCH_type_ATTRIBUTES</code> 方法的说明见 <a href="https://metacpan.org/module/attributes#Package-specific-Attribute-Handling">POD</a>。</p>
-<p>在<a href="https://metacpan.org/module/perlsub#Subroutine-Attributes">https://metacpan.org/module/perlsub#Subroutine-Attributes</a>中，建议我们看另一个更好用的模块来理解自定义属性的问题，这个模块是<a href="https://metacpan.org/module/Attribute::Handlers">Attribute::Handlers</a>。</p>
-<p>然后是 0.010 版：</p>
-<p>新版本的使用方法如下：</p>
-<div class="highlight"><pre><code class="perl">    <span class="n">get</span> <span class="s">&#39;/secret&#39;</span> <span class="o">=&gt;</span> <span class="n">require_any_role</span> <span class="p">[</span><span class="sx">qw(God Admin)</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="n">DestroyWorld</span><span class="p">();</span> <span class="p">};</span>
-    <span class="n">get</span> <span class="s">&#39;/users&#39;</span> <span class="o">=&gt;</span> <span class="n">require_login</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$user</span> <span class="o">=</span> <span class="n">logged_in_user</span><span class="p">;</span>
-        <span class="k">return</span> <span class="s">&quot;Hi there, $user-&gt;{username}&quot;</span><span class="p">;</span>
-    <span class="p">};</span>
-</code></pre></div>
-<p>这种添加新关键词的写法更加的 dancer。所以能从实现中学到更有普适性的 <code>Dancer::Plugin</code> 开发方法。摘要代码如下：</p>
-<div class="highlight"><pre><code class="perl">    <span class="k">use</span> <span class="nn">Dancer::</span><span class="n">Plugin</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">Dancer</span> <span class="sx">qw(:syntax)</span><span class="p">;</span>
-    <span class="k">sub </span><span class="nf">require_any_role</span> <span class="p">{</span>
-        <span class="k">return</span> <span class="n">_build_wrapper</span><span class="p">(</span><span class="nv">@_</span><span class="p">,</span> <span class="s">&#39;any&#39;</span><span class="p">);</span>
-    <span class="p">}</span>
-    <span class="n">register</span> <span class="n">require_any_role</span>  <span class="o">=&gt;</span> <span class="o">\&amp;</span><span class="n">require_any_role</span><span class="p">;</span>
-    <span class="k">sub </span><span class="nf">_build_wrapper</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$require_role</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$coderef</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$mode</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">@role_list</span> <span class="o">=</span> <span class="nb">ref</span> <span class="nv">$require_role</span> <span class="ow">eq</span> <span class="s">&#39;ARRAY&#39;</span> 
-            <span class="p">?</span> <span class="nv">@$require_role</span>
-            <span class="p">:</span> <span class="nv">$require_role</span><span class="p">;</span>
-        <span class="k">return</span> <span class="k">sub </span><span class="p">{</span>
-            <span class="k">my</span> <span class="nv">$user</span> <span class="o">=</span> <span class="n">logged_in_user</span><span class="p">();</span>
-            <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nv">$user</span><span class="p">)</span> <span class="p">{</span>
-                <span class="n">execute_hook</span><span class="p">(</span><span class="s">&#39;login_required&#39;</span><span class="p">,</span> <span class="nv">$coderef</span><span class="p">);</span>
-                <span class="k">return</span> <span class="n">redirect</span> <span class="nv">$loginpage</span><span class="p">;</span>
-            <span class="p">}</span>
-            <span class="k">my</span> <span class="nv">$role_match</span><span class="p">;</span>
-            <span class="k">if</span> <span class="p">(</span><span class="nv">$mode</span> <span class="ow">eq</span> <span class="s">&#39;single&#39;</span><span class="p">)</span> <span class="p">{</span>
-                <span class="nv">$role_match</span><span class="o">++</span> <span class="k">if</span> <span class="n">user_has_role</span><span class="p">(</span><span class="nv">$require_role</span><span class="p">);</span>
-            <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="nv">$mode</span> <span class="ow">eq</span> <span class="s">&#39;any&#39;</span><span class="p">)</span> <span class="p">{</span>
-                <span class="k">my</span> <span class="nv">%role_ok</span> <span class="o">=</span> <span class="nb">map</span> <span class="p">{</span> <span class="nv">$_</span> <span class="o">=&gt;</span> <span class="mi">1</span> <span class="p">}</span> <span class="nv">@role_list</span><span class="p">;</span>
-                <span class="k">for</span> <span class="p">(</span><span class="n">user_roles</span><span class="p">())</span> <span class="p">{</span>
-                    <span class="nv">$role_match</span><span class="o">++</span> <span class="ow">and</span> <span class="k">last</span> <span class="k">if</span> <span class="nv">$role_ok</span><span class="p">{</span><span class="nv">$_</span><span class="p">};</span>
-                <span class="p">}</span>
-            <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="nv">$mode</span> <span class="ow">eq</span> <span class="s">&#39;all&#39;</span><span class="p">)</span> <span class="p">{</span>
-                <span class="nv">$role_match</span><span class="o">++</span><span class="p">;</span>
-                <span class="k">for</span> <span class="k">my</span> <span class="nv">$role</span> <span class="p">(</span><span class="nv">@role_list</span><span class="p">)</span> <span class="p">{</span>
-                    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">user_has_role</span><span class="p">(</span><span class="nv">$role</span><span class="p">))</span> <span class="p">{</span>
-                        <span class="nv">$role_match</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-                        <span class="k">last</span><span class="p">;</span>
-                    <span class="p">}</span>
-                <span class="p">}</span>
-            <span class="p">}</span>
-            <span class="k">if</span> <span class="p">(</span><span class="nv">$role_match</span><span class="p">)</span> <span class="p">{</span>
-                <span class="k">return</span> <span class="nv">$coderef</span><span class="o">-&gt;</span><span class="p">();</span>
-            <span class="p">}</span>
-            <span class="n">execute_hook</span><span class="p">(</span><span class="s">&#39;permission_denied&#39;</span><span class="p">,</span> <span class="nv">$coderef</span><span class="p">);</span>
-            <span class="k">return</span> <span class="n">redirect</span> <span class="nv">$deniedpage</span><span class="p">;</span>
-        <span class="p">};</span>
-    <span class="p">}</span>
-    <span class="n">register_hook</span> <span class="sx">qw(login_required permission_denied)</span><span class="p">;</span>
-</code></pre></div>
-<p>主要摘要了几个部分：</p>
-<ul>
-  <li>第一，register</li>
-</ul>
-<p>摘要中就是 register 了一个关键词 require_any_role 。这样在启用了本 plugin 的应用里，你可以直接使用这个关键词。至于具体的 sub，没有什么特殊的。看前面的用法举例就知道了，传递一个 roles 的数组引用(或者单个role的话就是字符串，这个在后面有判断)和一个 sub 作为参数，也就是 <code>@_</code>。</p>
-<ul>
-  <li>第二，register_hook</li>
-</ul>
-<p>第一个是 <code>Dancer::Plugin</code> 的部分，第二个是 <code>Dancer::Hook</code> 的功能。注册一个叫 login_required 的 hook，然后在需要的地方运行 <code>execute_hook('login_required', $coderef)</code>。</p>
-<p><code>register_hook</code> 接受 <code>$name</code> 和 <code>$coderef</code> 参数。如果只有 name 的话，<code>Dancer::Hook</code> 里也会自动生成一个 <code>$compiled_filter</code> ，作用就是除非你调用 <code>halt</code> 了，不然就输出一条 core 级别的日志(这里其实还用到了 <code>Dancer::Hook::Properties</code>，判断是否需要运行，默认初始化参数空的时候返回真，不运行 app，继续往下到记录日志)。然后，将这个对象传递给 <code>Dancer::Factory::Hook</code>。这里会把前面的生成的 coderef 加入到一个 <code>$class-&gt;hooks-&gt;{$hook_name}</code> 数组，而 name 加入到 <code>$self-&gt;registered_hooks</code> 数组。</p>
-<p>在<code>execute_hook</code> 的时候，从前面的 <code>$self-&gt;registered_hooks</code> 判断是否有这个 name，然后从 <code>$class-&gt;hooks-&gt;{$hook_name}</code> 里依次取出全部 coderef 执行。</p>
-<ul>
-  <li>第三，any</li>
-</ul>
-<p>和前面 0.001 类似，这里也有一个关键词冲突的问题，前面的 get 和这里的 any 都是 <code>Dancer</code> 的关键词。不然的话，其实这里使用 <code>Perl6::Junction</code> 或者 <code>Syntax::Keyword::Junction</code> 模块是正当其时啊。我之前都用 <code>Perl6::Junction</code>，不过昨天的 Perl Advent Calendar 文章里推荐了后面这个 <code>Syntax::Keyword::Junction</code>，<a href="https://metacpan.org">meta::cpan</a> 上也都是两个喜欢。另外题外话说一句，那篇文章里推荐的另一个 <a href="https://metacpan.org/module/Function::Parameters">Function::Parameters</a> 可真是好东西，唯一问题是低于 Perl 5.014的版本用不了，因为他不是 source filter 而是 keyword plugin api 的。这是新版本的功能。</p>
-<hr />
-<p><strong>12 月 30 日附：</strong></p>
-<p>在 github 上提交了一个短短的 patch ，给 DPAE 加上了 正则匹配 role 的功能，感谢 Perl5.10的强大，代码其实就修改一行足以实现：</p>
-<div class="highlight"><pre><code class="perl">    <span class="n">lib</span><span class="sr">/Dancer/</span><span class="n">Plugin</span><span class="sr">/Auth/</span><span class="n">Extensible</span><span class="o">.</span><span class="n">pm</span> <span class="nv">@</span> <span class="nv">891cd02</span>
-    <span class="nv">@@</span> <span class="err">-</span><span class="nv">266</span><span class="p">,</span><span class="mi">7</span> <span class="o">+</span><span class="mi">266</span><span class="p">,</span><span class="mi">9</span> <span class="nv">@@</span> <span class="nv">sub</span> <span class="n">_build_wrapper</span> <span class="p">{</span>
-             <span class="k">my</span> <span class="nv">$role_match</span><span class="p">;</span>
-             <span class="k">if</span> <span class="p">(</span><span class="nv">$mode</span> <span class="ow">eq</span> <span class="s">&#39;single&#39;</span><span class="p">)</span> <span class="p">{</span>
-    <span class="o">-</span>            <span class="nv">$role_match</span><span class="o">++</span> <span class="k">if</span> <span class="n">user_has_role</span><span class="p">(</span><span class="nv">$require_role</span><span class="p">);</span>
-    <span class="o">+</span>            <span class="k">for</span> <span class="p">(</span><span class="n">user_roles</span><span class="p">())</span> <span class="p">{</span>
-    <span class="o">+</span>                <span class="nv">$role_match</span><span class="o">++</span> <span class="ow">and</span> <span class="k">last</span> <span class="k">if</span> <span class="nv">$_</span> <span class="o">~~</span> <span class="nv">$require_role</span><span class="p">;</span>
-    <span class="o">+</span>            <span class="p">}</span>
-             <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="nv">$mode</span> <span class="ow">eq</span> <span class="s">&#39;any&#39;</span><span class="p">)</span> <span class="p">{</span>
-                 <span class="k">my</span> <span class="nv">%role_ok</span> <span class="o">=</span> <span class="nb">map</span> <span class="p">{</span> <span class="nv">$_</span> <span class="o">=&gt;</span> <span class="mi">1</span> <span class="p">}</span> <span class="nv">@role_list</span><span class="p">;</span>
-                 <span class="k">for</span> <span class="p">(</span><span class="n">user_roles</span><span class="p">())</span> <span class="p">{</span>
-    <span class="n">t</span><span class="o">/</span><span class="mo">01</span><span class="o">-</span><span class="n">basic</span><span class="o">.</span><span class="n">t</span> <span class="nv">@</span> <span class="nv">891cd02</span>
-    <span class="nv">@@</span> <span class="err">-</span><span class="nv">81</span><span class="p">,</span><span class="mi">6</span> <span class="o">+</span><span class="mi">81</span><span class="p">,</span><span class="mi">9</span> <span class="nv">@@</span> <span class="nv">response_status_is</span> <span class="p">[</span> <span class="n">GET</span> <span class="o">=&gt;</span> <span class="s">&#39;/allroles&#39;</span> <span class="p">],</span> <span class="mi">200</span><span class="p">,</span>
-     <span class="n">response_status_is</span> <span class="p">[</span> <span class="n">GET</span> <span class="o">=&gt;</span> <span class="s">&#39;/regex/a&#39;</span> <span class="p">],</span> <span class="mi">200</span><span class="p">,</span>
-         <span class="s">&quot;We can request a regex route when logged in&quot;</span><span class="p">;</span>
-    <span class="o">+</span><span class="n">response_status_is</span> <span class="p">[</span> <span class="n">GET</span> <span class="o">=&gt;</span> <span class="s">&#39;/piss/regex&#39;</span> <span class="p">],</span> <span class="mi">200</span><span class="p">,</span>
-    <span class="o">+</span>    <span class="s">&quot;We can request a route requiring a regex role we have&quot;</span><span class="p">;</span>
-    <span class="o">+</span>
-     <span class="c1"># ... but can&#39;t request something requiring a role we don&#39;t have</span>
-     <span class="n">response_redirect_location_is</span>  <span class="p">[</span> <span class="n">GET</span> <span class="o">=&gt;</span> <span class="s">&#39;/piss&#39;</span> <span class="p">],</span>
-         <span class="s">&#39;http://localhost/login/denied?return_url=%2Fpiss&#39;</span><span class="p">,</span>
-    <span class="n">t</span><span class="sr">/lib/</span><span class="n">TestApp</span><span class="o">.</span><span class="n">pm</span> <span class="nv">@</span> <span class="nv">891cd02</span>
-    <span class="nv">@@</span> <span class="err">-</span><span class="nv">39</span><span class="p">,</span><span class="mi">6</span> <span class="o">+</span><span class="mi">39</span><span class="p">,</span><span class="mi">10</span> <span class="nv">@@</span> <span class="nv">get</span> <span class="s">&#39;/piss&#39;</span> <span class="o">=&gt;</span> <span class="n">require_role</span> <span class="n">BearGrylls</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-         <span class="s">&quot;You can drink piss&quot;</span><span class="p">;</span>
-     <span class="p">};</span>
-    <span class="o">+</span><span class="n">get</span> <span class="s">&#39;/piss/regex&#39;</span> <span class="o">=&gt;</span> <span class="n">require_role</span> <span class="sx">qr/beer/</span><span class="n">i</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="o">+</span>    <span class="s">&quot;You can drink piss now&quot;</span><span class="p">;</span>
-    <span class="o">+</span><span class="p">};</span>
-    <span class="o">+</span>
-     <span class="n">get</span> <span class="s">&#39;/anyrole&#39;</span> <span class="o">=&gt;</span> <span class="n">require_any_role</span> <span class="p">[</span><span class="s">&#39;Foo&#39;</span><span class="p">,</span><span class="s">&#39;BeerDrinker&#39;</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-         <span class="s">&quot;Matching one of multiple roles works&quot;</span><span class="p">;</span>
-     <span class="p">};</span>
-</code></pre></div>
-      <a href="/2012/12/21/dancer-plugin-auth-extensible" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

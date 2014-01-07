@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Future模块和AnyEvent事件驱动的结合</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/tags.html">Tags</a></li>
+      	<li><a href="/archive.html">Archive</a></li>
+      	<li><a href="/categories.html">Categories</a></li>
+      	<li><a href="/pages.html">Pages</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+            <li><a href="/projects.html">学习记录</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>Future模块和AnyEvent事件驱动的结合 <small></small></h1>
+    <div class="date"><span>05 January 2014</span></div>
+    <ul class="tag_box pull-right">
+    	<li><a href="/tags.html#anyevent-ref">anyevent <span>1</span></a></li>
+    	<li><a href="/tags.html#future-ref">future <span>1</span></a></li>
+    </ul>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>上个月的 advent calendar 活动中，有一个新的模块进入我们视野，这就是 IO::Async 模块作者写的 <a href="https://metacpan.org/pod/Future">Future</a> 模块。通过 Future 模块，我们可以做到对异步请求的各种控制，比如：</p>
+<ul>
+  <li><code>needs_all</code> / <code>needs_any</code> / <code>wait_any</code> / <code>wait_all</code></li>
+  <li><code>then</code> / <code>else</code> / <code>and_then</code> / <code>or_else</code> / <code>followed_by</code></li>
+  <li><code>on_ready</code> / <code>on_done</code> / <code>on_fail</code> / <code>on_cancel</code></li>
+</ul>
+<p>目前来说，IO::Async 是原生支持 Future 了的。但是 AnyEvent 框架才是目前 Perl 社区事件驱动编程的主流选择。还好 Future 源码目录下 <a href="https://metacpan.org/source/PEVANS/Future-0.21/examples">examples/</a> 里有关于 AnyEvent 和 POE 如何跟 Future 一起运行的示例。</p>
+<p>示例统一举例的是 timer 事件。而我更看好的是 <a href="https://metacpan.org/pod/Future::Utils">Future::Utils</a> 提供的一些关于循环的函数，比如 <code>fmap</code> 可以很简单的控制住异步的并发数。稍微试验，得到脚本如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="nn">Future::</span><span class="n">AnyEvent</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">base</span> <span class="sx">qw( Future )</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">AnyEvent</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">AnyEvent::</span><span class="n">HTTP</span><span class="p">;</span> 
+<span class="k">sub </span><span class="nf">await</span> <span class="p">{</span>
+   <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+   <span class="k">my</span> <span class="nv">$cv</span> <span class="o">=</span> <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">condvar</span><span class="p">;</span>
+   <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">on_ready</span><span class="p">(</span><span class="k">sub </span><span class="p">{</span> <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nb">send</span> <span class="p">});</span>
+   <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nb">recv</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">httpget</span> <span class="p">{</span>
+   <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
+   <span class="n">http_get</span><span class="p">(</span><span class="nb">shift</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+      <span class="k">my</span> <span class="p">(</span><span class="nv">$content</span><span class="p">,</span> <span class="nv">$headers</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+      <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">done</span><span class="p">(</span><span class="nv">$content</span><span class="p">);</span>
+   <span class="p">});</span>
+   <span class="k">return</span> <span class="nv">$self</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="nb">package</span> <span class="n">main</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Future::</span><span class="n">Utils</span> <span class="sx">qw/fmap/</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">@urls</span> <span class="o">=</span> <span class="sx">qw(</span>
+<span class="sx">    http://www.sina.com.cn</span>
+<span class="sx">    http://www.baidu.com</span>
+<span class="sx">    http://www.sohu.com</span>
+<span class="sx">#    ...</span>
+<span class="sx">)</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$f</span> <span class="o">=</span> <span class="n">fmap</span> <span class="p">{</span>
+    <span class="nn">Future::</span><span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">httpget</span><span class="p">(</span> <span class="nb">shift</span> <span class="p">);</span>
+<span class="p">}</span> <span class="k">foreach</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@urls</span><span class="p">,</span> <span class="n">concurrent</span> <span class="o">=&gt;</span> <span class="mi">5</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">@res</span> <span class="o">=</span> <span class="nv">$f</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">;</span>
+<span class="k">print</span> <span class="nv">@res</span><span class="p">;</span>
+</code></pre></div>
+<p>看起来稍显复杂。这里其实最关键的就是几个接口函数：</p>
+<ul>
+  <li>await / on_ready</li>
+</ul>
+<p>Future 对象到实际执行时(即-&gt;get调用处)，会寻找 <code>await</code> 方法。所以必须给自己选用的事件驱动实现这个 <code>await</code> 方法。</p>
+<p>ready 状态即一个 Future 执行完成，注意执行完成不意味着执行成功，ready 状态包括 success 和 fail 两种，其实是可以分别定义 <code>on_success</code> 和 <code>on_failure</code> 回调的。
+<code>on_ready</code> 回调的作用是：在该 Future 对象达到 ready 状态的时候，执行这步调用。</p>
+<p>在本例使用 AnyEvent 的时候，也就是一般来说都会在每步操作结束的 <code>$cv-&gt;send</code> 改到这里来等待调用。</p>
+<ul>
+  <li>done / done_cb</li>
+</ul>
+<p>那 Future 对象的 ready 状态是怎么来的呢？就是这步了：<code>$f-&gt;done</code> 一旦被调用，就意味着该 Future 对象进入了 ready and success 状态。</p>
+<p>同样，如果你要详细控制 Future 对象进入具体的 ready but failure 状态，就使用 <code>$f-&gt;fail</code> 好了。</p>
+<p>调用 <code>-&gt;done|fail()</code> 的时候，你可以选择传递具体哪些数据。比如本例中，就只传递了抓取的 <code>$content</code> 而没有 <code>$headers</code>。</p>
+<p>Future 提供了 <code>-&gt;done_cb</code> 和 <code>-&gt;fail_cb</code> 两个回调函数，默认传递回当前全部数据。本例如果要传回全部，就可以直接写成<code>http_get shift, $self-&gt;done_cb</code>。</p>
+<p>好了，就到这里。这个例子虽然比 Future 自带的 <code>anyevent.pl</code> 示例稍微复杂一点，但是依然很简单。如果能引起大家的兴趣，请直接阅读官方文档。</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2013/12/31/report-of-this-year" title="2013 年度个人总结">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next"><a href="/2014/01/05/run-perl-code-from-webpage" title="通过网页运行 Perl 代码的安全实现">Next &rarr;</a></li>
+      </ul>
+    </div>
+    <hr>
+  <!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li><a href="/2014/01/06/staticperl-and-upx">利用 staticperl 和 upx 生成 单个可执行 perl</a></li>
+                 <li><a href="/2014/01/05/run-perl-code-from-webpage">通过网页运行 Perl 代码的安全实现</a></li>
+                 <li><a href="/2013/12/31/report-of-this-year">2013 年度个人总结</a></li>
+                 <li><a href="/2013/12/09/draw-charts-of-bitcoin">为比特币绘制 MACD、BOLL、KDJ 指标图</a></li>
+                 <li><a href="/2013/12/09/add-mailinglist-command-to-gitolite">为 gitolite 实现 mailinglist 命令行操控</a></li>
+                 <li><a href="/2013/11/04/puppet-class-parameter">Puppet 的类参数传递</a></li>
+                 <li><a href="/2013/11/04/perl-unpack-tongdaxin">用 Perl 读取通达信日线数据</a></li>
+                 <li><a href="/2013/10/26/selinux-affect-to-apache-documentroot">selinux 对 webserver 文件发布的影响</a></li>
+                 <li><a href="/2013/10/25/intro-plenv">用 plenv 代替 perlbrew 管理 Perl5</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <!--以下是QQ邮件列表订阅嵌入代码-->
+            <script >var nId = "86cca8e03c1002936e00aaa28bd933c15c4a437a5e63cafd",nWidth="auto",sColor="light",sText="填写您的邮件地址，订阅logstash/ElasticSearch相关讨论：" ;</script><script src="http://list.qq.com/zh_CN/htmledition/js/qf/page/qfcode.js" charset="gb18030"></script>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(英文)</li>
+              <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+              <li><a href="http://blog.dotcloud.com/" title="dotCloud 官方博客">dotCloud-Blog</a></li>
+              <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+              <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+              <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+              <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+              <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+              <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+              <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+              <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+              <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+              <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+              <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+              <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(中文)</li>
+              <li><a href="http://www.icylife.net/blog/" title="">心路</a></li>
+              <li><a href="http://dbahacker.com/" title="TB 杨德华">DBA Hacker</a></li>
+              <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+              <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+              <li><a href="http://blog.laird-sa.com/" title="">Laird-SA</a></li>
+              <li><a href="http://www.linuxsee.com/" title="">LinuxSEE</a></li>
+              <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+              <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+              <li><a href="http://www.puppeter.cn/" title="">piol</a></li>
+              <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+              <li><a href="http://www.sanote.org/" title="">sa note</a></li>
+              <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
+              <li><a href="http://julyclyde.org/" title="新浪系统工程师">七月的夏天</a></li>
+              <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+              <li><a href="http://blog.s135.com/" title="金山·张宴">回忆未来</a></li>
+              <li><a href="http://blog.ops.tudou.com/wp/" title="">土豆运营团队</a></li>
+              <li><a href="http://www.91tuanfang.com/" title="安居客运维">家欣的天空</a></li>
+              <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+              <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+              <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+              <li><a href="http://www.wenzizone.cn/" title="">蚊子世界</a></li>
+              <li><a href="http://www.opboy.com" title="">运维小子</a></li>
+              <li><a href="http://blog.liuts.com/" title="前天涯SA 刘天斯">运维进行时</a></li>
+              <li><a href="http://www.lark.net.cn/" title="lark's cloud">lark's cloud</a></li>
+              <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+              <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+              <li><a href="http://l09.me/" title="风声">风声</a></li>
+              <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+              <li><a href="http://mooser.me/" title="牛氓">牛氓</a></li>
+              <li><a href="http://http://www.yinwang.org/" title="当然我在扯淡">当然我在扯淡</a></li>
+              <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+              <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+              <li><a href="http://muxueqz.laou.me" title="muxueqz">聊逍遥兮容与</a></li>
+              <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+              <li><a href="http://paperplane.ruhoh.com/" title="深入研究puppet">纸飞机</a></li>
+              <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+              <li><a href="http://blog.sectop.org/" title="">kindle</a></li>
+              <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+          </ul>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2012 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+    <!-- JiaThis Button BEGIN -->
+    <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
+    <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
+    <!-- JiaThis Button END -->
+    <!-- UJian Button BEGIN -->
+    <script type="text/javascript" src="http://v1.ujian.cc/code/ujian.js?type=slide&uid=1589850"></script>
+    <!-- UJian Button END -->
+  </body>
+</html>
