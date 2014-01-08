@@ -43,6 +43,72 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/05/26/anti_hotlinking-in-apache-by-mod_perl-2" title="apache防盗链（mod_perl试用二）" rel="bookmark">apache防盗链（mod_perl试用二）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-05-26 00:00:00 +0800">26 May 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>上回提到的防盗链方式是在strings上加上key和time，uri本身是不变的，这种方式其实现在不是很主流，主流的方式是将计算得出的加密串直接改在uri的路径里。比如下面将要提到的例子。要求其实和早先那个<a href="/2010/01/30/anti-hotlinking-in-nginx-lighttpd-squid">squid防盗链</a>的一模一样，就是改成用apache来跑。
+Test.pm内容如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="n">Test</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">Socket</span> <span class="sx">qw(inet_aton)</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(difftime mktime)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestRec</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Connection</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Log</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Request</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Const</span> <span class="sx">qw(DECLINED FORBIDDEN)</span><span class="p">;</span>
+<span class="k">sub </span><span class="nf">handler</span> <span class="p">{</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span><span class="o">-&gt;</span><span class="n">server</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$secret</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">dir_config</span><span class="p">(</span><span class="s">&#39;Secret&#39;</span><span class="p">)</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">()</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$expire</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">if</span> <span class="p">(</span><span class="nv">$uri</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^/(d{4})(d{2})(d{2})(d{2})(d{2})/(w{32})(/S+.mp3)$#oi) {</span>
+       <span class="err"> </span><span class="k">my</span> <span class="p">(</span><span class="nv">$year</span><span class="p">,</span> <span class="nv">$mon</span><span class="p">,</span> <span class="nv">$mday</span><span class="p">,</span> <span class="nv">$hour</span><span class="p">,</span> <span class="nv">$min</span><span class="p">,</span> <span class="nv">$md5</span><span class="p">,</span> <span class="nv">$path</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$1</span><span class="p">,</span> <span class="nv">$2</span><span class="p">,</span> <span class="nv">$3</span><span class="p">,</span> <span class="nv">$4</span><span class="p">,</span> <span class="nv">$5</span><span class="p">,</span> <span class="nv">$6</span><span class="p">,</span> <span class="nv">$7</span><span class="p">);</span>
+       <span class="err"> </span><span class="k">my</span> <span class="nv">$str</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$secret</span> <span class="o">.</span> <span class="nv">$year</span> <span class="o">.</span> <span class="nv">$mon</span> <span class="o">.</span> <span class="nv">$mday</span> <span class="o">.</span> <span class="nv">$hour</span> <span class="o">.</span> <span class="nv">$min</span> <span class="o">.</span> <span class="nv">$path</span><span class="p">);</span>
+       <span class="err"> </span><span class="k">my</span> <span class="nv">$reqtime</span> <span class="o">=</span> <span class="n">mktime</span><span class="p">(</span><span class="mo">00</span><span class="p">,</span> <span class="nv">$min</span><span class="p">,</span> <span class="nv">$hour</span><span class="p">,</span> <span class="nv">$mday</span><span class="p">,</span> <span class="nv">$mon</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="nv">$year</span> <span class="o">-</span> <span class="mi">1900</span><span class="p">);</span>
+       <span class="err"> </span><span class="k">my</span> <span class="nv">$now</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
+       <span class="err"> </span><span class="k">if</span> <span class="p">(</span> <span class="nv">$now</span> <span class="o">-</span> <span class="nv">$reqtime</span> <span class="o">&lt;</span> <span class="nv">$expire</span><span class="p">){</span>
+          <span class="err">  </span><span class="k">if</span> <span class="p">(</span><span class="nv">$str</span> <span class="ow">eq</span> <span class="nv">$md5</span><span class="p">)</span> <span class="p">{</span>
+          <span class="err">  </span>   <span class="err"> </span><span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">(</span><span class="s">&quot;$path&quot;</span><span class="p">);</span>
+          <span class="err">   </span>   <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">DECLINED</span><span class="p">;</span>
+          <span class="err">  </span><span class="p">}</span>
+       <span class="err"> </span><span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="mi">1</span><span class="p">;</span>
+</code></pre></div>
+<p>然后在httpd.conf中加上如下配置：</p>
+<div class="highlight"><pre><code class="apache"><span class="nb">PerlPostConfigRequire</span> <span class="sx">/home/apache2/perl/start.pl</span>
+<span class="nb">SetHandler</span> modperl
+<span class="nb">PerlTransHandler</span> Test
+<span class="nb">PerlSetVar</span> Secret abcdef
+</code></pre></div>
+<p>这里需要注意几点，根据modperl的处理流程，修改uri的时候，handler还没有走到对文件进行寻址，所以无法区分文件路径等信息，故而 <code>PerlTransHandler</code> 配置不能在 <code>&lt;Directory&gt;</code> 和 <code>&lt;Location&gt;</code> 里面。</p>
+<p>而在<a href="/2010/04/15/anti_hotlinking-in-apache-by-mod_perl">试用一</a>里，核对strings是用的 <code>PerlAccessHandler</code>，当时已经确认了uri的文件路径，故而可以在 <code>&lt;Location&gt;</code> 里。</p>
+<p>另，上面的pm，对错误访问返回的是404，如果需要403，<code>return FORBIDDEN</code> 就可以了。</p>
+<p>如果想同时根据referer来防盗链，可能要在 <code>PerlHeaderParserHandler</code> 阶段在进行一次判定了，这个还在研究，不知道怎么取request-header的信息……</p>
+      <a href="/2010/05/26/anti_hotlinking-in-apache-by-mod_perl-2" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/05/23/learning-mtu" title="（读书笔记）网卡调优MTU" rel="bookmark">（读书笔记）网卡调优MTU</a>
     </h1>
     <p class="alt-font tight">
@@ -1352,64 +1418,6 @@ OK，返回服务器端，mount，居然提示ext3错误~~</p>
 ，是在Domain0上链接iscsi，然后基于不同的target分别create虚拟机模板和虚拟机磁盘，进一步可以保证虚拟平台出问题时，可以迅速的转移到另一个虚拟平台上。
 而后看到<a target="_blank" href="http://www.sansky.net/">存储部落</a>中的介绍，iscsi可以同样理解为裸设备，要达到网络共享，需要配套另外的共享软件~比如GFS</p>
       <a href="/2010/04/12/intro-iscsi-1" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/04/10/refresh-problem-of-js-location_replace" title="客户页面小故障" rel="bookmark">客户页面小故障</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-04-10 00:00:00 +0800">10 Apr 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天接到客户电话，说，主页已经提交过了刷新任务，上面的图片已经更新，但点击图片后链接到的页面内容还是老的……
-仔细一看，原来主页里的html是这么定义的：</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://msn.golfbox.cn/cache/922/36717.html&quot;</span> <span class="na">target=</span><span class="s">&quot;_blank&quot;</span><span class="nt">&gt;&lt;img</span> <span class="na">src=</span><span class="s">&quot;/upload/img/20100410/20100410144202.jpg&quot;</span> <span class="na">width=</span><span class="s">&quot;125&quot;</span> <span class="na">height=</span><span class="s">&quot;80&quot;</span> <span class="na">class=</span><span class="s">&quot;border_blue&quot;</span> <span class="nt">/&gt;&lt;/a&gt;</span>
-</code></pre></div>
-<p>而http://msn.golfbox.cn/cache/922/36717.html的内容是这样：</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;meta</span> <span class="na">http-equiv=</span><span class="s">&quot;Content-Type&quot;</span> <span class="na">content=</span><span class="s">&quot;text/html; charset=utf-8&quot;</span> <span class="nt">/&gt;&lt;script </span><span class="na">language=</span><span class="s">&quot;JavaScript&quot;</span><span class="nt">&gt;</span>
-<span class="err"> </span><span class="nx">location</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="s2">&quot;http://msn.golfbox.cn/cache/874/36804.html&quot;</span><span class="p">);</span>
-<span class="nt">&lt;/script&gt;</span>
-</code></pre></div>
-<p>于是跟客户交流确认，他们网站的主页框架上比较固定的地方，都是采用这种方式，来提供内容更新的。。。
-他们又不肯给出具体更新了那些跳转页面，只好写个小脚本，去处理比对。如果有相同url的location.replace地址不统一的，就强制更新这些页面。</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
-curl http://msn.golfbox.cn/ |sed <span class="s1">&#39;s/\n//g&#39;</span>|sed <span class="s1">&#39;s/href=/\n/g&#39;</span>|grep <span class="s2">&quot;^&quot;</span>http://msn.golfbox.cn/cache<span class="s2">&quot;|awk -F&#39;&quot;</span><span class="s1">&#39; &#39;</span><span class="o">{</span>print <span class="nv">$2</span><span class="o">}</span><span class="s1">&#39;&gt;url</span>
-<span class="s1">for j in `cat url`;do</span>
-<span class="s1"> for i in `cat ip`;do</span>
-<span class="s1">  curl -x $i:80 $j|awk -F&#39;</span><span class="s2">&quot;&#39; &#39;/replace/{print &quot;</span><span class="s1">&#39;$j&#39;</span><span class="s2">&quot;,&quot;</span><span class="s1">&#39;$i&#39;</span><span class="s2">&quot;,$2}&#39;&gt;&gt;golfbox.log</span>
-<span class="s2">#  curl -x $i:80 -I $j|awk &#39;/Age/{print &quot;</span><span class="s1">&#39;$j&#39;</span><span class="s2">&quot;,&quot;</span><span class="s1">&#39;$i&#39;</span><span class="s2">&quot;,$2}&#39;&gt;&gt;age.log</span>
-<span class="s2"> done</span>
-<span class="s2">done</span>
-<span class="s2">cat golfbox.log |awk &#39;{if($1==a){if($3!=b){system(&quot;</span>/home/squid/bin/squidclient -p 80 -h <span class="s2">&quot;$2&quot;</span> -m purge <span class="err">&quot;</span><span class="nv">$1</span><span class="o">)}}</span>;<span class="nv">a</span><span class="o">=</span><span class="nv">$1</span>;<span class="nv">b</span><span class="o">=</span><span class="nv">$3</span><span class="o">}</span><span class="err">&#39;</span>
-</code></pre></div>
-<p>（该脚本有一个问题：如果刚好是第一台的url未更新，结果会反而去刷新那些已经更新了的服务器；所以应该是输出url，然后再用for do done去刷新所有服务器~如果curl可以在获取内容的同时获取Age就好了~所以最后用一个讨巧的办法：在ip列表的最开始放上客户源站的ip，这样就能保证最新了）
-以上是第一个。
-第二个：
-客户首页上还有一个问题：其右下角有跟随悬浮窗口，本来应该可以关闭的。但一点关闭，就提示javascrpt:iclose()错误页面。而用浏览器另存为html到桌面以后，再打开保存下来的页面，点击关闭就正常关闭了！
-经过查找，其中调用的js文件是http://msn.golfbox.cn/js/show.js，内容中关于javascrpt:iclose()的内容如下：</p>
-<div class="highlight"><pre><code class="javascript"><span class="kd">var</span> <span class="nx">sogouTall</span> <span class="o">=</span><span class="s1">&#39;&lt;div style=&quot;z-index:1000;position: absolute;display:none;&quot; id=&quot;sogoubox&quot;&gt;&#39;</span>
-<span class="err">  </span> <span class="o">+</span><span class="s1">&#39;&lt;a href=&quot;javascript:iclose();&quot; style=&quot;float:left; margin-left:190px&quot;&gt;关闭&lt;/a&gt;&#39;</span>
-<span class="err">  </span> <span class="o">+</span><span class="s1">&#39;&lt;div style=&quot;clear:both&quot;&gt;&#39;</span>
-<span class="err">  </span> <span class="o">+</span><span class="s1">&#39;&lt;a href=&quot;&lt;a href=&quot;http://new.msn.golfbox.cn/wd/&quot;&gt;http://new.msn.golfbox.cn/wd/&quot;&gt;&lt;img&lt;/a&gt; src=&quot;&lt;a href=&quot;http://new.msn.golfbox.cn/wd/dbtt.jpg&quot;&gt;http://new.msn.golfbox.cn/wd/dbtt.jpg&lt;/a&gt;&quot; style=&quot;width:220px;height:160px&quot;/&gt;&lt;/a&gt;&#39;</span>
-<span class="err">     </span> <span class="o">+</span> <span class="s1">&#39;&lt;input type=hidden name=&quot;sogouAccountId&quot; value=&quot;202014&quot;&gt;&#39;</span>
-<span class="err">  </span> <span class="o">+</span> <span class="s1">&#39;&#39;</span>
-<span class="err"> </span><span class="kd">function</span> <span class="nx">iclose</span><span class="p">()</span>
-<span class="err"> </span><span class="p">{</span>
-<span class="err">  </span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s1">&#39;sogoubox&#39;</span><span class="p">).</span><span class="nx">style</span><span class="p">.</span><span class="nx">display</span><span class="o">=</span><span class="s1">&#39;none&#39;</span><span class="p">;</span>
-<span class="err"> </span><span class="p">}</span>
-</code></pre></div>
-<p>以我浅薄的web知识，是没看出来什么问题~~客户也莫名其妙，最好撤销掉这个窗口了</p>
-      <a href="/2010/04/10/refresh-problem-of-js-location_replace" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

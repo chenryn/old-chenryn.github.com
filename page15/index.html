@@ -43,6 +43,33 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2009/11/21/intro-etag" title="cache驻留时间（五、Etag）" rel="bookmark">cache驻留时间（五、Etag）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-11-21 00:00:00 +0800">21 Nov 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>浏览器的请求中，除了用If-Modified-Since去比对Last-Modified以外，还有另一个标签Etag，这个东东是web服务器比较有用的，squid倒没什么。不过大文件下载加速也有采用apache的系统，一并算在cache缓存里头讲吧：</p>
+<p>Etag是为了更好的区分文件过期的标签。比如Last-Modified吧，如果我在一秒钟内更新两次这个文件，他的Last-Modified时间还是一样的。但Etag值不一样。听起来很浪费的样子，呵呵~~</p>
+<p>Etag是由文件的inode、mtime、size三个数据通过计算得出来的字符串。这三个都可以通过stat命令查看得到。但问题就来了——一个LVS下挂了七八台RealServer，size固然得一样，mtime只要同步没有问题，也是一样，可这个inode，几乎就不太可能一样了——也就是说，当浏览器的请求被LVS转发到A服务器上时，取得了一个Etag值，一旦刷新重复请求，可能LVS又转发到B服务器，而这个文件在B服务器上计算出的Etag值是另一个。浏览器将判断文件不一致，重新下载！</p>
+<p>这种情况，于网民，是用户体验度下降；于网站，是带宽重复占用；于服务器，是无效负载……</p>
+<p>不过我们既然知道了原理，解决起来也很简单，只需要在apache的配置中，规定Etag的计算来源就行了。</p>
+<p>默认的Etag计算是：FileETag INode MTime Size，如果改全局，只要改成FileETag MTime Size就可以了。如果是下面的某一部分，则写成FileETag -INode也行。
+header信息就说到这里吧，最后提供一个<a href="http://en.wikipedia.org/wiki/List_of_HTTP_headers">wiki</a></p>
+      <a href="/2009/11/21/intro-etag" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2009/11/21/intro-cache-object-size" title="cache驻留时间（六、大文件）" rel="bookmark">cache驻留时间（六、大文件）</a>
     </h1>
     <p class="alt-font tight">
@@ -1680,86 +1707,6 @@ curl -o /dev/null -s -w %{http_code} http://www.kklinux.com</p>
 </code></pre></div>
 <p>执行结果同上。</p>
       <a href="/2009/11/03/using-shell-variable-in-awk-script" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/03/test-squid-by-http_load" title="squid压力测试" rel="bookmark">squid压力测试</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#testing-ref" title="testing" rel="category tag">testing</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>向公司申请了台设备做测试机，打算把公司各种应用服务都自己练练，熟悉一下。先从最传统的squid开始做压力测试。先发一个小东东http_load的测试：</p>
-<ul>
-  <li>实验环境：</li>
-</ul>
-<p>服务器硬件条件：内存2096M，CPU2.33GHz，硬盘70G；
-Squid版本：Version 2.6.STABLE22</p>
-<ul>
-  <li>实验架构：</li>
-</ul>
-<p>单台服务器：沈阳
-web页面由nginx发布，采用基础配置，监听8080端口，网站页面类型包括.htm/html/css/js/xml；
-前端由squid代理，采用公司默认配置，由cache_peer请求本机页面，监听80端口；
-测试访问地点：北京</p>
-<ul>
-  <li>测试方法：</li>
-</ul>
-<p>创建url文件，添加url记录共11条，其中html六条，js三条，css/xml各一条。（本来还有一个tar.gz文件，结果文件有近2M，影响测试结果，放弃）
-根据网友经验，采取fetches参数配合parallel参数测试。</p>
-<p>命令如下：./http_load -f 3000 -p 100 url &gt; result.txt</p>
-<p>根据情况调整parallel参数。</p>
-<ul>
-  <li>测试结果：</li>
-</ul>
-<p>** 当p到180以上后，测试过程中就开始出现类似下面这样提示：</p>
-<pre><code>http://www.test.com/ts.js: Connection timed out
-http://www.test.com/ts.js: byte count wrong
-</code></pre>
-<p>而结果中的fetches/sec则在650-850之间随机出现，属于不太稳定的状态了。而p再往上提高（我从200一直实验到500）， fetches/sec基本都在800左右，而msecs/connect则从50上升到255左右。
-** 当p在140以下时，fetches/sec在1500以上，msecs/connect在0.2左右，bytes/sec在85000左右（此时服务器iptraf -d eth1查看流量大概每秒12M）；
-** 当p到140以上后，f/s迅速下降到1000左右，ms/c则上升到10以上；parallel从150到180的过程中，f/s、ms/c和b/s基本是均速变化的；同时查看服务器的iostat或者vmstat，一般us在90%多，bo偶然有1出现（后来发现是因为我放的测试文件大小相差较大）。</p>
-<ul>
-  <li>实验结论</li>
-</ul>
-<p>squid服务在并发数140以下时，能够提供优质的服务，140以上，性能逐渐下降，当并发数到200以上后，遭遇瓶颈，主要在CPU方面。</p>
-<ul>
-  <li>实验疑问</li>
-</ul>
-<p>公司在线服务的设备，一般eth1流量都能跑到60M，有些甚至上了100M，这跟测试结果相差也太大了？</p>
-<ul>
-  <li>参考资料
-<a href="http://www.hiadmin.com/tomcat-%e5%b9%b6%e5%8f%91%e6%b5%8b%e8%af%95/">http://www.hiadmin.com/tomcat-%e5%b9%b6%e5%8f%91%e6%b5%8b%e8%af%95/</a>
-./http_load -parallel 200 -seconds 10 urls
-  按照固定时间来结束测试,这样可以比较相同时间内被测服务器的响应速度.
-  ./http_load -parallel 200 -fetches 1000 urls
-  按照固定申请数来测试,这样可以比较相同访问量下返回的响应速度.
-  虽然两者都可以获取到服务器的响应速度
-  但是使用fetches更容易让被测服务器收到压力
-  由于seconds控制测试时间,很有可能在短时间内测试客户端并没有发起足够数量的请求
-  而服务端在收到足够压力之前,测试就已经结束了.
-  有一些情况,诸如内存泄漏以及资源回收不利或者对后面的响应速度越来越慢等情况
-  在这种测试条件下不容易发生
-  而使用fetchs,能够让客户端保证确定请求数的全部处理.
-  使用时间作为控制参数
-  会由于测试人员不够耐心而人为将seconds参数设置过小
-  导致测试结果失去意义
-  所以,最后建议使用fetches作为测试参数.用以作为基准进行比较
-  如果httpd_load获取到的页面数据和上次不一致
-  则会报错byte count wrong
-  如果是动态页面,由于返回数据内容不同.则此报错可以忽略</li>
-</ul>
-      <a href="/2009/11/03/test-squid-by-http_load" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

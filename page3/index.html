@@ -43,6 +43,77 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2012/12/22/simple-local-website-for-sysadmin-advent-clone" title="给 Sysadmin Advent 快速搭建本地浏览网站" rel="bookmark">给 Sysadmin Advent 快速搭建本地浏览网站</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-12-22 00:00:00 +0800">22 Dec 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>一年一度的 advent 集合中，除了 perl 的部分，还有 sysadmin 的也很吸引我等运维的眼球。不过 sysadmin 的一直是发表在blogspot 上，光荣的被 GFW 认证了。虽然说翻墙应该是这年头越来越普及的技能，但是能提供免墙的办法，想来那真真是极好的。</p>
+<p>这里提供一个私以为很不错的办法。因为我很开心的发现 sysadvent 有托管在 github 上。</p>
+<div class="highlight"><pre><code class="bash">    sudo apt-get install git
+    git clone git://github.com/jordansissel/sysadvent.git
+    sudo wget http://xrl.us/cpanm --no-check-certificate -O /sbin/cpanm
+    sudo chmod +x /sbin/cpanm
+    cpanm Plack DocLife
+</code></pre></div>
+<p>好了，准备工作完毕。然后在 sysadvent 目录下创建 app.psgi 文件如下：</p>
+<div class="highlight"><pre><code class="perl">    <span class="k">use</span> <span class="nn">Plack::</span><span class="n">Builder</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Plack::App::</span><span class="n">Directory</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">DocLife::</span><span class="n">Markdown</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$html_app</span> <span class="o">=</span> <span class="nn">DocLife::</span><span class="n">Markdown</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+        <span class="n">root</span> <span class="o">=&gt;</span> <span class="s">&#39;.&#39;</span><span class="p">,</span>
+        <span class="n">base_url</span> <span class="o">=&gt;</span> <span class="s">&#39;/html/&#39;</span><span class="p">,</span>
+        <span class="n">suffix</span> <span class="o">=&gt;</span> <span class="s">&#39;.html&#39;</span><span class="p">,</span>
+    <span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$md_app</span> <span class="o">=</span> <span class="nn">DocLife::</span><span class="n">Markdown</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+        <span class="n">root</span> <span class="o">=&gt;</span> <span class="s">&#39;.&#39;</span><span class="p">,</span>
+        <span class="n">suffix</span> <span class="o">=&gt;</span> <span class="s">&#39;.md&#39;</span><span class="p">,</span>
+        <span class="n">base_url</span> <span class="o">=&gt;</span> <span class="s">&#39;/md/&#39;</span>
+    <span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$dir_app</span> <span class="o">=</span> <span class="nn">Plack::App::</span><span class="n">Directory</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">({</span>
+        <span class="n">root</span> <span class="o">=&gt;</span> <span class="s">&#39;.&#39;</span><span class="p">,</span>
+    <span class="p">});</span>
+    <span class="n">builder</span> <span class="p">{</span>
+        <span class="n">mount</span> <span class="s">&#39;/md&#39;</span> <span class="o">=&gt;</span> <span class="nv">$md_app</span><span class="p">;</span>
+        <span class="n">mount</span> <span class="s">&#39;/html&#39;</span> <span class="o">=&gt;</span> <span class="nv">$html_app</span><span class="p">;</span>
+        <span class="n">mount</span> <span class="s">&#39;/&#39;</span> <span class="o">=&gt;</span> <span class="n">builder</span> <span class="p">{</span>
+            <span class="n">enable</span> <span class="s">&quot;Plack::Middleware::SimpleContentFilter&quot;</span><span class="p">,</span>
+            <span class="n">filter</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+                <span class="n">s</span><span class="c1">#(/\d{4}/\d{2}/\S+\.md)#/md\1#;</span>
+                <span class="n">s</span><span class="c1">#(/\d{4}/\d{2}/\S+\.html)#/html\1#;</span>
+            <span class="p">};</span>
+            <span class="nv">$dir_app</span>
+        <span class="p">};</span>
+    <span class="p">};</span>
+</code></pre></div>
+<p><code>Plack::App::Directory</code> 模块是 <code>Plack</code> 自带的一个静态目录自动索引发布模块。不过他会把 markdown 当成 &ldquo;text/plain&rdquo; 发布，不好看。所以这里引入了另一个 <code>DocLife</code> 模块。他可以自动把 markdown 和 pod 格式的文档美化转换成 html 格式。本来 <code>DocLife</code> 本身也提供目录索引功能，不过他的问题是他不考虑 MIME 问题，会把 png 等图片也以 &ldquo;text/plain&rdquo; 发布。所以我们用 <code>Plack::App::URLMap</code> 把两个模块挂在到一起，然后用 <code>Plack::Middleware::SimpleContentFilter</code> 过滤内容，替换原本的目录链接成针对性的目录。</p>
+<p>大功告成！运行命令开始享受世界级运维们的分享吧：</p>
+<div class="highlight"><pre><code class="bash">    plackup &amp;
+    open localhost:5000
+</code></pre></div>
+<table>
+  <tbody>
+    <tr>
+      <td>注：另外有个 <code>Plack::App::Directory::Markdown</code> 模块，不过他写死了只处理 md，连 html 都被 <code>next</code>。比较好玩的是这个模块自己把 bootstrap.css</td>
+      <td>js 给放到 <code>__DATA__</code> 块里一起分发了，页面倒是更好看一点。</td>
+    </tr>
+  </tbody>
+</table>
+      <a href="/2012/12/22/simple-local-website-for-sysadmin-advent-clone" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2012/12/22/intro-dancer-plugin-adapter" title="Dancer::Plugin::Adapter 模块介绍" rel="bookmark">Dancer::Plugin::Adapter 模块介绍</a>
     </h1>
     <p class="alt-font tight">
@@ -3952,105 +4023,6 @@ bbs 9876
 <p>总的来说，原有模块相互之间都有些不太协调，用的时候还是要自己改改。比如这里，原版的Output::ElasticSearch是吧之前传递过来的整个message放进@fields里的，这跟Filter::ToLogstash的message结构是完全冲突的。所以需要修改Output::ElasticSearch里的bulk_index()的data=&gt;$data,就可以了，不要多改动。</p>
 <p>整个代码变动，参加个人github:<a href="https://github.com/chenryn/Message-Passing.git">https://github.com/chenryn/Message-Passing.git</a></p>
       <a href="/2012/09/16/message-passing-agent" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/09/16/elasticsearch-bulk-index-speed-testing" title="【Message::Passing系列】ElasticSearch的bulk_index速度测试" rel="bookmark">【Message::Passing系列】ElasticSearch的bulk_index速度测试</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-09-16 00:00:00 +0800">16 Sep 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>连续尝试了logstash的elasticsearch/elasticsearch_http/elasticsearch_river三个putput模块，发现其index/bulk/river三种插入方式的实际运行效果速度居然没有差异。而使用perl脚本测试，单例下index不到300msg/sec，bulk接近2500msg/sec，几乎翻了10倍。</p>
-<p>测试脚本如下：</p>
-<div class="highlight"><pre><code class="perl">    <span class="c1">#!/usr/bin/perl -w</span>
-    <span class="k">use</span> <span class="n">ElasticSearch</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">JSON</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">Time::</span><span class="n">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">Data::</span><span class="n">Dumper</span><span class="p">;</span>
-    <span class="c1">#curl -XGET &#39;http://localhost:9200/logstash-2012.09.14/nginx/_mapping&#39;</span>
-    <span class="k">my</span> <span class="nv">$line</span> <span class="o">=</span> <span class="s">&#39;{</span>
-<span class="s">        &quot;@timestamp&quot; : &quot;2012-09-04T13:38:59.496888Z&quot;,</span>
-<span class="s">        &quot;@tags&quot; : [], </span>
-<span class="s">        &quot;@fields&quot; : { </span>
-<span class="s">           &quot;reqtime&quot; : [ </span>
-<span class="s">              0.016</span>
-<span class="s">           ],  </span>
-<span class="s">           &quot;req&quot; : [ </span>
-<span class="s">              &quot;/fmn056/20120812/1645/tiny_r3N9_236f000036ad118d.jpg&quot;</span>
-<span class="s">           ],  </span>
-<span class="s">           &quot;version&quot; : [ </span>
-<span class="s">              &quot;1.1&quot;</span>
-<span class="s">           ],  </span>
-<span class="s">           &quot;useragent&quot; : [ </span>
-<span class="s">              &quot;\&quot;Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)\&quot;&quot;</span>
-<span class="s">           ],  </span>
-<span class="s">           &quot;port&quot; : [ </span>
-<span class="s">              &quot;80&quot;</span>
-<span class="s">           ],  </span>
-<span class="s">           &quot;size&quot; : [ </span>
-<span class="s">              2360</span>
-<span class="s">           ],  </span>
-<span class="s">           &quot;client&quot; : [ </span>
-<span class="s">              &quot;210.56.223.176&quot;</span>
-<span class="s">           ],  </span>
-<span class="s">           &quot;upstream&quot; : [ </span>
-<span class="s">              &quot;10.9.18.50&quot;</span>
-<span class="s">           ],  </span>
-<span class="s">           &quot;method&quot; : [ </span>
-<span class="s">              &quot;GET&quot;</span>
-<span class="s">           ],  </span>
-<span class="s">           &quot;referer&quot; : [ </span>
-<span class="s">              &quot;photo.renren.com&quot;,</span>
-<span class="s">              &quot;/photo/420723228/photo-6408408309?psource=3&amp;fromVIP=false&quot;</span>
-<span class="s">           ],  </span>
-<span class="s">           &quot;ZONE&quot; : [ </span>
-<span class="s">              &quot;+0800&quot;</span>
-<span class="s">           ],  </span>
-<span class="s">           &quot;code&quot; : [ </span>
-<span class="s">              200 </span>
-<span class="s">           ],  </span>
-<span class="s">           &quot;upstime&quot; : [ </span>
-<span class="s">              0.016</span>
-<span class="s">           ]   </span>
-<span class="s">        },  </span>
-<span class="s">        &quot;@source_path&quot; : &quot;//data/nginx/logs/access.log&quot;,</span>
-<span class="s">        &quot;@source&quot; : &quot;file://DBLYD5-32.opi.com//data/nginx/logs/access.log&quot;,</span>
-<span class="s">        &quot;@message&quot; : &quot;[04/Sep/2012:21:38:59 +0800] 200 210.56.223.176 fmn.rrimg.com GET /fmn056/20120812/1645/tiny_r3N9_236f000036ad118d.jpg HTTP/1.1 10.9.18.50:80 0.016 0.016 2360 \&quot;http://photo.renren.com/photo/420723228/photo-6408408309?psource=3&amp;fromVIP=false\&quot; \&quot;Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)\&quot; \&quot;-\&quot;&quot;,</span>
-<span class="s">        &quot;@source_host&quot; : &quot;DBLYD5-32.opi.com&quot;,</span>
-<span class="s">        &quot;@type&quot; : &quot;nginx&quot;</span>
-<span class="s">    }&#39;</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$hash</span> <span class="o">=</span> <span class="n">from_json</span><span class="p">(</span><span class="nv">$line</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$elsearch</span> <span class="o">=</span> <span class="n">ElasticSearch</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
-        <span class="n">servers</span>      <span class="o">=&gt;</span> <span class="s">&#39;10.4.16.68:9200&#39;</span><span class="p">,</span>
-        <span class="n">transport</span>    <span class="o">=&gt;</span> <span class="s">&#39;httplite&#39;</span><span class="p">,</span>
-        <span class="n">max_requests</span> <span class="o">=&gt;</span> <span class="mi">10000</span><span class="p">,</span>
-    <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$begin</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
-    <span class="k">for</span> <span class="p">(</span> <span class="mi">1</span> <span class="o">..</span> <span class="mi">1000</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">@data</span><span class="p">;</span>
-        <span class="nb">push</span> <span class="nv">@data</span><span class="p">,</span> <span class="p">{</span> <span class="nb">index</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="n">data</span> <span class="o">=&gt;</span> <span class="nv">$hash</span> <span class="p">}</span> <span class="p">}</span> <span class="k">for</span> <span class="mi">1</span> <span class="o">..</span> <span class="mi">20</span><span class="p">;</span>
-        <span class="nv">$elsearch</span><span class="o">-&gt;</span><span class="n">bulk</span><span class="p">(</span>
-            <span class="nb">index</span> <span class="o">=&gt;</span> <span class="s">&#39;logstash-test&#39;</span><span class="p">,</span>
-            <span class="n">type</span>  <span class="o">=&gt;</span> <span class="s">&#39;nginx&#39;</span><span class="p">,</span>
-            <span class="n">actions</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@data</span>
-        <span class="p">);</span>
-    <span class="p">}</span>
-    <span class="k">print</span> <span class="mi">1000</span> <span class="o">*</span> <span class="mi">20</span> <span class="o">/</span> <span class="p">(</span><span class="nb">time</span> <span class="o">-</span> <span class="nv">$begin</span><span class="p">);</span>
-</code></pre></div>
-<p>注意到这里bulk的数组是20个元素。实验证明超过20个会报出HTTP::Lite的错误(附带提示:ElasticSearch::Transport::*的HTTPLite啊AEHTTP啊的模块都是要另外安装的)。而且在使用Logstash::Outputs::ElasticSearchHTTP时，flush_size的default值100也是无法使用的，也是改到20后才行。</p>
-<p>ps: 不知道为什么一起发github显示不了，只好拆开了，第一篇，关于ES的index速度测试。</p>
-      <a href="/2012/09/16/elasticsearch-bulk-index-speed-testing" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

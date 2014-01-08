@@ -43,6 +43,47 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/08/25/string-operator-on-bsd" title="BSD下的字符串运算" rel="bookmark">BSD下的字符串运算</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-08-25 00:00:00 +0800">25 Aug 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>之前在linux上有个脚本，通过expr命令截取字符串的。大意如下：
+    a=/path/to/example
+    b=<code>expr length "$a  "</code>
+    c=/path/to/example/file/to/example
+    d=<code>expr length "$c"</code>
+    e=<code>expr substr "$c" "$b" "$d"</code>
+转移到BSD后，脚本报错：expr: syntax error
+分别在linux和bsd上man expr后对比了一下，发现bsd上的expr确实没有index、length、substr等运算，原来linux上的expr是GNU的；而bsd上的expr是POSIX的，没有gnu的那些扩展用法……
+于是必须使用些通用的办法来完成这个截取功能。方法很多，举例如下：</p>
+<p>1、awk法
+awk &lsquo;BEGIN{print length(&lsquo;$a&rsquo;)}&rsquo;;
+awk &lsquo;BEGIN{print substr(&lsquo;$c&rsquo;,&rsquo;$b&rsquo;,&rsquo;$d&rsquo;)}&rsquo;</p>
+<p>2、bash扩展法
+${#a}
+${c:$b:${#c}}</p>
+<p>3、标准expr+cut法
+expr &ldquo;$a  &ldquo; : &ldquo;.*&rdquo;
+echo $c | cut -c $b-$d</p>
+<p>POSIX下的expr没有length，不过man中提供了采用:匹配.*的方法获取长度；</p>
+<p>GNU下的expr substr和awk的substr函数一样，都是从$b位开始，截取$d位数的字符子串；而cut命令则是从$b位开始截取到$d位为止的字符子串。</p>
+<p>其实cut这种方法才是最符合前面的length的，不过substr的时候，位数多设一些，也不影响结果~~</p>
+      <a href="/2010/08/25/string-operator-on-bsd" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/08/24/received-a-mail-from-jwplayer" title="收到jwplayer的推广邮件" rel="bookmark">收到jwplayer的推广邮件</a>
     </h1>
     <p class="alt-font tight">
@@ -1278,72 +1319,6 @@ Nmap finished: 1 IP address <span class="o">(</span>1 host up<span class="o">)</
 </code></pre></div>
 <p>目前只能猜测这个ip应该是一个代理网关服务器，在转发访问请求的时候，把header中的Host信息给弄没了~~</p>
       <a href="/2010/05/27/a-non-host-error-in-squid" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/05/26/anti_hotlinking-in-apache-by-mod_perl-2" title="apache防盗链（mod_perl试用二）" rel="bookmark">apache防盗链（mod_perl试用二）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-05-26 00:00:00 +0800">26 May 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>上回提到的防盗链方式是在strings上加上key和time，uri本身是不变的，这种方式其实现在不是很主流，主流的方式是将计算得出的加密串直接改在uri的路径里。比如下面将要提到的例子。要求其实和早先那个<a href="/2010/01/30/anti-hotlinking-in-nginx-lighttpd-squid">squid防盗链</a>的一模一样，就是改成用apache来跑。
-Test.pm内容如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="n">Test</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Socket</span> <span class="sx">qw(inet_aton)</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(difftime mktime)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestRec</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Connection</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestUtil</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Log</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Request</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Const</span> <span class="sx">qw(DECLINED FORBIDDEN)</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">handler</span> <span class="p">{</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span><span class="o">-&gt;</span><span class="n">server</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$secret</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">dir_config</span><span class="p">(</span><span class="s">&#39;Secret&#39;</span><span class="p">)</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">()</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$expire</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">if</span> <span class="p">(</span><span class="nv">$uri</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^/(d{4})(d{2})(d{2})(d{2})(d{2})/(w{32})(/S+.mp3)$#oi) {</span>
-       <span class="err"> </span><span class="k">my</span> <span class="p">(</span><span class="nv">$year</span><span class="p">,</span> <span class="nv">$mon</span><span class="p">,</span> <span class="nv">$mday</span><span class="p">,</span> <span class="nv">$hour</span><span class="p">,</span> <span class="nv">$min</span><span class="p">,</span> <span class="nv">$md5</span><span class="p">,</span> <span class="nv">$path</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$1</span><span class="p">,</span> <span class="nv">$2</span><span class="p">,</span> <span class="nv">$3</span><span class="p">,</span> <span class="nv">$4</span><span class="p">,</span> <span class="nv">$5</span><span class="p">,</span> <span class="nv">$6</span><span class="p">,</span> <span class="nv">$7</span><span class="p">);</span>
-       <span class="err"> </span><span class="k">my</span> <span class="nv">$str</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$secret</span> <span class="o">.</span> <span class="nv">$year</span> <span class="o">.</span> <span class="nv">$mon</span> <span class="o">.</span> <span class="nv">$mday</span> <span class="o">.</span> <span class="nv">$hour</span> <span class="o">.</span> <span class="nv">$min</span> <span class="o">.</span> <span class="nv">$path</span><span class="p">);</span>
-       <span class="err"> </span><span class="k">my</span> <span class="nv">$reqtime</span> <span class="o">=</span> <span class="n">mktime</span><span class="p">(</span><span class="mo">00</span><span class="p">,</span> <span class="nv">$min</span><span class="p">,</span> <span class="nv">$hour</span><span class="p">,</span> <span class="nv">$mday</span><span class="p">,</span> <span class="nv">$mon</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="nv">$year</span> <span class="o">-</span> <span class="mi">1900</span><span class="p">);</span>
-       <span class="err"> </span><span class="k">my</span> <span class="nv">$now</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
-       <span class="err"> </span><span class="k">if</span> <span class="p">(</span> <span class="nv">$now</span> <span class="o">-</span> <span class="nv">$reqtime</span> <span class="o">&lt;</span> <span class="nv">$expire</span><span class="p">){</span>
-          <span class="err">  </span><span class="k">if</span> <span class="p">(</span><span class="nv">$str</span> <span class="ow">eq</span> <span class="nv">$md5</span><span class="p">)</span> <span class="p">{</span>
-          <span class="err">  </span>   <span class="err"> </span><span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">(</span><span class="s">&quot;$path&quot;</span><span class="p">);</span>
-          <span class="err">   </span>   <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">DECLINED</span><span class="p">;</span>
-          <span class="err">  </span><span class="p">}</span>
-       <span class="err"> </span><span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-<span class="mi">1</span><span class="p">;</span>
-</code></pre></div>
-<p>然后在httpd.conf中加上如下配置：</p>
-<div class="highlight"><pre><code class="apache"><span class="nb">PerlPostConfigRequire</span> <span class="sx">/home/apache2/perl/start.pl</span>
-<span class="nb">SetHandler</span> modperl
-<span class="nb">PerlTransHandler</span> Test
-<span class="nb">PerlSetVar</span> Secret abcdef
-</code></pre></div>
-<p>这里需要注意几点，根据modperl的处理流程，修改uri的时候，handler还没有走到对文件进行寻址，所以无法区分文件路径等信息，故而 <code>PerlTransHandler</code> 配置不能在 <code>&lt;Directory&gt;</code> 和 <code>&lt;Location&gt;</code> 里面。</p>
-<p>而在<a href="/2010/04/15/anti_hotlinking-in-apache-by-mod_perl">试用一</a>里，核对strings是用的 <code>PerlAccessHandler</code>，当时已经确认了uri的文件路径，故而可以在 <code>&lt;Location&gt;</code> 里。</p>
-<p>另，上面的pm，对错误访问返回的是404，如果需要403，<code>return FORBIDDEN</code> 就可以了。</p>
-<p>如果想同时根据referer来防盗链，可能要在 <code>PerlHeaderParserHandler</code> 阶段在进行一次判定了，这个还在研究，不知道怎么取request-header的信息……</p>
-      <a href="/2010/05/26/anti_hotlinking-in-apache-by-mod_perl-2" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
