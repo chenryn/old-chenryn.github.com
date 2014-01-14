@@ -43,6 +43,194 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/04/15/anti_hotlinking-in-apache-by-mod_perl" title="apache防盗链（mod_perl试用）" rel="bookmark">apache防盗链（mod_perl试用）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-04-15 00:00:00 +0800">15 Apr 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>客户需求如下：</p>
+<p>在web请求视频时，按算法生成密文和明文串，然后依规则组成最终的url请求；</p>
+<p>算法规则：</p>
+<p>用如下三个关键词生成 MD5 密文：</p>
+<ol>
+  <li>自定义密钥：abcde.；</li>
+  <li>视频文件真实路径，即/path/to/file.rmvb；</li>
+  <li>请求时间，以当前UNIX时间换算为十六进制字符串，并作为明文；</li>
+</ol>
+<p>最终url格式是 <code>http://www.test.com/path/to/file.rmvb?key=1234567890abcdefghijklmnopqrstuy&amp;t=1234abcd</code> 这样。</p>
+<p>要求失效时间为8小时。</p>
+<p>这个需求和之前一次相当类似，不过上回是squid，这次是apache。同样采用perl脚本进行防盗链设置，apache需要使用mod_perl模块。</p>
+<p>首先安装perl模块：</p>
+<div class="highlight"><pre><code class="bash">wget http://perl.apache.org/dist/mod_perl-2.0-current.tar.gz
+tar zxvf mod_perl-2.0-current.tar.gz
+<span class="nb">cd </span>mod_perl-2.0-current.tar.gz
+perl Makefile.PL <span class="nv">MP_APXS</span><span class="o">=</span>/home/apache2/bin/apxs
+make <span class="o">&amp;&amp;</span> make install
+<span class="nb">echo</span> <span class="s2">&quot;LoadModule perl_module modules/mod_perl.so&quot;</span> &gt;&gt; /home/apache2/conf/httpd.conf
+perl -MCPAN -e shell
+&gt;install Apache2::Request
+&gt;look Apache2::Request
+rm -f configure
+rm -f apreq2-config
+./buildconf
+perl Makefile.PL
+make <span class="o">&amp;&amp;</span> make install
+<span class="nb">exit</span>
+<span class="c">#因为64位系统的libexpat.so有问题，编译libapreq2会出问题，只好如此强制安装</span>
+<span class="nb">echo</span> <span class="s2">&quot;LoadModule apreq_module modules/mod_apreq2.so&quot;</span> &gt;&gt; /home/apache2/conf/httpd.conf
+</code></pre></div>
+<p>因为libapreq2.so安装在/home/apache2/lib/下了，所以需要echo &ldquo;/home/apache2/lib&rdquo; &gt;/etc/lo.so.conf.d/apache.conf，然后ldconfig。</p>
+<p>修改httpd.conf，加入如下设置：</p>
+<div class="highlight"><pre><code class="apache"><span class="nb">PerlPostConfigRequire</span> <span class="sx">/home/apache2/perl/start.pl</span>
+<span class="nt">&lt;Location</span> <span class="s">/smg</span><span class="nt">&gt;</span>
+<span class="nb">SetHandler</span> modperl
+<span class="nb">PerlAccessHandler</span> DLAuth
+<span class="nb">PerlSetVar</span> ShareKey abcde.
+<span class="nt">&lt;/Location&gt;</span>
+</code></pre></div>
+<p>然后mkdir /home/apache2/perl/，在其中创建start.pl和DLAuth.pm两个文件。start.pl文件内容如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="n">strict</span><span class="p">;</span> 
+<span class="k">use</span> <span class="n">lib</span> <span class="sx">qw(/home/apache2/perl)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestIO</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestRec</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Connection</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Log</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Request</span> <span class="p">();</span>
+<span class="mi">1</span><span class="p">;</span> 
+</code></pre></div>
+<p>DLAuth.pm文件内容如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="n">DLAuth</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">Socket</span> <span class="sx">qw(inet_aton)</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(difftime strftime)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestIO</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestRec</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Connection</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Log</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Request</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Const</span> <span class="o">-</span><span class="n">compile</span> <span class="o">=&gt;</span> <span class="sx">qw(OK FORBIDDEN)</span><span class="p">;</span>
+<span class="k">sub </span><span class="nf">handler</span> <span class="p">{</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span><span class="o">-&gt;</span><span class="n">server</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$shareKey</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">dir_config</span><span class="p">(</span><span class="s">&#39;ShareKey&#39;</span><span class="p">)</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">()</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$args</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">args</span><span class="p">()</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$expire</span> <span class="o">=</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">if</span> <span class="p">(</span><span class="nv">$args</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^key=(\w{32})&amp;t=(\w{8})$#i) {</span>
+<span class="err">   </span>     <span class="k">my</span> <span class="p">(</span><span class="nv">$key</span><span class="p">,</span> <span class="nv">$date</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$1</span><span class="p">,</span> <span class="nv">$2</span><span class="p">);</span>
+<span class="err">   </span>     <span class="k">my</span> <span class="nv">$str</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$shareKey</span> <span class="o">.</span> <span class="nv">$uri</span> <span class="o">.</span> <span class="nv">$date</span><span class="p">)</span>
+<span class="err">   </span>     <span class="k">my</span> <span class="nv">$reqtime</span> <span class="o">=</span> <span class="nb">hex</span><span class="p">(</span><span class="nv">$date</span><span class="p">);</span>
+<span class="err">   </span>     <span class="k">my</span> <span class="nv">$now</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
+<span class="err">   </span>     <span class="k">if</span> <span class="p">(</span> <span class="nv">$now</span> <span class="o">-</span> <span class="nv">$reqtime</span> <span class="o">&lt;</span> <span class="nv">$expire</span><span class="p">)</span> <span class="p">{</span>
+<span class="err">   </span> <span class="err">   </span>     <span class="k">if</span> <span class="p">(</span><span class="nv">$str</span> <span class="ow">eq</span> <span class="nv">$key</span><span class="p">)</span> <span class="p">{</span>
+<span class="err">   </span> <span class="err">   </span> <span class="err">   </span>     <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">OK</span><span class="p">;</span>
+<span class="err">   </span> <span class="err">   </span>     <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+<span class="err">       </span> <span class="err">   </span> <span class="err">   </span> <span class="nv">$s</span><span class="o">-&gt;</span><span class="n">log_error</span><span class="p">(</span><span class="s">&quot;[$uri FORBIDDEN] Auth failed&quot;</span><span class="p">);</span>
+<span class="err">   </span> <span class="err">   </span> <span class="err">   </span>     <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">FORBIDDEN</span><span class="p">;</span>
+<span class="err">   </span> <span class="err">   </span>     <span class="p">}</span>
+<span class="err">   </span>     <span class="p">}</span>
+<span class="err">   </span> <span class="p">}</span>
+<span class="err">   </span> <span class="nv">$s</span><span class="o">-&gt;</span><span class="n">log_error</span><span class="p">(</span><span class="s">&quot;[$uri FORBIDDEN] Auth failed&quot;</span><span class="p">);</span>
+<span class="err">   </span> <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">FORBIDDEN</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="mi">1</span><span class="p">;</span>
+</code></pre></div>
+<p>就可以了。</p>
+<p>apachectl restart。测试一下，先用perl自己生成一个测试链接：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$key</span> <span class="o">=</span> <span class="s">&quot;bestv.&quot;</span><span class="p">;</span>
+<span class="nv">$path</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">(</span><span class="nv">@ARGV</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$date</span> <span class="o">=</span> <span class="nb">sprintf</span><span class="p">(</span><span class="s">&quot;%x&quot;</span><span class="p">,</span><span class="nb">time</span><span class="p">);</span>
+<span class="nv">$result</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$key</span> <span class="o">.</span> <span class="nv">$path</span> <span class="o">.</span> <span class="nv">$date</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="s">&quot;http://127.0.0.1$path?key=$result&amp;t=$date&quot;</span><span class="p">;</span>
+<span class="k">print</span> <span class="nv">$uri</span><span class="p">;</span>
+</code></pre></div>
+<p>运行 <code>./url.pl /smg/abc.rmvb</code> 生成 <code>http://127.0.0.1/smg/abc.rmvb?key=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=4bc7dd5a</code>，然后 <code>wget -S -O /dev/null "http://127.0.0.1/smg/abc.rmvb?key=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=4bc7dd5a"</code>，返回 200 OK;任意修改 t 为 12345678，再 wget，返回 403 Forbidden。<code>error_log</code> 显示如下：</p>
+<pre><code>[Fri Apr 16 11:47:06 2010] [error] [/smg/abc.rmvbkey=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=12345678 FORBIDDEN] Auth failed
+</code></pre>
+      <a href="/2010/04/15/anti_hotlinking-in-apache-by-mod_perl" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/04/12/intro-iscsi-1" title="iscsi试验（失败，慎入）" rel="bookmark">iscsi试验（失败，慎入）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-04-12 00:00:00 +0800">12 Apr 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>聊天时听同事提及iscsi。回来后借助百度和谷歌大概了解了一下是网络存储，就赶紧下了软件包作测试。</p>
+<div class="highlight"><pre><code class="bash">wget http://downloads.sourceforge.net/project/iscsitarget/iscsitarget/1.4.19/iscsitarget-1.4.19.tar.gz
+tar zxvf iscsitarget-1.4.19.tar.gz
+<span class="nb">cd </span>iscsitarget-1.4.19
+make <span class="o">&amp;&amp;</span> make install
+</code></pre></div>
+<p>就完成了服务器端的安装，然后修改配置文件/etc/iet/ietd.conf，方便起见，就写最基本的三行：</p>
+<pre><code>Target iqn.2010-04.com.test:storage.xvdb1
+Lun 0 Path=/dev/xvdb1,Type=fileio
+Alias Test
+</code></pre>
+<p>启动服务/etc/init.d/iscsi-target start，netstat查看，发现有3260端口的监听了。</p>
+<p>然后是客户端，更容易，直接yum install iscsi-initiator-utils就够了。然后启动服务/etc/init.d/iscsid start。</p>
+<p>然后链接服务器，iscsiadm -m discovery -t st -p 10.12.13.86，可以搜索到了。不过居然出现两个，分别是服务器内外网ip搜索的值。两个办法。</p>
+<p>一个是定义客户端/var/lib/iscsi/iface/ieth0文件如下：</p>
+<pre><code>iface.iscsi_ifacename = ieth0
+iface.net_ifacename = eth0
+iface.hwaddress = default
+iface.transport_name = tcp
+</code></pre>
+<p>然后用iscsiadm -m discovery -t st -p 10.12.13.86 -I ieth0命令搜索；</p>
+<p>一个是定义服务端/etc/iet/targets.allow文件如下：</p>
+<pre><code>ALL 10.12.13.0/24
+</code></pre>
+<p>然后/etc/init.d/iscsi-target restart就可以了。</p>
+<p>最后搜索结果如下：</p>
+<pre><code>10.12.13.86:3260,1 iqn.2010-04.com.rao:storage.xvdb1
+</code></pre>
+<p>在客户端用iscsiadm -m node -p 10.12.13.86 &ndash;targetname iqn.2010-04.com.rao:storage.xvdb1 &ndash;login命令，就可以连上磁盘了。然后用fdisk -l命令可以看到如下输出：</p>
+<pre><code>Disk /dev/sda: 750.1 GB, 750153729024 bytes
+</code></pre>
+<p>试验到目前为止一切正常。然后再mount这个sda的时候，赫然提示没有格式化！！
+好吧，fdisk /dev/sda然后mkfs.ext3 /dev/sda1再mount /dev/sda1 /mnt。
+OK，返回服务器端，mount，居然提示ext3错误~~</p>
+<p>再开一台，同样到mount的时候，又一次提示没有格式化。
+难道iscsi和nfs不一样，压根不能多客户端同时连接一块磁盘？？？
+还是说因为iscsi默认是sda，而虚拟机是xvda，之间有冲突？？？
+于是返回谷歌搜索“iscsi xen”，结果看来应该是第一种了。
+<a href="http://www.performancemagic.com/iscsi-xen-howto/index.html">xen和iscsi的常见合用</a>
+，是在Domain0上链接iscsi，然后基于不同的target分别create虚拟机模板和虚拟机磁盘，进一步可以保证虚拟平台出问题时，可以迅速的转移到另一个虚拟平台上。
+而后看到<a target="_blank" href="http://www.sansky.net/">存储部落</a>中的介绍，iscsi可以同样理解为裸设备，要达到网络共享，需要配套另外的共享软件~比如GFS</p>
+      <a href="/2010/04/12/intro-iscsi-1" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/04/10/refresh-problem-of-js-location_replace" title="客户页面小故障" rel="bookmark">客户页面小故障</a>
     </h1>
     <p class="alt-font tight">
@@ -1346,326 +1534,6 @@ oringin是类unix主机，区分大小写，返回一个正确的200，一个错
 <p>散热真的超级小, 不知道改天换成windows后如何&hellip;&hellip;
 要是没有qq聊天视频的需求,或许我真就干脆这么用下去得了~~~</p>
       <a href="/2010/03/08/asus-eeepc-1005ha" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/03/07/send-and-receive-mail-by-awk" title="awk收发邮件小脚本" rel="bookmark">awk收发邮件小脚本</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-03-07 00:00:00 +0800">07 Mar 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>前两天做监控的小脚本，其实只是采集几个数据，再调用了一个现成的perl大脚本发送出来，最后归入了monitor类别，没好意思放进shell类别里。</p>
-<p>今天在CU上翻老帖，看到一个awk实现的收邮件方法。对POP3，对awk，都是很让人开眼界的。在原有基础上，针对性的略加改动，也就完成了SMTP的发邮件awk脚本。这回，可以光明正大的放进shell类别里了~~</p>
-<p>收邮件的脚本：</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/usr/bin/gawk -f</span>
-BEGIN <span class="o">{</span>
-    <span class="c">#gawk调用socket的网络通信格式：/inet/&lt;tcp|udp|raw&gt;/&lt;0|local_port&gt;/&lt;remote_host&gt;/&lt;remote_port&gt;</span>
-    <span class="nv">Service</span> <span class="o">=</span> <span class="s2">&quot;/inet/tcp/0/mail.test.com/110&quot;</span>
-    <span class="c">#gawk从ksh借鉴来的双向管道</span>
-    Service |&amp; getline;
-    print;
-    print <span class="s2">&quot;USER raocl&quot;</span> |&amp; Service
-    Service |&amp; getline;
-    print;
-    print <span class="s2">&quot;PASS raocl&quot;</span> |&amp; Service
-    Service |&amp; getline;
-    print;
-    print <span class="s2">&quot;LIST&quot;</span> |&amp; Service
-    <span class="k">while</span> <span class="o">((</span>Service |&amp; getline line<span class="o">)</span> &gt; 0 <span class="o">&amp;&amp;</span> !<span class="o">(</span>line~/^./<span class="o">)</span> <span class="o">&amp;&amp;</span> ++mailCount<span class="o">)</span> print line;
-    mailCount--;
-    <span class="k">if</span> <span class="o">(</span>mailCount &gt; 0<span class="o">){</span>
-        print <span class="s2">&quot;RETR &quot;</span>mailCount |&amp; Service
-        <span class="k">while</span> <span class="o">((</span>Service |&amp; getline line<span class="o">)</span> &gt; 0 <span class="o">&amp;&amp;</span> !<span class="o">(</span>line~/^./<span class="o">))</span> print line;
-    <span class="o">}</span>
-    print <span class="s2">&quot;QUIT&quot;</span> |&amp; Service
-    close<span class="o">(</span>Service<span class="o">)</span>
-<span class="o">}</span>
-</code></pre></div>
-<p>在POP3中，还可以使用TOP n m来获取data的前几行，NOOP来保持与server的连接，DELE来删除邮件。
-发邮件的脚本：</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/usr/bin/gawk -f</span>
-BEGIN <span class="o">{</span>
-    <span class="nv">Service</span> <span class="o">=</span> <span class="s2">&quot;/inet/tcp/0/mail.test.com/25&quot;</span>
-    Service |&amp; getline;
-    print;
-    print <span class="s2">&quot;HELO mail.test.com&quot;</span> |&amp; Service
-    Service |&amp; getline;
-    print;
-    print <span class="s2">&quot;MAIL FROM: user1@mail.test.com&quot;</span> |&amp; Service
-    Service |&amp; getline;
-    print;
-    print <span class="s2">&quot;RCPT TO: user2@mail.test.com&quot;</span> |&amp; Service
-    Service |&amp; getline;
-    print;
-    print <span class="s2">&quot;data&quot;</span> |&amp; Service
-    Service |&amp; getline;
-    print;
-    print <span class="s2">&quot;from: user1@mail.test.com&quot;</span> |&amp; Service
-    print <span class="s2">&quot;to: &lt;a href=&quot;</span>mailto:user2@mail.test.com<span class="s2">&quot;&gt;user2@mail.test.com&lt;/a&gt;&quot;</span> |&amp; Service
-    print <span class="s2">&quot;date: Fir, 8 Mar 2010 01:11:00 +0800&quot;</span> |&amp; Service
-    print <span class="s2">&quot;subject: testmail&quot;</span> |&amp; Service
-    print <span class="s2">&quot;hello, world!&quot;</span> |&amp; Service
-    print <span class="s2">&quot;.&quot;</span> |&amp; Service
-    print;
-    print <span class="s2">&quot;QUIT&quot;</span> |&amp; Service
-    close<span class="o">(</span>Service<span class="o">)</span>
-<span class="o">}</span>
-</code></pre></div>
-<p>好了，运行一下吧。</p>
-<pre><code># ./sendmail.awk &amp;&amp; ./getmail.awk
-220 mail.test.com ESMTP jmcs.mta (2.2.2)
-250 mail.test.com
-250 Ok
-250 Ok
-354 End data with &lt;CR&gt;&lt;LF&gt;.&lt;CR&gt;&lt;LF&gt;
-354 End data with &lt;CR&gt;&lt;LF&gt;.&lt;CR&gt;&lt;LF&gt;
-+OK scan listing follows
-1 820
-2 1765
-3 1777
-4 1765
-5 768
-+OK Message follows
-Return-Path: &lt;&lt;a href="mailto:user1@mail.test.com"&gt;user1@mail.test.com&lt;/a&gt;&gt;
-Received: from mail.test.com ([unix socket])
-by mail.21vianet.com (JMessage v2.3) with LMTP; Mon, 08 Mar 2010 01:14:43 +0800
-X-Sieve: CMU Sieve 2.2
-Received: from jmcs.antivirus (localhost.localdomain [127.0.0.1])
-by mail.test.com (jmcs.mta) with SMTP id B7268B2EC4E0
-for &lt;&lt;a href="mailto:user2@mail.test.com"&gt;user2@mail.test.com&lt;/a&gt;&gt;; Mon,  8 Mar 2010 01:14:43 +0800 (CST)
-Received: from mail.test.com (unknown [218.60.36.39])
-by mail.test.com (jmcs.mta) with SMTP id A38B3B2EC4DE
-for &lt;&lt;a href="mailto:user2@mail.test.com"&gt;user2@mail.test.com&lt;/a&gt;&gt;; Mon,  8 Mar 2010 01:14:43 +0800 (CST)
-from: &lt;a href="mailto:user1@mail.test.com"&gt;user1@mail.test.com&lt;/a&gt;
-to: &lt;a href="mailto:user2@mail.test.com"&gt;user2@mail.test.com&lt;/a&gt;
-date: Fir, 8 Mar 2010 01:11:00 +0800
-subject: testmail
-Message-Id: &lt;&lt;a href="mailto:20100307171443.A38B3B2EC4DE@mail.test.com"&gt;20100307171443.A38B3B2EC4DE@mail.test.com&lt;/a&gt;&gt;
-hello, world!
-</code></pre>
-<p>就是这样~~报警的话，再继续插入变量处理就行了。在上面的getmail.awk中，其实我和CU上原帖唯一的不同就是他取固定的第7封，而我采用变量取固定的最新一封。这个getmail.awk，下一步可以自动获取信件内容中的IP和alarm-value，然后以cgi的方式显示在网页上（只用一个FF，少开一个TB~自汗一个）</p>
-<p>另，awk调用外部变量不方便，也可以采用expect脚本spawn telnet的方式进行自动交互。</p>
-<p>其实本来是室友部门部署监控，嫌cacti的报警不像nagios那么醒目了然。我想thold插件既然都能发出mail报警，只要把报警的data变量内容截下来写进一个页面的table里，修改bgcolor显示red不就好了？可是万恶的屏蔽字眼居然把cactiusers.org也给干掉了……没地方下cacti插件了~哭。。。</p>
-      <a href="/2010/03/07/send-and-receive-mail-by-awk" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/03/07/intro-proxy_cache-ngx_cache_purge" title="nginx的proxy_cache和cache_purge模块试用记录" rel="bookmark">nginx的proxy_cache和cache_purge模块试用记录</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-03-07 00:00:00 +0800">07 Mar 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#nginx-ref" title="nginx" rel="category tag">nginx</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>nginx的类squid哈希式cache功能，据张宴说是基本稳定可用了，昨天找个机会和时间，试着测用了一把，把要点记录一下：</p>
-<p>首先是编译nginx，方便起见，把一些心仪的模块统统加上了，version如下：</p>
-<pre><code>built by gcc 4.1.2 20080704 (Red Hat 4.1.2-44)
-TLS SNI support disabled
-configure arguments: --prefix=/home/nginx --with-pcre --add-module=../ngx_http_consistent_hash --add-module=../ngx_max_connections --add-module=../ngx_cache_purge --add-module=../ngx_mp4_streaming_public --with-cc-opt=-O3 --with-http_stub_status_module --with-http_ssl_module --with-http_flv_module --without-http_memcached_module --without-http_fastcgi_module --with-google_perftools_module
-</code></pre>
-<p>编译过程中几个注意事项：</p>
-<ol>
-  <li>必须采用&ndash;with-pcre，而不要偷懒采用&ndash;without-http_rewrite_module，否则配置文件里将不支持if判断；</li>
-  <li>加载mp4_streaming，必须采用&ndash;with-cc-opt=-O3方式进行编译。</li>
-  <li>max_connections模块默认支持nginx最新版本是0.8.32，需要vi修改其DIR，然后path -p0，但千万不要看见有个Makefile就执行make &amp;&amp; make install了，因为它会毫无道理的把整个nginx安装到当前目录的.nginx下隐藏起来……</li>
-</ol>
-<p>话说我add这个max_connections模块能怎么用自己也没想好，反正官方有limit_zone和limit_req限制client，再add个限制nginx2oringin的也不在乎吧……汗~~</p>
-<p>比较囧的一点是，经过我折腾的nginx，虽然去除了debug -g模式编译，还是有4M多大……</p>
-<p>sina的ncache模块，在我下载的最新的nginx0.8.34src上无法使用，而且ncache作者介绍说ncache的缓存不用内存，且其purge方式为标记为过期但并不更改文件内容直到下次访问请求以节省磁盘IO的负担；但根据我的试验，nginx的cache_purge模块则是采用了删除过期文件的方式进行（当然，proxy_cache的过期还是标记而不删除的，不然太耗IO了……）。</p>
-<p>然后贴一下，实验完成后的配置文件：</p>
-<div class="highlight"><pre><code class="nginx"><span class="k">user</span> <span class="s">nobody</span> <span class="s">nobody</span><span class="p">;</span>
-<span class="k">worker_processes</span> <span class="mi">1</span><span class="p">;</span>
-<span class="k">google_perftools_profiles</span> <span class="s">/tmp/tcmalloc</span><span class="p">;</span>
-<span class="k">worker_rlimit_nofile</span> <span class="mi">65535</span><span class="p">;</span>
-<span class="k">events</span>
-<span class="p">{</span>
-    <span class="kn">use</span> <span class="s">epoll</span><span class="p">;</span>
-    <span class="kn">worker_connections</span> <span class="mi">65535</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">http</span>
-<span class="p">{</span>
-    <span class="kn">include      </span> <span class="s">mime.types</span><span class="p">;</span>
-    <span class="kn">default_type </span> <span class="s">application/octet-stream</span><span class="p">;</span>
-    <span class="kn">log_format </span> <span class="s">main </span> <span class="s">&#39;</span><span class="nv">$remote_addr</span> <span class="s">-</span> <span class="nv">$remote_user</span> <span class="s">[</span><span class="nv">$time_local]</span> <span class="s">&quot;</span><span class="nv">$request&quot;</span> <span class="s">&#39;</span>
-    <span class="s">&#39;</span><span class="nv">$status</span> <span class="nv">$body_bytes_sent</span> <span class="s">&quot;</span><span class="nv">$http_referer&quot;</span> <span class="s">&#39;</span>
-    <span class="s">&#39;&quot;</span><span class="nv">$http_user_agent&quot;</span> <span class="s">&quot;</span><span class="nv">$http_x_forwarded_for&quot;&#39;</span><span class="p">;</span>
-    <span class="kn">access_log </span> <span class="s">logs/access.log </span> <span class="s">main</span> <span class="p">;</span>
-    <span class="c1">#  charset  utf-8;</span>
-    <span class="kn">server_names_hash_bucket_size</span> <span class="mi">128</span><span class="p">;</span>
-    <span class="kn">client_header_buffer_size</span> <span class="mi">32k</span><span class="p">;</span>
-    <span class="kn">large_client_header_buffers</span> <span class="mi">4</span> <span class="mi">32k</span><span class="p">;</span>
-    <span class="kn">client_max_body_size</span> <span class="mi">300m</span><span class="p">;</span>
-    <span class="kn">sendfile</span> <span class="no">on</span><span class="p">;</span>
-    <span class="kn">tcp_nopush    </span> <span class="no">on</span><span class="p">;</span>
-    <span class="kn">keepalive_timeout</span> <span class="mi">60</span><span class="p">;</span>
-    <span class="kn">tcp_nodelay</span> <span class="no">on</span><span class="p">;</span>
-    <span class="kn">client_body_buffer_size </span> <span class="mi">512k</span><span class="p">;</span>
-    <span class="kn">proxy_connect_timeout   </span> <span class="mi">5</span><span class="p">;</span>
-    <span class="kn">proxy_read_timeout      </span> <span class="mi">60</span><span class="p">;</span>
-    <span class="kn">proxy_send_timeout      </span> <span class="mi">5</span><span class="p">;</span>
-    <span class="kn">proxy_buffer_size       </span> <span class="mi">16k</span><span class="p">;</span>
-    <span class="kn">proxy_buffers           </span> <span class="mi">4</span> <span class="mi">64k</span><span class="p">;</span>
-    <span class="kn">proxy_busy_buffers_size</span> <span class="mi">128k</span><span class="p">;</span>
-    <span class="kn">proxy_temp_file_write_size</span> <span class="mi">128k</span><span class="p">;</span>
-    <span class="kn">gzip</span> <span class="no">on</span><span class="p">;</span>
-    <span class="kn">gzip_min_length </span> <span class="mi">1k</span><span class="p">;</span>
-    <span class="kn">gzip_buffers    </span> <span class="mi">4</span> <span class="mi">16k</span><span class="p">;</span>
-    <span class="kn">gzip_http_version</span> <span class="mi">1</span><span class="s">.1</span><span class="p">;</span>
-    <span class="kn">gzip_comp_level</span> <span class="mi">2</span><span class="p">;</span>
-    <span class="kn">gzip_types      </span> <span class="s">text/plain</span> <span class="s">application/x-javascript</span> <span class="s">text/css</span> <span class="s">application/xml</span><span class="p">;</span>
-    <span class="kn">gzip_vary</span> <span class="no">on</span><span class="p">;</span>
-    <span class="c1">#定义cache临时缓存路径，必须和哈希缓存路径在同一个磁盘上</span>
-    <span class="kn">proxy_temp_path  </span> <span class="s">/cache/proxy_temp_dir</span><span class="p">;</span>
-    <span class="c1">#定义cache哈希缓存路径，目录层次，缓存名称及所允许缓存的最大文件大小，未被访问文件多久自动清除，缓存最多使用多大磁盘</span>
-    <span class="kn">proxy_cache_path </span> <span class="s">/cache/proxy_cache_dir </span> <span class="s">levels=1:2  </span> <span class="s">keys_zone=cache_one:200m</span> <span class="s">inactive=1d</span> <span class="s">max_size=30g</span><span class="p">;</span>
-    <span class="c1">#后端源站地址</span>
-    <span class="kn">upstream</span> <span class="s">backend</span><span class="p">{</span>
-        <span class="kn">server</span> <span class="n">10.10.10.13</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="kn">server</span>
-    <span class="p">{</span>
-        <span class="kn">listen      </span> <span class="mi">80</span><span class="p">;</span>
-        <span class="kn">server_name </span> <span class="s">www.test.com</span><span class="p">;</span>
-        <span class="c1">#这里就是关键部分了，定义哈希缓存及缓存过期；</span>
-        <span class="c1">#因为nginx提供的过期控制是针对http_status_code的，我本想通过location中限定类型的方法完成曲线救国，结果发现：一旦location中限定了文件类型，缓存过期的定义就失效！！</span>
-        <span class="c1">#也就是说，限定文件类型后的哈希缓存，是绝绝对对的强制永久缓存——不单过期失效，下面的purge也失效——或许换一个场景，这个刚好有用。</span>
-        <span class="c1">#   location ~* .*.(css|gif|jpg|png|html|swf|flv)</span>
-        <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
-        <span class="c1">#启用flv拖动功能；</span>
-            <span class="kn">flv</span><span class="p">;</span>
-            <span class="c1">#这里定义是如果碰上502、504、timeout和invalid_header等情况，自动调向下一个oringin继续请求，这个有时候有用，有时候可能被攻击的会很惨……</span>
-            <span class="kn">proxy_next_upstream</span> <span class="s">http_502</span> <span class="s">http_504</span> <span class="s">error</span> <span class="s">timeout</span> <span class="s">invalid_header</span><span class="p">;</span>
-            <span class="c1">#使用上面定义的具体某个缓存；</span>
-            <span class="kn">proxy_cache</span> <span class="s">cache_one</span><span class="p">;</span>
-            <span class="c1">#200和304的状态码访问都缓存1天；</span>
-            <span class="kn">proxy_cache_valid </span> <span class="mi">200</span> <span class="mi">304</span> <span class="s">1d</span><span class="p">;</span>
-            <span class="c1">#由主机名、唯一资源定位符、参数判断符和请求参数共同生成哈希缓存的key</span>
-            <span class="kn">proxy_cache_key</span> <span class="nv">$host$uri$is_args$args</span><span class="p">;</span>
-            <span class="c1">#下面几个是常见的nginx透明代理header</span>
-            <span class="kn">proxy_pass_header</span> <span class="s">User-Agent</span><span class="p">;</span>
-            <span class="kn">proxy_set_header</span> <span class="s">Host </span> <span class="nv">$host</span><span class="p">;</span>
-            <span class="kn">proxy_set_header</span> <span class="s">X-Forwarded-For </span> <span class="nv">$remote_addr</span><span class="p">;</span>
-            <span class="c1">#下面是为了证明给大家看他确实能缓存，增加的两句话；如果真想要看到HIT和MISS的话，可以addnginx的另一个模块slowfs_cache，配置上和官方的proxy_cache极其相似，不过自带有变量$slowfs_cache_status，可以显示HIT/MISS/EXPIRED。</span>
-            <span class="kn">add_header</span> <span class="s">X-Cache</span> <span class="s">&quot;HIT</span> <span class="s">from</span> <span class="s">cache_test&quot;</span><span class="p">;</span>
-            <span class="kn">add_header</span> <span class="s">Age</span> <span class="s">&quot;1&quot;</span><span class="p">;</span>
-            <span class="kn">proxy_pass</span> <span class="s">http://backend</span><span class="p">;</span>
-        <span class="p">}</span>
-        <span class="c1">#下面这段就是add的purge_mod，只要在url的^/前再加上/purge，就会自动被理解成PURGE请求，刷新成功返回200的特定页面，失败返回404的普通错误页面。</span>
-        <span class="c1">#这个proxy_cache_purge格式没法改变，我本想改成if ($request_method = PUREG){…}试试，结果发现它不认……</span>
-        <span class="kn">location</span> <span class="p">~</span> <span class="sr">/purge(/.*)</span><span class="p">{</span>
-            <span class="kn">allow           </span> <span class="mi">127</span><span class="s">.0.0.1</span><span class="p">;</span>
-            <span class="kn">allow           </span> <span class="mi">211</span><span class="s">.151.67.0/24</span><span class="p">;</span>
-            <span class="kn">deny           </span> <span class="s">all</span><span class="p">;</span>
-            <span class="kn">proxy_cache_purge   </span> <span class="s">cache_one  </span> <span class="nv">$host$1$is_args$args</span><span class="p">;</span>
-        <span class="p">}</span>
-        <span class="c1">#不区分大小写匹配~*，网上流传很广的写法*~*是错滴；而且能匹配不代表保存同一份缓存；</span>
-        <span class="c1">#这部分定义不缓存而是透传的请求类型。介于无法通过类型来控制缓存，那么这里不缓存的控制就必须确保严格正确了……</span>
-        <span class="c1">#可是bug来了，当我写成swf?$的时候，swf/swf?/swf?*都不缓存；写成swf?的时候，又变成都缓存——nginx压根就分不清！</span>
-        <span class="kn">location</span> <span class="p">~</span><span class="sr">*</span> <span class="s">.*.(swf|asp)?</span><span class="p">{</span>
-            <span class="kn">proxy_pass_header</span> <span class="s">User-Agent</span><span class="p">;</span>
-            <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="nv">$host</span><span class="p">;</span>
-            <span class="kn">proxy_set_header</span> <span class="s">X-Forwarder-For</span> <span class="nv">$remote_addr</span><span class="p">;</span>
-            <span class="kn">add_header</span> <span class="s">X-Cache</span> <span class="s">&quot;MISS</span> <span class="s">from</span> <span class="s">cache_test&quot;</span><span class="p">;</span>
-            <span class="kn">proxy_pass</span> <span class="s">http://backend</span><span class="p">;</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>配置完成。测试如下：
-wget http://www.test.com/List/j.Html -S -O /dev/null -e http_proxy=127.0.0.1
-    &ndash;13:17:48&ndash;  http://www.test.com/List/j.Html
-    Connecting to 127.0.0.1:80&hellip; connected.
-    Proxy request sent, awaiting response&hellip;
-    HTTP/1.1 200 OK
-    Server: squid/2.6.STABLE21
-    Date: Sun, 07 Mar 2010 05:17:48 GMT
-    Content-Type: text/html; charset=utf-8
-    Connection: close
-    Vary: Accept-Encoding
-    Content-Length: 25126
-    Last-Modified: Wed, 10 Feb 2010 09:38:26 GMT
-    ETag: &ldquo;948acecb34aaca1:6647&rdquo;
-    X-Powered-By: ASP.NET
-    X-Cache: HIT from cache_test
-    Age: 1
-    Accept-Ranges: bytes
-    Length: 25126 (25K) [text/html]
-    Saving to: `/dev/null&rsquo;</p>
-<pre><code>100%[====================================================================================================================&gt;] 25,126      --.-K/s   in 0s
-</code></pre>
-<p>13:17:48 (521 MB/s) - `/dev/null&rsquo; saved [25126/25126]</p>
-<p>[root@sdl4 ~ 13:17:48]#
-wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.ASP?KeyWord=整形视频&rdquo;
-    &ndash;13:17:50&ndash;  http://www.test.com/Search.ASP?KeyWord=%D5%FB%D0%CE%CA%D3%C6%B5
-    Connecting to 127.0.0.1:80&hellip; connected.
-    Proxy request sent, awaiting response&hellip;
-    HTTP/1.1 200 OK
-    Server: squid/2.6.STABLE21
-    Date: Sun, 07 Mar 2010 05:17:51 GMT
-    Content-Type: text/html; charset=utf-8
-    Connection: close
-    Vary: Accept-Encoding
-    X-Powered-By: ASP.NET
-    Content-Length: 24987
-    Set-Cookie: ASPSESSIONIDSSQQSBST=KDPDLODBNLGONONBNHCJCEGP; path=/
-    Cache-control: private
-    X-Cache: MISS from cache_test
-    Length: 24987 (24K) [text/html]
-    Saving to: `/dev/null&rsquo;</p>
-<pre><code>100%[====================================================================================================================&gt;] 24,987      25.6K/s   in 1.0s
-13:17:52 (25.6 KB/s) - `/dev/null' saved [24987/24987] 完成。 至于？的问题，目前针对需要，倒有另一个办法： 在location / {}中，根据请求参数判断进行传递。即写成如下：
-</code></pre>
-<div class="highlight"><pre><code class="nginx"><span class="k">location</span> <span class="s">/</span> <span class="p">{</span>
-    <span class="kn">……</span>
-    <span class="s">if</span> <span class="s">(</span><span class="nv">$is_args</span><span class="s">)</span><span class="p">{</span>
-        <span class="kn">add_header</span> <span class="s">X-Cache</span> <span class="s">&quot;MISS</span> <span class="s">from</span> <span class="s">cache_test&quot;</span><span class="p">;</span>
-        <span class="kn">proxy_pass</span> <span class="s">http://backend</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-<span class="k">location</span> <span class="p">~</span><span class="sr">*</span> <span class="s">.*\.asp</span><span class="p">{</span>
-    <span class="kn">proxy_pass_header</span> <span class="s">User-Agent</span><span class="p">;</span>
-    <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="nv">$host</span><span class="p">;</span>
-    <span class="kn">proxy_set_header</span> <span class="s">X-Forwarder-For</span> <span class="nv">$remote_addr</span><span class="p">;</span>
-    <span class="kn">add_header</span> <span class="s">X-Cache</span> <span class="s">&quot;MISS</span> <span class="s">from</span> <span class="s">cache_test&quot;</span><span class="p">;</span>
-    <span class="kn">proxy_pass</span> <span class="s">http://backend</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>不过依然有问题：</p>
-<ol>
-  <li>nginx的if不支持&amp;&amp;或者||，万一有些类型（比如htm和jpg）又要求带？的也缓存，显然又和这个$is_args冲突；
-或许采用下面的办法能继续区分？（未试验）</li>
-</ol>
-<div class="highlight"><pre><code class="nginx"><span class="k">set</span> <span class="nv">$yn</span> <span class="nv">$is_args</span><span class="p">;</span>
-<span class="k">if</span> <span class="s">(</span><span class="nv">$uri</span> <span class="p">~</span><span class="sr">*</span> <span class="s">.(htm|jpg))</span><span class="p">{</span>
-    <span class="kn">set</span> <span class="nv">$yn</span> <span class="s">&quot;&quot;</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">if</span> <span class="s">(</span><span class="nv">$yn</span><span class="s">)</span><span class="p">{</span>
-    <span class="kn">proxy_pass</span> <span class="s">http://backend</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>；
-2. nginx的if中不单不支持proxy_cache，居然也不支持proxy_set_header等定义，只能单纯的proxy_pass。</p>
-      <a href="/2010/03/07/intro-proxy_cache-ngx_cache_purge" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

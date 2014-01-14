@@ -43,6 +43,208 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2012/09/16/message-passing-filter-demo" title="【Message::Passing系列】过滤器实例" rel="bookmark">【Message::Passing系列】过滤器实例</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-09-16 00:00:00 +0800">16 Sep 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p><a href="http://github.com/suretec">Message::Passing</a>是Suretec公司为自己的VoIP业务开发的logstash山寨版。这几个月更新还是比较快的。比之前我刚关注它时改变很大。比如Message::Passing::Output::ElasticSearch已经出来了，还有专门的Message::Passing::Filter::ToLogstash，连命令行方式Message::Passing::Role::Script都采用了MooX::Options构建，相当的OO了。</p>
+<p>不过可能是运用环境的区别吧，作者一直在filter方面没有什么动静，可怜巴巴的null/all/key/tologstash这么几个，比起input和output的列表差太远了。而且像logstash里的jls-grok这么最有力的工具没有山寨。</p>
+<p>今天有空，稍微写了个例子，可以比较方便的定义类似grok_pattern的方式完成对accesslog的json序列化。不过配置方式比Grok还是麻烦不少，以后真用的话，再考虑config的办法吧，这里主要是为了展示Message::Passing::Filter::XXX的编写：</p>
+<div class="highlight"><pre><code class="perl">    <span class="c1">#!/usr/bin/perl</span>
+    <span class="nb">package</span> <span class="nn">Message::Passing::Filter::</span><span class="n">GrokLike</span><span class="p">;</span>
+    <span class="k">use</span> <span class="n">Moo</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">MooX::Types::MooseLike::</span><span class="n">Base</span> <span class="sx">qw/ ArrayRef Str /</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">List::</span><span class="n">MoreUtils</span> <span class="sx">qw/ uniq /</span><span class="p">;</span>
+    <span class="k">use</span> <span class="n">DateTime</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Regexp::Log::</span><span class="n">Nginx</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">namespace::</span><span class="n">clean</span> <span class="o">-</span><span class="n">except</span> <span class="o">=&gt;</span> <span class="s">&#39;meta&#39;</span><span class="p">;</span>
+    <span class="n">with</span> <span class="s">&#39;Message::Passing::Role::Filter&#39;</span><span class="p">;</span>
+    <span class="n">has</span> <span class="nb">format</span> <span class="o">=&gt;</span> <span class="p">(</span>
+        <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
+        <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span><span class="p">,</span>
+        <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="s">&#39;%date %status %remotehost %domain %request %originhost %responsetime %upstreamtime %bytes %referer %useragent %xforwarderfor&#39;</span> <span class="p">},</span>
+    <span class="p">);</span>
+    <span class="n">has</span> <span class="n">capture</span> <span class="o">=&gt;</span> <span class="p">(</span>
+        <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
+        <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">ArrayRef</span><span class="p">,</span>
+        <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="p">[</span> <span class="s">&#39;ts&#39;</span><span class="p">,</span> <span class="s">&#39;status&#39;</span><span class="p">,</span> <span class="s">&#39;remotehost&#39;</span><span class="p">,</span> <span class="s">&#39;url&#39;</span><span class="p">,</span> <span class="s">&#39;oh&#39;</span><span class="p">,</span> <span class="s">&#39;responsetime&#39;</span><span class="p">,</span> <span class="s">&#39;upstreamtime&#39;</span><span class="p">,</span> <span class="s">&#39;bytes&#39;</span> <span class="p">]</span> <span class="p">},</span>
+    <span class="p">);</span>
+    <span class="n">has</span> <span class="n">_grok</span> <span class="o">=&gt;</span> <span class="p">(</span>
+        <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
+        <span class="n">lazy</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">builder</span> <span class="o">=&gt;</span> <span class="s">&#39;_build_grok&#39;</span><span class="p">,</span>
+    <span class="p">);</span>
+    <span class="k">sub </span><span class="nf">_build_grok</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">$rln</span> <span class="o">=</span> <span class="nn">Regexp::Log::</span><span class="n">Nginx</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+            <span class="nb">format</span>  <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="nb">format</span><span class="p">,</span>
+            <span class="n">capture</span> <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">capture</span><span class="p">,</span>
+        <span class="p">);</span>
+        <span class="k">return</span> <span class="nv">$rln</span><span class="p">;</span>
+    <span class="p">};</span>
+    <span class="k">sub </span><span class="nf">filter</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="p">(</span><span class="nv">$self</span><span class="p">,</span> <span class="nv">$message</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">@fields</span> <span class="o">=</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">_grok</span><span class="o">-&gt;</span><span class="n">capture</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">$re</span> <span class="o">=</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">_grok</span><span class="o">-&gt;</span><span class="n">regexp</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">%data</span><span class="p">;</span>
+        <span class="nv">@data</span><span class="p">{</span><span class="nv">@fields</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$message</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;@message&#39;</span><span class="p">}</span> <span class="o">=~</span> <span class="sr">m/$re/</span><span class="p">;</span>
+        <span class="nv">$message</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;@fields&#39;</span><span class="p">}</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="nv">%data</span><span class="p">,</span>
+            <span class="n">responsetime</span> <span class="o">=&gt;</span> <span class="nv">$data</span><span class="p">{</span><span class="s">&#39;responsetime&#39;</span><span class="p">}</span> <span class="o">+</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="n">upstreamtime</span> <span class="o">=&gt;</span> <span class="nv">$data</span><span class="p">{</span><span class="s">&#39;upstreamtime&#39;</span><span class="p">}</span> <span class="o">+</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="n">bytes</span>        <span class="o">=&gt;</span> <span class="nv">$data</span><span class="p">{</span><span class="s">&#39;bytes&#39;</span><span class="p">}</span>        <span class="o">+</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="p">};</span>
+        <span class="nv">$message</span><span class="p">;</span>
+    <span class="p">};</span>
+    <span class="n">true</span><span class="p">;</span>
+</code></pre></div>
+<hr />
+<p><strong>2012 年 12 月 30 日附注：</strong></p>
+<p>前两天已经把这个模块正规化后上传到 CPAN 上了。把捕获定义成 <code>.ini</code> 文件，同时还加入了类似 logstash 里的 mutate filter 的功能。模块叫 <code>Message::Passing::Filter::Regexp</code>。同时上传了一个 <code>Message::Passing::Output::PocketIO</code> 模块，可以打开一个网页时时接收output。</p>
+      <a href="/2012/09/16/message-passing-filter-demo" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2012/09/16/message-passing-agent" title="【Message::Passing系列】客户端收集脚本" rel="bookmark">【Message::Passing系列】客户端收集脚本</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-09-16 00:00:00 +0800">16 Sep 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>最后编写一段日志收集的agent：</p>
+<div class="highlight"><pre><code class="perl">    <span class="c1">#!/usr/bin/perl</span>
+    <span class="nb">package</span> <span class="n">NginxLogCollector</span><span class="p">;</span>
+    <span class="k">use</span> <span class="n">Moo</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">MooX::</span><span class="n">Options</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Message::Passing::</span><span class="n">DSL</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">MooX::Types::MooseLike::</span><span class="n">Base</span> <span class="sx">qw/ Str /</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">namespace::</span><span class="n">clean</span> <span class="o">-</span><span class="n">except</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw( meta _options_data _options_config )</span><span class="p">];</span>
+    <span class="n">with</span> <span class="s">&#39;Message::Passing::Role::Script&#39;</span><span class="p">;</span>
+    <span class="n">option</span> <span class="n">filename</span> <span class="o">=&gt;</span> <span class="p">(</span>
+        <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
+        <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span><span class="p">,</span>
+        <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="s">&#39;/data/nginx/logs/access.log&#39;</span> <span class="p">},</span>
+    <span class="p">);</span>
+    <span class="n">option</span> <span class="n">rabbitmq</span> <span class="o">=&gt;</span> <span class="p">(</span>
+        <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
+        <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span><span class="p">,</span>
+        <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="s">&#39;10.3.18.199&#39;</span> <span class="p">},</span>
+    <span class="p">);</span>
+    <span class="k">sub </span><span class="nf">build_chain</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+        <span class="n">message_chain</span> <span class="p">{</span>
+            <span class="n">output</span> <span class="n">rabbitmq</span> <span class="o">=&gt;</span> <span class="p">(</span>
+                <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;AMQP&#39;</span><span class="p">,</span>
+                <span class="n">exchange_name</span> <span class="o">=&gt;</span> <span class="s">&#39;logcollect&#39;</span><span class="p">,</span>
+    <span class="c1"># 目前测试结果，发现Input::AMQP无法接收到非topic的exchange</span>
+    <span class="c1"># CPAN上有关RabbitMQ的模块都是这个哥们写的，POD简略到没有一样，表示无语下</span>
+    <span class="c1">#            exchange_type =&gt; &#39;direct&#39;,</span>
+                <span class="n">hostname</span> <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">rabbitmq</span><span class="p">,</span>
+                <span class="n">username</span> <span class="o">=&gt;</span> <span class="s">&#39;guest&#39;</span><span class="p">,</span>
+                <span class="n">password</span> <span class="o">=&gt;</span> <span class="s">&#39;guest&#39;</span><span class="p">,</span>
+            <span class="p">);</span>
+            <span class="n">output</span> <span class="n">debug</span> <span class="o">=&gt;</span> <span class="p">(</span>
+                <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;STDOUT&#39;</span><span class="p">,</span>
+            <span class="p">);</span>
+            <span class="n">encoder</span><span class="p">(</span><span class="s">&quot;encoder&quot;</span><span class="p">,</span>
+                <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;JSON&#39;</span><span class="p">,</span>
+                <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;rabbitmq&#39;</span><span class="p">,</span>
+                <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;debug&#39;</span><span class="p">,</span>
+            <span class="p">);</span>
+            <span class="n">filter</span> <span class="n">grok</span> <span class="o">=&gt;</span> <span class="p">(</span>
+                <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;GrokLike&#39;</span><span class="p">,</span>
+                <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;encoder&#39;</span><span class="p">,</span>
+            <span class="p">);</span>
+            <span class="n">filter</span> <span class="n">logstash</span> <span class="o">=&gt;</span> <span class="p">(</span>
+                <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;ToLogstash&#39;</span><span class="p">,</span>
+                <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;grok&#39;</span><span class="p">,</span>
+            <span class="p">);</span>
+            <span class="n">decoder</span><span class="p">(</span><span class="s">&quot;decoder&quot;</span><span class="p">,</span>
+                <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;JSON&#39;</span><span class="p">,</span>
+                <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;logstash&#39;</span><span class="p">,</span>
+            <span class="p">);</span>
+            <span class="n">input</span> <span class="n">nginxlog</span> <span class="o">=&gt;</span> <span class="p">(</span>
+                <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;FileTail&#39;</span><span class="p">,</span>
+                <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;decoder&#39;</span><span class="p">,</span>
+                <span class="n">filename</span> <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">filename</span><span class="p">,</span>
+           <span class="p">);</span>
+        <span class="p">};</span>
+    <span class="p">}</span>
+    <span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">start</span> <span class="k">unless</span> <span class="nb">caller</span><span class="p">;</span>
+    <span class="mi">1</span><span class="p">;</span>
+</code></pre></div>
+<p>目前就做到这步，之后从rabbitmq里往elasticsearch写的还没搞。从上面的chain可以很清除的看到和logstash一样的管道思想，input-&gt;decoder-&gt;filter-&gt;encoder-&gt;output。巧的是两种写法中，decode/encode那个写法跟puppet的DSL定义特别的像。哈哈～</p>
+<p>继续贴汇总入库的agent代码：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl</span>
+<span class="k">use</span> <span class="n">Moo</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">MooX::</span><span class="n">Options</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Message::Passing::</span><span class="n">DSL</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">MooX::Types::MooseLike::</span><span class="n">Base</span> <span class="sx">qw/ Str /</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">namespace::</span><span class="n">clean</span> <span class="o">-</span><span class="n">except</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw( meta _options_data _options_config )</span><span class="p">];</span>
+<span class="n">with</span> <span class="s">&#39;Message::Passing::Role::Script&#39;</span><span class="p">;</span>
+<span class="n">option</span> <span class="n">elasticsearch_servers</span> <span class="o">=&gt;</span> <span class="p">(</span>
+    <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
+    <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span><span class="p">,</span>
+    <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="s">&#39;10.3.18.199:9200&#39;</span> <span class="p">},</span>
+<span class="p">);</span>
+<span class="n">option</span> <span class="n">rabbitmq</span> <span class="o">=&gt;</span> <span class="p">(</span>
+    <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
+    <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span><span class="p">,</span>
+    <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="s">&#39;10.3.18.199&#39;</span> <span class="p">},</span>
+<span class="p">);</span>
+<span class="k">sub </span><span class="nf">build_chain</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="n">message_chain</span> <span class="p">{</span>
+        <span class="n">output</span> <span class="n">elasticsearch</span> <span class="o">=&gt;</span> <span class="p">(</span>
+            <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;ElasticSearch&#39;</span><span class="p">,</span>
+            <span class="n">elasticsearch_servers</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="nv">$self</span><span class="o">-&gt;</span><span class="n">elasticsearch_servers</span><span class="p">],</span>
+        <span class="p">);</span>
+        <span class="n">decoder</span> <span class="n">decoder</span> <span class="o">=&gt;</span> <span class="p">(</span>
+            <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;JSON&#39;</span><span class="p">,</span>
+            <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;elasticsearch&#39;</span><span class="p">,</span>
+        <span class="p">);</span>
+        <span class="n">input</span> <span class="n">rabbitmq</span> <span class="o">=&gt;</span> <span class="p">(</span>
+            <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;AMQP&#39;</span><span class="p">,</span>
+            <span class="n">exchange_name</span> <span class="o">=&gt;</span> <span class="s">&#39;logcollect&#39;</span><span class="p">,</span>
+            <span class="n">queue_name</span> <span class="o">=&gt;</span> <span class="s">&#39;logcollect&#39;</span><span class="p">,</span>
+            <span class="n">hostname</span> <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">rabbitmq</span><span class="p">,</span>
+            <span class="n">username</span> <span class="o">=&gt;</span> <span class="s">&#39;guest&#39;</span><span class="p">,</span>
+            <span class="n">password</span> <span class="o">=&gt;</span> <span class="s">&#39;guest&#39;</span><span class="p">,</span>
+            <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;decoder&#39;</span><span class="p">,</span>
+        <span class="p">);</span>
+    <span class="p">};</span>
+<span class="p">}</span>
+<span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">start</span> <span class="k">unless</span> <span class="nb">caller</span><span class="p">;</span>
+<span class="mi">1</span><span class="p">;</span>
+</code></pre></div>
+<p>总的来说，原有模块相互之间都有些不太协调，用的时候还是要自己改改。比如这里，原版的Output::ElasticSearch是吧之前传递过来的整个message放进@fields里的，这跟Filter::ToLogstash的message结构是完全冲突的。所以需要修改Output::ElasticSearch里的bulk_index()的data=&gt;$data,就可以了，不要多改动。</p>
+<p>整个代码变动，参加个人github:<a href="https://github.com/chenryn/Message-Passing.git">https://github.com/chenryn/Message-Passing.git</a></p>
+      <a href="/2012/09/16/message-passing-agent" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2012/09/16/elasticsearch-bulk-index-speed-testing" title="【Message::Passing系列】ElasticSearch的bulk_index速度测试" rel="bookmark">【Message::Passing系列】ElasticSearch的bulk_index速度测试</a>
     </h1>
     <p class="alt-font tight">
@@ -406,14 +608,12 @@ e" hash=117 i=117 state=1 lowcase=""
 <p>然后贴的是用async_pool的代码，从perldoc来看据说是比async还快一倍。</p>
 <div class="highlight"><pre><code class="perl"><span class="k">sub </span><span class="nf">coro_pool_get</span> <span class="p">{</span>
     <span class="k">my</span> <span class="p">(</span><span class="nv">$count</span><span class="p">,</span> <span class="nv">$urls</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$limit</span> <span class="o">=</span> <span class="nn">Coro::</span><span class="n">Semaphore</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="nv">$</span><span class="nn">Coro::</span><span class="nv">POOL_SIZE</span> <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$sem</span> <span class="o">=</span> <span class="nn">Coro::</span><span class="n">Semaphore</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="mi">1</span> <span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$sem</span> <span class="o">=</span> <span class="nn">Coro::</span><span class="n">Semaphore</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="mi">1</span> <span class="o">-</span> <span class="nv">$</span><span class="nn">Coro::</span><span class="nv">POOL_SIZE</span> <span class="p">);</span>
     <span class="k">my</span> <span class="nv">$ua</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">FurlX::</span><span class="n">Coro</span><span class="p">;</span>
     <span class="k">my</span> <span class="nv">$data</span><span class="p">;</span>
     <span class="k">for</span><span class="p">(</span> <span class="mi">1</span> <span class="o">..</span> <span class="nv">$count</span> <span class="p">){</span>
         <span class="k">my</span> <span class="nv">$url</span> <span class="o">=</span> <span class="nv">$urls</span><span class="o">-&gt;</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="nb">rand</span><span class="p">(</span><span class="nv">$#</span><span class="p">{</span><span class="nv">$urls</span><span class="p">}</span><span class="o">+</span><span class="mi">1</span><span class="p">))];</span>
-        <span class="nv">$limit</span><span class="o">-&gt;</span><span class="n">down</span><span class="p">;</span>
-        <span class="n">async_pool</span> <span class="p">{</span> <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="nv">$ua</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;$url&quot;</span><span class="p">);</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$res</span><span class="o">-&gt;</span><span class="n">status</span><span class="p">}</span><span class="o">++</span><span class="p">;</span> <span class="nv">$sem</span><span class="o">-&gt;</span><span class="n">up</span><span class="p">;</span> <span class="nv">$limit</span><span class="o">-&gt;</span><span class="n">up</span><span class="p">;</span> <span class="p">};</span> 
+        <span class="n">async_pool</span> <span class="p">{</span> <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="nv">$ua</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;$url&quot;</span><span class="p">);</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$res</span><span class="o">-&gt;</span><span class="n">status</span><span class="p">}</span><span class="o">++</span><span class="p">;</span> <span class="nv">$sem</span><span class="o">-&gt;</span><span class="n">up</span><span class="p">;</span> <span class="p">};</span> 
     <span class="p">};</span>
     <span class="nv">$sem</span><span class="o">-&gt;</span><span class="n">down</span><span class="p">;</span>
     <span class="k">return</span> <span class="nv">$data</span><span class="p">;</span>
@@ -2606,174 +2806,6 @@ ln -s /etc/puppet/ssl/certs/ca.pem /etc/pki/tls/certs/<span class="k">${</span><
 <p>这里只贴跟模板变量相关的部分。初学ruby，被to_i方法搞得很是郁闷，还好像eval方法之类的很像很眼熟~~  <br />
 模板里cache_peers等，是在node配置里定义的；memorysize等，是facter获取的。</p>
       <a href="/2012/05/10/quick-start-for-puppet-facter-erb" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/05/08/collect-log-variables-by-ngx-lua" title="通过lua统计nginx内部变量数据" rel="bookmark">通过lua统计nginx内部变量数据</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-05-08 00:00:00 +0800">08 May 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#nginx-ref" title="nginx" rel="category tag">nginx</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>统计nginx的请求数据，一般有几个办法，一个是logrotate，通过access.log计算，这个很详细，但是实时性差一些；一个是Tengine提供的pipe，这个实时性更好，但是管道如果出现堵塞，麻烦就多了～这两种办法，归根结底都是把日志记录在本地(pipe方式如果要长期保留依然要记磁盘)然后由脚本完成计算。今天这里说另一种方法：在nginx内部，随着每次请求完成一些基础的数据统计，然后输出到存储里供长期调用。  <br />
-代码如下：</p>
-<div class="highlight"><pre><code class="nginx"><span class="k">server</span> <span class="p">{</span>
-    <span class="kn">listen</span> <span class="mi">80</span><span class="p">;</span>
-    <span class="kn">server_name</span> <span class="s">photo.domain.com</span><span class="p">;</span>
-    <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
-        <span class="kn">set</span> <span class="nv">$str</span> <span class="nv">$uri</span><span class="p">;</span>
-        <span class="kn">content_by_lua</span> <span class="s">&#39;</span>
-            <span class="s">local</span> <span class="s">url</span> <span class="p">=</span> <span class="s">ngx.var.uri</span>
-            <span class="s">local</span> <span class="s">res</span> <span class="p">=</span> <span class="s">ngx.location.capture(&quot;/proxy&quot;,</span> <span class="p">{</span><span class="kn">vars</span> <span class="p">=</span> <span class="p">{</span> <span class="kn">str</span> <span class="p">=</span> <span class="s">url</span> <span class="err">}}</span><span class="s">)</span>
-            <span class="s">ngx.print(res.body)</span>
-            <span class="s">ngx.shared.log_dict:set(&quot;url&quot;,</span> <span class="s">url)</span>
-            <span class="s">local</span> <span class="s">upstream_stat</span> <span class="p">=</span> <span class="s">ngx.var.status</span>
-            <span class="s">local</span> <span class="s">upstream_time</span> <span class="p">=</span> <span class="s">tonumber(ngx.var.upstream_response_time)</span>
-            <span class="s">local</span> <span class="s">redis</span> <span class="p">=</span> <span class="s">require</span> <span class="s">&quot;resty.redis&quot;</span>
-            <span class="s">local</span> <span class="s">red</span> <span class="p">=</span> <span class="s">redis:new()</span>
-            <span class="s">local</span> <span class="s">ok,</span> <span class="s">err</span> <span class="p">=</span> <span class="s">red:connect(&quot;127.0.0.1&quot;,</span> <span class="mi">6379</span><span class="s">)</span>
-            <span class="s">if</span> <span class="s">upstream_stat</span> <span class="p">~</span><span class="sr">=</span> <span class="s">&quot;200&quot;</span> <span class="s">then</span>
-                <span class="s">red:sadd(&quot;url&quot;,url)</span>
-                <span class="s">red:incr(url)</span>
-                <span class="s">red:incr(url..&quot;:time&quot;,</span> <span class="s">upstream_time)</span>
-            <span class="s">end</span>
-         <span class="s">&#39;</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="kn">location</span> <span class="s">/dict_status</span> <span class="p">{</span>
-        <span class="kn">content_by_lua</span> <span class="s">&#39;</span>
-            <span class="s">local</span> <span class="s">url</span> <span class="p">=</span> <span class="s">ngx.shared.log_dict:get(&quot;url&quot;)</span>
-            <span class="s">ngx.say(url)</span>
-         <span class="s">&#39;</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="kn">location</span> <span class="s">/redis_status</span> <span class="p">{</span>
-        <span class="kn">content_by_lua</span> <span class="s">&#39;</span>
-            <span class="s">local</span> <span class="s">redis</span> <span class="p">=</span> <span class="s">require</span> <span class="s">&quot;resty.redis&quot;</span>
-            <span class="s">local</span> <span class="s">red</span> <span class="p">=</span> <span class="s">redis:new()</span>
-            <span class="s">local</span> <span class="s">ok,err</span> <span class="p">=</span> <span class="s">red:connect(&quot;127.0.0.1&quot;,</span> <span class="mi">6379</span><span class="s">)</span>
-            <span class="s">local</span> <span class="s">urlist,err</span> <span class="p">=</span> <span class="s">red:sort(&quot;url&quot;,&quot;limit&quot;,&quot;0&quot;,&quot;1&quot;,&quot;desc&quot;,&quot;by&quot;,&quot;*&quot;)</span>
-            <span class="s">if</span> <span class="s">not</span> <span class="s">urlist</span> <span class="s">then</span>
-                <span class="s">ngx.say(err)</span>
-                <span class="s">return</span>
-            <span class="s">end</span>
-            <span class="s">for</span> <span class="s">i</span> <span class="p">=</span> <span class="mi">1</span><span class="s">,</span> <span class="c1">#urlist do</span>
-                <span class="s">local</span> <span class="s">avg</span> <span class="p">=</span> <span class="s">red:get(urlist[i])</span>
-                <span class="s">local</span> <span class="s">sum</span> <span class="p">=</span> <span class="s">red:get(urlist[i]..&quot;:time&quot;)</span>
-                <span class="s">ngx.say(urlist[i],&quot;\tavg_time:&quot;,avg/sum,</span> <span class="s">&quot;\tsum:&quot;,sum)</span>
-            <span class="s">end</span>
-         <span class="s">&#39;</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="kn">location</span> <span class="s">/proxy</span> <span class="p">{</span>
-        <span class="kn">proxy_pass</span> <span class="s">http://backend_fmn_xnimg_cn</span><span class="nv">$str</span><span class="p">;</span>
-        <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="s">&#39;fmn.rrimg.com&#39;</span><span class="p">;</span> 
-        <span class="kn">include</span> <span class="s">conf.d/proxy.conf</span><span class="p">;</span>
-	<span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>ngx_lua里的指令有set/rewrite/header_filter/log/content/access_by_lua等，它们各自处于nginx处理流程中的某一步，所以有些日志变量可能不一定都能读取到。还有header_filter和log两个不能调用subrequest和output的API(也就是只能使用上例代码中的ngx.shared.DICT方式，但只支持简单的key-value),content不能和proxy_pass在一起等等……</p>
-<p>不过content里可以调用ngx.location.capture()来subrequest其他location，比如这里利用/proxy来完成原来的proxy_pass的功能。  <br />
-因为subrequest后$uri有变化，所以pass必须写对真正的url的全路径。这就靠之前的set $str来传递变量了。    </p>
-<p>最终运行结果：</p>
-<pre><code># curl http://fmn.rrimg.cn/redis_status    
-/test avg_time:0.73 sum:12
-</code></pre>
-      <a href="/2012/05/08/collect-log-variables-by-ngx-lua" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/04/30/reading-notes-about-linux-system" title="Linux系统调优读书笔记" rel="bookmark">Linux系统调优读书笔记</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-04-30 00:00:00 +0800">30 Apr 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天在图书馆看书，摘抄一些有意思的细节。</p>
-<h1 id="linux">Linux服务器性能调整</h1>
-<p>Linux内存布局NUMA：  <br />
-    非一致性读取 每个节点；  <br />
-    每个节点下有 多个管理区(ZONE)内存块；  <br />
-    内存块包括：  <br />
-        ZONE_DMA 0~16MB  <br />
-        ZONE_NORMAL 16~896MB
-        ZONE_HIGHMEM 896MB~结束  <br />
-    32位处理器下，用户空间3GB，内核空间1GB；  <br />
-        内核空间除去ZONE_DMA和ZONE_NORMAL后只剩下128MB用来vmalloc/kmap等操作；  <br />
-        kmap操作用来虚拟化页表数据位，可以在32位处理器下支持64GB内存。 <br />
-    NUMA结构下8节点的互连结构，只是3个相互最近的互连；  <br />
-    不同节点之间的定时器很难一致，通常选一个做唯一定时。    </p>
-<p>多处理SMP：  <br />
-    松耦合系统：每个处理器都有自己的总线、内存和IO系统；  <br />
-    紧耦合系统：只运行一个OS；  <br />
-      对称系统均分任务；  <br />
-      非对称系统有一个主控处理器；  <br />
-        cache是否共享？内存、总线和IO子系统肯定是共享的，cache会带来一致性问题；  <br />
-        锁竞争导致的开销，所以N个处理器不能达到N倍效率提升；  <br />
-        affinity即绑定进程到CPU，让进程跟cache更近。  <br />
-          linux里进程是高权的线程（一般说法是反过来说线程是小型的进程）    </p>
-<p>集群cluster：  <br />
-    高性能：分布式任务并行处理，100+节点，通称为计算机；  <br />
-    高可用：故障问题，最多16节点，通常2~4节点，通称为企业服务器。    </p>
-<p>系统跟踪前提：  <br />
-    容量足够；开销较小；场景可重现；尽量无其他进程干扰除非是场景本身需要。    </p>
-<p>strace命令场景：  <br />
-    判断IO阻塞，内存分配及其频率等。    </p>
-<p>OProfile：
-    opcontrol命令：设置的count要足够大，否则中断本身次数会影响结果。</p>
-<p>内核调度器：  <br />
-    优先级0~MAX_PRIO(140)；  <br />
-    0~100为实时任务；  <br />
-    101~140为分时任务，即nice命令调整的-20~19。    </p>
-<p>I/O调度器：  <br />
-    deadline：  <br />
-      read_expire;  <br />
-      seek_cost=(x+stream_unit-1)/stream_unit，默认stream_unit为4字节；  <br />
-      write_starved：读优先N次后才写；    </p>
-<p>文件系统：  <br />
-    hdparm：MaxMultSect参数，默认16，当前都支持32位输出了。    </p>
-<p>网络：  <br />
-    tcp_window_scaling、tcp_sack、tcp_fsack等。    </p>
-<p>进程间通信：  <br />
-    ipcs -u查看状态；  <br />
-    ipcs -l查看限制。    </p>
-<p>数据库：  <br />
-    OLTP在线事务处理的业务类型类似小文件，一般文件块大小在2KB左右；  <br />
-    DSS决策支持系统的业务类型类似大文件，一般文件块大小在8KB以上。    </p>
-<h1 id="section">网站性能监测与优化</h1>
-<p>Netflix的Jiffy是客户端收集的开源项目；  <br />
-  sqmphoniq即是服务器端分析，也要客户端js的支持；  <br />
-  Episodes同上。    </p>
-<h1 id="jruby">JRuby语言实战技术</h1>
-<p>类与超类：  <br />
-    所有类的超类都是Object；  <br />
-    所有类都是类Class的对象。</p>
-<h1 id="hadoop">Hadoop实战</h1>
-<p>chukwa监控系统：  <br />
-    在HDFS和Map/Reduce的基础上，即意味着日志非tail方式，而是有collector先行合并成大文件再存储到HDFS；  <br />
-    致力于2000+节点，1TB+日志量的集群日志分析，即意味着非实时性；  <br />
-    数据结果目前还是存MySQL里再web展示，可能会转移到HBase上。  <br />
-    流程架构类似如下：  <br />
-        N个agents(每台server一个) &ndash;HTTP&ndash;&gt; M个collectors(每百个agent一个) &ndash;sink&ndash;&gt; HDFS &ndash;map/reduce&ndash;&gt; MySQL &lt;&ndash;JSP/JS&ndash;&gt; Web(HICC)  <br />
-    整个流程跟logstash很类似，但是logstash没有固定hadoop平台，所以不用sink这步，实时性更好；而agent的input代码段就类似于执行类似map的工作，output段就是reduce结果了。</p>
-      <a href="/2012/04/30/reading-notes-about-linux-system" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

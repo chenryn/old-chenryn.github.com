@@ -43,6 +43,75 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/12/03/keepalived-problem-about-vrrp-delay" title="keepalived故障一例" rel="bookmark">keepalived故障一例</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-12-03 00:00:00 +0800">03 Dec 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>一组lvs，以keepalived主从方式运行。今天早上突然收到VIP报警，所有的VIP都ping不通了。</p>
+<p>上lvs运行ipvsadm -ln一看，计数表全是0！怀疑是slave霸占了MAC，于是keepalived restart了一次，故障依旧。然后再restart了一次master，顿时恢复正常。</p>
+<p>然后分析messages中的详细信息，推理本次故障的过程如下：</p>
+<p>故障前——masterA，slaveB</p>
+<pre><code>0:00    A "kernel:eth1:link DOWN"，疑似网卡物理中断，自动降级成slave；    
+0:01    B检测A宕机，升级为master，send arp到交换机，add所有VIP；    
+0:40    A "kernel:eth1:link UP"，但配置应该是不自动抢占；    
+0:43    A检测B宕机，升级为master；    
+0:48    A发送arp刷新请求到交换机，add所有VIP，但因为是物理中断，目前A实际仍处于断网状态，有期间RIP检查的timeout为证；    
+1:10    A检测RIP的http status正常，即此时A的网络才正式恢复正常；    
+1:10    B检测发觉A的状态为master，降级为slave，remove所有VIP；    
+</code></pre>
+<p>在0:43的时候，masterA的ARP刷新请求没能发送到交换机，而交换机记录的对应地址就还是B的——但在1:10时，B自认为slave而移除了所有ip。导致ping失败！</p>
+<p>故障解决过程解析：</p>
+<p>1、重启B——因为B已经是slave，所以restart不会发送ARP刷新，无效；  <br />
+2、重启A——因为A自认是master，重启A导致keepalived切换，会触发B发送ARP刷新，恢复正常。</p>
+<p>最终解决办法：</p>
+<p>在keepalived.conf中添加garp_master_delay 30参数，让slave在升级成master后延时30s再发送一次arp刷新请求，以应对网卡硬件中断引起的这个问题。</p>
+      <a href="/2010/12/03/keepalived-problem-about-vrrp-delay" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/11/26/learning-weathermap-cacti-plugin-2" title="weathermap-cacti-plugin学习(2)" rel="bookmark">weathermap-cacti-plugin学习(2)</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-11-26 00:00:00 +0800">26 Nov 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>在Weathermap.class.php中，定义了一个function叫LoadPlugins，读取lib/datasources/下的php类。其中就有WeatherMapDataSource_rrd.php。其中定义了Init、Recognise和ReadData三个方法。明显是ReadData函数来读取rra数据，具体方法为调用管道，运行rrdtool命令。</p>
+<p>命令如右：rrdtool fetch *.rrd AVERAGE &ndash;start now-800 &ndash;end now</p>
+<p>然后是对命令的结果进行分析。可以先运行一下看看效果：</p>
+<p>[raochenlin@cacti datasources]$ date +%s;/usr/local/rrdtool-1.2.18/bin/rrdtool fetch /www/cacti/rra/10<em>168</em>168<em>130_traffic_in</em>2866.rrd AVERAGE &ndash;start now-800 &ndash;end now
+1290704787
+traffic_out          traffic_in</p>
+<p>1290704100: 4.8623533333e+01 2.2821386667e+02
+1290704400: 4.0663000000e+01 1.9051346667e+02
+1290704700: 3.5332000000e+01 2.3380053333e+02
+1290705000: nan nan</p>
+<p>由此可见数据是300s一采集，所以当设定start是-800的时候，就会取比800大的离800最近的300的倍数，即900之间的数据。</p>
+      <a href="/2010/11/26/learning-weathermap-cacti-plugin-2" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/11/25/draw-images-of-inotify-log-by-gnuplot" title="inotify-purge后续分析" rel="bookmark">inotify-purge后续分析</a>
     </h1>
     <p class="alt-font tight">
@@ -2664,98 +2733,6 @@ prefer_direct用于所有cache_peer都down了时，never_direct会报错，而pr
 -o file            若文件存在且被有效用户ID所拥有，则为真
 </code></pre>
       <a href="/2010/09/17/conditional-command-details" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/09/14/intro-snmp-config-and-oids-of-squid" title="squid的snmp配置和部分oid说明" rel="bookmark">squid的snmp配置和部分oid说明</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-09-14 00:00:00 +0800">14 Sep 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>首先配置squid.conf如下：</p>
-<div class="highlight"><pre><code class="squid"><span class="k">acl</span><span class="w"> </span>MonitorCenter<span class="w"> </span><span class="k">src</span><span class="w"> </span><span class="mf">127.0.0.1</span><span class="w"></span>
-<span class="k">acl</span><span class="w"> </span>snmppublic<span class="w"> </span><span class="k">snmp_community</span><span class="w"> </span>public<span class="w"></span>
-<span class="k">snmp_access</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>snmppublic<span class="w"> </span>MonitorCenter<span class="w"></span>
-<span class="k">snmp_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span><span class="no">all</span><span class="w"></span>
-</code></pre></div>
-<p>然后配置snmpd.conf如下：</p>
-<pre><code>com2sec notConfigUser  default    public
-group   notConfigGroup v2c           notConfigUser
-view    systemview    included   .1.3.6.1.4.1.3495.1
-proxy -v 1 -c public 127.0.0.1:3401 .1.3.6.1.4.1.3495.1
-</code></pre>
-<p>分别重启squid和snmpd即可。
-用snmpwalk -v 2c -c public 192.168.0.2 1.3.6.1.4.1.3495 -Cc就可以查看全部的数据了。对了解前段缓存有用的oid主要如下：</p>
-<pre><code>SNMPv2-SMI::enterprises.3495.1.1.1.0 = INTEGER: 286800          内存缓存文件大小KB
-SNMPv2-SMI::enterprises.3495.1.1.2.0 = INTEGER: 1072480         磁盘缓存文件大小KB
-SNMPv2-SMI::enterprises.3495.1.3.1.3.0 = INTEGER: 387200        内存使用大小KB
-SNMPv2-SMI::enterprises.3495.1.3.1.5.0 = INTEGER: 8             进程使用CPU的比例
-SNMPv2-SMI::enterprises.3495.1.3.1.7.0 = Gauge32: 66757         缓存文件总数
-SNMPv2-SMI::enterprises.3495.1.3.1.10.0 = Gauge32: 225          可用文件描述符个数
-SNMPv2-SMI::enterprises.3495.1.3.1.12.0 = Gauge32: 799          当前使用中的文件描述符个数
-SNMPv2-SMI::enterprises.3495.1.3.2.1.15.0 = Gauge32: 90377      当前访问缓存的客户端总数
-SNMPv2-SMI::enterprises.3495.1.3.2.2.1.9.1 = INTEGER: 89        一分钟请求命中比
-SNMPv2-SMI::enterprises.3495.1.3.2.2.1.10.1 = INTEGER: 94       一分钟字节命中比
-SNMPv2-SMI::enterprises.3495.1.3.2.2.1.3.1 = INTEGER: 7         一分钟TCP_MISS/200比
-SNMPv2-SMI::enterprises.3495.1.3.2.2.1.4.1 = INTEGER: 0         一分钟TCP_IMS_HIT/304比
-SNMPv2-SMI::enterprises.3495.1.3.2.2.1.5.1 = INTEGER: 0         一分钟TCP_HIT/200比
-SNMPv2-SMI::enterprises.3495.1.3.2.2.1.11.1 = INTEGER: 45       一分钟TCP_REFRESH_HIT/304比
-++++++++以上oid最后一位都可以改成任意时间（分钟为单位）进行统计++++++++
-SNMPv2-SMI::enterprises.3495.1.5.1.1.9.10.10.10.13 = Counter32: 324396    请求回某源的总数
-SNMPv2-SMI::enterprises.3495.1.5.2.1.2.58.31.229.71 = Counter32: 19       某客户ip的http请求数
-SNMPv2-SMI::enterprises.3495.1.5.2.1.3.58.31.229.71 = Counter32: 327      响应该IP请求的字节数KB
-SNMPv2-SMI::enterprises.3495.1.5.2.1.4.58.31.229.71 = Counter32: 17       响应该IP请求的命中率
-SNMPv2-SMI::enterprises.3495.1.5.2.1.5.58.31.229.71 = Counter32: 324      响应该IP请求的字节命中数KB
-</code></pre>
-      <a href="/2010/09/14/intro-snmp-config-and-oids-of-squid" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/09/14/an-oid-error-of-snmpwalk" title="snmpwalk的报错一例" rel="bookmark">snmpwalk的报错一例</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-09-14 00:00:00 +0800">14 Sep 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>在给squid配置了snmp后，用snmpwalk采集数据，总览一下：</p>
-<p>snmpwalk 192.168.0.2 -v 2c -c public 1.3.6.1.4.1.3495</p>
-<p>刷到最后爆出错误：</p>
-<pre><code>SNMPv2-SMI::enterprises.3495.1.5.2.1.1.218.28.141.150 = IpAddress: 218.28.141.150
-SNMPv2-SMI::enterprises.3495.1.5.2.1.1.119.184.18.137 = IpAddress: 119.184.18.137
-Error: OID not increasing: SNMPv2-SMI::enterprises.3495.1.5.2.1.1.218.28.141.150
-&gt;= SNMPv2-SMI::enterprises.3495.1.5.2.1.1.119.184.18.137
-</code></pre>
-<p>原来snmp默认在抓取oid的时候，是按顺序递增下去请求的，而squid的最后一个1.5.2.1类别，是客户端数据，IP是分散的，所以218没法增长到119，于是就出错退出了。
-解决方法很简单，加上-Cc参数即可，help说明如下：</p>
-<p>-C APPOPTS    Set various application specific behaviours:
-     p:  print the number of variables found
-     i:  include given OID in the search range
-     I:  don&rsquo;t include the given OID, even if no results are returned
-     c:  do not check returned OIDs are increasing
-     t:  Display wall-clock time to complete the request</p>
-<p>不过这里加上-Cc后，简直就是在刷屏了，无数客户端ip全部都要打印出来，慎用慎用……</p>
-      <a href="/2010/09/14/an-oid-error-of-snmpwalk" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

@@ -43,6 +43,194 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/01/27/test-location-in-squid" title="squid页面跳转试验" rel="bookmark">squid页面跳转试验</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-01-27 00:00:00 +0800">27 Jan 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>某客户页面跳转试验记录</p>
+<h2 id="section">一、客户需求</h2>
+<p>某客户加速域名下某路径http://www.test.com/zhlc/不想让网民直接访问，希望当有直接访问该路径的请求时，都跳转到search.test.com域名下相应的路径去。</p>
+<h2 id="section-1">二、解决思路</h2>
+<p>a) 客户源站增添rewrite配置进行处理，将该类请求url改写成所期望的url；
+b) Squid端对请求进行处理，将该类请求url改写成所期望的url。
+根据售前沟通结果，这个处理步骤交由squid完成。</p>
+<h2 id="squidrequest">三、Squid对request的处理流程（略，见前博文）</h2>
+<h2 id="section-2">四、两种跳转方法的介绍与比较</h2>
+<p>针对跳转需求，提供两个两种方法：
+a) Squid支持调用外部程序脚本改写url，即redirect_program（2.6以上版本为url_rewrite_program）。所有的url请求，在squid处理流程的第三步，都会检查rewrite_program，然后将改写后的结果推入流程继续进行（为了提高运行速度，降低服务器负载，可以采用url_rewrite_access控制请求和redirector_bypass在繁忙时进行透传）。
+根据《squid中文权威指南》11章的介绍，squid传递给redirect_proram的流格式为：
+URL IP/FQDN IDENT METHOD
+Rewrite处理时，也就是对这四个字段进行处理，一般地说，也就处理第一个字段——$url。
+《squid中文权威指南》中提供了标准的perl脚本，演示了处理办法。我们测试脚本时，只需要创建一个文本文件写出url，对文件执行脚本即可。某客户测试过程如下示，为说明方便，也使用了其他shell命令做比较：</p>
+<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@tinysquid1 etc<span class="o">]</span><span class="c"># cat testurl.lst</span>
+http://www.test.com/zhlc/
+http://www.test.com/zhlc/images/1.jpg
+http://www.test.com/zhlc/index.html
+http://www.test.com/zhlc/index.aspx?oid<span class="o">=</span>1
+http://www.test.com/zhlc/index.aspx?oid<span class="o">=</span>1&amp;pid<span class="o">=</span>2
+<span class="o">[</span>root@tinysquid1 etc<span class="o">]</span><span class="c"># cat testurl.lst |sed s/www/search/</span>
+http://search.test.com/zhlc/
+http://search.test.com/zhlc/images/1.jpg
+http://search.test.com/zhlc/index.html
+http://search.test.com/zhlc/index.aspx?oid<span class="o">=</span>1
+http://search.test.com/zhlc/index.aspx?oid<span class="o">=</span>1&amp;pid<span class="o">=</span>2
+<span class="o">[</span>root@tinysquid1 etc<span class="o">]</span><span class="c"># cat redirector.awk</span>
+<span class="c">#!/bin/awk -f</span>
+<span class="o">{</span>
+    split<span class="o">(</span><span class="nv">$1</span>,myarray,<span class="s2">&quot;.test.com/&quot;</span><span class="o">)</span>
+<span class="o">}</span>
+<span class="o">{</span>
+    myarray<span class="o">[</span>1<span class="o">]=</span>http://search<span class="s2">&quot;;</span>
+<span class="s2">    print myarray[1]&quot;</span>.test.com/<span class="s2">&quot;myarray[2]&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+<span class="s2">}</span>
+<span class="s2">[root@tinysquid1 etc]# ./redirector.awk testurl.lst</span>
+<span class="s2">http://search.test.com/zhlc/</span>
+<span class="s2">http://search.test.com/zhlc/images/1.jpg</span>
+<span class="s2">http://search.test.com/zhlc/index.html</span>
+<span class="s2">http://search.test.com/zhlc/index.aspx?oid=1</span>
+<span class="s2">http://search.test.com/zhlc/index.aspx?oid=1&amp;pid=2</span>
+<span class="s2">[root@tinysquid1 etc]# cat redirector.pl</span>
+<span class="s2">#!/usr/bin/perl -wl</span>
+<span class="s2">use strict;</span>
+<span class="s2">$|=1;</span>
+<span class="s2">while () {</span>
+<span class="s2">        my ($url,$client,$ident,$method) = ();</span>
+<span class="s2">        ($url, $client, $ident, $method) = split;</span>
+<span class="s2">    if ($url =~ m#^http://www.test.com/zhlc/#) {</span>
+<span class="s2">        $url=~ s/www/search/;</span>
+<span class="s2">        print &quot;</span><span class="nv">$url</span><span class="se">\n</span><span class="s2">&quot;;</span>
+<span class="s2">    } else {</span>
+<span class="s2">        print &quot;</span><span class="nv">$urln</span><span class="err">&quot;</span>;
+    <span class="o">}</span>
+<span class="o">}</span>
+<span class="o">[</span>root@tinysquid1 etc<span class="o">]</span><span class="c"># ./redirector.pl testurl.lst</span>
+http://search.test.com/zhlc/
+http://search.test.com/zhlc/images/1.jpg
+http://search.test.com/zhlc/index.html
+http://search.test.com/zhlc/index.aspx?oid<span class="o">=</span>1
+http://search.test.com/zhlc/index.aspx?oid<span class="o">=</span>1&amp;pid<span class="o">=</span>2
+</code></pre></div>
+<p>不过虽然awk也是流处理，但作为squid的外挂program测试却没法真起作用。所以只能用perl（网上看到也有用php和python的）。</p>
+<p>采用rewrite方法后，squid日志记录如下：</p>
+<pre><code>1264603532.881   1147 59.151.*.* TCP_MISS/200 86230 GET http://www.test.com/zhlc/images/header.jpg - DIRECT/1.2.3.173 image/jpeg "http://www.test.com/zhlc/" "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; QQPinyinSetup 620; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)"
+</code></pre>
+<p>虽然http_status显示的200，不过www.test.com的源站IP为1.2.3.172，search.test.com的源站IP为1.2.3.173，可见squid已经将请求转发给search.test.com了。</p>
+<p>由上面的流程可知，squid是先检查acl，然后rewrite，再检查HIT/MISS，所以当设定了search.test.com/.<em>的 cache_deny 后，所有www.test.com/zhlc/.</em>的重复访问也都是MISS。</p>
+<p>b) 第二种方法，不属于专门的跳转重定向，算是个妙用吧：</p>
+<p>Squid为了美观方便，提供了一些错误信息的定制功能。之前的源站错误跳转，就是修改了ERROR_DIRECTORY里html的meta标签做的。除此以外，针对error_diretory里的ACCESS_DENIED页面，还有专门的另一个configure参数进行定制——deny_info。其用法如下：</p>
+<div class="highlight"><pre><code class="squid"><span class="k">acl</span><span class="w"> </span>test<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^http://www.test.com/zhlc/.*<span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span>test<span class="w"></span>
+<span class="k">deny_info</span><span class="w"> </span>http://search.test.com/zhlc/<span class="w"> </span>test<span class="w"></span>
+</code></pre></div>
+<p>如果需要显示的信息已经编辑在error_diretory里了，那就可以直接写文件名而不用写url。Squid.conf.default中举例是 <code>deny_info ERR_CUSTOM_ACCESS_DENIED bad_guys</code>。</p>
+<p>这个deny_info，常用的地方是防盗链。在deny盗链的同时，加上一个源站的logo图片url，正好让盗链网站替自己做宣传~~</p>
+<p>采用deny_info方法后，squid日志记录如下：</p>
+<pre><code>1264661272.822 2 59.151.*.* TCP_DENIED/302 320 GET http://www.test.com/zhlc/ - NONE/- text/html "-" "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; QQPinyinSetup 620; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)"
+1264661273.753 854 59.151.*.* TCP_MISS/200 9166 GET http://search.test.com/zhlc/ - DIRECT/1.2.3.173 text/html "-" "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; QQPinyinSetup 620; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)"
+</code></pre>
+<p>显示的是TCP_DENIED/302。</p>
+<p>c) 两个方法比较</p>
+<p>最表面可见的不同，就是当IE访问http://www.test.com/zhlc/时，第一种方法地址栏依然显示（httpwatch也一样）http://www.test.com/zhlc/，而第二种方法也显示为http://search.test.com/zhlc/了。</p>
+<p>根据之前论述可知，第一种访问时，clinet提出第一个http://www.test.com/zhlc/请求，squid在流程第三步改写url，从search源站取回html代码，查询到相关资源（即http://www.test.com/zhlc/.*），然后重复请求过程，逐一改写，从search源站取回所有文件；</p>
+<p>第二种访问时，client提出第一个http://www.test.com/zhlc/请求，squid在流程第二步检查出相匹配的acl规则，返回deny信息给client，即请IE浏览器显示http://search.test.com/zhlc/，然后client重新开始一次链接建立过程，经dns解析等步骤，连上search.test.com的，取回http://search.test.com/zhlc/.*。</p>
+<h2 id="section-3">五、客户页面分析</h2>
+<p>在日志分析过程中，还发现一个问题，当squid首先从search.test.com源站取回html代码后，为什么调用的相关页面资源url请求也都是www.test.com的呢？看http://www.test.com/zhlc/页面代码，发现如下：</p>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;link</span> <span class="na">href=</span><span class="s">&quot;/zhlc/style/reset.css&quot;</span> <span class="na">rel=</span><span class="s">&quot;stylesheet&quot;</span> <span class="na">type=</span><span class="s">&quot;text/css&quot;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;link</span> <span class="na">href=</span><span class="s">&quot;/zhlc/style/main.css&quot;</span> <span class="na">rel=</span><span class="s">&quot;stylesheet&quot;</span> <span class="na">type=</span><span class="s">&quot;text/css&quot;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;/zhlc/Scripts/AC_RunActiveContent.js&quot;</span> <span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span><span class="nt">&gt;</span>
+<span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;#&quot;</span><span class="nt">&gt;&lt;img</span> <span class="na">src=</span><span class="s">&quot;/zhlc/images/logo.jpg&quot;</span> <span class="na">width=</span><span class="s">&quot;154&quot;</span> <span class="na">height=</span><span class="s">&quot;80&quot;</span> <span class="na">border=</span><span class="s">&quot;0&quot;</span><span class="nt">/&gt;&lt;/a&gt;</span>
+……
+</code></pre></div>
+<p>其页面代码都使用了相对路径，所以才导致了从search端取回的代码依然调用www的url的现象。</p>
+<h2 id="section-4">六、总结</h2>
+<p>某客户页面跳转试验至此，因为squid处理流程和客户源站代码等多方面原因，只能采用统一跳转至http://search.test.com/zhlc/单一页面的方法，确保客户在IE地址栏里看到有跳转的效果……</p>
+<p>最后，总结试验中的两种办法，其改写过程，可以归纳成rewrite是squid-origin过程的，deny_info是squid-client过程的。</p>
+      <a href="/2010/01/27/test-location-in-squid" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/01/24/shell-script-for-train-setting" title="CUshell版惊见中国特色脚本" rel="bookmark">CUshell版惊见中国特色脚本</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-01-24 00:00:00 +0800">24 Jan 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>58同城：</p>
+<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
+<span class="c">#该脚本仅用于58同城网站刷票</span>
+<span class="c">#到达目的地</span>
+<span class="nv">DES</span><span class="o">=</span><span class="s2">&quot;(天水|兰州|西安)&quot;</span>
+<span class="c">#刷票url</span>
+<span class="nv">URL</span><span class="o">=</span>http://bj.58.com/huochepiao/a1/
+<span class="nv">OLDMD5</span><span class="o">=</span><span class="sb">`</span>curl <span class="nv">$URL</span> | egrep <span class="s2">&quot;$DES&quot;</span> | sed <span class="s1">&#39;$d&#39;</span> | md5sum | awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
+<span class="k">while </span><span class="nb">true</span>; <span class="k">do</span>
+<span class="k">    if</span> <span class="o">[</span> <span class="s2">&quot;$OLDMD5&quot;</span> <span class="o">==</span> <span class="sb">`</span>curl <span class="nv">$URL</span> | egrep <span class="s2">&quot;$DES&quot;</span> | sed <span class="s1">&#39;$d&#39;</span> | md5sum | awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span> <span class="o">]</span>;<span class="k">then</span>
+<span class="k">        </span>sleep 300
+    <span class="k">else</span>
+<span class="k">        </span><span class="nv">MESSAGE</span><span class="o">=</span><span class="sb">`</span>curl <span class="nv">$URL</span> | egrep <span class="s2">&quot;$DES&quot;</span> | sed <span class="s1">&#39;$d&#39;</span> | head -n1<span class="sb">`</span>
+        <span class="nv">SEND</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$MESSAGE</span> | awk -F<span class="s2">&quot;&gt;&quot;</span> <span class="s1">&#39;{print $3}&#39;</span> | sed -e <span class="s1">&#39;s/&lt;.*//&#39;</span><span class="sb">`</span>
+        <span class="nv">DATE</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$SEND</span> | awk -F<span class="s2">&quot;:&quot;</span> <span class="s1">&#39;{print $2}&#39;</span><span class="sb">`</span>
+        <span class="c">#判断DATE变量，使其匹配你需要出发的日期</span>
+        <span class="k">if</span> <span class="o">[</span> <span class="s2">&quot;$DATE&quot;</span> <span class="o">==</span> <span class="s2">&quot;2010-02-08&quot;</span> -o <span class="s2">&quot;$DATE&quot;</span> <span class="o">==</span> <span class="s2">&quot;2010-02-09&quot;</span> -o <span class="s2">&quot;$DATE&quot;</span> <span class="o">==</span> <span class="s2">&quot;2010-02-10&quot;</span> -o <span class="s2">&quot;$DATE&quot;</span> <span class="o">==</span> <span class="s2">&quot;2010-02-11&quot;</span> -o <span class="s2">&quot;$DATE&quot;</span> <span class="o">==</span> <span class="s2">&quot;2010-02-12&quot;</span> -o <span class="s2">&quot;$DATE&quot;</span> <span class="o">==</span> <span class="s2">&quot;2010-01-28&quot;</span> <span class="o">]</span>;<span class="k">then</span>
+            <span class="c">#输入需要发送信息的命令,飞信或mail等.....,发送的内容为$SEND变量</span>
+            /usr/bin/curl -d <span class="nv">cdkey</span><span class="o">=</span>xxxx-xxx-xxxx-xxxxx -d <span class="nv">password</span><span class="o">=</span>xxxxxx -d <span class="nv">addserial</span><span class="o">=</span>xxx -d <span class="nv">phone</span><span class="o">=</span>13000000000 -d <span class="nv">message</span><span class="o">=</span><span class="s2">&quot;$SEND:58.com&quot;</span> http://sdkhttp.eucp.b2m.cn/sdkproxy/asynsendsms.action
+        <span class="k">fi</span>
+<span class="k">        </span><span class="nv">OLDMD5</span><span class="o">=</span><span class="sb">`</span>curl <span class="nv">$URL</span> | egrep <span class="s2">&quot;$DES&quot;</span> | sed <span class="s1">&#39;$d&#39;</span> | md5sum | awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
+        sleep 300
+    <span class="k">fi</span>
+<span class="k">done</span>
+</code></pre></div>
+<p>赶集网：</p>
+<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
+<span class="c">#该脚本仅用于赶集网刷票</span>
+<span class="c">#到达目的地</span>
+<span class="nv">DES</span><span class="o">=</span><span class="s2">&quot;(天水|兰州|西安)&quot;</span>
+<span class="c">#刷票url</span>
+<span class="nv">URL</span><span class="o">=</span>http://bj.ganji.com/piao/sell/
+<span class="nv">OLDMD5</span><span class="o">=</span><span class="sb">`</span>curl <span class="nv">$URL</span> | egrep <span class="s2">&quot;$DES&quot;</span> | md5sum | awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
+<span class="k">while </span><span class="nb">true</span>; <span class="k">do</span>
+<span class="k">    if</span> <span class="o">[</span> <span class="s2">&quot;$OLDMD5&quot;</span> <span class="o">==</span> <span class="sb">`</span>curl <span class="nv">$URL</span> | egrep <span class="s2">&quot;$DES&quot;</span> | md5sum | awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span> <span class="o">]</span>;<span class="k">then</span>
+<span class="k">        </span>sleep 300
+    <span class="k">else</span>
+<span class="k">        </span><span class="nv">MESSAGE</span><span class="o">=</span><span class="sb">`</span>curl <span class="nv">$URL</span> | egrep <span class="s2">&quot;$DES&quot;</span> | head -n1<span class="sb">`</span>
+        <span class="nv">SEND</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$MESSAGE</span> | awk -F<span class="s2">&quot;&gt;&quot;</span> <span class="s1">&#39;{print $3}&#39;</span> | sed -e <span class="s1">&#39;s/&lt;.*//&#39;</span><span class="sb">`</span>
+        <span class="nv">DATE</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$SEND</span> | awk -F<span class="s2">&quot;:&quot;</span> <span class="s1">&#39;{print $2}&#39;</span><span class="sb">`</span>
+        <span class="c">#判断DATE变量，使其匹配你需要出发的日期</span>
+        <span class="k">if</span> <span class="o">[</span> <span class="s2">&quot;$DATE&quot;</span> <span class="o">==</span> <span class="s2">&quot;02-08&quot;</span> -o <span class="s2">&quot;$DATE&quot;</span> <span class="o">==</span> <span class="s2">&quot;02-09&quot;</span> -o <span class="s2">&quot;$DATE&quot;</span> <span class="o">==</span> <span class="s2">&quot;02-10&quot;</span> -o <span class="s2">&quot;$DATE&quot;</span> <span class="o">==</span> <span class="s2">&quot;02-11&quot;</span> -o <span class="s2">&quot;$DATE&quot;</span> <span class="o">==</span> <span class="s2">&quot;02-12&quot;</span> -o <span class="s2">&quot;$DATE&quot;</span> <span class="o">==</span> <span class="s2">&quot;01-28&quot;</span> <span class="o">]</span>;<span class="k">then</span>
+        <span class="c">#输入需要发送信息的命令,飞信或mail等.....,发送的内容为$SEND变量</span>
+        /usr/bin/curl -d <span class="nv">cdkey</span><span class="o">=</span>xxxx-xxx-xxxx-xxxxx -d <span class="nv">password</span><span class="o">=</span>xxxxxx -d <span class="nv">addserial</span><span class="o">=</span>xxx -d <span class="nv">phone</span><span class="o">=</span>13000000000 -d <span class="nv">message</span><span class="o">=</span><span class="s2">&quot;$SEND:ganji.com&quot;</span> &lt;a <span class="nv">href</span><span class="o">=</span><span class="s2">&quot;http://sdkhttp.eucp.b2m.cn/sdkproxy/asynsendsms.action&quot;</span>&gt;http://sdkhttp.eucp.b2m.cn/sdkproxy/asynsendsms.action&lt;/a&gt;
+        <span class="k">fi</span>
+<span class="k">        </span><span class="nv">OLDMD5</span><span class="o">=</span><span class="sb">`</span>curl <span class="nv">$URL</span> | egrep <span class="s2">&quot;$DES&quot;</span> | md5sum | awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
+        sleep 300
+    <span class="k">fi</span>
+<span class="k">done</span>
+</code></pre></div>
+      <a href="/2010/01/24/shell-script-for-train-setting" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/01/23/automate-configure-squid-in-website" title="squid自动配置web化" rel="bookmark">squid自动配置web化</a>
     </h1>
     <p class="alt-font tight">
@@ -2246,81 +2434,6 @@ msecs/first-response: 45.4883 mean, 287.113 max, 3.336 min
     Swap Dir 0, File 0X000412
 上头是32位MD5值么？谁看的懂呢……</p>
       <a href="/2009/11/21/squidclient-usage" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/21/show-full-path-in-squid-access-log" title="让squid访问日志显示完整url" rel="bookmark">让squid访问日志显示完整url</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-21 00:00:00 +0800">21 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>一大串的header结束了，从上篇开始回到squid.conf本身的设置上来。</p>
-<p>这里说一个小东西，一般用不上，但难保哪天就用了：</p>
-<p>我们在access.log里，常看到很多url只显示到?，之后的东西就都忽略掉了，这一是为了醒目，反正都不缓存，显示干嘛；二是为了保密，说不定有些网站的GET就直接把什么秘密信息都明文传输呢？</p>
-<p>但有时候特殊情况要求我们调试squid，比方说之前提到过的非得缓存?，却又没有提前告知，临时想要自己找完整url，怎么办？</p>
-<p>其实有办法，squid配置中有一个strip_query_terms，就是管这事儿的。默认是on，只要改成off，就可以了~~嘿嘿，干坏事的机会到来了……</p>
-      <a href="/2009/11/21/show-full-path-in-squid-access-log" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/21/intro-if-modified-since" title="cache驻留时间（四、If-Modified-Since）" rel="bookmark">cache驻留时间（四、If-Modified-Since）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-21 00:00:00 +0800">21 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>话接上回If-Modified-Since，当squid开启reload_into_ims on之后，no-cache头会在在浏览器上被转化成If-Modified-Since标识返回给web服务器。从整体架构考虑，因为squid上已经破坏了http协议的规定，那么web端就必须主动承担对网页过期的识别管理工作。嗯，要是所有的网站都能从一规划开始就这么搞，俺们干CDN的可就轻松了~~~</p>
-<p>下面是一段php代码，简单的实现对If-Modified-Since标签的过期管理：</p>
-<div class="highlight"><pre><code class="php"><span class="cp">&lt;?php</span>
-<span class="nv">$headers</span> <span class="o">=</span> <span class="nb">apache_request_headers</span><span class="p">();</span>
-<span class="c1">//读取整个header信息</span>
-<span class="nv">$client_time</span> <span class="o">=</span> <span class="p">(</span><span class="nb">isset</span><span class="p">(</span><span class="nv">$headers</span><span class="p">[</span><span class="s1">&#39;If-Modified-Since&#39;</span><span class="p">])</span> <span class="o">?</span>
-<span class="nb">strtotime</span><span class="p">(</span><span class="nv">$headers</span><span class="p">[</span><span class="s1">&#39;If-Modified-Since&#39;</span><span class="p">])</span> <span class="o">:</span> <span class="mi">0</span><span class="p">);</span>
-<span class="c1">//判断header信息是否包含If-Modified-Since标签，有则转换其时间为Unix格式，否则退出这段定义</span>
-<span class="nv">$now</span><span class="o">=</span><span class="nb">gmmktime</span><span class="p">();</span>
-<span class="c1">//web服务器的系统时间，为处理方便转换为GMT</span>
-<span class="nv">$now_list</span><span class="o">=</span><span class="nb">gmmktime</span><span class="p">()</span><span class="o">-</span><span class="mi">60</span><span class="o">*</span><span class="mi">5</span><span class="p">;</span>
-<span class="c1">//五分钟前的时间</span>
-<span class="k">if</span> <span class="p">(</span><span class="nv">$client_time</span><span class="o">&lt;</span><span class="nv">$now</span> <span class="k">and</span> <span class="nv">$client_time</span>
-<span class="o">&gt;</span><span class="nv">$now_list</span><span class="p">){</span>
-<span class="c1">//判断浏览器时间是不是在当前的五分钟内</span>
-<span class="nx">header</span><span class="p">(</span><span class="err">’</span><span class="nx">Last</span><span class="o">-</span><span class="nx">Modified</span><span class="o">:</span> <span class="err">‘</span><span class="o">.</span><span class="nb">gmdate</span><span class="p">(</span><span class="err">’</span><span class="nx">D</span><span class="p">,</span> <span class="nx">d</span> <span class="nx">M</span> <span class="nx">Y</span> <span class="nx">H</span><span class="o">:</span><span class="nx">i</span><span class="o">:</span><span class="nx">s</span><span class="err">’</span><span class="p">,</span>
-<span class="nv">$client_time</span><span class="p">)</span><span class="o">.</span><span class="err">’</span> <span class="nx">GMT</span><span class="err">’</span><span class="p">,</span> <span class="k">true</span><span class="p">,</span> <span class="mi">304</span><span class="p">);</span>
-<span class="k">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
-<span class="c1">//判断为真，则给header加上时间为浏览器时间的Last-Modified标签，告知浏览器网页未过期</span>
-<span class="p">}</span><span class="k">else</span><span class="p">{</span>
-<span class="nx">header</span><span class="p">(</span><span class="err">’</span><span class="nx">Last</span><span class="o">-</span><span class="nx">Modified</span><span class="o">:</span> <span class="err">‘</span><span class="o">.</span><span class="nb">gmdate</span><span class="p">(</span><span class="err">’</span><span class="nx">D</span><span class="p">,</span> <span class="nx">d</span> <span class="nx">M</span> <span class="nx">Y</span> <span class="nx">H</span><span class="o">:</span><span class="nx">i</span><span class="o">:</span><span class="nx">s</span><span class="err">’</span><span class="p">,</span> <span class="nv">$now</span><span class="p">)</span><span class="o">.</span><span class="err">’</span> <span class="nx">GMT</span><span class="err">’</span><span class="p">,</span>
-<span class="k">true</span><span class="p">,</span> <span class="mi">200</span><span class="p">);</span>
-<span class="c1">//否则给header加上时间为服务器系统时间的Last-Modified标签，告知浏览器网页过期，重新下载</span>
-<span class="p">}</span>
-<span class="cp">?&gt;</span><span class="x"></span>
-</code></pre></div>
-<p>这做一个范例，如果用其他的标签定义来控制过期，照葫芦画瓢就行了。比如用Expires控制，就写</p>
-<pre><code>header('Expires: ' . gmdate ("D, d M Y H:i:s", gmmktime() + 60*5). " GMT");
-</code></pre>
-<p>题外话一句，php中关于date的函数很多，各种的格式不同，小心使用。好比这个新浪博客，就有一个小问题，如果你半夜写博客，过了零点以后发表，会提示错误；甚至如果你原先是10点发表的，隔了几天半月的哪天下午14点来修改保存，也会提示错误。非得要你改成当前分钟之前才行……</p>
-      <a href="/2009/11/21/intro-if-modified-since" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

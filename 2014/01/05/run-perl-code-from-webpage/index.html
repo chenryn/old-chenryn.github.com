@@ -79,7 +79,7 @@ CONTAINER ID ...
 <p>网站里添加下面一段：</p>
 <div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Dancer::Plugin::</span><span class="n">Ajax</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">File::</span><span class="n">Temp</span> <span class="sx">qw(tempfile)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">IPC::</span><span class="n">Run</span> <span class="sx">qw(run timeout)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">IPC::</span><span class="n">Run</span> <span class="sx">qw(start harness timeout)</span><span class="p">;</span>
 <span class="n">ajax</span> <span class="s">&#39;/run&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
     <span class="k">my</span> <span class="nv">$code</span> <span class="o">=</span> <span class="n">param</span><span class="p">(</span><span class="s">&#39;code&#39;</span><span class="p">);</span>
     <span class="k">my</span> <span class="nv">@cmd</span> <span class="o">=</span> <span class="sx">qw(docker run -m 128m -u tour -v /tmp/:/tmp:ro perl-tour perl)</span><span class="p">;</span>
@@ -87,7 +87,17 @@ CONTAINER ID ...
     <span class="nb">binmode</span><span class="p">(</span><span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;:utf8&#39;</span><span class="p">);</span>
     <span class="k">print</span> <span class="nv">$fh</span> <span class="nv">$code</span><span class="p">;</span>
     <span class="nb">push</span> <span class="nv">@cmd</span><span class="p">,</span> <span class="nv">$temp</span><span class="p">;</span>
-    <span class="n">run</span> <span class="o">\</span><span class="nv">@cmd</span><span class="p">,</span> <span class="o">\</span><span class="nv">$in</span><span class="p">,</span> <span class="o">\</span><span class="nv">$out</span><span class="p">,</span> <span class="o">\</span><span class="nv">$err</span><span class="p">,</span> <span class="n">timeout</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span> <span class="ow">or</span> <span class="n">debug</span><span class="p">(</span><span class="vg">$?</span><span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$h</span><span class="p">;</span>
+    <span class="nb">eval</span> <span class="p">{</span>
+        <span class="nv">$h</span> <span class="o">=</span> <span class="n">harness</span> <span class="o">\</span><span class="nv">@cmd</span><span class="p">,</span> <span class="o">\</span><span class="nv">$in</span><span class="p">,</span> <span class="o">\</span><span class="nv">$out</span><span class="p">,</span> <span class="o">\</span><span class="nv">$err</span><span class="p">,</span> <span class="n">timeout</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>
+        <span class="n">start</span> <span class="nv">$h</span><span class="p">;</span>
+        <span class="nv">$h</span><span class="o">-&gt;</span><span class="n">finish</span><span class="p">;</span>
+    <span class="p">};</span>
+    <span class="k">if</span><span class="p">(</span><span class="vg">$@</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="nv">$x</span> <span class="o">=</span> <span class="vg">$@</span><span class="p">;</span>
+        <span class="nv">$h</span><span class="o">-&gt;</span><span class="n">kill_kill</span><span class="p">;</span>
+        <span class="k">return</span> <span class="nv">$x</span><span class="p">;</span>
+    <span class="p">};</span>
     <span class="nb">unlink</span> <span class="nv">$temp</span><span class="p">;</span>
     <span class="k">return</span> <span class="n">to_json</span><span class="p">({</span>
         <span class="n">Errors</span> <span class="o">=&gt;</span> <span class="p">[</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/\n/</span><span class="p">,</span> <span class="nv">$err</span><span class="p">)</span> <span class="p">],</span>
@@ -139,6 +149,8 @@ CONTAINER ID ...
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+                 <li><a href="/2014/01/14/this-week-in-kibana-20130919">【翻译】2013 年 9 月的 kibana 周报</a></li>
+                 <li><a href="/2014/01/14/kibana-what-happened">Kibana What Happened</a></li>
                  <li><a href="/2014/01/08/run-docker-registry">私有 docker 仓库部署测试</a></li>
                  <li><a href="/2014/01/06/staticperl-and-upx">利用 staticperl 和 upx 生成 单个可执行 perl</a></li>
                  <li><a href="/2014/01/05/future-with-anyevent">Future模块和AnyEvent事件驱动的结合</a></li>
@@ -146,8 +158,6 @@ CONTAINER ID ...
                  <li><a href="/2013/12/09/draw-charts-of-bitcoin">为比特币绘制 MACD、BOLL、KDJ 指标图</a></li>
                  <li><a href="/2013/12/09/add-mailinglist-command-to-gitolite">为 gitolite 实现 mailinglist 命令行操控</a></li>
                  <li><a href="/2013/11/04/puppet-class-parameter">Puppet 的类参数传递</a></li>
-                 <li><a href="/2013/11/04/perl-unpack-tongdaxin">用 Perl 读取通达信日线数据</a></li>
-                 <li><a href="/2013/10/26/selinux-affect-to-apache-documentroot">selinux 对 webserver 文件发布的影响</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

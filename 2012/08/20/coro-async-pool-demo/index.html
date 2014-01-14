@@ -73,14 +73,12 @@
 <p>然后贴的是用async_pool的代码，从perldoc来看据说是比async还快一倍。</p>
 <div class="highlight"><pre><code class="perl"><span class="k">sub </span><span class="nf">coro_pool_get</span> <span class="p">{</span>
     <span class="k">my</span> <span class="p">(</span><span class="nv">$count</span><span class="p">,</span> <span class="nv">$urls</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$limit</span> <span class="o">=</span> <span class="nn">Coro::</span><span class="n">Semaphore</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="nv">$</span><span class="nn">Coro::</span><span class="nv">POOL_SIZE</span> <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$sem</span> <span class="o">=</span> <span class="nn">Coro::</span><span class="n">Semaphore</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="mi">1</span> <span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$sem</span> <span class="o">=</span> <span class="nn">Coro::</span><span class="n">Semaphore</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="mi">1</span> <span class="o">-</span> <span class="nv">$</span><span class="nn">Coro::</span><span class="nv">POOL_SIZE</span> <span class="p">);</span>
     <span class="k">my</span> <span class="nv">$ua</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">FurlX::</span><span class="n">Coro</span><span class="p">;</span>
     <span class="k">my</span> <span class="nv">$data</span><span class="p">;</span>
     <span class="k">for</span><span class="p">(</span> <span class="mi">1</span> <span class="o">..</span> <span class="nv">$count</span> <span class="p">){</span>
         <span class="k">my</span> <span class="nv">$url</span> <span class="o">=</span> <span class="nv">$urls</span><span class="o">-&gt;</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="nb">rand</span><span class="p">(</span><span class="nv">$#</span><span class="p">{</span><span class="nv">$urls</span><span class="p">}</span><span class="o">+</span><span class="mi">1</span><span class="p">))];</span>
-        <span class="nv">$limit</span><span class="o">-&gt;</span><span class="n">down</span><span class="p">;</span>
-        <span class="n">async_pool</span> <span class="p">{</span> <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="nv">$ua</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;$url&quot;</span><span class="p">);</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$res</span><span class="o">-&gt;</span><span class="n">status</span><span class="p">}</span><span class="o">++</span><span class="p">;</span> <span class="nv">$sem</span><span class="o">-&gt;</span><span class="n">up</span><span class="p">;</span> <span class="nv">$limit</span><span class="o">-&gt;</span><span class="n">up</span><span class="p">;</span> <span class="p">};</span> 
+        <span class="n">async_pool</span> <span class="p">{</span> <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="nv">$ua</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;$url&quot;</span><span class="p">);</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$res</span><span class="o">-&gt;</span><span class="n">status</span><span class="p">}</span><span class="o">++</span><span class="p">;</span> <span class="nv">$sem</span><span class="o">-&gt;</span><span class="n">up</span><span class="p">;</span> <span class="p">};</span> 
     <span class="p">};</span>
     <span class="nv">$sem</span><span class="o">-&gt;</span><span class="n">down</span><span class="p">;</span>
     <span class="k">return</span> <span class="nv">$data</span><span class="p">;</span>
@@ -107,6 +105,8 @@
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+                 <li><a href="/2014/01/14/this-week-in-kibana-20130919">【翻译】2013 年 9 月的 kibana 周报</a></li>
+                 <li><a href="/2014/01/14/kibana-what-happened">Kibana What Happened</a></li>
                  <li><a href="/2014/01/08/run-docker-registry">私有 docker 仓库部署测试</a></li>
                  <li><a href="/2014/01/06/staticperl-and-upx">利用 staticperl 和 upx 生成 单个可执行 perl</a></li>
                  <li><a href="/2014/01/05/run-perl-code-from-webpage">通过网页运行 Perl 代码的安全实现</a></li>
@@ -114,8 +114,6 @@
                  <li><a href="/2013/12/31/report-of-this-year">2013 年度个人总结</a></li>
                  <li><a href="/2013/12/09/draw-charts-of-bitcoin">为比特币绘制 MACD、BOLL、KDJ 指标图</a></li>
                  <li><a href="/2013/12/09/add-mailinglist-command-to-gitolite">为 gitolite 实现 mailinglist 命令行操控</a></li>
-                 <li><a href="/2013/11/04/puppet-class-parameter">Puppet 的类参数传递</a></li>
-                 <li><a href="/2013/11/04/perl-unpack-tongdaxin">用 Perl 读取通达信日线数据</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">
