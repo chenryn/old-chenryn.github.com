@@ -43,6 +43,41 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/05/27/pod-problem-by-permission-of-tmp" title="perl的POD权限问题" rel="bookmark">perl的POD权限问题</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-05-27 00:00:00 +0800">27 May 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>今天继续查找mod_perl对req_header的处理。</p>
+<p>一开始打算用perldoc看Apache2::Request模块，结果在运行时出现如下错误：</p>
+<pre><code>Error in tempfile() using /tmp/XXXXXXXXXX:parent directory (./) is
+not writable at /usr/lib/perl5/5.8.8/Pod/Perldoc.pm line 1483.
+</code></pre>
+<p>改到/tmp/执行命令，还是报错。看来和PWD是没关系，跟/tmp本身的权限有关吧～～（因为我经常在/tmp下做试验，可能不知道什么时候无意就改了权限了）</p>
+<p>chmod 777 /tmp</p>
+<p>再执行命令，ok了～～</p>
+<hr />
+<p>在看过Apache2::Request的doc后，没有发现header相关的设定，决定去直接看apache的那些pm，不过之前只管CPAN哗哗安装了，可从来没管过它们都安装在哪里……</p>
+<p>/usr/五六个目录都是perl的，找起来可真不是个容易事～（记得之前测试，perl脚本每次执行，都有好几百毫秒用来查找模块在什么位置……）</p>
+<p>一时偷懒去百度了一下，很不错，看到CPAN常见问题集，正好有这个办法：</p>
+<p>perl -MFile::Find=find -MFile::Spec::Functions -Tlwe &lsquo;find { wanted =&gt; sub { print canonpath $_ if /.pmz/ }, no_chdir =&gt; 1 }, @INC&rsquo;</p>
+<p>然后grep Apache，就看到结果了，都安装在/usr/lib64/perl5/site_perl/5.8.8/x86_64-linux-thread-multi/Apache2这个路径下。
+进去grep &lsquo;$r-&gt;header&rsquo; *，立马就看出来，是RequestRec.pm里的。</p>
+      <a href="/2010/05/27/pod-problem-by-permission-of-tmp" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/05/27/anti_hotlinking-in-apache-by-mod_perl-3" title="apache防盗链（mod_perl试用三）" rel="bookmark">apache防盗链（mod_perl试用三）</a>
     </h1>
     <p class="alt-font tight">
@@ -1260,71 +1295,6 @@ sscanf(&ldquo;2006:03:18 - 2006:04:18&rdquo;, &ldquo;%s - %s&rdquo;, sztime1, sz
 <p>sscanf(sourceStr, &ldquo;%*s%s&rdquo;, buf);</p>
 <p>执行结果就是过滤了hello，打印出world~~</p>
       <a href="/2010/04/20/sscanf-usage" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/04/15/intro-iscsi-2" title="iscsi试验（读写测试）" rel="bookmark">iscsi试验（读写测试）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-04-15 00:00:00 +0800">15 Apr 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>隔了一天，回头再来mount /dev/sda /mnt；成功了~
-不信邪，再上一台，login，mount，继续成功……
-难道是前天rp不行？</p>
-<p>然后试验写入。发现在每台client上的写入，都暂时不会显示在server和其他client上。只有经过logout和login后才会显示。
-接着进行一下简单的读写速度测试，先是read，用hdparm工具，结果如下：</p>
-<p>服务器端：[root@ct5 ~]# hdparm -tT /dev/xvdb1
-/dev/xvdb1:
- Timing cached reads:   20880 MB in  1.99 seconds = 10486.02 MB/sec
- Timing buffered disk reads:  162 MB in  3.01 seconds =  53.85 MB/sec</p>
-<p>客户端：[root@ct5 ~]# hdparm -tT /dev/sda
-/dev/sda:
- Timing cached reads:   21944 MB in  1.99 seconds = 11022.51 MB/sec
- Timing buffered disk reads:  152 MB in  3.02 seconds =  50.41 MB/sec</p>
-<p>然后用apache发布，wget的速度基本也差不多。</p>
-<p>然后是write，用time dd，最开始指定了bs=4k，结果让我很惊讶</p>
-<p>服务器端：[root@ct5 cache]# time dd if=/dev/zero of=rao bs=4k count=655360
-655360+0 records in
-655360+0 records out
-2684354560 bytes (2.7 GB) copied, 35.1299 seconds, 76.4 MB/s  <br />
-real 0m35.204s  <br />
-user 0m0.440s  <br />
-sys 0m6.968s    </p>
-<p>而客户端2684354560 bytes (2.7 GB) copied, 28.584 seconds, 93.9 MB/s  <br />
-real 0m28.650s  <br />
-user 0m0.496s  <br />
-sys 0m7.404s    </p>
-<p>居然比服务器端还快。于是想到iscsi的封包机制，可能bs4k有影响，于是往下降成2k，结果立刻有体现了</p>
-<p>服务器1342177280 bytes (1.3 GB) copied, 6.93954 seconds, 193 MB/s  <br />
-real 0m6.943s  <br />
-user 0m0.428s  <br />
-sys 0m4.848s    </p>
-<p>客户端1342177280 bytes (1.3 GB) copied, 12.5357 seconds, 107 MB/s  <br />
-real 0m12.539s  <br />
-user 0m0.348s  <br />
-sys 0m4.720s    </p>
-<p>再降成1k，结果稍慢</p>
-<p>服务器671088640 bytes (671 MB) copied, 4.1199 seconds, 163 MB/s  <br />
-real 0m4.123s  <br />
-user 0m0.372s  <br />
-sys 0m3.280s    </p>
-<p>客户端671088640 bytes (671 MB) copied, 7.06874 seconds, 94.9 MB/s  <br />
-real 0m7.093s  <br />
-user 0m0.328s  <br />
-sys 0m3.324s  <br />
-可见在写速率上，还是有一定差距的。</p>
-      <a href="/2010/04/15/intro-iscsi-2" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

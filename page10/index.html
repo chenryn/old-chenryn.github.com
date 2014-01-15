@@ -43,6 +43,53 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/09/17/conditional-command-details" title="条件判断命令小细节" rel="bookmark">条件判断命令小细节</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-09-17 00:00:00 +0800">17 Sep 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>服务器上有个定时任务，执行结果输出到out.txt中以便查看，类似下行这样的：</p>
+<p>*/5 * * * * /shell/runscript.sh&nbsp;&raquo; /shell/out.txt</p>
+<p>runscript.sh中执行script.sh，完成后删除。</p>
+<p>/shell目录下的所有文件不定期的通过rsync &ndash;delete同步过去。
+结果发现如果script在5分钟内无法执行完毕的话，cron会重复执行……
+考虑到rsync过来的时候out.txt已经被删除掉了决定在runscript.sh前加上一段[[ -f out.txt ]] &amp;&amp; exit
+结果发现script一直无法运行了。
+想想原来是cron每5分钟都会去生成out.txt，只不过当空闲的时候，这个out.txt是空文件而已。
+修改判断为[[ -s out.txt ]] &amp;&amp; exit
+成功。
+其实当文件存在的情况下，shell的条件判断还有很多很多种可能，列表如下：</p>
+<pre><code>-b file            若文件存在且是一个块特殊文件，则为真
+-c file            若文件存在且是一个字符特殊文件，则为真
+-d file            若文件存在且是一个目录，则为真
+-e file            若文件存在，则为真
+-f file            若文件存在且是一个规则文件，则为真
+-g file            若文件存在且设置了SGID位的值，则为真
+-h file            若文件存在且为一个符合链接，则为真
+-k file            若文件存在且设置了"sticky"位的值
+-p file            若文件存在且为一已命名管道，则为真
+-r file            若文件存在且可读，则为真
+-s file            若文件存在且其大小大于零，则为真
+-u file            若文件存在且设置了SUID位，则为真
+-w file            若文件存在且可写，则为真
+-x file            若文件存在且可执行，则为真
+-o file            若文件存在且被有效用户ID所拥有，则为真
+</code></pre>
+      <a href="/2010/09/17/conditional-command-details" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/09/14/intro-snmp-config-and-oids-of-squid" title="squid的snmp配置和部分oid说明" rel="bookmark">squid的snmp配置和部分oid说明</a>
     </h1>
     <p class="alt-font tight">
@@ -1281,41 +1328,6 @@ virt-install --paravirt --file<span class="o">=</span>/img/test.img --name<span 
  
  </p>
       <a href="/2010/05/28/xen-install-pv" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/05/27/pod-problem-by-permission-of-tmp" title="perl的POD权限问题" rel="bookmark">perl的POD权限问题</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-05-27 00:00:00 +0800">27 May 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天继续查找mod_perl对req_header的处理。</p>
-<p>一开始打算用perldoc看Apache2::Request模块，结果在运行时出现如下错误：</p>
-<pre><code>Error in tempfile() using /tmp/XXXXXXXXXX:parent directory (./) is
-not writable at /usr/lib/perl5/5.8.8/Pod/Perldoc.pm line 1483.
-</code></pre>
-<p>改到/tmp/执行命令，还是报错。看来和PWD是没关系，跟/tmp本身的权限有关吧～～（因为我经常在/tmp下做试验，可能不知道什么时候无意就改了权限了）</p>
-<p>chmod 777 /tmp</p>
-<p>再执行命令，ok了～～</p>
-<hr />
-<p>在看过Apache2::Request的doc后，没有发现header相关的设定，决定去直接看apache的那些pm，不过之前只管CPAN哗哗安装了，可从来没管过它们都安装在哪里……</p>
-<p>/usr/五六个目录都是perl的，找起来可真不是个容易事～（记得之前测试，perl脚本每次执行，都有好几百毫秒用来查找模块在什么位置……）</p>
-<p>一时偷懒去百度了一下，很不错，看到CPAN常见问题集，正好有这个办法：</p>
-<p>perl -MFile::Find=find -MFile::Spec::Functions -Tlwe &lsquo;find { wanted =&gt; sub { print canonpath $_ if /.pmz/ }, no_chdir =&gt; 1 }, @INC&rsquo;</p>
-<p>然后grep Apache，就看到结果了，都安装在/usr/lib64/perl5/site_perl/5.8.8/x86_64-linux-thread-multi/Apache2这个路径下。
-进去grep &lsquo;$r-&gt;header&rsquo; *，立马就看出来，是RequestRec.pm里的。</p>
-      <a href="/2010/05/27/pod-problem-by-permission-of-tmp" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

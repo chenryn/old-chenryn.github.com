@@ -43,6 +43,94 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/01/06/limit-bandwidth-of-one-process" title="限制单个进程的带宽" rel="bookmark">限制单个进程的带宽</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-01-06 00:00:00 +0800">06 Jan 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>限制带宽简直就是系统管理员的永恒话题之一。当然我这里就不讨论端口限速什么的了，百度一下一大把。但如果要的是限制某个特定进程的带宽，事情就有趣多了。</p>
+<h1 id="iptables">iptables</h1>
+<p>大多数文档还是提供的传统思路，用 <code>iptables</code> 的 <code>owner</code> 模块，给 <code>--pid-owner</code> 加上 <code>MARK</code>，然后 <code>tc</code> 里针对这个 MARK 做限速。用法和限制如 <a href="http://lists.netisland.net/archives/plug/plug-2004-09/msg00454.html">http://lists.netisland.net/archives/plug/plug-2004-09/msg00454.html</a> 说的这样。不过和这个快十年前的文章相比，现在的服务器上，基本已经普及了 SMP ，更进一步的，内核已经在自动发现支持 SMP 的时候，在 iptables 里把 owner 模块的 pid/cmd/sid 三个 match 都去掉了！现在的 owner 里只有 uid/gid 两个。所以这条路，在生产环境上基本行不通。</p>
+<p>在 <a href="http://unix.stackexchange.com/questions/34116/how-can-i-limit-the-bandwidth-used-by-a-process">stackexchange</a> 上，大家集思广益、献策献宝，又提出了另外两个工具，那个叫 <code>pipeviewer</code> 的应用场景比较特定(楼主问题是发生在 sshfs 上)，就不多说了。剩下这个 <code>trickle</code> 真是小众利器。值得一提：</p>
+<h1 id="trickle">trickle</h1>
+<p>官方主页：<a href="http://monkey.org/~marius/pages/?page=trickle">http://monkey.org/~marius/pages/?page=trickle</a></p>
+<p>这是一个在 BSD 上诞生的项目，官网上说只在 i386 的 linux 验证过。不过我在 x86_64 的 linux 替大家尝试了一把，没有问题~</p>
+<div class="highlight"><pre><code class="bash">    yum install libevent-devel
+    wget http://monkey.org/~marius/trickle/trickle-1.06.tar.gz
+    tar zvxf trickle-1.06.tar.gz
+    <span class="nb">cd </span>trickle-1.06
+    ./configure
+    <span class="c"># 生成的 config.h 里重复定义了 in_addr_t 结构体</span>
+    <span class="c"># 跟 include 的 /usr/include/netinet/in.h 里冲突</span>
+    <span class="c"># 会报错 &quot;error: two or more data types in declaration specifiers&quot;</span>
+    sed -i <span class="s1">&#39;s!\(#define in_addr_t\)!//\1!&#39;</span> config.h
+    make
+    make install
+</code></pre></div>
+<p>命令使用非常简单：</p>
+<div class="highlight"><pre><code class="bash">    trickle -s -d 100 wget http://domain/path/to/file.suffix -O /dev/null
+</code></pre></div>
+<ul>
+  <li>-s 表示独立运行，因为 trickle 还有一个 trickled 管理端可以用；</li>
+  <li>-d 表示下载方向；</li>
+  <li>-u 表示上传方向，两个的单位都是KB/s。</li>
+</ul>
+<p>这个工具使用了 ELF 的 preloader 机制，在命令执行的时候替换掉标准库中的 socket recv() 和 send() 部分，达到限速的效果。其原理图在<a href="http://monkey.org/~marius/trickle/trickle.pdf">官方PDF</a> 中，如下：</p>
+<p><img src="/images/uploads/trickle.png" alt="" /></p>
+<p><strong>不过总监大人及时提示我们： 由于该机制的限制，此工具对静态编译的程序无效，对采用 suid 的程序无效！</strong></p>
+<h1 id="cgroup">cgroup</h1>
+<p>排除上面两个无效，其实 trickle 依然无法覆盖全部应用场景 —— 比如说已经启动的后台进程长期运行，我有 pid ，但是不想中断掉重新起来；或者说这个进程可能我想让他白天跑 10MBps 晚上跑 40MBps 这样动态的。</p>
+<p>这个时候就需要动用一些高级工具了，欢迎 <code>CGROUP</code> 上场。</p>
+<p><code>cgroup</code> 有 <code>net_cls</code> 控制器。不过和其他控制器不太一样的是它不直接控制网络读写，只是给网络包打上一个标记，然后把专业的事情交给专业的 TC 去做。嗯，思路和原先的 iptable 是很类似的。</p>
+<p>参考文档很少，感觉大家使用 cgroup 都集中在 cpu 和 blkio 方面了。目前所见只有 <a href="https://access.redhat.com/knowledge/articles/215353">redhat</a> 这个 pdf：<a href="http://vger.kernel.org/netconf2009_slides/Network%20Control%20Group%20Whitepaper.odt">http://vger.kernel.org/netconf2009_slides/Network%20Control%20Group%20Whitepaper.odt</a> 。实施步骤如下：</p>
+<h2 id="tc">启用 tc</h2>
+<div class="highlight"><pre><code class="bash">    tc qdisc del dev eth0 root
+    tc qdisc add dev eth0 root handle 1: htb
+    tc class add dev eth0 parent 1: classid 1: htb rate 1000mbit ceil 1000mbit
+    tc class add dev eth0 parent 1: classid 1:3 htb rate 10mbit 
+    tc class add dev eth0 parent 1: classid 1:4 htb rate 10kbit
+    tc filter add dev eth0 protocol ip parent 1:0 prio 1 handle 1: cgroup
+</code></pre></div>
+<h2 id="cgroup-1">配置 cgroup</h2>
+<div class="highlight"><pre><code class="bash">    <span class="c"># 命令行使用</span>
+    mount -t cgroup net_cls -o net_cls /cgroup/net_cls/
+    <span class="nb">cd</span> !<span class="err">$</span>
+    cgcreate -g net_cls:test
+    <span class="nb">echo</span> <span class="s1">&#39;0x10004&#39;</span> &gt; /cgroup/net_cls/test/net_cls.classid 
+    <span class="c"># 然后可以导出成文件之后通过工具管理</span>
+    yum install -y libcgroup
+    cgsnapshot -s &gt; /etc/cgconfig.conf
+    /etc/init.d/cgconfig restart
+</code></pre></div>
+<h2 id="cgroup-">测试 cgroup 效果</h2>
+<div class="highlight"><pre><code class="bash">    <span class="nb">time </span>scp bigfile root@192.168.0.26:/tmp/
+    <span class="nb">time </span>cgexec -g net_cls:test scp bigfile root@192.168.0.26:/tmp/
+    <span class="nb">echo</span> <span class="nv">$$</span> &gt; /cgroup/net_cls/test/tasks
+    tc class change dev eth0 parent 1: classid 1:4 htb rate 1mbit
+    <span class="nb">time </span>scp bigfile root@192.168.0.26:/tmp/
+</code></pre></div>
+<p>可以看到后两次的速度比第一次慢很多。</p>
+<p>第三次也被限制住，是因为 cgroup 会自动把子进程的 pid 也加入 tasks 里。</p>
+<h1 id="section">总结及其它</h1>
+<ul>
+  <li>trickle 在 download 的时候限制非常管用，在 upload 的时候大概起始速度会比限制值高几倍，然后以 100KB/s 的速度往下减。感觉是 smooth 的问题，不过调整相关参数也没见到区别。</li>
+  <li>cgroup 给 tc 打标签的办法，看到 tc 限制下的速度波动比较大，猜测 tc 应该是类似 10 秒钟统计一次平均值是否超过限制这样的行为？</li>
+</ul>
+      <a href="/2013/01/06/limit-bandwidth-of-one-process" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2012/12/30/report-of-this-year" title="2012 年个人总结" rel="bookmark">2012 年个人总结</a>
     </h1>
     <p class="alt-font tight">
@@ -3914,56 +4002,6 @@ bbs 9876
 </code></pre></div>
 <p>这样可以直接省略掉昂贵的Grok操作，同时节约原本的_all/_message/_source_host等等格式的空间。</p>
       <a href="/2012/09/21/json-event-for-logstash" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/09/16/regexp-log-demo-for-nginx" title="【Message::Passing系列】Regexp::Log模板匹配变量" rel="bookmark">【Message::Passing系列】Regexp::Log模板匹配变量</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-09-16 00:00:00 +0800">16 Sep 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>上面调用的Regexp::Log::Nginx是base Regexp::Log的实例，CPAN上已经提供了好些server的log regex，见<a href="http://search.cpan.org/search?query=Regexp%3A%3Alog&amp;mode=all">http://search.cpan.org/search?query=Regexp%3A%3Alog&amp;mode=all</a>。</p>
-<div class="highlight"><pre><code class="perl">    <span class="c1">#!/usr/bin/perl</span>
-    <span class="nb">package</span> <span class="nn">Regexp::Log::</span><span class="n">Nginx</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">base</span> <span class="sx">qw( Regexp::Log )</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">vars</span> <span class="sx">qw( $VERSION %DEFAULT %FORMAT %REGEXP )</span><span class="p">;</span>
-    <span class="nv">%DEFAULT</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="nb">format</span>  <span class="o">=&gt;</span> <span class="s">&#39;%date %status %remotehost %domain %request %originhost %responsetime %upstreamtime %bytes %referer %useragent %xforwarderfor&#39;</span><span class="p">,</span>
-            <span class="n">capture</span> <span class="o">=&gt;</span> <span class="p">[</span> <span class="s">&#39;ts&#39;</span><span class="p">,</span> <span class="s">&#39;status&#39;</span><span class="p">,</span> <span class="s">&#39;remotehost&#39;</span><span class="p">,</span> <span class="s">&#39;url&#39;</span><span class="p">,</span> <span class="s">&#39;oh&#39;</span><span class="p">,</span> <span class="s">&#39;responsetime&#39;</span><span class="p">,</span> <span class="s">&#39;upstreamtime&#39;</span><span class="p">,</span> <span class="s">&#39;bytes&#39;</span> <span class="p">],</span>
-    <span class="p">);</span>
-    <span class="nv">%FORMAT</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="s">&#39;:default&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;%date %status %remotehost %domain %request %originhost %responsetime %upstreamtime %bytes %referer %useragent %xforwarderfor&#39;</span><span class="p">,</span>
-    <span class="p">);</span>
-    <span class="nv">%REGEXP</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="s">&#39;%date&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;(?#=date)\[(?#=ts)\d{2}\/\w{3}\/\d{4}(?::\d{2}){3}(?#!ts) [-+]\d{4}\](?#!date)&#39;</span><span class="p">,</span>
-            <span class="s">&#39;%status&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;(?#=status)\d+(?#!status)&#39;</span><span class="p">,</span>
-            <span class="s">&#39;%remotehost&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;(?#=remotehost)\S+(?#!remotehost)&#39;</span><span class="p">,</span>
-            <span class="s">&#39;%domain&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;(?#=domain).*?(?#!domain)&#39;</span><span class="p">,</span>
-            <span class="s">&#39;%request&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;(?#=request)-|(?#=method)\w+(?#!method) (?#=url).*?(?#!url) (?#=version)HTTP/\d\.\d(?#!version)(?#!request)&#39;</span><span class="p">,</span>
-            <span class="s">&#39;%originhost&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;(?#=originhost)-|(?#=oh).*?(?#!oh):\d+(?#!originhost)&#39;</span><span class="p">,</span>
-            <span class="s">&#39;%responsetime&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;(?#=responsetime)-|.*?(?#!responsetime)&#39;</span><span class="p">,</span>
-            <span class="s">&#39;%upstreamtime&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;(?#=upstreamtime).*?(?#!upstreamtime)&#39;</span><span class="p">,</span>
-            <span class="s">&#39;%bytes&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;(?#=bytes)\d+(?#!bytes)&#39;</span><span class="p">,</span>
-            <span class="s">&#39;%referer&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;(?#=referer)\&quot;(?#=ref).*?(?#!ref)\&quot;(?#!referer)&#39;</span><span class="p">,</span>
-            <span class="s">&#39;%useragent&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;(?#=useragent)\&quot;(?#=ua).*?(?#!ua)\&quot;(?#!useragent)&#39;</span><span class="p">,</span>
-            <span class="s">&#39;%xforwarderfor&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;(?#=xforwarderfor)\&quot;(?#=xff).*?(?#!xff)\&quot;(?#!xforwarderfor)&#39;</span><span class="p">,</span>
-    <span class="p">);</span>
-    <span class="mi">1</span><span class="p">;</span>
-</code></pre></div>
-      <a href="/2012/09/16/regexp-log-demo-for-nginx" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

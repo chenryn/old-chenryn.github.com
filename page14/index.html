@@ -43,6 +43,370 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/01/28/transparent-by-ports" title="端口转发" rel="bookmark">端口转发</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-01-28 00:00:00 +0800">28 Jan 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>常见的linux端口转发，是iptables方式，方法如下：</p>
+<div class="highlight"><pre><code class="bash"><span class="c">#modprobe iptable_nat</span>
+<span class="c">#modprobe ip_conntrack</span>
+<span class="c">#service iptables stop</span>
+<span class="c">#echo 1 &gt; /proc/sys/net/ipv4/ip_forward</span>
+<span class="c">#iptables -t nat -I PREROUTING -p tcp --dport 443 -j DNAT --to 1.2.3.4</span>
+<span class="c">#iptables -t nat -I POSTROUTING -p tcp --dport 8081 -j MASQUERADE</span>
+<span class="c">#service iptables save</span>
+<span class="c">#service iptables start</span>
+</code></pre></div>
+<p>其次网上有不少推荐rinetd，方法如下：</p>
+<div class="highlight"><pre><code class="bash"><span class="c">#wget http://www.boutell.com/rinetd/http/rinetd.tar.gz</span>
+<span class="c">#tar zxvf rinetd.tar.gz</span>
+<span class="c">#cd rinted</span>
+<span class="c">#./configure &amp;&amp; make &amp;&amp; make install</span>
+<span class="c"># cat /etc/rinetd.conf</span>
+0.0.0.0 443 www.test.com 443 allow *.*.*.*
+logfile /var/log/rinetd.log
+</code></pre></div>
+<p>看起来比iptables有个优势，可以采用域名解析，可惜做不到根据域名的不同，把相同端口的请求转向不同IP，其实也就跟直接写IP没多少区别了。
+第三还有ssh的端口转发，其实是把原TCP端口的数据转由ssh通道传输。方法如下：
+本地转发：ssh -g -L <local port="">:<remote host="">:
+远程转发：ssh -g -R <local port="">:<remote host="">:
+不过客户未必（或许说基本不可能）给外人开放ssh吧~~
+第四，socket网络编程实现。我在网上发现了相关的perl脚本。
+例一代码如下：</remote></local></remote></local></p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!C:Perlbinperl.exe</span>
+<span class="c1">#端口重定向(fork、IO::Select）</span>
+<span class="c1">#By shanleiguang@gmail.com, 2005/10</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">IO::</span><span class="n">Socket</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">IO::</span><span class="n">Select</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Getopt::</span><span class="n">Std</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(:sys_wait_h strftime)</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">constant</span> <span class="n">FOREVER</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">constant</span> <span class="n">BUFSIZE</span> <span class="o">=&gt;</span> <span class="mi">4096</span><span class="p">;</span>
+<span class="c1">#父进程下处理僵死子进程</span>
+<span class="k">sub </span><span class="nf">zombie_reaper</span> <span class="p">{</span>
+<span class="k">while</span><span class="p">(</span><span class="nb">waitpid</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">WNOHANG</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{}</span>
+<span class="nv">$SIG</span><span class="p">{</span><span class="n">CHLD</span><span class="p">}</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">zombie_reaper</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="nv">$SIG</span><span class="p">{</span><span class="n">CHLD</span><span class="p">}</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">zombie_reaper</span><span class="p">;</span>
+<span class="c1">#处理参数</span>
+<span class="k">my</span> <span class="nv">%opts</span><span class="p">;</span>
+<span class="n">getopts</span><span class="p">(</span><span class="s">&#39;h:l:t:p:&#39;</span><span class="p">,</span> <span class="nv">%opts</span><span class="p">);</span>
+<span class="n">print_help</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">exit</span> <span class="k">if</span><span class="p">(</span><span class="nb">defined</span><span class="p">(</span><span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;h&#39;</span><span class="p">}));</span>
+<span class="n">print_help</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">exit</span> <span class="k">if</span><span class="p">(</span><span class="ow">not</span> <span class="nb">defined</span><span class="p">(</span><span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;t&#39;</span><span class="p">})</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">defined</span><span class="p">(</span><span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;p&#39;</span><span class="p">}));</span>
+<span class="n">print_help</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">exit</span> <span class="k">if</span><span class="p">(</span><span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;t&#39;</span><span class="p">}</span> <span class="o">!~</span> <span class="sr">m/^d+.d+.d+.d+$/</span><span class="p">);</span>
+<span class="n">print_help</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">exit</span> <span class="k">if</span><span class="p">(</span><span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;l&#39;</span><span class="p">}</span> <span class="o">!~</span> <span class="sr">m/^d+$/</span><span class="p">);</span>
+<span class="n">print_help</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">exit</span> <span class="k">if</span><span class="p">(</span><span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;p&#39;</span><span class="p">}</span> <span class="o">!~</span> <span class="sr">m/^d+$/</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$listen_port</span> <span class="o">=</span> <span class="p">(</span><span class="nb">defined</span><span class="p">(</span><span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;l&#39;</span><span class="p">}))</span> <span class="p">?</span> <span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;l&#39;</span><span class="p">}</span> <span class="p">:</span> <span class="mi">8080</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$target_ip</span><span class="err">  </span> <span class="o">=</span> <span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;t&#39;</span><span class="p">};</span>
+<span class="k">my</span> <span class="nv">$target_port</span> <span class="o">=</span> <span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;p&#39;</span><span class="p">};</span>
+<span class="c1">#在本地创建监听Socket</span>
+<span class="k">my</span> <span class="nv">$socket_listen</span><span class="err"> </span> <span class="o">=</span> <span class="nn">IO::Socket::</span><span class="n">INET</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+<span class="n">LocalPort</span> <span class="o">=&gt;</span> <span class="nv">$listen_port</span><span class="p">,</span>
+<span class="n">Proto</span>     <span class="o">=&gt;</span> <span class="s">&#39;tcp&#39;</span><span class="p">,</span>
+<span class="n">Listen</span><span class="err">   </span> <span class="o">=&gt;</span> <span class="mi">5</span><span class="p">,</span>
+<span class="n">Reuse</span>     <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
+<span class="p">);</span>
+<span class="k">print</span> <span class="n">timestamp</span><span class="p">(),</span> <span class="s">&quot;, listening on port $listen_port ...n&quot;</span><span class="p">;</span>
+<span class="c1">#新建两个用于Socket IO监视的IO::Select对象</span>
+<span class="k">my</span> <span class="nv">$readers</span> <span class="o">=</span> <span class="nn">IO::</span><span class="n">Select</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">();</span>
+<span class="k">my</span> <span class="nv">$writers</span> <span class="o">=</span> <span class="nn">IO::</span><span class="n">Select</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">();</span>
+<span class="nv">$readers</span><span class="o">-&gt;</span><span class="n">add</span><span class="p">(</span><span class="nv">$socket_listen</span><span class="p">);</span>
+<span class="c1">#父进程仅监视Listening Socket的accept事件</span>
+<span class="k">while</span><span class="p">(</span><span class="n">FOREVER</span><span class="p">)</span> <span class="p">{</span>
+<span class="k">my</span> <span class="nv">@readers</span> <span class="o">=</span> <span class="nv">$readers</span><span class="o">-&gt;</span><span class="n">can_read</span><span class="p">;</span>
+<span class="k">foreach</span> <span class="k">my</span> <span class="nv">$reader</span> <span class="p">(</span><span class="nv">@readers</span><span class="p">)</span> <span class="p">{</span>
+<span class="k">if</span><span class="p">(</span><span class="nv">$reader</span> <span class="ow">eq</span> <span class="nv">$socket_listen</span><span class="p">)</span> <span class="p">{</span>
+<span class="c1">#创建子进程处理后续的转发，父进程继续监视Listening Socket</span>
+<span class="nb">fork</span> <span class="ow">and</span> <span class="k">next</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$socket_client</span> <span class="o">=</span> <span class="nv">$socket_listen</span><span class="o">-&gt;</span><span class="nb">accept</span><span class="p">();</span>
+<span class="c1">#在子进程中，不再需要对Listening Socket进行操作</span>
+<span class="nv">$readers</span><span class="o">-&gt;</span><span class="n">remove</span><span class="p">(</span><span class="nv">$socket_listen</span><span class="p">);</span>
+<span class="nv">$socket_listen</span><span class="o">-&gt;</span><span class="nb">close</span><span class="p">();</span>
+<span class="c1">#子进程</span>
+<span class="n">as_server</span><span class="p">(</span><span class="nv">$socket_client</span><span class="p">);</span>
+<span class="nb">exit</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="p">}</span>
+<span class="p">}</span>
+<span class="c1">#子进程</span>
+<span class="k">sub </span><span class="nf">as_server</span> <span class="p">{</span>
+<span class="k">my</span> <span class="nv">$socket_client</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$client_port</span> <span class="o">=</span> <span class="nv">$socket_client</span><span class="o">-&gt;</span><span class="n">peerport</span><span class="p">();</span>
+<span class="k">my</span> <span class="nv">$client_ip</span><span class="err">  </span> <span class="o">=</span> <span class="nv">$socket_client</span><span class="o">-&gt;</span><span class="n">peerhost</span><span class="p">();</span>
+<span class="c1">#创建到目标地址:端口的Socket连接</span>
+<span class="k">my</span> <span class="nv">$socket_forward</span> <span class="o">=</span> <span class="nn">IO::Socket::</span><span class="n">INET</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+<span class="n">PeerAddr</span> <span class="o">=&gt;</span> <span class="nv">$target_ip</span><span class="p">,</span>
+<span class="n">PeerPort</span> <span class="o">=&gt;</span> <span class="nv">$target_port</span>
+<span class="p">);</span>
+<span class="k">print</span> <span class="n">timestamp</span><span class="p">(),</span> <span class="s">&quot;, $client_ip:$client_port$target_ip:$target_port.n&quot;</span><span class="p">;</span>
+<span class="c1">#监视socket_client、socket_forward的IO情况</span>
+<span class="nv">$readers</span><span class="o">-&gt;</span><span class="n">add</span><span class="p">(</span><span class="nv">$socket_client</span><span class="p">);</span>
+<span class="nv">$readers</span><span class="o">-&gt;</span><span class="n">add</span><span class="p">(</span><span class="nv">$socket_forward</span><span class="p">);</span>
+<span class="nv">$writers</span><span class="o">-&gt;</span><span class="n">add</span><span class="p">(</span><span class="nv">$socket_client</span><span class="p">);</span>
+<span class="nv">$writers</span><span class="o">-&gt;</span><span class="n">add</span><span class="p">(</span><span class="nv">$socket_forward</span><span class="p">);</span>
+<span class="k">my</span> <span class="p">(</span><span class="nv">$rbuffer_forward</span><span class="p">,</span> <span class="nv">$rbuffer_client</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">);</span>
+<span class="k">while</span><span class="p">(</span><span class="n">FOREVER</span><span class="p">)</span> <span class="p">{</span>
+<span class="k">my</span> <span class="nv">@readers</span> <span class="o">=</span> <span class="nv">$readers</span><span class="o">-&gt;</span><span class="n">can_read</span><span class="p">;</span>
+<span class="k">foreach</span> <span class="k">my</span> <span class="nv">$reader</span> <span class="p">(</span><span class="nv">@readers</span><span class="p">)</span> <span class="p">{</span>
+<span class="k">my</span> <span class="nv">$rbuffer</span><span class="p">;</span>
+<span class="c1">#当socket_client可读时，将读取的内容追加到rbuffer_client后</span>
+<span class="c1">#假如读取失败，则退出子进程</span>
+<span class="k">if</span><span class="p">(</span><span class="nv">$reader</span> <span class="ow">eq</span> <span class="nv">$socket_client</span><span class="p">)</span> <span class="p">{</span>
+<span class="nb">exit</span> <span class="k">if</span><span class="p">(</span><span class="ow">not</span> <span class="nb">recv</span><span class="p">(</span><span class="nv">$reader</span><span class="p">,</span> <span class="nv">$rbuffer</span><span class="p">,</span> <span class="n">BUFSIZE</span><span class="p">,</span> <span class="mi">0</span><span class="p">));</span>
+<span class="nv">$rbuffer_client</span><span class="o">.=</span> <span class="nv">$rbuffer</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="c1">#当socket_forward可读时，将读取的内容追加到rbuffer_forward后</span>
+<span class="c1">#假如读取失败，则退出子进程</span>
+<span class="k">if</span><span class="p">(</span><span class="nv">$reader</span> <span class="ow">eq</span> <span class="nv">$socket_forward</span><span class="p">)</span> <span class="p">{</span>
+<span class="nb">exit</span> <span class="k">if</span><span class="p">(</span><span class="ow">not</span> <span class="nb">recv</span><span class="p">(</span><span class="nv">$reader</span><span class="p">,</span> <span class="nv">$rbuffer</span><span class="p">,</span> <span class="n">BUFSIZE</span><span class="p">,</span> <span class="mi">0</span><span class="p">));</span>
+<span class="nv">$rbuffer_forward</span> <span class="o">.=</span> <span class="nv">$rbuffer</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="p">}</span>
+<span class="k">my</span> <span class="nv">@writers</span> <span class="o">=</span> <span class="nv">$writers</span><span class="o">-&gt;</span><span class="n">can_write</span><span class="p">;</span>
+<span class="k">foreach</span> <span class="k">my</span> <span class="nv">$writer</span> <span class="p">(</span><span class="nv">@writers</span><span class="p">)</span> <span class="p">{</span>
+<span class="c1">#当socket_client可写，且rbuffer_forward不为空时，将rbuffer_forward</span>
+<span class="c1">#内容写入socket_client，假如写失败，则退出子进程</span>
+<span class="k">if</span><span class="p">(</span><span class="nv">$writer</span> <span class="ow">eq</span> <span class="nv">$socket_client</span><span class="p">)</span> <span class="p">{</span>
+<span class="k">next</span> <span class="k">if</span><span class="p">(</span><span class="ow">not</span> <span class="nv">$rbuffer_forward</span><span class="p">);</span>
+<span class="nb">exit</span> <span class="k">if</span><span class="p">(</span><span class="ow">not</span> <span class="nb">send</span><span class="p">(</span><span class="nv">$writer</span><span class="p">,</span> <span class="nv">$rbuffer_forward</span><span class="p">,</span> <span class="mi">0</span><span class="p">));</span>
+<span class="nv">$rbuffer_forward</span> <span class="o">=</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="c1">#当socket_forward可写，且rbuffer_client不为空时，将rbuffer_client</span>
+<span class="c1">#内容写入socket_forward，假如写失败，则退出子进程</span>
+<span class="k">if</span><span class="p">(</span><span class="nv">$writer</span> <span class="ow">eq</span> <span class="nv">$socket_forward</span><span class="p">)</span> <span class="p">{</span>
+<span class="k">next</span> <span class="k">if</span><span class="p">(</span><span class="ow">not</span> <span class="nv">$rbuffer_client</span><span class="p">);</span>
+<span class="nb">exit</span> <span class="k">if</span><span class="p">(</span><span class="ow">not</span> <span class="nb">send</span><span class="p">(</span><span class="nv">$writer</span><span class="p">,</span> <span class="nv">$rbuffer_client</span><span class="p">,</span> <span class="mi">0</span><span class="p">));</span>
+<span class="nv">$rbuffer_client</span> <span class="o">=</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="p">}</span>
+<span class="p">}</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">timestamp</span> <span class="p">{</span>
+<span class="k">return</span> <span class="n">strftime</span> <span class="s">&quot;[%y/%m/%d,%H:%M:%S]&quot;</span><span class="p">,</span> <span class="nb">localtime</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">print_help</span> <span class="p">{</span>
+<span class="k">my</span> <span class="nv">$filename</span> <span class="o">=</span> <span class="p">(</span><span class="nb">split</span> <span class="o">/\/</span><span class="p">,</span> <span class="nv">$0</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">];</span>
+<span class="k">print</span> <span class="s">&lt;&lt;HELP</span>
+<span class="s">&gt;&gt;&gt;</span>
+<span class="s">$filename [-h,-l:]</span>
+<span class="s"> -h  print help</span>
+<span class="s"> -l  listening local port, default 8080</span>
+<span class="s"> -t  target ipaddr</span>
+<span class="s"> -p  target port</span>
+<span class="s">By shanleiguang@gmail.com, 2005/10</span>
+<span class="s">HELP</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>例二代码如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!C:Perlbinperl.exe</span>
+<span class="c1">#端口重定向（POE）</span>
+<span class="c1">#By shanleiguang@gmail.com, 2005/10</span>
+<span class="c1">#POE结构：</span>
+<span class="c1">#</span>
+<span class="c1">#Driver-&gt;Filter-&gt;Wheel-&gt;Components</span>
+<span class="c1">#</span>
+<span class="o">|</span><span class="n">______</span><span class="o">|</span><span class="n">______</span><span class="o">|</span><span class="n">________</span><span class="o">|</span>
+<span class="c1">#</span>
+<span class="o">|</span>
+<span class="c1">#          Session</span>
+<span class="c1">#</span>
+<span class="o">|</span>
+<span class="c1"># Kernel</span>
+<span class="c1">#</span>
+<span class="c1">#Driver：    底层文件操作的抽象，在编程时不会直接用到</span>
+<span class="c1">#Filter：    底层、中层协议操作的抽象，通常不会直接用到</span>
+<span class="c1">#Wheel：     高层协议操作的抽象，经常要用到</span>
+<span class="c1">#Components：POE提供的一些拿来就能用的组件</span>
+<span class="c1">#Session：   会话抽象，会话中需要创建高层协议抽象</span>
+<span class="c1">#Kernel：    POE管理会话的内核</span>
+<span class="c1">#</span>
+<span class="c1">#POE对象的数据结构：</span>
+<span class="c1">#</span>
+<span class="c1">#$_[HEAP]：是会话唯一的数据存储区；</span>
+<span class="c1">#$_[SESSION]：是指向会话自身的引用；</span>
+<span class="c1">#$_[KERNEL]：是指向会话管理内核的引用；</span>
+<span class="c1">#@_[ARG0..ARG9]：用于传递给各事件处理函数的参数；</span>
+<span class="c1">#</span>
+<span class="c1">#还是实例最直观：</span>
+<span class="c1">#在父会话中创建一个监听用的Socket，当有客户端连接，即有accept_sucess事件发生时，</span>
+<span class="c1">#则创建一个子会话处理后续事件，并将accept获得的客户端Socket传递给子会话；子会话</span>
+<span class="c1">#创建到目标的Socket，连接过程中，如果客户端Socket中有input事件，则将客户端的input</span>
+<span class="c1">#内容缓存在一个队列中，当连接成功后，发送给到目标的那个Socket中，见下图：</span>
+<span class="c1">#</span>
+<span class="c1">#          +-------------------------------+</span>
+<span class="c1">#         /|      Socket_listen            |</span>
+<span class="c1">#        / +-------------------------------+</span>
+<span class="c1">#Client|Socket_client Socket_server|Target</span>
+<span class="c1">#          +-------------------------------+</span>
+<span class="c1">#                    Forwarder</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">Socket</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Getopt::</span><span class="n">Std</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(strftime)</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">POE</span> <span class="sx">qw(</span>
+<span class="sx">Wheel::SocketFactory</span>
+<span class="sx">Wheel::ReadWrite</span>
+<span class="sx">Filter::Stream</span>
+<span class="sx">)</span><span class="p">;</span>
+<span class="c1">#Get Options</span>
+<span class="k">my</span> <span class="nv">%opts</span><span class="p">;</span>
+<span class="n">getopts</span><span class="p">(</span><span class="s">&#39;hl:t:p:&#39;</span><span class="p">,</span> <span class="nv">%opts</span><span class="p">);</span>
+<span class="n">print_help</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">exit</span> <span class="k">if</span><span class="p">(</span><span class="nb">defined</span><span class="p">(</span><span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;h&#39;</span><span class="p">}));</span>
+<span class="n">print_help</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">exit</span> <span class="k">if</span><span class="p">(</span><span class="ow">not</span> <span class="nb">defined</span><span class="p">(</span><span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;t&#39;</span><span class="p">})</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">defined</span><span class="p">(</span><span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;p&#39;</span><span class="p">}));</span>
+<span class="n">print_help</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">exit</span> <span class="k">if</span><span class="p">(</span><span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;t&#39;</span><span class="p">}</span> <span class="o">!~</span> <span class="sr">m/^d+.d+.d+.d+$/</span><span class="p">);</span>
+<span class="n">print_hekp</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">exit</span> <span class="k">if</span><span class="p">(</span><span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;p&#39;</span><span class="p">}</span> <span class="o">!~</span> <span class="sr">m/^d+$/</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$listen_port</span> <span class="o">=</span> <span class="p">(</span><span class="nb">defined</span><span class="p">(</span><span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;l&#39;</span><span class="p">}))</span> <span class="p">?</span> <span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;l&#39;</span><span class="p">}</span> <span class="p">:</span> <span class="mi">8080</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$target_addr</span> <span class="o">=</span> <span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;t&#39;</span><span class="p">};</span>
+<span class="k">my</span> <span class="nv">$target_port</span> <span class="o">=</span> <span class="nv">$opts</span><span class="p">{</span><span class="s">&#39;p&#39;</span><span class="p">};</span>
+<span class="c1">###Create Parent - &#39;Listen Session&#39;###</span>
+<span class="c1">###创建父会话用于监听客户端的连接</span>
+<span class="c1">###会话创建的最后将进入_start状态，执行_start的handler</span>
+<span class="c1">###accept_success即在_start的handler中创建监听Socket的Wheel中</span>
+<span class="c1">###的SuccessEvent事件，它的handler是forwarder_create函数</span>
+<span class="c1">###$_[ARG0]是wheel::SocketFatory的SuccessEvent传递的参数</span>
+<span class="nn">POE::</span><span class="n">Session</span><span class="o">-&gt;</span><span class="n">create</span><span class="p">(</span>
+  <span class="n">inline_states</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="n">_start</span> <span class="o">=&gt;</span> <span class="o">&amp;</span><span class="n">forwarder_server_start</span><span class="p">,</span>
+    <span class="n">_stop</span><span class="err"> </span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="k">print</span> <span class="n">timestamp</span><span class="p">(),</span> <span class="s">&quot;, forwarder server stopped.&quot;</span><span class="p">;</span> <span class="p">},</span>
+    <span class="n">accept_success</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="o">&amp;</span><span class="n">forwarder_create</span><span class="p">(</span><span class="nv">$_</span><span class="p">[</span><span class="n">ARG0</span><span class="p">]);</span> <span class="p">},</span>
+    <span class="n">accept_failure</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nb">delete</span> <span class="nv">$_</span><span class="p">[</span><span class="n">HEAP</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">server_wheel</span><span class="p">}</span> <span class="p">},</span>
+  <span class="p">},</span>
+<span class="p">);</span>
+<span class="nv">$poe_kernel</span><span class="o">-&gt;</span><span class="n">run</span><span class="p">();</span>
+<span class="nb">exit</span><span class="p">;</span>
+<span class="c1">###Event handlers for Parent Session###</span>
+<span class="c1">###父会话中的事件处理函数</span>
+<span class="k">sub </span><span class="nf">forwarder_server_start</span> <span class="p">{</span>
+<span class="k">print</span> <span class="n">timestamp</span><span class="p">(),</span> <span class="s">&quot;, listening on port $listen_port and &quot;</span><span class="p">;</span>
+<span class="k">print</span> <span class="s">&quot;forward to $target_addr:$target_port\n&quot;</span><span class="p">;</span>
+<span class="c1">#在父会话的存储区创建一个监听Socket类型的Wheel</span>
+<span class="nv">$_</span><span class="p">[</span><span class="n">HEAP</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">server_wheel</span><span class="p">}</span> <span class="o">=</span> <span class="nn">POE::Wheel::</span><span class="n">SocketFactory</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+  <span class="n">BindPort</span>       <span class="o">=&gt;</span> <span class="nv">$listen_port</span><span class="p">,</span>
+  <span class="n">SocketProtocol</span> <span class="o">=&gt;</span> <span class="s">&#39;tcp&#39;</span><span class="p">,</span>
+  <span class="n">ListenQueue</span><span class="err">   </span> <span class="o">=&gt;</span> <span class="n">SOMAXCONN</span><span class="p">,</span>
+  <span class="n">Reuse</span><span class="err">         </span> <span class="o">=&gt;</span> <span class="s">&#39;on&#39;</span><span class="p">,</span>
+<span class="c1">#ARG0 of SuccessEvent</span>
+  <span class="n">SuccessEvent</span>   <span class="o">=&gt;</span> <span class="s">&#39;accept_success&#39;</span><span class="p">,</span>
+  <span class="n">FailureEvent</span>   <span class="o">=&gt;</span> <span class="s">&#39;accept_failure&#39;</span><span class="p">,</span>
+<span class="p">);</span>
+<span class="p">}</span>
+<span class="c1">###Create Child - &#39;Forward Session&#39;###</span>
+<span class="c1">###创建子会话</span>
+<span class="k">sub </span><span class="nf">forwarder_create</span> <span class="p">{</span>
+<span class="k">my</span> <span class="nv">$socket</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+<span class="nn">POE::</span><span class="n">Session</span><span class="o">-&gt;</span><span class="n">create</span><span class="p">(</span>
+<span class="n">inline_states</span> <span class="o">=&gt;</span> <span class="p">{</span>
+<span class="n">_start</span> <span class="o">=&gt;</span> <span class="o">&amp;</span><span class="n">forwarder_start</span><span class="p">,</span>
+<span class="n">_stop</span><span class="err"> </span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+<span class="k">print</span> <span class="s">&#39; &#39;</span> <span class="n">x</span> <span class="mi">4</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">(),</span> <span class="s">&#39;, sessionId:&#39;</span><span class="p">;</span>
+<span class="k">print</span> <span class="nv">$_</span><span class="p">[</span><span class="n">SESSION</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">ID</span><span class="p">,</span> <span class="s">&quot;, forwarder stop\n&quot;</span><span class="p">;</span>
+<span class="p">},</span>
+<span class="n">client_input</span> <span class="o">=&gt;</span> <span class="o">&amp;</span><span class="n">client_input</span><span class="p">,</span>
+<span class="n">client_error</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+<span class="nb">delete</span> <span class="nv">$_</span><span class="p">[</span><span class="n">HEAP</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">wheel_client</span><span class="p">};</span>
+<span class="nb">delete</span> <span class="nv">$_</span><span class="p">[</span><span class="n">HEAP</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">wheel_server</span><span class="p">};</span>
+<span class="p">},</span>
+<span class="n">server_connect</span> <span class="o">=&gt;</span> <span class="o">&amp;</span><span class="n">server_connect</span><span class="p">,</span>
+<span class="n">server_input</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+<span class="nv">$_</span><span class="p">[</span><span class="n">HEAP</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">wheel_client</span><span class="p">}</span><span class="o">-&gt;</span><span class="n">put</span><span class="p">(</span><span class="nv">$_</span><span class="p">[</span><span class="n">ARG0</span><span class="p">])</span> <span class="k">if</span><span class="p">(</span><span class="nb">exists</span> <span class="nv">$_</span><span class="p">[</span><span class="n">HEAP</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">wheel_client</span><span class="p">});</span>
+<span class="p">},</span>
+<span class="n">server_error</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+<span class="nb">delete</span> <span class="nv">$_</span><span class="p">[</span><span class="n">HEAP</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">wheel_client</span><span class="p">};</span>
+<span class="nb">delete</span> <span class="nv">$_</span><span class="p">[</span><span class="n">HEAP</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">wheel_server</span><span class="p">};</span>
+<span class="p">},</span>
+<span class="p">},</span>
+<span class="c1">#Parameters to &#39;_start&#39; Event</span>
+<span class="n">args</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="nv">$socket</span><span class="p">],</span>
+<span class="p">);</span>
+<span class="p">}</span>
+<span class="c1">##Event Handlers of Child Session##</span>
+<span class="k">sub </span><span class="nf">forwarder_start</span> <span class="p">{</span>
+<span class="k">my</span> <span class="p">(</span><span class="nv">$heap</span><span class="p">,</span> <span class="nv">$socket</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">[</span><span class="n">HEAP</span><span class="p">,</span> <span class="n">ARG0</span><span class="p">];</span>
+<span class="k">print</span> <span class="s">&#39; &#39;</span> <span class="n">x</span> <span class="mi">4</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">(),</span> <span class="s">&#39;, sessionId:&#39;</span><span class="p">;</span>
+<span class="k">print</span> <span class="nv">$_</span><span class="p">[</span><span class="n">SESSION</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">ID</span><span class="p">,</span> <span class="s">&quot;, forwarder startn&quot;</span><span class="p">;</span>
+<span class="c1">#Buffer client&#39;s input while connecting to the target</span>
+<span class="nv">$heap</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">}</span> <span class="o">=</span> <span class="s">&#39;connecting&#39;</span><span class="p">;</span>
+<span class="nv">$heap</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">queue</span><span class="p">}</span> <span class="o">=</span> <span class="o">[]</span><span class="p">;</span>
+<span class="c1">#ClientForwarder server</span>
+<span class="nv">$heap</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">wheel_client</span><span class="p">}</span> <span class="o">=</span> <span class="nn">POE::Wheel::</span><span class="n">ReadWrite</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+<span class="n">Handle</span> <span class="o">=&gt;</span> <span class="nv">$socket</span><span class="p">,</span>
+<span class="n">Driver</span> <span class="o">=&gt;</span> <span class="nn">POE::Driver::</span><span class="n">SysRW</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(),</span>
+<span class="n">Filter</span> <span class="o">=&gt;</span> <span class="nn">POE::Filter::</span><span class="n">Stream</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(),</span>
+<span class="n">InputEvent</span> <span class="o">=&gt;</span> <span class="s">&#39;client_input&#39;</span><span class="p">,</span>
+<span class="n">ErrorEvent</span> <span class="o">=&gt;</span> <span class="s">&#39;client_error&#39;</span><span class="p">,</span>
+<span class="p">);</span>
+<span class="c1">#Forwarder servertarget</span>
+<span class="nv">$heap</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">wheel_server</span><span class="p">}</span> <span class="o">=</span> <span class="nn">POE::Wheel::</span><span class="n">SocketFactory</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+<span class="n">RemoteAddress</span> <span class="o">=&gt;</span> <span class="nv">$target_addr</span><span class="p">,</span>
+<span class="n">RemotePort</span><span class="err">   </span> <span class="o">=&gt;</span> <span class="nv">$target_port</span><span class="p">,</span>
+<span class="n">SuccessEvent</span><span class="err"> </span> <span class="o">=&gt;</span> <span class="s">&#39;server_connect&#39;</span><span class="p">,</span>
+<span class="n">FailureEvent</span><span class="err"> </span> <span class="o">=&gt;</span> <span class="s">&#39;server_error&#39;</span><span class="p">,</span>
+<span class="p">);</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">server_connect</span> <span class="p">{</span>
+<span class="k">my</span> <span class="p">(</span><span class="nv">$kernel</span><span class="p">,</span> <span class="nv">$session</span><span class="p">,</span> <span class="nv">$heap</span><span class="p">,</span> <span class="nv">$socket</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">[</span><span class="n">KERNEL</span><span class="p">,</span> <span class="n">SESSION</span><span class="p">,</span> <span class="n">HEAP</span><span class="p">,</span> <span class="n">ARG0</span><span class="p">];</span>
+<span class="c1">#Replace</span>
+<span class="nv">$heap</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">wheel_server</span><span class="p">}</span>
+<span class="nv">$heap</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">wheel_server</span><span class="p">}</span>
+<span class="o">=</span> <span class="nn">POE::Wheel::</span><span class="n">ReadWrite</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+<span class="n">Handle</span>     <span class="o">=&gt;</span> <span class="nv">$socket</span><span class="p">,</span>
+<span class="n">Driver</span>     <span class="o">=&gt;</span> <span class="nn">POE::Driver::</span><span class="n">SysRW</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">,</span>
+<span class="n">Filter</span>     <span class="o">=&gt;</span> <span class="nn">POE::Filter::</span><span class="n">Stream</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">,</span>
+<span class="n">InputEvent</span> <span class="o">=&gt;</span> <span class="s">&#39;server_input&#39;</span><span class="p">,</span>
+<span class="n">ErrorEvent</span> <span class="o">=&gt;</span> <span class="s">&#39;server_error&#39;</span><span class="p">,</span>
+<span class="p">);</span>
+<span class="nv">$heap</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">}</span> <span class="o">=</span> <span class="s">&#39;connected&#39;</span><span class="p">;</span>
+<span class="nv">$kernel</span><span class="o">-&gt;</span><span class="n">call</span><span class="p">(</span><span class="nv">$session</span><span class="p">,</span> <span class="s">&#39;client_input&#39;</span><span class="p">,</span> <span class="nv">$_</span><span class="p">)</span> <span class="k">foreach</span><span class="p">(</span><span class="nv">@</span><span class="p">{</span><span class="nv">$heap</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">queue</span><span class="p">}});</span>
+<span class="nv">$heap</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">queue</span><span class="p">}</span> <span class="o">=</span> <span class="o">[]</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">client_input</span> <span class="p">{</span>
+<span class="k">my</span> <span class="p">(</span><span class="nv">$heap</span><span class="p">,</span> <span class="nv">$input</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">[</span><span class="n">HEAP</span><span class="p">,</span> <span class="n">ARG0</span><span class="p">];</span>
+<span class="nb">push</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$heap</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">queue</span><span class="p">}},</span> <span class="nv">$input</span> <span class="ow">and</span> <span class="k">return</span> <span class="k">if</span><span class="p">(</span><span class="nv">$heap</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">}</span> <span class="ow">eq</span> <span class="s">&#39;connecting&#39;</span><span class="p">);</span>
+<span class="nv">$heap</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">wheel_server</span><span class="p">}</span><span class="o">-&gt;</span><span class="n">put</span><span class="p">(</span><span class="nv">$input</span><span class="p">)</span> <span class="k">if</span><span class="p">(</span><span class="nb">exists</span> <span class="nv">$heap</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">wheel_server</span><span class="p">});</span>
+<span class="p">}</span>
+<span class="c1">#Common subroutines</span>
+<span class="k">sub </span><span class="nf">timestamp</span> <span class="p">{</span>
+<span class="k">return</span> <span class="n">strftime</span> <span class="s">&quot;[%H:%M:%S]&quot;</span><span class="p">,</span> <span class="nb">localtime</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">print_help</span> <span class="p">{</span>
+<span class="k">my</span> <span class="nv">$filename</span> <span class="o">=</span> <span class="p">(</span><span class="nb">split</span> <span class="o">/\/</span><span class="p">,</span> <span class="nv">$0</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">];</span>
+<span class="k">print</span> <span class="s">&lt;&lt;HELP</span>
+<span class="s">&gt;&gt;&gt;</span>
+<span class="s">$filename [-h,-l:]</span>
+<span class="s">-h  print help</span>
+<span class="s">-l  listen port</span>
+<span class="s">-t  target ipaddress</span>
+<span class="s">-p  target port</span>
+<span class="s">A simple TCP forwarder server, 2005/10</span>
+<span class="s">By shanleiguang@gmail.com</span>
+<span class="s">HELP</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>使用方法：
+# perl tcpForwarder.pl -l 8080 -t
+xxx.xxx.xxx.xxx -p 80
+[xx:xx:xx:], listening on local port 8080 and forward to
+xxx.xxx.xxx.xxx:80&hellip;
+&hellip;</p>
+      <a href="/2010/01/28/transparent-by-ports" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/01/27/test-location-in-squid" title="squid页面跳转试验" rel="bookmark">squid页面跳转试验</a>
     </h1>
     <p class="alt-font tight">
@@ -2230,210 +2594,6 @@ msecs/connect: 44.7226 mean, 61.445 max, 0.596 min
 msecs/first-response: 45.4883 mean, 287.113 max, 3.336 min
 </code></pre></div>
       <a href="/2009/11/21/zz-nginx-compile-optimization-test" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/21/squidclient-usage" title="squidclient用法" rel="bookmark">squidclient用法</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-21 00:00:00 +0800">21 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>squidclient是squid自带的一个小工具，一般用的最多的，就是-m purge URL了。
-其实还有别的用法（看看help吧，不过这个慢慢来~~）先说一个大全式的用法（其他的具体用法，大不了用这里rep出来好了）：squidclient -p 80 mgr:info，显示如下：</p>
-<p>[root@raocl ~]# /home/squid/bin/squidclient -p 80 mgr:info
-    HTTP/1.0 200 OK
-    Server:
-    squid/2.6.STABLE21
-    squid版本
-    Date: Sat, 21 Nov 2009 03:58:45 GMT
-    Content-Type: text/plain
-    Expires: Sat, 21 Nov 2009 03:58:45 GMT
-    Last-Modified: Sat, 21 Nov 2009 03:58:45 GMT
-    X-Cache: MISS from cdn.21vianet.com
-    Connection: close
-    Squid Object Cache: Version 2.6.STABLE21
-    Start Time: Sat, 21 Nov 2009 03:48:16 GMT
-    Current Time: Sat, 21 Nov 2009 03:58:45 GMT
-    Connection information for squid:
-    Number of clients accessing
-    cache: 1
-    当前链接客户端数量
-    Number of HTTP requests
-    received: 2
-    当前链接请求数
-    Number of ICP messages
-    received: 0
-    Number of ICP messages
-    sent: 0
-    Number of queued ICP
-    replies: 0
-    Number of HTCP messages
-    received: 0
-    Number of HTCP messages
-    sent: 0
-    Request failure ratio:
-    0.00
-    Average HTTP requests per minute since
-    start: 0.2
-    每分钟链接请求数
-    Average ICP messages per minute since
-    start: 0.0
-    Select loop called: 118332 times, 5.309 ms
-    avg
-    Cache information for squid:
-    Request Hit Ratios: 5min: 0.0%,
-    60min:
-    0.0%
-    五分钟cache请求数命中率
-    Byte Hit Ratios: 5min: -0.0%,
-    60min:
-    100.0%
-    五分钟cache字节数命中率
-    Request Memory Hit Ratios: 5min:
-    0.0%, 60min: 0.0%
-    Request Disk Hit Ratios: 5min:
-    0.0%, 60min: 0.0%
-    Storage Swap size: 6224
-    KB                                                         cache_dir使用大小
-    Storage Mem size: 104
-    KB                                                            cache_mem使用大小
-    Mean Object Size: 4.60 KB
-    Requests given to
-    unlinkd: 0
-    Median Service Times (seconds)  5
-    min    60
-    min:
-    HTTP Requests
-    (All):
-    0.00000  0.00000
-    Cache
-    Misses:
-    0.00000  0.00000
-    Cache
-    Hits:
-    0.00000  0.00000
-    Near
-    Hits:
-    0.00000  0.00000
-    Not-Modified Replies:
-    0.00000  0.00000
-    DNS
-    Lookups:
-    0.00000  0.00000
-    ICP
-    Queries:
-    0.00000  0.00000
-    Resource usage for squid:
-    UP Time: 628.201 seconds
-    CPU Time: 0.216 seconds
-    CPU Usage: 0.03%
-    CPU Usage, 5 minute
-    avg: 0.00%
-    CPU Usage, 60 minute
-    avg: 0.04%
-    Process Data Segment Size via sbrk(): 3040
-    KB
-    Maximum Resident Size: 0 KB
-    Page faults with physical i/o: 0
-    Memory usage for squid via mallinfo():
-    Total space in
-    arena:    3052
-    KB
-    Ordinary
-    blocks:
-    3038
-    KB
-    7 blks
-    Small
-    blocks:
-    0
-    KB
-    0 blks
-    Holding
-    blocks:
-    231572
-    KB
-    5 blks
-    Free Small
-    blocks:
-    0 KB
-    Free Ordinary
-    blocks:
-    13 KB
-    Total in
-    use:
-    234610 KB 100%
-    Total
-    free:
-    13 KB 0%
-    Total
-    size:
-    234624 KB
-    Memory accounted for:
-    Total
-    accounted:
-    571 KB
-    memPoolAlloc calls: 76381
-    memPoolFree calls: 71547
-    File descriptor usage for squid:
-    Maximum number of file
-    descriptors:
-    655360
-    系统文件描述符个数
-    Largest file desc currently in
-    use:
-    44
-    使用过的最大个数
-    Number of file desc currently in
-    use:
-    41
-    目前使用中的个数
-    Files queued for
-    open:
-    0
-    Available number of file descriptors:
-    655319
-    Reserved number of file
-    descriptors:   100
-    Store Disk files
-    open:
-    0
-    IO loop
-    method:
-    epoll
-    Internal Data Structures:
-    1379
-    StoreEntries                                                              cache_dir中的文件个数
-    26 StoreEntries with
-    MemObjects
-    mem中的文件个数
-    25 Hot Object Cache
-    Items
-    热点文件个数
-    1353 on-disk objects</p>
-<p>另外，还有一个squidclient -p 80 mgr:objects，号称是慎用的大杀器，能够列出缓存文件列表——问题是：我找了个新开squid的测试机一试，发现列表显示内容是这个样子的：
-    KEY 29E6623108A3E8A64DBBD016AB239AEA
-    STORE_OK
-    NOT_IN_MEMORY SWAPOUT_DONE
-    PING_NONE
-    CACHABLE,DISPATCHED,VALIDATED
-    LV:1258460822 LU:1258461412 LM:1258460823
-    EX:1260950400
-    0 locks, 0 clients, 1 refs
-    Swap Dir 0, File 0X000412
-上头是32位MD5值么？谁看的懂呢……</p>
-      <a href="/2009/11/21/squidclient-usage" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
