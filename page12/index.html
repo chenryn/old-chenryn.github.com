@@ -43,6 +43,40 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/04/20/sscanf-usage" title="sscanf用法" rel="bookmark">sscanf用法</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-04-20 00:00:00 +0800">20 Apr 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#c-ref" title="c" rel="category tag">c</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>int sscanf(</p>
+<p>const char *buffer,</p>
+<p>const char *format [,argument ] &hellip;</p>
+<p>);
+最简单的举例：切割时间</p>
+<p>char sztime1[16] = &ldquo;&rdquo;, sztime2[16] = &ldquo;&rdquo;;
+sscanf(&ldquo;2006:03:18 - 2006:04:18&rdquo;, &ldquo;%s - %s&rdquo;, sztime1, sztime2);</p>
+<p>可是如果时间是&rdquo;2006:03:18-2006:04:18&rdquo;，即没有空格时，%s的定义就没法用了。这时候可以使用%[..]来定义，如下</p>
+<p>sscanf(&ldquo;2006:03:18-2006:04:18&rdquo;, &ldquo;%[0-9,:]-%[0-9,:]&rdquo;, sztime1, sztime2);</p>
+<p>%[]的用法，类似正则表达式，可以采用[a-z]这样的匹配；可以采用[^a-z]这样的排除匹配；还可以采用*[a-z]这样的匹配过滤。举例如下：</p>
+<p>const  char sourceStr[] = &ldquo;hello, world&rdquo;;</p>
+<p>char buf[10] = {0};</p>
+<p>sscanf(sourceStr, &ldquo;%*s%s&rdquo;, buf);</p>
+<p>执行结果就是过滤了hello，打印出world~~</p>
+      <a href="/2010/04/20/sscanf-usage" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/04/15/intro-iscsi-2" title="iscsi试验（读写测试）" rel="bookmark">iscsi试验（读写测试）</a>
     </h1>
     <p class="alt-font tight">
@@ -1533,44 +1567,6 @@ $r-&gt;internal_redirect($new_partial_url);  <br />
 return OK;  <br />
 这个方法，是server自己内部重定向，虽然apache本身对这个请求依然要从头开始走一遍流程。而且这里的新url，只需要提供一个相对路径——唯一要注意的，是这个redirect之后不能再进行逻辑判断了，最好直接返回OK。    </p>
       <a href="/2010/03/11/ignore-case-in-nginx-apache" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/03/09/ignore-case-in-squid" title="忽略大小写（squid）" rel="bookmark">忽略大小写（squid）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-03-09 00:00:00 +0800">09 Mar 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>在配置squid.conf的refresh_pattern或者url_regex的时候，我们习惯性的都会加上一个options：“-i”，用于忽略大小写。
-前不久配置nginx.conf的location时，也用上了~*忽略大小写。
-但是这个“忽略大小写”，其实只是整个请求处理流程中部分过程——配置规则的匹配过程——中的忽略。
-在使用了这些options以后，一个http://www.test.com/a.htm和另一个http://www.test.com/A.HTM请求在到达squid/nginx的时候，会统一无视大小写的进行规则匹配，然后可能proxy_pass到oringin获取数据；接下来有两种情况：
-oringin是windows主机，不区分大小写，返回200数据，缓存下来——分别是a和A两份！
-oringin是类unix主机，区分大小写，返回一个正确的200，一个错误的404……甚至可能两个都404~~
-（根据测试，完整的url中，host是不用区分大小写的，url_path里的大小写才有影响）
-如果要让同样的内容就缓存一份数据，我想就只能在squid/nginx内核在处理url之前，将url的大小写问题处理掉。</p>
-<p>squid可以url_rewrite_program，perl很简单的lc()即可，如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="vg">$|</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span>
-<span class="k">while</span><span class="p">(</span><span class="o">&lt;&gt;</span><span class="p">){</span>
-    <span class="k">my</span> <span class="nv">@X</span><span class="o">=</span><span class="nb">split</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$uri</span><span class="o">=</span><span class="nb">lc</span><span class="p">(</span><span class="nv">$X</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
-    <span class="k">print</span><span class="p">(</span><span class="nv">$uri</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>nginx的http_perl_module，看起来像是做这个的，不过官网上声明说，里面的perl如果执行太多的查询类操作（比如DNS域名解析、数据库操作等），很可能就把nginx的worker-process跑挂了……；且启用这个模块的话，就不能reconfigure，否则可能内存溢出云云……</p>
-      <a href="/2010/03/09/ignore-case-in-squid" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

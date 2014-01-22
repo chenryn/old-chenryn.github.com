@@ -43,6 +43,103 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/01/10/rspec-puppet-intro" title="给 puppet 写 Rspec 测试用例" rel="bookmark">给 puppet 写 Rspec 测试用例</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-01-10 00:00:00 +0800">10 Jan 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#devops-ref" title="devops" rel="category tag">devops</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>上文提到 github 给 puppet 开发的几个附件。其中有扩展 rspec 的 rubygems 模块叫做 rspec-puppet。官网见：<a href="http://rspec-puppet.com">http://rspec-puppet.com</a></p>
+<p>照着官网 <a href="http://rspec-puppet.com/tutorial/">Tutorial</a>，很容易能写出来测试用例。我这样ruby入门没看完的水准，从发现这个gem到写完第一个测试用例，也就花了不到半个小时。</p>
+<h1 id="section">安装</h1>
+<div class="highlight"><pre><code class="bash">    gem install puppetlabs_spec_helper rspec_puppet
+</code></pre></div>
+<h1 id="section-1">创建测试用例环境</h1>
+<p>以测试 nginx 模块为例：</p>
+<div class="highlight"><pre><code class="bash">    <span class="nb">cd</span> /etc/puppet/modules/nginx
+    rspec-puppet-init
+</code></pre></div>
+<p>这个 init 脚本其实就是执行了一串 <code>mkdir -p</code> 和 <code>ln -s</code> 命令，最后生成一个总的 Rakefile 。详情见官网<a href="http://rspec-puppet.com/setup/">Setup</a>。</p>
+<h1 id="section-2">编写测试用例</h1>
+<p>扩展给 Rspec 增加的方法其实不多，官网 <a href="http://rspec-puppet.com/matchers/">Matchers</a> 页面上有说。主要就是下面几个：</p>
+<ul>
+  <li><code>include_class()</code></li>
+  <li><code>contain_&lt;resource&gt;()</code></li>
+  <li><code>run()</code></li>
+  <li><code>.with()</code></li>
+  <li><code>.without()</code></li>
+</ul>
+<p>现在来写我们的第一个测试用例 <code>/etc/puppet/modules/nginx/spec/classes/common_spec.rb</code> 吧：</p>
+<div class="highlight"><pre><code class="ruby">    <span class="c1"># 这个文件被 init 自动生成在 /etc/puppet/modules/nginx/spec/ 下了</span>
+    <span class="c1"># 其内容就是加入这个目录下所有的文件</span>
+    <span class="nb">require</span> <span class="s1">&#39;spec_helper&#39;</span>
+    <span class="c1"># 这里定义你要测试的 puppet module</span>
+    <span class="n">describe</span> <span class="s1">&#39;nginx&#39;</span> <span class="k">do</span>
+        <span class="n">it</span> <span class="k">do</span>
+            <span class="n">should</span> <span class="n">include_class</span><span class="p">(</span><span class="s1">&#39;nginx::sysctl&#39;</span><span class="p">)</span>
+            <span class="n">should</span> <span class="n">include_class</span><span class="p">(</span><span class="s1">&#39;nginx::install&#39;</span><span class="p">)</span>
+        <span class="k">end</span>
+    <span class="k">end</span>
+    <span class="n">describe</span> <span class="s1">&#39;nginx::common&#39;</span> <span class="k">do</span>
+        <span class="c1"># 使用let定义变量</span>
+        <span class="n">let</span><span class="p">(</span><span class="ss">:node</span><span class="p">)</span> <span class="p">{</span> <span class="s1">&#39;common-nginx-2.domain.com&#39;</span> <span class="p">}</span>
+        <span class="c1"># 不定义的话，测试中只有从前面:node 生成的 hostname,domain,fqdn 三个</span>
+        <span class="n">let</span><span class="p">(</span><span class="ss">:facts</span><span class="p">)</span> <span class="p">{</span> <span class="p">{</span>
+            <span class="ss">:ipaddress_eth0</span> <span class="o">=&gt;</span> <span class="s1">&#39;192.168.1.2&#39;</span><span class="p">,</span>
+            <span class="ss">:processorcount</span> <span class="o">=&gt;</span> <span class="s1">&#39;8&#39;</span><span class="p">,</span>
+        <span class="p">}</span> <span class="p">}</span>
+        <span class="n">it</span> <span class="k">do</span>
+            <span class="n">should</span> <span class="n">include_class</span><span class="p">(</span><span class="s1">&#39;nginx::common&#39;</span><span class="p">)</span>
+            <span class="c1"># 注意这里要写 Resource 的名字，而不是 file 的 path</span>
+            <span class="c1"># 这个是下面 .with 检查的 :param</span>
+            <span class="n">should</span> <span class="n">contain_file</span><span class="p">(</span><span class="s1">&#39;proxy.conf&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">with</span><span class="p">({</span>
+                <span class="s1">&#39;ensure&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;file&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;mode&#39;</span>   <span class="o">=&gt;</span> <span class="s1">&#39;0644&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;path&#39;</span>   <span class="o">=&gt;</span> <span class="s1">&#39;/etc/nginx/conf.d/proxy.conf&#39;</span>
+            <span class="p">})</span>
+        <span class="k">end</span>
+        <span class="n">context</span> <span class="s1">&#39;access_log&#39;</span> <span class="k">do</span>
+            <span class="n">expect_line</span> <span class="o">=</span> <span class="s1">&#39;access_log /data/nginx/logs/access.log main buffer=16k;&#39;</span>
+            <span class="n">it</span> <span class="k">do</span>
+                <span class="c1"># 注意这里是把整个 content 作为 String 对象传递</span>
+                <span class="n">should</span> <span class="n">contain_file</span><span class="p">(</span><span class="s1">&#39;nginx.conf&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">with_content</span><span class="p">(</span><span class="sr">/</span><span class="si">#{</span><span class="n">expect_line</span><span class="si">}</span><span class="sr">/</span><span class="p">)</span>
+            <span class="k">end</span>
+        <span class="k">end</span>
+        <span class="n">context</span> <span class="s1">&#39;upstream&#39;</span> <span class="k">do</span>
+            <span class="n">expect_line</span> <span class="o">=</span> <span class="s1">&#39;192.168.1.2:80;&#39;</span>
+            <span class="n">it</span> <span class="k">do</span>
+                <span class="n">should</span> <span class="n">contain_file</span><span class="p">(</span><span class="s1">&#39;upstream.conf&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">with_content</span><span class="p">(</span><span class="sr">/</span><span class="si">#{</span><span class="n">expect_line</span><span class="si">}</span><span class="sr">/</span><span class="p">)</span>
+            <span class="k">end</span>
+        <span class="k">end</span>
+        <span class="n">context</span> <span class="s1">&#39;conf.d&#39;</span> <span class="k">do</span>
+            <span class="n">it</span> <span class="k">do</span>
+                <span class="n">dir</span> <span class="o">=</span> <span class="s1">&#39;/etc/puppet/modules/nginx/files/conf.d&#39;</span>
+                <span class="c1"># eq 是 rspec 本身的方法</span>
+                <span class="no">Dir</span><span class="o">.</span><span class="n">entries</span><span class="p">(</span><span class="n">dir</span><span class="p">)</span><span class="o">.</span><span class="n">length</span><span class="o">.</span><span class="n">should</span> <span class="n">eq</span><span class="p">(</span><span class="mi">15</span><span class="p">)</span>
+            <span class="k">end</span>
+        <span class="k">end</span>
+    <span class="k">end</span>
+</code></pre></div>
+<p>然后你就可以运行测试了：</p>
+<div class="highlight"><pre><code class="bash">    <span class="nb">cd</span> /etc/puppet/modules/nginx
+    rake spec
+</code></pre></div>
+<p>如果测试用例有失败，会在终端看到错误信息。</p>
+<p>注意到，rspec 是以 <code>do ... end</code> 来计算 examples 个数的。在一个 <code>do ... end</code> 里写多个 should 或者 expect，也算一个 example。</p>
+      <a href="/2013/01/10/rspec-puppet-intro" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/01/06/limit-bandwidth-of-one-process" title="限制单个进程的带宽" rel="bookmark">限制单个进程的带宽</a>
     </h1>
     <p class="alt-font tight">
@@ -3941,67 +4038,6 @@ bbs 9876
 <span class="o">&lt;</span><span class="err">/html&gt;</span>
 </code></pre></div>
       <a href="/2012/09/26/jsonp-for-new-version-amcharts" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/09/21/json-event-for-logstash" title="【Logstash系列】数据格式之json-event" rel="bookmark">【Logstash系列】数据格式之json-event</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-09-21 00:00:00 +0800">21 Sep 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>之前的各种示例中，都没有提到logstash的输入输出格式。看起来就好像logstash比Message::Passing少了decoder/encoder一样。其实logstash也有类似的设定的，这就是format。有三种选择：plain/json/json_event。默认情况下是plain。也就是我们之前的通用做法，传文本给logstash，由logstash转换成json。</p>
-<p>logstash社区根据某些应用场景，有相关的cookbook。关于访问日志，有<a href="http://cookbook.logstash.net/recipes/apache-json-logs/">http://cookbook.logstash.net/recipes/apache-json-logs/</a>。这是一个不错的思路！我们可以照葫芦画瓢给nginx也定义一下：</p>
-<div class="highlight"><pre><code class="nginx">     <span class="k">logformat</span> <span class="s">json</span> <span class="s">&#39;</span><span class="p">{</span><span class="kn">&quot;@timestamp&quot;:&quot;$time_iso8601&quot;,&#39;</span>
-                    <span class="s">&#39;&quot;@source&quot;:&quot;</span><span class="nv">$server_addr&quot;,&#39;</span>
-                    <span class="s">&#39;&quot;@fields&quot;:</span><span class="p">{</span><span class="kn">&#39;</span>
-                    <span class="s">&#39;&quot;client&quot;:&quot;</span><span class="nv">$remote_addr&quot;,&#39;</span>
-                    <span class="s">&#39;&quot;size&quot;:</span><span class="nv">$body_bytes_sent,&#39;</span>
-                    <span class="s">&#39;&quot;responsetime&quot;:</span><span class="nv">$request_time,&#39;</span>
-                    <span class="s">&#39;&quot;upstreamtime&quot;:</span><span class="nv">$upstream_response_time,&#39;</span>
-                    <span class="s">&#39;&quot;oh&quot;:&quot;</span><span class="nv">$upstream_addr&quot;,&#39;</span>
-                    <span class="s">&#39;&quot;domain&quot;:&quot;</span><span class="nv">$host&quot;,&#39;</span>
-                    <span class="s">&#39;&quot;url&quot;:&quot;</span><span class="nv">$uri&quot;,&#39;</span>
-                    <span class="s">&#39;&quot;status&quot;:&quot;</span><span class="nv">$status&quot;}}&#39;</span><span class="p">;</span>
-     <span class="kn">access_log</span> <span class="s">/data/nginx/logs/access.json</span> <span class="s">json</span><span class="p">;</span>
-</code></pre></div>
-<p>这里需要注意的地方是：因为最后需要插入ES的某些field是有double/float类型。所以麻烦来了：一些端口监控工具的请求，状态码为400的，因为直接断开，所以并没有链接上upstream的服务器，其$upstream_response_time变量不存在，记录在日志里是-，这对于数值型是非法的定义。直接把带有400的日志通过file格式输入给logstash的时候，因为这个非法定义会报错，并把这行日志给丢弃掉。那么我们就无法统计400请求的数据了。</p>
-<p>这里需要变通一下，我们知道其实所谓的Input::File就等效于tail -F ${path}${filename}(当然其实不是，模块的实际做法是在~/.sincedb里记录上次读取的位置，然后每${stat_interval}秒检查一次内容更新，每${discover_interval}秒检查一次文件描述符变更。也就是说默认其实是每秒读一次，一次几百上千行，这样效率更高)。所以我们可以自己运行tail命令，然后sed修正upstream_response_time后通过管道传递给logstash的Input::STDIN，效果是一样一样的。
-新的logstash/agent.conf如下：</p>
-<div class="highlight"><pre><code class="ruby"><span class="n">input</span> <span class="p">{</span>
-    <span class="n">stdin</span> <span class="p">{</span>
-        <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;nginx&quot;</span>
-        <span class="nb">format</span> <span class="o">=&gt;</span> <span class="s2">&quot;json_event&quot;</span>
-    <span class="p">}</span>
-<span class="p">}</span> 
-<span class="n">output</span> <span class="p">{</span>
-    <span class="n">amqp</span> <span class="p">{</span>
-        <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;nginx&quot;</span>
-        <span class="n">host</span> <span class="o">=&gt;</span> <span class="s2">&quot;10.10.10.10&quot;</span>
-        <span class="n">key</span>  <span class="o">=&gt;</span> <span class="s2">&quot;cdn&quot;</span>
-        <span class="nb">name</span> <span class="o">=&gt;</span> <span class="s2">&quot;logstash&quot;</span>
-        <span class="n">exchange_type</span> <span class="o">=&gt;</span> <span class="s2">&quot;direct&quot;</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>运行命令如下：</p>
-<div class="highlight"><pre><code class="bash">    <span class="c">#!/bin/sh</span>
-      tail -F /data/nginx/logs/access.json <span class="se">\</span>
-    | sed <span class="s1">&#39;s/upstreamtime&quot;:-/upstreamtime&quot;:0/&#39;</span> <span class="se">\</span>
-    | /usr/local/logstash/bin/logstash -f /usr/local/logstash/etc/agent.conf &amp;
-</code></pre></div>
-<p>这样可以直接省略掉昂贵的Grok操作，同时节约原本的_all/_message/_source_host等等格式的空间。</p>
-      <a href="/2012/09/21/json-event-for-logstash" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

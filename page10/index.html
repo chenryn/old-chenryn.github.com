@@ -43,6 +43,39 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/09/26/configure-transfer-to-peer-in-squid" title="squid回源选择配置小结" rel="bookmark">squid回源选择配置小结</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-09-26 00:00:00 +0800">26 Sep 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>一共关系到cache_peer/always_direct/never_direct/hierarchy_stoplist/prefer_direct等配置项。</p>
+<p>squid的<a href="http://www.deckle.co.za/squid-users-guide/Cache_Hierarchies#The_always_direct_and_never_direct_tags" target="_blank">使用指南</a>上，关于always_direct和never_direct这么写到：</p>
+<p>Squid checks all <em>always_direct</em> tags before it checks any <em>never_direct</em> tags. If a matching <em>always_direct</em> tag is found, Squid will not check the <em>never_direct</em> tags, but decides which cache to talk to immediately&hellip;.
+If the line used the <em>deny</em> keyword instead of <em>allow</em>, Squid would have simply skipped on to checking the <em>never_direct</em> lines</p>
+<p>squid的<a href="http://http://www.squid-cache.org/Doc/config/hierarchy_stoplist/" target="_blank">配置说明</a>上，关于hierarchy_stoplist这么写到：</p>
+<p>use this to not query neighbor caches for certain objects&hellip;.never_direct overrides this option</p>
+<p>squid的<a href="http://www.squid-cache.org/mail-archive/squid-users/201009/0330.html" target="_blank">邮件列表</a>上，Amos这么解释：</p>
+<p>always_direct <em>prevents</em> peers being used. It does not force them. &ldquo; hierarchy_stoplist ? &ldquo; is the directive preventing the peer being used.</p>
+<p>看起来挺让人晕头转向的。
+其实就是说：</p>
+<p>always_direct allow的优先级高于never_direct，但deny（包括allow !）时则不。  <br />
+hierarchy_stoplist强制请求通过域名解析回源，但never_direct又优先于它。  <br />
+prefer_direct用于所有cache_peer都down了时，never_direct会报错，而prefer会转入dns解析。     </p>
+      <a href="/2010/09/26/configure-transfer-to-peer-in-squid" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/09/17/conditional-command-details" title="条件判断命令小细节" rel="bookmark">条件判断命令小细节</a>
     </h1>
     <p class="alt-font tight">
@@ -1264,70 +1297,6 @@ Ranges in list format can take a stride argument:
 </code></pre>
 <p>用这个命令，可以把不同的进程，锁定在不同的CPU上完成。这个做法，之前在nginx优化上曾经碰到过，不过那是nginx自带的功能。<br />在CU上看到有人提起squid与CPU，squid是只支持单CPU的，不过可以通过在不同端口开启多squid进程的办法来完成对多CPU的利用，一般情况下，各squid进程会自动分配在不同CPU上跑，不过这个是系统的资源分配，难保出问题，就可以用这个命令完成锁定了。</p>
       <a href="/2010/05/30/intro-two-lock-tools" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/05/28/xen-install-pv" title="xen安装PV" rel="bookmark">xen安装PV</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-05-28 00:00:00 +0800">28 May 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cloud-ref" title="cloud" rel="category tag">cloud</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>闲来无事，打算自己安装一个xen虚拟机，看了看文档，知道必须采用网络安装方式（NFS/FTP/HTTP），于是随手去搜狐镜像站下了一个iso下来挂载用。
-不过virt-install一直报错。
-首先是：
-    mount.nfs: Input/output error
-    umount: /var/lib/xen/xennfs.jfkgaj: not mounted
-    ERROR:  Unable to mount NFS location!
-诡异了，我手动都能mount上远端的nfs了~~百度没结果，谷大婶出动，原来这边也要启动portmap才行。
-下一步，继续出错：
-    ERROR:  Invalid NFS location given: [Errno 2] No such file or directory: &lsquo;/var/lib/xen/xennfs.JjVbzO/images/xen/vmlinuz&rsquo;
-没有文件？返回nfs上去看，嗯，目录下只有一个LiveCD，一个isolinux。咋回事呢？
-又返回搜狐去翻目录，在os/下看到了images/xen/vmlinuz，难道要把整个os/目录下载了？可我记得这个目录就应该是iso挂载后的东西呀~
-返回isos/去看，终于发现一个极弱智的问题：目录下有LiveCD和bin-DVD两个镜像，我直接点了最顶上的一个，也就是LiveCD那个……
-赶紧重新下载……
-之后一路顺利。
-A机(10.10.10.10)上：</p>
-<div class="highlight"><pre><code class="bash">wget http://mirrors.sohu.com/centos/5.4/isos/x86_64/CentOS-5.4-x86_64-bin-DVD.iso -c
-mount -o loop -t iso9660 /cache/CentOS-5.4-x86_64-bin-DVD.iso /mnt
-<span class="nb">echo</span> <span class="s1">&#39;/mnt 10.10.10.0/24(ro,async)&#39;</span>&gt;&gt;/etc/exports
-/etc/init.d/portmap start
-/etc/init.d/nfs start
-</code></pre></div>
-<p>B机(10.10.10.11)上：</p>
-<div class="highlight"><pre><code class="bash">mkdir /img
-dd <span class="k">if</span><span class="o">=</span>/dev/zero <span class="nv">of</span><span class="o">=</span>/img/test.img <span class="nv">bs</span><span class="o">=</span>1024k <span class="nv">count</span><span class="o">=</span>8k
-virt-install --paravirt --file<span class="o">=</span>/img/test.img --name<span class="o">=</span><span class="nb">test</span> --ram<span class="o">=</span>1024 --vcpus<span class="o">=</span>1 --bridge<span class="o">=</span>xenbr0 --bridge<span class="o">=</span>xenbr1 --nographics --location<span class="o">=</span>nfs:10.10.10.10:/mnt
-</code></pre></div>
-<p>（半虚拟化、虚拟机安装位置、虚拟机名、内存、CPU、桥接网卡*2、文本模式、安装源）
-然后就是很普通的linux安装过程了，填ip，分区云云……选择最小化安装，reboot。
-又见报错：
-    Restarting system.
-    libvir: Xen Daemon error : GET operation failed: 
-    Guest installation complete&hellip; restarting guest.
-    libvir: Xen Daemon error : GET operation failed: 
-    libvir: Xen Daemon error : internal error domain information incomplete, missing kernel
-    Entity: line 30: parser error : Opening and ending tag mismatch: os line 5 and domain
-    &lt;/domain&gt;
-             ^
-    Entity: line 31: parser error : Premature end of data in tag domain line 1
-哪里有问题呢？
-随手xm list，发现居然有一个名叫test的的guestOS，赶紧console一看，完全能用！！
-不太相信的关机，重新create了一次，还是没问题！
-把在/etc/xen下自动生成的test文件mv进/etc/xen/auto下，再把整个宿主机一重启，几分钟后重登陆一看，testOS也已经启动起来能用了。完成！
- 
- </p>
-      <a href="/2010/05/28/xen-install-pv" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

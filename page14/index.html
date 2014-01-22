@@ -43,6 +43,86 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/01/29/intro-cronolog-logrotate" title="日志管理" rel="bookmark">日志管理</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-01-29 00:00:00 +0800">29 Jan 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>第一个，最常见的cronolog，因为他配对apache，apache太常见，所以cronolog也就常见了~~稳定版本1.6.2，似乎不支持2G以上的日志，因为那时候linux内核也不支持。。。现在有beta版可以，另据网友分析，其实只要修改1.6.2源代码中的openfile函数成openfile64就行了……
+使用方法：</p>
+<pre><code>CustomLog "|/usr/local/sbin/cronolog /var/log/httpd/www/access%Y%m%d.log" combined
+</code></pre>
+<p>其实就是利用管道，传递给cronolog记录日志。
+对于不支持在配置文件里利用管道的，也有别的变通办法，比如命名管道。像nginx日志就能这么做：</p>
+<p>mkfifo /path/to/nginx/logs/access_log_pipe
+/path/to/cronolog /path/to/log/access_%Y%m%d.log /path/to/nginx/logs/access_log_pipe &amp;</p>
+<p>然后编辑nginx.conf，修改如下：</p>
+<p>access_log /path/to/nginx/logs/access_log_pipe combined</p>
+<p>最后要注意的是，必须在启动nginx之前，先启动cronolog。</p>
+<p>第二个，系统自带的logrotate，一般系统本身的syslog、crond、yum等，都是用它。对于不必要保存所有的日志，采用这个回滚程式正当其时。/etc/logrotate.conf默认配置不算太复杂，还能使用include，不过其全部参数真是不少，如下表：</p>
+<pre><code>参数			功能
+compress			通过gzip 压缩转储以后的日志
+nocompress			不需要压缩时，用这个参数
+copytruncate		用于还在打开中的日志文件，把当前日志备份并截断
+nocopytruncate		备份日志文件但是不截断
+create			mode owner group 转储文件，使用指定的文件模式创建新的日志文件
+nocreate			不建立新的日志文件
+delaycompress		和 compress 一起使用时，转储的日志文件到下一次转储时才压缩
+nodelaycompress		覆盖 delaycompress 选项，转储同时压缩。
+errors			address 专储时的错误信息发送到指定的Email 地址
+ifempty			即使是空文件也转储，这个是 logrotate 的缺省选项。
+notifempty			如果是空文件的话，不转储
+mail			address 把转储的日志文件发送到指定的E-mail 地址
+nomail			转储时不发送日志文件
+olddir			directory 转储后的日志文件放入指定的目录，必须和当前日志文件在同一个文件系统
+noolddir			转储后的日志文件和当前日志文件放在同一个目录下
+prerotate/endscript		在转储以前需要执行的命令可以放入这个对，这两个关键字必须单独成行
+postrotate/endscript	在转储以后需要执行的命令可以放入这个对，这两个关键字必须单独成行
+daily			指定转储周期为每天
+weekly			指定转储周期为每周
+monthly			指定转储周期为每月
+rotate			count 指定日志文件删除之前转储的次数，0 指没有备份，5 指保留5 个备份
+tabootext			[+] list 让logrotate 不转储指定扩展名的文件，缺省的扩展名是：.rpm-orig,
+.rpmsave,			v, 和 ~
+size			size 当日志文件到达指定的大小时才转储，Size可以指定bytes(缺省)以及KB(sizek)或者MB (sizem).
+</code></pre>
+<p>第三个，newsyslog，这个东西感觉是logrotate的兄弟版，因为其配置文件写法都是采用｛｝的方式，而且命名也这么针锋相对的。习惯了用logrotate的，对于不能回滚而要求分割保留的，可以试试这个。</p>
+<p>logrotate的写法举例：</p>
+<p>/path/to/wtmp{
+    daily
+    minsize 5M
+    create 0644 root utmp
+    rotate 1
+}
+newsyslog的写法举例：</p>
+<pre><code>set squid_logpath = /usr/local/squid/var/logs
+set squid_log = /usr/local/squid/var/logs/access.log
+set date_squid_log = /usr/local/squid/var/logs/access%Y%M%D.log
+SQUID{
+    restart: run
+    /usr/local/squid/sbin/squid -k rotate
+    log:  SQUID
+    squid_log squid squid 644
+    archive:
+    SQUID date_squid_log 0
+}
+</code></pre>
+<p>第四个，也是万能的一个，嗯，就是自己写脚本，定时gzip……</p>
+      <a href="/2010/01/29/intro-cronolog-logrotate" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/01/28/transparent-by-ports" title="端口转发" rel="bookmark">端口转发</a>
     </h1>
     <p class="alt-font tight">
@@ -2536,64 +2616,6 @@ HDB的选择依赖于用户所在的位置，当用户所在位置发生变化�
 [15]Rice University,INRIA.RUBBoS:Bulletin Board Benchmark[EB/OL].[2008-01-21]. <a href="http://jmb.objeetWeb.org/rnbbos.html">http://jmb.objeetWeb.org/rnbbos.html</a>;
 [16]National Institute of Standards and Technology.NIST net home page[EB/OL].[2008-01-21].http://www-x.antd.nist.gov/nistnet/;</p>
       <a href="/2009/11/22/a-dynamic-data-storage-solution-for-cdn-ubdp" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/21/zz-nginx-compile-optimization-test" title="nginx编译优化压力测试（转）" rel="bookmark">nginx编译优化压力测试（转）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-21 00:00:00 +0800">21 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#nginx-ref" title="nginx" rel="category tag">nginx</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>默认nginx使用的GCC编译参数是-O，需要更加优化可以使用以下两个参数：</p>
-<pre><code>--with-cc-opt='-O3' --with-cpu-opt=*
-</code></pre>
-<p>具体是什么cpu可以grep name /proc/cpuinfo查看，如果是inter xeon，就写&ndash;with-cpu-opt=pentium，如果是AMD，就写&ndash;with-cpu-opt=opteron。这样编译针对特定CPU以及增加GCC的优化。</p>
-<p>针对优化后的结果，我们进行测试，结果表明使用-O2以及以上的参数，可以微量增加性能1%左右，而O2和O3基本可以认为是相同的。</p>
-<div class="highlight"><pre><code class="bash">./http_load -parallel 100 -seconds 10 urls
-10811 fetches, 100 max parallel, 5.23252e+06 bytes, in 10 seconds
-1.默认参数 -O
-1087.2 fetches/sec, 526204 bytes/sec
-msecs/connect: 45.5374 mean, 63.984 max, 1.008 min
-msecs/first-response: 45.7679 mean, 64.201 max, 2.216 min
-1088.9 fetches/sec, 527027 bytes/sec
-msecs/connect: 45.0159 mean, 65.291 max, 0.562 min
-msecs/first-response: 46.1236 mean, 67.397 max, 9.169 min
-1102.2 fetches/sec, 533465 bytes/sec
-msecs/connect: 44.5593 mean, 67.649 max, 0.547 min
-msecs/first-response: 45.499 mean, 67.849 max, 2.495 min
-2.优化编译后 -O2
-1081.1 fetches/sec, 523252 bytes/sec
-msecs/connect: 45.7144 mean, 63.324 max, 0.823 min
-msecs/first-response: 46.1008 mean, 61.814 max, 4.487 min
-1110.2 fetches/sec, 537337 bytes/sec
-msecs/connect: 43.4943 mean, 60.066 max, 0.715 min
-msecs/first-response: 45.756 mean, 62.076 max, 3.536 min
-1107 fetches/sec, 535788 bytes/sec
-msecs/connect: 44.872 mean, 3036.51 max, 0.609 min
-msecs/first-response: 44.8625 mean, 59.831 max, 3.178 min
-3.优化编译后 -O3
-1097.5 fetches/sec, 531189 bytes/sec
-msecs/connect: 45.1355 mean, 3040.24 max, 0.583 min
-msecs/first-response: 45.3036 mean, 68.371 max, 4.416 min
-1111.6 fetches/sec, 538014 bytes/sec
-msecs/connect: 44.2514 mean, 64.831 max, 0.662 min
-msecs/first-response: 44.8366 mean, 69.904 max, 3.928 min
-1099.4 fetches/sec, 532109 bytes/sec
-msecs/connect: 44.7226 mean, 61.445 max, 0.596 min
-msecs/first-response: 45.4883 mean, 287.113 max, 3.336 min
-</code></pre></div>
-      <a href="/2009/11/21/zz-nginx-compile-optimization-test" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

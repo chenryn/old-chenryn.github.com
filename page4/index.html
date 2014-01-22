@@ -43,6 +43,67 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2012/09/21/json-event-for-logstash" title="【Logstash系列】数据格式之json-event" rel="bookmark">【Logstash系列】数据格式之json-event</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-09-21 00:00:00 +0800">21 Sep 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>之前的各种示例中，都没有提到logstash的输入输出格式。看起来就好像logstash比Message::Passing少了decoder/encoder一样。其实logstash也有类似的设定的，这就是format。有三种选择：plain/json/json_event。默认情况下是plain。也就是我们之前的通用做法，传文本给logstash，由logstash转换成json。</p>
+<p>logstash社区根据某些应用场景，有相关的cookbook。关于访问日志，有<a href="http://cookbook.logstash.net/recipes/apache-json-logs/">http://cookbook.logstash.net/recipes/apache-json-logs/</a>。这是一个不错的思路！我们可以照葫芦画瓢给nginx也定义一下：</p>
+<div class="highlight"><pre><code class="nginx">     <span class="k">logformat</span> <span class="s">json</span> <span class="s">&#39;</span><span class="p">{</span><span class="kn">&quot;@timestamp&quot;:&quot;$time_iso8601&quot;,&#39;</span>
+                    <span class="s">&#39;&quot;@source&quot;:&quot;</span><span class="nv">$server_addr&quot;,&#39;</span>
+                    <span class="s">&#39;&quot;@fields&quot;:</span><span class="p">{</span><span class="kn">&#39;</span>
+                    <span class="s">&#39;&quot;client&quot;:&quot;</span><span class="nv">$remote_addr&quot;,&#39;</span>
+                    <span class="s">&#39;&quot;size&quot;:</span><span class="nv">$body_bytes_sent,&#39;</span>
+                    <span class="s">&#39;&quot;responsetime&quot;:</span><span class="nv">$request_time,&#39;</span>
+                    <span class="s">&#39;&quot;upstreamtime&quot;:</span><span class="nv">$upstream_response_time,&#39;</span>
+                    <span class="s">&#39;&quot;oh&quot;:&quot;</span><span class="nv">$upstream_addr&quot;,&#39;</span>
+                    <span class="s">&#39;&quot;domain&quot;:&quot;</span><span class="nv">$host&quot;,&#39;</span>
+                    <span class="s">&#39;&quot;url&quot;:&quot;</span><span class="nv">$uri&quot;,&#39;</span>
+                    <span class="s">&#39;&quot;status&quot;:&quot;</span><span class="nv">$status&quot;}}&#39;</span><span class="p">;</span>
+     <span class="kn">access_log</span> <span class="s">/data/nginx/logs/access.json</span> <span class="s">json</span><span class="p">;</span>
+</code></pre></div>
+<p>这里需要注意的地方是：因为最后需要插入ES的某些field是有double/float类型。所以麻烦来了：一些端口监控工具的请求，状态码为400的，因为直接断开，所以并没有链接上upstream的服务器，其$upstream_response_time变量不存在，记录在日志里是-，这对于数值型是非法的定义。直接把带有400的日志通过file格式输入给logstash的时候，因为这个非法定义会报错，并把这行日志给丢弃掉。那么我们就无法统计400请求的数据了。</p>
+<p>这里需要变通一下，我们知道其实所谓的Input::File就等效于tail -F ${path}${filename}(当然其实不是，模块的实际做法是在~/.sincedb里记录上次读取的位置，然后每${stat_interval}秒检查一次内容更新，每${discover_interval}秒检查一次文件描述符变更。也就是说默认其实是每秒读一次，一次几百上千行，这样效率更高)。所以我们可以自己运行tail命令，然后sed修正upstream_response_time后通过管道传递给logstash的Input::STDIN，效果是一样一样的。
+新的logstash/agent.conf如下：</p>
+<div class="highlight"><pre><code class="ruby"><span class="n">input</span> <span class="p">{</span>
+    <span class="n">stdin</span> <span class="p">{</span>
+        <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;nginx&quot;</span>
+        <span class="nb">format</span> <span class="o">=&gt;</span> <span class="s2">&quot;json_event&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span> 
+<span class="n">output</span> <span class="p">{</span>
+    <span class="n">amqp</span> <span class="p">{</span>
+        <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;nginx&quot;</span>
+        <span class="n">host</span> <span class="o">=&gt;</span> <span class="s2">&quot;10.10.10.10&quot;</span>
+        <span class="n">key</span>  <span class="o">=&gt;</span> <span class="s2">&quot;cdn&quot;</span>
+        <span class="nb">name</span> <span class="o">=&gt;</span> <span class="s2">&quot;logstash&quot;</span>
+        <span class="n">exchange_type</span> <span class="o">=&gt;</span> <span class="s2">&quot;direct&quot;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>运行命令如下：</p>
+<div class="highlight"><pre><code class="bash">    <span class="c">#!/bin/sh</span>
+      tail -F /data/nginx/logs/access.json <span class="se">\</span>
+    | sed <span class="s1">&#39;s/upstreamtime&quot;:-/upstreamtime&quot;:0/&#39;</span> <span class="se">\</span>
+    | /usr/local/logstash/bin/logstash -f /usr/local/logstash/etc/agent.conf &amp;
+</code></pre></div>
+<p>这样可以直接省略掉昂贵的Grok操作，同时节约原本的_all/_message/_source_host等等格式的空间。</p>
+      <a href="/2012/09/21/json-event-for-logstash" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2012/09/16/regexp-log-demo-for-nginx" title="【Message::Passing系列】Regexp::Log模板匹配变量" rel="bookmark">【Message::Passing系列】Regexp::Log模板匹配变量</a>
     </h1>
     <p class="alt-font tight">
@@ -2483,194 +2544,6 @@ Template::Toolkit提供的process()可以操作的template来源很多，可以�
 所以只能先从__DATA__里读出数据，然后以字符串形式传递给process()了。    </p>
 <p>这里用到了Data::Section模块。从CloudForecast项目里学来的。CloudForecast中的web页面，使用的Text::Xslate模板技术读取__DATA__。其中包括有index／server／servers／service等页面。也就是说，在一个__DATA__里实现了多个virtual file。用的就是Data::Section::Simple模块。以@@为标签分割即可。</p>
       <a href="/2012/05/22/puppet-reports-analysis-by-web" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/05/18/puppet-external-nodes-classifier" title="【puppet系列】puppet使用ENC定义节点" rel="bookmark">【puppet系列】puppet使用ENC定义节点</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-05-18 00:00:00 +0800">18 May 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#devops-ref" title="devops" rel="category tag">devops</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天研究puppet dashboard。主要有ENC和reports两个功能。其中ENC功能相当扯淡，因为你在web上点击添加的class/node/group，是没有任何依赖性检查(比如node命名是否符合fqdn，class是否存在)的，随便咋填绝无报错和拒绝！而且也没有提供类似report的导入工具，一旦启用就要完全重新手工输入所有配置……所以无论是从导入角度还是管理角度，自己实现一个靠谱点的ENC都是有必要的。    </p>
-<p>关于puppet的ENC配置，参见<a href="http://docs.puppetlabs.com/guides/external_nodes.html">ENC的文档</a>    </p>
-<p>主要就是修改puppet.conf里两个配置：    </p>
-<ul>
-  <li><code>node_terminus</code>，由plain修改成exec；</li>
-  <li><code>external_nodes</code>，由none修改为ENC脚本的路径。    </li>
-</ul>
-<p>类似如下：</p>
-<pre><code>[master]    
-node_terminus = exec    
-external_nodes = /etc/puppet/webui/external_nodes    
-</code></pre>
-<p>脚本输入输出的说明：    </p>
-<pre><code>Its only argument is the name of the node to be classified, and it returns a YAML document describing the node.
-</code></pre>
-<p>注意到此为止配置修改不算结束！文档中提到，puppet是支持同时开启ENC和site.pp配置的。puppet会自动merge两个配置。但是debug运行时可以看到，这个merge是按照node级别进行的。也就是说：    </p>
-<ol>
-  <li>puppet master收到一个node的请求，如果 <code>node_terminus</code> 配置为exec，输出node的fqdn给 <code>external_nodes</code>；    </li>
-  <li>收到 <code>external_nodes</code> 的返回，为一个yaml体或者空；    </li>
-  <li>加载site.pp，这是按照文本顺序进行的。如果都是import &ldquo;module&rdquo;，那么最后就进入module的parameter和template处理。    </li>
-  <li>如果已经存在，检查是全局变量还是类，全局变量的话报错，类的话覆盖为site.pp中最后定义的类。  <br />
-<strong>2013年4月10日更新：感谢<a href="http://weibo.com/liucy1983">@liu.cy</a>指出这里变量和类的区别</strong></li>
-</ol>
-<p>所以为了方便起见，请删除掉site.pp中的<code>import "node/*.pp"</code> 这行配置。我在这里就被郁闷了很久。</p>
-<p>然后是我这里的想法是尽量不更改pp的语法，只是提供一个把group里的ip到fqdn的转化然后查找cluster配置组合成yaml。  <br />
-也就是说有一个group的配置目录，其配置文件为&rdquo;groupname.pp&rdquo;，内容如下：</p>
-<div class="highlight"><pre><code class="ruby"><span class="n">group</span> <span class="s2">&quot;groupname&quot;</span> <span class="p">{</span>
-    <span class="vg">$string</span> <span class="o">=</span> <span class="s2">&quot;test&quot;</span>
-    <span class="vg">$arrays</span> <span class="o">=</span> <span class="o">[</span><span class="mi">123</span><span class="p">,</span> <span class="n">abc</span><span class="o">]</span>
-    <span class="kp">include</span> <span class="n">module1</span><span class="p">,</span> <span class="n">module2</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>还有一个iplist的配置目录，其配置文件为“groupname.iplist”，内容如下：</p>
-<div class="highlight"><pre><code class="squid"><span class="mf">1.2.3.4</span><span class="w"></span>
-<span class="mf">2.3.4.5</span><span class="w"></span>
-</code></pre></div>
-<p>那么以后服务器组有啥变更，只需要修改一下iplist就好了，不用重启puppet进程。    </p>
-<p>所以有两个脚本，一个是 <code>external_node</code> 脚本：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/bin/env perl</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">autodie</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">DBI</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">YAML::</span><span class="n">Syck</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$base_dir</span> <span class="o">=</span> <span class="s">&quot;/etc/puppet/webui&quot;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$node</span> <span class="o">=</span> <span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
-<span class="k">my</span> <span class="nv">$group</span> <span class="o">=</span> <span class="n">sqlite_select</span><span class="p">(</span><span class="nv">$node</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">$hash</span> <span class="o">=</span> <span class="n">pp2hashref</span><span class="p">(</span><span class="nv">$group</span><span class="p">);</span>
-<span class="k">print</span> <span class="n">Dump</span><span class="p">(</span><span class="nv">$hash</span><span class="p">);</span>
-<span class="c1"># ENC要求退出值必须为0 </span>
-<span class="nb">exit</span> <span class="mi">0</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">pp2hashref</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$group</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="p">{};</span>
-    <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;&lt;&#39;</span><span class="p">,</span> <span class="s">&quot;${base_dir}/group/${group}.pp&quot;</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$i</span><span class="p">;</span>
-    <span class="k">while</span><span class="p">(</span><span class="sr">&lt;$fh&gt;</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">if</span> <span class="p">(</span><span class="sr"> /^#|^\s*$|}$/</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="k">next</span><span class="p">;</span>
-        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="sr"> /^group\s+&quot;(\w+)&quot;/</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nb">die</span> <span class="s">&quot;group name do not match,check please!&quot;</span> <span class="k">unless</span> <span class="nv">$1</span> <span class="o">=~</span> <span class="sr">m/$group/i</span><span class="p">;</span>
-        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="sr"> /^\s*?\$(\w+)\s*=\s*&quot;(.+)&quot;$/</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;parameters&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$1&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$2</span><span class="p">;</span>
-        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="sr"> /^\s*?include\s+(.+)$/</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nv">@</span><span class="p">{</span><span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;classes&quot;</span><span class="p">}}</span> <span class="o">=</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/,\s*/</span><span class="p">,</span> <span class="nv">$1</span><span class="p">);</span>
-        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="sr"> /^\s*\$(\w+)\s*=\s*\[([^]]+)]?/</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nv">$i</span> <span class="o">=</span> <span class="nv">$1</span><span class="p">;</span>
-            <span class="nb">grep</span> <span class="p">{</span> <span class="nb">push</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;parameters&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$i&quot;</span><span class="p">}},</span> <span class="nv">$_</span> <span class="p">}</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/,\s*/</span><span class="p">,</span> <span class="nv">$2</span><span class="p">);</span>
-        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="sr"> /^\s*([^]]+)]?/</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nb">grep</span> <span class="p">{</span> <span class="nb">push</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;parameters&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$i&quot;</span><span class="p">}},</span> <span class="nv">$_</span> <span class="p">}</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/,\s*/</span><span class="p">,</span> <span class="nv">$1</span><span class="p">);</span>
-        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-            <span class="k">next</span><span class="p">;</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-    <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;parameters&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;clustername&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$group</span><span class="p">;</span>
-    <span class="c1"># ENC要求输出的yaml中必须提供environment参数 </span>
-    <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;environment&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="s">&quot;production&quot;</span><span class="p">;</span>
-    <span class="k">return</span> <span class="nv">$data</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">sqlite_select</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$node</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$dbh</span> <span class="o">=</span> <span class="n">DBI</span><span class="o">-&gt;</span><span class="nb">connect</span><span class="p">(</span><span class="s">&quot;dbi:SQLite:dbname=${base_dir}/node_info.db&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">,{</span><span class="n">RaiseError</span><span class="o">=&gt;</span><span class="mi">1</span><span class="p">,</span><span class="n">AutoCommit</span><span class="o">=&gt;</span><span class="mi">0</span><span class="p">});</span>
-    <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span><span class="s">&quot;select node_group from node_info where node_fqdn = ?&quot;</span><span class="p">);</span>
-    <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">(</span><span class="s">&quot;$node&quot;</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">fetchrow_hashref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;node_group&quot;</span><span class="p">};</span>
-    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">disconnect</span><span class="p">();</span>
-    <span class="k">return</span> <span class="nv">$ret</span><span class="p">;</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>一个是维护sqlite的脚本：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/bin/env perl</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">autodie</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">DBI</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Net::</span><span class="n">Nslookup</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$base_dir</span> <span class="o">=</span> <span class="s">&quot;/etc/puppet/webui&quot;</span><span class="p">;</span>
-<span class="n">sqlite_update</span><span class="p">();</span>
-<span class="k">sub </span><span class="nf">ip_conv</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$name</span> <span class="o">=</span> <span class="n">nslookup</span><span class="p">(</span><span class="n">host</span> <span class="o">=&gt;</span> <span class="s">&quot;$ip&quot;</span><span class="p">,</span> <span class="n">type</span> <span class="o">=&gt;</span> <span class="s">&quot;PTR&quot;</span><span class="p">);</span>
-    <span class="c1"># ENC的输入参数为全小写格式，所以sqlite中也必须存储小写格式的主机名 </span>
-    <span class="k">return</span> <span class="nb">lc</span><span class="p">(</span><span class="nv">$name</span><span class="p">);</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">sqlite_rebuild</span> <span class="p">{</span>
-    <span class="c1"># 配置系统变动不大，且puppet本身还有一层也是用sqlite的node配置缓存层，</span>
-    <span class="c1"># 所以这里不用复杂的select判断再update或者insert，直接重建sqlite </span>
-    <span class="nb">unlink</span> <span class="s">&quot;${base_dir}/node_info.db&quot;</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$dbh</span> <span class="o">=</span> <span class="n">DBI</span><span class="o">-&gt;</span><span class="nb">connect</span><span class="p">(</span><span class="s">&quot;dbi:SQLite:dbname=${base_dir}/node_info.db&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">,{</span><span class="n">RaiseError</span><span class="o">=&gt;</span><span class="mi">1</span><span class="p">,</span><span class="n">AutoCommit</span><span class="o">=&gt;</span><span class="mi">0</span><span class="p">});</span>
-    <span class="k">my</span> <span class="nv">$sql</span> <span class="o">=</span> <span class="s">&#39;create table node_info (node_fqdn, node_group)&#39;</span><span class="p">;</span>
-    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="k">do</span><span class="p">(</span><span class="nv">$sql</span><span class="p">);</span>
-    <span class="c1"># sqlite支持简单事务，所以要即时提交 </span>
-    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">commit</span><span class="p">();</span>
-    <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span><span class="s">&#39;replace into node_info values(?,?)&#39;</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">@groups</span> <span class="o">=</span> <span class="nb">grep</span> <span class="p">{</span> <span class="sr">s/^${base_dir}\/iplist\/(\w+?).list$/$1/</span> <span class="p">}</span> <span class="nb">glob</span><span class="p">(</span><span class="s">&quot;${base_dir}/iplist/*&quot;</span><span class="p">);</span>
-    <span class="k">print</span> <span class="nv">$_</span><span class="p">,</span><span class="s">&quot;\n&quot;</span> <span class="k">for</span> <span class="nv">@groups</span><span class="p">;</span>
-    <span class="k">foreach</span> <span class="p">(</span> <span class="nv">@groups</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$group</span> <span class="o">=</span> <span class="nv">$_</span><span class="p">;</span>
-        <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;&lt;&#39;</span><span class="p">,</span> <span class="s">&quot;${base_dir}/iplist/${group}.list&quot;</span><span class="p">;</span>
-        <span class="k">while</span> <span class="p">(</span><span class="sr">&lt;$fh&gt;</span><span class="p">)</span> <span class="p">{</span>
-            <span class="k">my</span> <span class="nv">$fqdn</span> <span class="o">=</span> <span class="n">ip_conv</span><span class="p">(</span><span class="nv">$_</span><span class="p">);</span>
-            <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">(</span><span class="s">&quot;$fqdn&quot;</span><span class="p">,</span> <span class="s">&quot;$group&quot;</span><span class="p">);</span>
-            <span class="nb">die</span> <span class="nv">$</span><span class="nn">DBI::</span><span class="nv">errstr</span> <span class="k">if</span> <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">err</span><span class="p">();</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">commit</span><span class="p">();</span>
-    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">disconnect</span><span class="p">();</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>以上是ENC的配置。继续分析puppet dashboard，除了ENC外，另一个功能就是reports，相比ENC来说，reports功能还算稍微靠谱一点，用http方式替换puppet自身的store方式，并存数据在mysql里。目前使用dashboard的人主要也就是在用这个功能。  <br />
-但是我个人认为，一般情况下运维不可能专门开一个页面看着puppet，也不太会有必要按照时间段查看状态报表汇总图这个东东，真正要紧的，是及时接到运行错误的报警以便上机处理。所以这里最后是一个监控reports的脚本，目前还没看到http方式的reports数据格式，所以暂时继续使用store的方式，然后采用Linux文件系统的inotify方式报警。</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!env perl</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">YAML::</span><span class="n">Syck</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">AnyEvent::Filesys::</span><span class="n">Notify</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">EV</span><span class="p">;</span>
-<span class="c1"># 使用AE的这个扩展而不直接用Linux::Inotify2模块，方便万一之后迁移到BSD主机</span>
-<span class="c1"># 而且异步回调的方式性能更好，在压力较大时不会阻塞丢失事件 </span>
-<span class="k">my</span> <span class="nv">$notifier</span> <span class="o">=</span> <span class="nn">AnyEvent::Filesys::</span><span class="n">Notify</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
-    <span class="n">dirs</span>     <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw(/var/lib/puppet/reports)</span><span class="p">],</span>
-    <span class="n">interval</span> <span class="o">=&gt;</span> <span class="mf">0.5</span><span class="p">,</span>
-    <span class="c1"># 在puppetd请求的时候，会在目录下先生成临时文件，完成后再mv成正式的，所以要过滤</span>
-    <span class="n">filter</span>   <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nb">shift</span> <span class="o">=~</span><span class="sr"> /\.yaml$/</span> <span class="p">},</span>
-    <span class="n">cb</span>       <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-        <span class="k">for</span> <span class="p">(</span> <span class="nv">@_</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="c1"># 一般这里会是两个type，创建的created和修改的modified，因为文件名只精确到分钟，如果两次运行在一分钟内，文件名就一样</span>
-            <span class="k">if</span> <span class="p">(</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="n">type</span> <span class="p">)</span> <span class="p">{</span>
-                <span class="k">my</span> <span class="nv">$file</span> <span class="o">=</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="n">path</span><span class="p">;</span>
-                <span class="k">my</span> <span class="nv">$logs</span> <span class="o">=</span> <span class="n">LoadFile</span><span class="p">(</span><span class="nv">$file</span><span class="p">)</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;logs&#39;</span><span class="p">};</span>
-                <span class="k">for</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$logs</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-                    <span class="k">if</span> <span class="p">(</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;level&#39;</span><span class="p">}</span> <span class="ow">eq</span> <span class="s">&#39;err&#39;</span> <span class="p">)</span> <span class="p">{</span>
-                        <span class="n">process</span><span class="p">(</span><span class="nv">$file</span><span class="p">,</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;message&#39;</span><span class="p">});</span>
-                    <span class="p">};</span>
-                <span class="p">};</span>
-            <span class="p">};</span>
-        <span class="p">};</span>
-    <span class="p">},</span>
-<span class="p">);</span>
-<span class="nn">EV::</span><span class="n">loop</span><span class="p">();</span>
-<span class="k">sub </span><span class="nf">process</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span> <span class="nv">$path</span><span class="p">,</span> <span class="nv">$message</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nv">$path</span> <span class="o">=~</span> <span class="sr">m/\/([^\/]+)\/\d{12}\.yaml$/</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="c1"># 这里用nagios还是email方式处理都可以，代码略</span>
-        <span class="k">print</span> <span class="nv">$1</span><span class="p">,</span><span class="s">&quot; has err: &quot;</span><span class="p">,</span><span class="nv">$message</span><span class="p">,</span><span class="s">&quot;\n&quot;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-</code></pre></div>
-      <a href="/2012/05/18/puppet-external-nodes-classifier" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

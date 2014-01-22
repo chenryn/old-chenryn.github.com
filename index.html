@@ -43,6 +43,77 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2014/01/22/explain-mojo-ioloop-delay-testing" title="Mojo::IOLoop::Delay 模块测试代码解释" rel="bookmark">Mojo::IOLoop::Delay 模块测试代码解释</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2014-01-22 00:00:00 +0800">22 Jan 2014</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>昨天有人在群里问起<a href="https://metacpan.org/source/SRI/Mojolicious-4.68/t/mojo/delay.t">Mojolicious/t/mojo/delay.t</a> 中一段代码的执行原理。代码如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Mojo::</span><span class="n">Base</span> <span class="o">-</span><span class="n">strict</span><span class="p">;</span>
+<span class="k">BEGIN</span> <span class="p">{</span>
+  <span class="nv">$ENV</span><span class="p">{</span><span class="n">MOJO_NO_IPV6</span><span class="p">}</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+  <span class="nv">$ENV</span><span class="p">{</span><span class="n">MOJO_REACTOR</span><span class="p">}</span> <span class="o">=</span> <span class="s">&#39;Mojo::Reactor::Poll&#39;</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">use</span> <span class="nn">Test::</span><span class="n">More</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Mojo::</span><span class="n">IOLoop</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Mojo::IOLoop::</span><span class="n">Delay</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$delay</span> <span class="o">=</span> <span class="nn">Mojo::IOLoop::</span><span class="n">Delay</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$finished</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$result</span> <span class="o">=</span> <span class="nb">undef</span><span class="p">;</span>
+<span class="nv">$delay</span><span class="o">-&gt;</span><span class="n">on</span><span class="p">(</span><span class="n">finish</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nv">$finished</span><span class="o">++</span> <span class="p">});</span>
+<span class="nv">$delay</span><span class="o">-&gt;</span><span class="n">steps</span><span class="p">(</span>
+  <span class="k">sub </span><span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$delay</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$end</span>   <span class="o">=</span> <span class="nv">$delay</span><span class="o">-&gt;</span><span class="n">begin</span><span class="p">;</span>
+    <span class="nv">$delay</span><span class="o">-&gt;</span><span class="n">begin</span><span class="o">-&gt;</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="nn">Mojo::</span><span class="n">IOLoop</span><span class="o">-&gt;</span><span class="n">timer</span><span class="p">(</span><span class="mi">0</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nv">$end</span><span class="o">-&gt;</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="p">});</span>
+  <span class="p">},</span>
+  <span class="k">sub </span><span class="p">{</span>
+    <span class="k">my</span> <span class="p">(</span><span class="nv">$delay</span><span class="p">,</span> <span class="nv">@numbers</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$end</span> <span class="o">=</span> <span class="nv">$delay</span><span class="o">-&gt;</span><span class="n">begin</span><span class="p">;</span>
+    <span class="nn">Mojo::</span><span class="n">IOLoop</span><span class="o">-&gt;</span><span class="n">timer</span><span class="p">(</span><span class="mi">0</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nv">$end</span><span class="o">-&gt;</span><span class="p">(</span><span class="nb">undef</span><span class="p">,</span> <span class="nv">@numbers</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="p">});</span>
+  <span class="p">},</span>
+  <span class="k">sub </span><span class="p">{</span>
+    <span class="k">my</span> <span class="p">(</span><span class="nv">$delay</span><span class="p">,</span> <span class="nv">@numbers</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+    <span class="nv">$result</span> <span class="o">=</span> <span class="o">\</span><span class="nv">@numbers</span><span class="p">;</span>
+  <span class="p">}</span>
+<span class="p">);</span>
+<span class="n">is_deeply</span> <span class="p">[</span><span class="nv">$delay</span><span class="o">-&gt;</span><span class="nb">wait</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="s">&#39;right return values&#39;</span><span class="p">;</span>
+<span class="n">is</span> <span class="nv">$finished</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s">&#39;finish event has been emitted once&#39;</span><span class="p">;</span>
+<span class="n">is_deeply</span> <span class="nv">$result</span><span class="p">,</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="s">&#39;right results&#39;</span><span class="p">;</span>
+<span class="n">done_testing</span><span class="p">();</span>
+</code></pre></div>
+<p>首先介绍一下这个 <code>Mojo::IOLoop::Delay</code> 模块，这是异步编程中很火很实用的一个概念，一般叫 <code>Promise</code> / <code>Deferred</code> 。你可以按照顺序编程的思路组合那些异步函数，比如在这个例子里主要就体现了 <code>steps</code> 方法和 <code>finish</code> 事件。</p>
+<p><code>steps</code> 方法中可以传递任意多个异步函数。第一个函数立刻执行，然后等 <code>$delay</code> 信号量(由 <code>begin</code> 方法控制)释放(即重新等于0)后逐次执行后面的函数，直到碰到一个不调用 <code>begin</code> 控制信号量的函数，或者触发 <code>error</code> 或者 <code>finish</code> 事件。</p>
+<p><code>begin</code> 方法返回的回调函数 <code>$end-&gt;()</code> 用来减信号量。如果传递了参数给这个回调函数，那么第一个参数会被忽略，剩下的参数会 <code>push</code> 进下一个顺序或者事件触发函数的参数列表里，同时推送到 <code>wait</code> 方法。</p>
+<p>所以上面这段测试的数据执行结果是这样的：</p>
+<ol>
+  <li><code>$delay-&gt;wait</code> 开始整个 <code>ioloop</code>, <code>steps</code> 方法首先执行 sub1 ，首先通过 <code>$delay-&gt;begin()</code>给信号量加1；</li>
+  <li>随即触发 <code>timer</code> 事件，<code>$end-&gt;(1, 2, 3)</code> 将 <code>(2, 3)</code> 推入下一个函数 sub2 的 <code>@_</code> 里，同时把信号量减1；</li>
+  <li>信号量变成0，继续执行，这一行 <code>$delay-&gt;begin()-&gt;(3, 2, 1)</code>，将 <code>(2, 1)</code> 推入下一个函数 sub2 的 <code>@_</code> 里，注意这里信号量实际也加减过一次，只是这里的回调函数直接匿名调用了；</li>
+  <li>sub1 执行完成，信号量为0，那么开始下一个sub2，sub2 传入的参数列表其实是 <code>($delay, (2, 3), (2, 1))</code>，也就是说这时候的 <code>@numbers</code> 是 <code>(2, 3, 2, 1)</code>；</li>
+  <li>sub2 执行流程类似 sub1 ，信号量加1，触发 <code>timer</code> 事件，然后 <code>$end-&gt;(undef, @numbers, 4)</code> 把 <code>((2, 3, 2, 1), 4)</code> 推入下一个函数 sub3 的 <code>@_</code> 里，同时信号量减1；</li>
+  <li>sub2 执行完成，信号量为0，那么开始下一个sub3，sub3 传入的参数列表就是 <code>($delay, (2, 3, 2, 1, 4))</code>，也就是说这时候的 <code>@numbers</code> 是 <code>(2, 3, 2, 1, 4)</code>；</li>
+  <li>sub3 将 <code>@numbers</code> 的引用赋值给 <code>$result</code>，因为 sub3 里没有对信号量的操作，而且也是最后一个了，<code>steps</code> 完成，触发 <code>finish</code> 事件；</li>
+  <li>注册的 <code>finish</code> 事件回调函数把 <code>$finish</code> 变量加1；</li>
+  <li><code>$delay-&gt;wait</code> 这时候也收集完毕前面每个 <code>$end-&gt;()</code> 的参数列表，和每步 <code>@numbers</code> 是同步的，同时因为 <code>finish</code> 事件被触发，就此停止 <code>ioloop</code>，程序完成，返回整个列表。</li>
+</ol>
+<p>如上。</p>
+      <a href="/2014/01/22/explain-mojo-ioloop-delay-testing" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2014/01/15/kibana3-milestone4-20131105" title="【翻译】Kibana3 里程碑 4" rel="bookmark">【翻译】Kibana3 里程碑 4</a>
     </h1>
     <p class="alt-font tight">
@@ -1872,66 +1943,6 @@ bin    dev    etc    lib    lib64  proc   sbin   sys    tmp    usr
 <p>需要注意的是： <code>output</code> 里使用的时候，需要用 <code>\</code> 转义 <code>.</code>。否则配置解析后会认为变量不存在。这是目前官网文档上写的有问题的地方。我已經跟作者提过，或许过些天会修改。</p>
 <p>值得一提的是：metrics 插件的输出是一个全新的 event，而不会去改变原先 grok 生成的 event。</p>
       <a href="/2013/07/11/howto-filter-count-in-logstash" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2013/06/28/howto-get-peer-ipaddr-in-http-get" title="获取 Perl 程序中 GET 请求发向的具体 IP" rel="bookmark">获取 Perl 程序中 GET 请求发向的具体 IP</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2013-06-28 00:00:00 +0800">28 Jun 2013</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>在运维工作中我们经常需要检测用户访问是否正常，一般来说，直接通过 DNS 客户端获取 A 记录就可以满足需要。不过如果我们可以获得具体连接的 IP 地址，那么就可以缩小问题的判断范围，因为 DNS 的 A 记录通常是有多个的。</p>
-<p>AE::HTTP 模块可以返回 sock 给用户进行具体操作，我们可以通过 sock 接口很简单的获得对端的 IP 地址：</p>
-<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="nn">Web::Checker::Util::</span><span class="n">HTTP</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Moo</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">MooX::Types::MooseLike::</span><span class="n">Base</span> <span class="sx">qw/Str Num/</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">AnyEvent::</span><span class="n">HTTP</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">AnyEvent::</span><span class="n">Socket</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">AnyEvent</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Time::</span><span class="n">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
-<span class="n">has</span> <span class="n">peer</span>    <span class="o">=&gt;</span> <span class="p">(</span> <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;rw&#39;</span><span class="p">,</span> <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span> <span class="p">);</span>
-<span class="n">has</span> <span class="n">reptime</span> <span class="o">=&gt;</span> <span class="p">(</span> <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;rw&#39;</span><span class="p">,</span> <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Num</span> <span class="p">);</span>
-<span class="n">has</span> <span class="n">clength</span> <span class="o">=&gt;</span> <span class="p">(</span> <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;rw&#39;</span><span class="p">,</span> <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Num</span> <span class="p">);</span>
-<span class="n">has</span> <span class="n">body</span>    <span class="o">=&gt;</span> <span class="p">(</span> <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span> <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span> <span class="p">);</span>
-<span class="n">has</span> <span class="n">proxy</span>   <span class="o">=&gt;</span> <span class="p">(</span> <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span> <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span><span class="p">,</span> <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nb">undef</span> <span class="p">}</span> <span class="p">);</span>
-<span class="n">has</span> <span class="n">cv</span> <span class="o">=&gt;</span> <span class="p">(</span> <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span> <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">condvar</span> <span class="p">}</span> <span class="p">);</span>
-<span class="k">sub </span><span class="nf">get</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span> <span class="nv">$self</span><span class="p">,</span> <span class="nv">$url</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">cv</span><span class="o">-&gt;</span><span class="n">begin</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$begin</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
-    <span class="n">http_get</span> <span class="nv">$url</span><span class="p">,</span>
-      <span class="n">proxy</span>            <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">proxy</span><span class="p">,</span>
-      <span class="c1"># 就是这里发挥了作用，默认应该是直接返回 body 字符串的</span>
-      <span class="n">want_body_handle</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
-      <span class="k">sub </span><span class="p">{</span>
-        <span class="k">my</span> <span class="p">(</span> <span class="nv">$hdl</span><span class="p">,</span> <span class="nv">$headers</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-        <span class="k">my</span> <span class="p">(</span> <span class="nv">$port</span><span class="p">,</span> <span class="nv">$peer</span> <span class="p">)</span> <span class="o">=</span>
-          <span class="nn">AnyEvent::Socket::</span><span class="n">unpack_sockaddr</span> <span class="nb">getpeername</span> <span class="nv">$hdl</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">fh</span><span class="p">};</span>
-        <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">peer</span><span class="p">(</span> <span class="nn">AnyEvent::Socket::</span><span class="n">format_address</span> <span class="nv">$peer</span> <span class="p">);</span>
-        <span class="k">if</span> <span class="p">(</span> <span class="nv">$headers</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">Status</span><span class="p">}</span> <span class="o">=~</span><span class="sr"> /^2/</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="k">my</span> <span class="nv">$end</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
-            <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">reptime</span><span class="p">(</span> <span class="nv">$end</span> <span class="o">-</span> <span class="nv">$begin</span> <span class="p">);</span>
-            <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">clength</span><span class="p">(</span> <span class="nv">$headers</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;content-length&#39;</span><span class="p">}</span> <span class="p">);</span>
-            <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">cv</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">;</span>
-        <span class="p">}</span>
-      <span class="p">};</span>
-    <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">cv</span><span class="o">-&gt;</span><span class="nb">recv</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="mi">1</span><span class="p">;</span>
-</code></pre></div>
-<p>其实 AE::HTTP 还可以在 <code>tcp_connect</code> 的时候获取 sock，这时候就需要自己用 <code>AnyEvent::Handle</code> 写一遍 <code>AnyEvent::HTTP::tcp_connect</code> 已经写过的东西了(当然如果你本来就打算干点别的事情，那就是另外一回事情了)~~</p>
-      <a href="/2013/06/28/howto-get-peer-ipaddr-in-http-get" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
