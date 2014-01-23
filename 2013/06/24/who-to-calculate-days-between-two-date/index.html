@@ -78,6 +78,32 @@
 <span class="k">print</span><span class="p">(</span> <span class="p">(</span> <span class="nv">$dt2</span> <span class="o">-</span> <span class="nv">$dt1</span> <span class="p">)</span> <span class="o">/</span> <span class="p">(</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">24</span> <span class="p">)</span> <span class="p">);</span>
 </code></pre></div>
 <p>这里就是要注意，<code>mktime</code> 里的 <code>month</code> 是以 0 开始的，<code>year</code> 是从 1900 开始的。</p>
+<p><strong>2014 年 01 月 22 日更新：</strong></p>
+<p>在2013 年底的 advent calendar 和 perlmaven 上学习到了另外两个模块，这里补充一下：</p>
+<h2 id="timepiece-">Time::Piece 模块</h2>
+<p>这个模块是 Perl5 的corelist 模块，所以不用另外安装就能使用：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Time::</span><span class="n">Piece</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$t1</span> <span class="o">=</span> <span class="nn">Time::</span><span class="n">Piece</span><span class="o">-&gt;</span><span class="n">strptime</span><span class="p">(</span><span class="s">&#39;2013-06-26&#39;</span><span class="p">,</span> <span class="s">&#39;%Y-%m-%d&#39;</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$t2</span> <span class="o">=</span> <span class="nn">Time::</span><span class="n">Piece</span><span class="o">-&gt;</span><span class="n">strptime</span><span class="p">(</span><span class="s">&#39;2012-06-21 GMT&#39;</span><span class="p">,</span> <span class="s">&#39;%Y-%m-%d %Z&#39;</span><span class="p">);</span>
+<span class="k">print</span> <span class="o">+</span><span class="p">(</span><span class="nv">$t1</span> <span class="o">-</span> <span class="nv">$t2</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">days</span><span class="p">;</span>
+</code></pre></div>
+<p>Time::Piece 模块重载了加减号，所以直接两个时间相减后就得到了 Time::Seconds 对象，然后调用 <code>days</code> 方法返回具体天数就可以了。</p>
+<p>这里有个奇怪的问题，在采用 <code>strptime</code> 方法解析创建对象的时候，<code>%Z</code> 格式似乎除了 <code>GMT</code> 之外写其他的都会爆出：</p>
+<pre><code>Error parsing time at /usr/lib/perl/5.14/Time/Piece.pm line 469.
+</code></pre>
+<p>这个真的很诡异了。</p>
+<h2 id="datetimemoonpig-">DateTime::Moonpig 模块</h2>
+<p>这个模块是最近出的，属于 DateTime 模块的接口封装和优化。</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">DateTime::</span><span class="n">Moonpig</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$t3</span> <span class="o">=</span> <span class="nn">DateTime::</span><span class="n">Moonpig</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="n">year</span> <span class="o">=&gt;</span> <span class="mi">2013</span><span class="p">,</span> <span class="n">month</span> <span class="o">=&gt;</span> <span class="mi">6</span><span class="p">,</span> <span class="n">day</span> <span class="o">=&gt;</span> <span class="mi">26</span><span class="p">,</span> <span class="n">time_zone</span> <span class="o">=&gt;</span> <span class="s">&#39;America/New_York&#39;</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$t4</span> <span class="o">=</span> <span class="nn">DateTime::</span><span class="n">Moonpig</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="n">year</span> <span class="o">=&gt;</span> <span class="mi">2012</span><span class="p">,</span> <span class="n">month</span> <span class="o">=&gt;</span> <span class="mi">6</span><span class="p">,</span> <span class="n">day</span> <span class="o">=&gt;</span> <span class="mi">21</span><span class="p">,</span> <span class="n">time_zone</span> <span class="o">=&gt;</span> <span class="s">&#39;GMT&#39;</span><span class="p">);</span>
+<span class="k">print</span> <span class="nb">int</span><span class="p">(</span> <span class="p">(</span><span class="nv">$t3</span> <span class="o">-</span> <span class="nv">$t4</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">60</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">24</span><span class="p">)</span> <span class="p">);</span>
+</code></pre></div>
+<p>从示例可以看出两点优化：</p>
+<ol>
+  <li>可以灵活调整 DateTime::Moonpig 对象的时区，而不用分别 <code>use DateTime;use DateTime::TimeZone</code>；</li>
+  <li>直接加减返回的不再是那个不好用的 <code>DateTime::Duration</code> 对象而是秒数。</li>
+</ol>
     <hr>
     <div class="pagination">
       <ul>
