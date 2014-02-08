@@ -43,6 +43,65 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/05/30/intro-two-lock-tools" title="文件锁和 CPU 绑定" rel="bookmark">文件锁和 CPU 绑定</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-05-30 00:00:00 +0800">30 May 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>从网上看到的两个锁定，都是util-linux包里的。</p>
+<p>一个是flock。我从字面上猜测是文件描述符锁~~help显示如下：</p>
+<pre><code>flock (util-linux 2.13-pre7)    
+Usage: flock [-sxun][-w #] fd#
+       flock [-sxon][-w #] file [-c] command...
+  -s  --shared     Get a shared lock
+  -x  --exclusive  Get an exclusive lock
+  -u  --unlock     Remove a lock
+  -n  --nonblock   Fail rather than wait
+  -w  --timeout    Wait for a limited amount of time
+  -o  --close      Close file descriptor before running command
+  -c  --command    Run a single command string through the shell
+  -h  --help       Display this text
+  -V  --version    Display version
+</code></pre>
+<p>比如在rsync定时同步某文件夹的时候，可能担心上一次任务还没执行完，下一次就开始了。于是可以采用如下方式：</p>
+<pre><code>1 * * * * flock -xn /var/run/rsync.lock -c 'rsync -avlR /data/files 172.16.xxx.xxx:/data'
+</code></pre>
+<p>对照usage，x创建一个独享锁，n是如果已存在就退出（这点扶凯说是就等待，但我觉得从help来看是退出，然后等下一分钟重新探测），然后一个lock文件，c是shell命令，具体内容就是rsync。
+另一个是taskset，同样字面来看，任务设定锁。help如下：</p>
+<pre><code>taskset (util-linux 2.13-pre7)    
+usage: taskset [options] [mask | cpu-list] [pid | cmd [args...]]
+set or get the affinity of a process
+  -p, --pid                  operate on existing given pid    
+  -c, --cpu-list             display and specify cpus in list format
+  -h, --help                 display this help
+  -v, --version              output version information&lt;/p&gt;
+The default behavior is to run a new command:    
+  taskset 03 sshd -b 1024
+You can retrieve the mask of an existing task:
+  taskset -p 700
+Or set it:
+  taskset -p 03 700
+List format uses a comma-separated list instead of a mask:
+  taskset -pc 0,3,7-11 700
+Ranges in list format can take a stride argument:
+  e.g. 0-31:2 is equivalent to mask 0x55555555
+</code></pre>
+<p>用这个命令，可以把不同的进程，锁定在不同的CPU上完成。这个做法，之前在nginx优化上曾经碰到过，不过那是nginx自带的功能。<br />在CU上看到有人提起squid与CPU，squid是只支持单CPU的，不过可以通过在不同端口开启多squid进程的办法来完成对多CPU的利用，一般情况下，各squid进程会自动分配在不同CPU上跑，不过这个是系统的资源分配，难保出问题，就可以用这个命令完成锁定了。</p>
+      <a href="/2010/05/30/intro-two-lock-tools" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/05/28/xen-install-pv" title="xen安装PV" rel="bookmark">xen安装PV</a>
     </h1>
     <p class="alt-font tight">
@@ -1277,59 +1336,6 @@ $2 和 &ldquo;substr($var, $-[2], $+[2] - $-[2])&rdquo; 相同</p>
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/04/22/nginx-default-proxy_cache_key" title="要命的刷新" rel="bookmark">要命的刷新</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-04-22 00:00:00 +0800">22 Apr 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天一天都在跟刷新做斗争。
-先是squid的目录刷新，用/home/squid/bin/squidclient -p 80 mgr:objects|awk &lsquo;/harbin/{system(&ldquo;/home/squid/bin/squidclient -p 80 -m purge &ldquo;$2}&rsquo;刷新一遍；客户反馈看到的依然是旧页面；我想想似乎看到url里有带()的，awk的system函数这时候会出错；于是改成用for i in <code>/home/squid/bin/squidclient -p 80 mgr:objects|awk '/harbin/{print $2}'</code>;do /home/squid/bin/squidclient -p 80 -m purge &ldquo;$i&rdquo;;done再刷新一遍；然后自己绑定节点访问，居然也还看到是旧页面！</p>
-<p>通过httpwatch抓取，其中的http://www.harbin-beer.cn/flash/age.swf的Age高达23325，显然没有被purge到，单独提交/home/squid/bin/squidclient -p 80 -m purge http://www.harbin-beer.cn/flash/age.swf，再访问，Ok了！！
-毫无疑问http://www.harbin-beer.cn/flash/age.swf这个url绝对是能被/harbin/模式匹配的，但为什么之前刷新不到？而且不单单是某一台服务器如此。。。</p>
-<p>然后是nginx的url刷新，某小图片加速客户原先是增量缓存，于是nginx中只是很简单的配置了一下文件类型和缓存时间。不料今天客户突然传过来一个24M大小的url列表，将近30万条url要求全网刷新！而这批nginx连后台刷新接口都没有……哭
-临时更换nginx版本为&ndash;add-ngx_cache_purge的。在设置proxy_cache_purge时却又碰到了难题。因为之前的cache配置里压根没配置proxy_cache_key！！有心格盘，但一算，300000*5k=1.5G，而cache已存文件是100G，格盘动作太大了……
-进到nginx的cache目录下，strings其中的文件，看到如下信息：</p>
-<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@ct5 ~<span class="o">]</span><span class="c"># strings /cache/0/00/c7de957045a9987b18f94d3cc1f99000 |head</span>
-KEY: http://images6.anjukestatic.com/property/20090904/22/65/91/69/22659169/600x600.jpg
-HTTP/1.0 200 OK
-Server: nginx
-Date: Thu, 11 Mar 2010 15:48:20 GMT
-Content-Type: image/jpeg
-ajk: <span class="nv">server</span><span class="o">=</span>img01-001
-Expires: Thu, 31 Dec 2037 23:55:55 GMT
-Cache-Control: max-age<span class="o">=</span>315360000
-X-Cache: HIT from CDN01-001
-Age: 1465699
-</code></pre></div>
-<p>对照其他带purge的nginx_cache格式，可以发现nginx默认的proxy_cache_key应该是$scheme://$host$uri$is_args$args，那么proxy_cache_purge就设成$scheme://$host$1$is_args$args，重读配置，然后curl -x 127.0.0.1:80 http://images6.anjukestatic.com/purge/property/20090904/22/65/91/69/22659169/600x600.jpg，看到</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;html&gt;</span>
-<span class="nt">&lt;head&gt;&lt;title&gt;</span>Successful purge<span class="nt">&lt;/title&gt;&lt;/head&gt;</span>
-<span class="nt">&lt;body</span> <span class="na">bgcolor=</span><span class="s">&quot;white&quot;</span><span class="nt">&gt;</span>
-<span class="nt">&lt;center&gt;&lt;h1&gt;</span>Successful purge<span class="nt">&lt;/h1&gt;</span>
-<span class="nt">&lt;br&gt;</span>Key : http://images6.anjukestatic.com/property/20090904/22/65/91/69/22659169/600x600.jpg
-<span class="nt">&lt;br&gt;</span>Path: /cache/0/00/c7de957045a9987b18f94d3cc1f99000
-<span class="nt">&lt;/center&gt;</span>
-<span class="nt">&lt;hr&gt;&lt;center&gt;</span>nginx/0.7.65<span class="nt">&lt;/center&gt;</span>
-<span class="nt">&lt;/body&gt;</span>
-<span class="nt">&lt;/html&gt;</span>
-</code></pre></div>
-<p>（写到这里，想到google首页源代码省略了&lt;/body&gt;&lt;/html&gt;，据说是因为就少这几个字符，在全球就能节省几个G的带宽。相比来说这个purgemodule可真浪费的）
-再ls /cache/0/00/c7de957045a9987b18f94d3cc1f99000，提示No such file or directory，成功了。接下来就是for循环刷新了……</p>
-      <a href="/2010/04/22/nginx-default-proxy_cache_key" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -1425,6 +1431,8 @@ Age: 1465699
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+              <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+              <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
           </ul>
         </div>
         <div class="well sidebar-nav">

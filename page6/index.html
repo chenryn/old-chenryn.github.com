@@ -43,6 +43,306 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2011/10/25/rewrite_template_for_squid-conf" title="用Template::Tookit给squid.conf写模板" rel="bookmark">用Template::Tookit给squid.conf写模板</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-10-25 00:00:00 +0800">25 Oct 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>本文纯属练习Template模块使用，是否可以运用到生产，是否有必要运用到生产，都是未知数……
+包括如下文件：</p>
+<div class="highlight"><pre><code class="bash"><span class="o">[</span>raocl@localhost tt2-test<span class="o">]</span><span class="nv">$ </span>tree
+.
+|-- config-cdcgame.net.yml
+|-- config-china.com.yml
+|-- config.tt
+|-- hostconfig.yml
+|-- squid.layout.tt
+<span class="sb">`</span>-- tt4squid.pl
+0 directories, 6 files
+</code></pre></div>
+<p>其中tt4squid.pl如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl</span>
+<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">Template</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">YAML::</span><span class="n">Syck</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$config_path</span> <span class="o">=</span> <span class="s">&#39;./&#39;</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="n">LoadFile</span><span class="p">(</span><span class="s">&quot;${config_path}hostconfig.yml&quot;</span><span class="p">);</span>
+<span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;configs&#39;</span><span class="p">}</span> <span class="o">=</span> <span class="o">\&amp;</span><span class="n">loadconfigs</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$tt</span> <span class="o">=</span> <span class="n">Template</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
+<span class="nv">$tt</span><span class="o">-&gt;</span><span class="n">process</span><span class="p">(</span><span class="s">&quot;$ARGV[0]&quot;</span><span class="p">,</span> <span class="nv">$data</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">die</span> <span class="nv">$tt</span><span class="o">-&gt;</span><span class="n">error</span><span class="p">;</span>
+<span class="k">sub </span><span class="nf">loadconfigs</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">@ref_array</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">@ymls</span> <span class="o">=</span> <span class="nb">grep</span> <span class="p">{</span><span class="sr">s/${config_path}config-(.+?\.yml)/$1/</span><span class="p">}</span> <span class="nb">glob</span><span class="p">(</span><span class="s">&quot;${config_path}*&quot;</span><span class="p">);</span>
+    <span class="k">foreach</span> <span class="k">my</span> <span class="nv">$yml</span> <span class="p">(</span><span class="nv">@ymls</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="nv">$hash_ref</span> <span class="o">=</span> <span class="n">LoadFile</span><span class="p">(</span><span class="s">&quot;${config_path}config-${yml}&quot;</span><span class="p">);</span>
+        <span class="nb">push</span> <span class="nv">@ref_array</span><span class="p">,</span> <span class="nv">$hash_ref</span><span class="p">;</span>
+    <span class="p">};</span>
+    <span class="k">return</span> <span class="o">\</span><span class="nv">@ref_array</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>config.tt模板如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="p">[</span><span class="nv">%#</span> <span class="err">用%后面紧跟的#表示注释。用%紧跟的-表示消除外面的一个\</span><span class="nv">s</span><span class="err">。</span> <span class="nv">%</span><span class="err">]</span>
+<span class="err">[%#</span> <span class="err">用</span><span class="nv">WRAPPER</span><span class="err">表示加入</span><span class="n">layout</span><span class="err">模板，这个跟</span><span class="n">INCLUDE</span><span class="o">/</span><span class="n">PROCESS</span><span class="err">有点不同，之前</span><span class="n">Dancer</span><span class="err">的时候用过</span> <span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">WRAPPER</span> <span class="n">squid</span><span class="o">.</span><span class="n">layout</span><span class="o">.</span><span class="n">tt</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">FOREACH</span> <span class="n">config</span> <span class="n">IN</span> <span class="n">configs</span> <span class="nv">%</span><span class="err">]</span>
+<span class="err">####[%</span> <span class="nv">config</span><span class="o">.</span><span class="n">custom</span> <span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">IF</span> <span class="n">config</span><span class="o">.</span><span class="n">rewrite</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="nv">acl</span> <span class="p">[</span><span class="nv">%</span> <span class="nv">config</span><span class="o">.</span><span class="n">custom</span> <span class="nv">%</span><span class="err">]</span><span class="nv">_url_rewrite</span> <span class="n">url_regex</span> <span class="o">-</span><span class="n">i</span> <span class="p">[</span><span class="nv">%</span> <span class="nv">config</span><span class="o">.</span><span class="n">rewrite</span><span class="o">.</span><span class="n">url_regex</span> <span class="nv">%</span><span class="err">]</span>
+<span class="nv">url_rewrite_access</span> <span class="n">deny</span> <span class="o">!</span><span class="p">[</span><span class="nv">%</span> <span class="nv">config</span><span class="o">.</span><span class="n">custom</span> <span class="nv">%</span><span class="err">]</span><span class="nv">_url_rewrite</span>
+<span class="n">url_rewrite_program</span> <span class="p">[</span><span class="nv">%</span> <span class="nv">config</span><span class="o">.</span><span class="n">rewrite</span><span class="o">.</span><span class="n">program</span> <span class="nv">%</span><span class="err">]</span>
+<span class="nv">url_rewrite_concurrency</span> <span class="p">[</span><span class="nv">%</span> <span class="nv">config</span><span class="o">.</span><span class="n">rewrite</span><span class="o">.</span><span class="n">concurrency</span> <span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">END</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">IF</span> <span class="n">config</span><span class="o">.</span><span class="n">cache_deny_list</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">FOREACH</span> <span class="n">list</span> <span class="n">IN</span> <span class="n">config</span><span class="o">.</span><span class="n">cache_deny_list</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="nv">acl</span> <span class="n">no_cache_acl4</span><span class="p">[</span><span class="nv">%</span> <span class="nv">config</span><span class="o">.</span><span class="n">custom</span> <span class="nv">%</span><span class="err">]</span> <span class="nv">url_regex</span> <span class="o">-</span><span class="n">i</span> <span class="p">[</span><span class="nv">%</span> <span class="nv">list</span> <span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">END</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="nv">cache</span> <span class="n">deny</span> <span class="n">no_cache_acl4</span><span class="p">[</span><span class="nv">%</span> <span class="nv">config</span><span class="o">.</span><span class="n">custom</span> <span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">END</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">IF</span> <span class="n">config</span><span class="o">.</span><span class="n">http_access_list</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">FOREACH</span> <span class="n">prior_list</span> <span class="n">IN</span> <span class="n">config</span><span class="o">.</span><span class="n">http_access_list</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">FOREACH</span> <span class="n">list</span> <span class="n">IN</span> <span class="n">prior_list</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="nv">acl</span> <span class="n">acl_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">config</span><span class="o">.</span><span class="n">custom</span> <span class="nv">%</span><span class="err">]</span><span class="nv">_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">list</span><span class="o">.</span><span class="n">access</span> <span class="nv">%</span><span class="err">]</span><span class="nv">_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">list</span><span class="o">.</span><span class="n">priority</span> <span class="nv">%</span><span class="err">]</span> <span class="nv">url_regex</span> <span class="o">-</span><span class="n">i</span> <span class="p">[</span><span class="nv">%</span> <span class="nv">list</span><span class="o">.</span><span class="n">url_regex</span> <span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">END</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%#</span> <span class="err">这里虽然</span><span class="nv">END</span><span class="err">退出了循环，但是原来内存里的数据没有清除，所以下一行的</span><span class="n">list</span><span class="err">数据结构就是上面循环的最后一次执行结果</span> <span class="nv">%</span><span class="err">]</span>
+<span class="nv">http_access</span> <span class="p">[</span><span class="nv">%</span> <span class="nv">list</span><span class="o">.</span><span class="n">access</span> <span class="nv">%</span><span class="err">]</span> <span class="nv">acl_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">config</span><span class="o">.</span><span class="n">custom</span> <span class="nv">%</span><span class="err">]</span><span class="nv">_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">list</span><span class="o">.</span><span class="n">access</span> <span class="nv">%</span><span class="err">]</span><span class="nv">_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">list</span><span class="o">.</span><span class="n">priority</span> <span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">IF</span> <span class="n">list</span><span class="o">.</span><span class="n">allow_referer</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="nv">acl</span> <span class="n">not_null_referer</span> <span class="n">referer_regex</span> <span class="o">-</span><span class="n">i</span> <span class="o">.</span>
+<span class="n">acl</span> <span class="p">[</span><span class="nv">%</span> <span class="nv">config</span><span class="o">.</span><span class="n">custom</span> <span class="nv">%</span><span class="err">]</span><span class="nv">_allow_referer</span> <span class="n">referer_regex</span> <span class="o">-</span><span class="n">i</span>
+<span class="p">[</span><span class="nv">%</span><span class="err">-</span> <span class="nv">FOREACH</span> <span class="n">referer</span> <span class="n">IN</span> <span class="n">list</span><span class="o">.</span><span class="n">allow_referer</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+ <span class="err">[%</span> <span class="nv">referer</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">END</span> <span class="nv">%</span><span class="err">]</span>
+<span class="nv">http_access</span> <span class="n">allow</span> <span class="n">acl_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">config</span><span class="o">.</span><span class="n">custom</span> <span class="nv">%</span><span class="err">]</span><span class="nv">_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">list</span><span class="o">.</span><span class="n">access</span> <span class="nv">%</span><span class="err">]</span><span class="nv">_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">list</span><span class="o">.</span><span class="n">priority</span> <span class="nv">%</span><span class="err">]</span> <span class="err">!</span><span class="nv">not_null_referer</span>
+<span class="n">http_access</span> <span class="n">deny</span> <span class="n">acl_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">config</span><span class="o">.</span><span class="n">custom</span> <span class="nv">%</span><span class="err">]</span><span class="nv">_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">list</span><span class="o">.</span><span class="n">access</span> <span class="nv">%</span><span class="err">]</span><span class="nv">_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">list</span><span class="o">.</span><span class="n">priority</span> <span class="nv">%</span><span class="err">]</span> <span class="err">[%</span> <span class="nv">config</span><span class="o">.</span><span class="n">custom</span> <span class="nv">%</span><span class="err">]</span><span class="nv">_allow_referer</span>
+<span class="p">[</span><span class="nv">%</span> <span class="nv">END</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">IF</span> <span class="n">config</span><span class="o">.</span><span class="n">deny_info</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="nv">deny_info</span> <span class="p">[</span><span class="nv">%</span> <span class="nv">config</span><span class="o">.</span><span class="n">deny_info</span> <span class="nv">%</span><span class="err">]</span> <span class="nv">acl_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">config</span><span class="o">.</span><span class="n">custom</span> <span class="nv">%</span><span class="err">]</span><span class="nv">_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">list</span><span class="o">.</span><span class="n">access</span> <span class="nv">%</span><span class="err">]</span><span class="nv">_</span><span class="p">[</span><span class="nv">%</span> <span class="nv">list</span><span class="o">.</span><span class="n">priority</span> <span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">END</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">END</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">END</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">IF</span> <span class="n">config</span><span class="o">.</span><span class="n">refresh_patterns</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">FOREACH</span> <span class="n">pattern</span> <span class="n">IN</span> <span class="n">config</span><span class="o">.</span><span class="n">refresh_patterns</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="nv">refresh_pattern</span> <span class="o">-</span><span class="n">i</span> <span class="p">[</span><span class="nv">%</span> <span class="nv">pattern</span><span class="o">.</span><span class="n">url_regex</span> <span class="nv">%</span><span class="err">]</span> <span class="err">[%</span> <span class="nv">pattern</span><span class="o">.</span><span class="n">min</span> <span class="nv">%</span><span class="err">]</span> <span class="err">[%</span> <span class="nv">pattern</span><span class="o">.</span><span class="n">per</span> <span class="nv">%</span><span class="err">]%</span> <span class="err">[%</span> <span class="nv">pattern</span><span class="o">.</span><span class="n">max</span> <span class="nv">%</span><span class="err">]</span>
+<span class="err">[%-</span> <span class="nv">FOREACH</span> <span class="n">option</span> <span class="n">IN</span> <span class="n">pattern</span><span class="o">.</span><span class="n">options</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+ <span class="err">[%</span> <span class="nv">option</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">END</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">END</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">END</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">END</span> <span class="nv">%</span><span class="err">]</span>
+<span class="err">[%</span> <span class="nv">END</span> <span class="nv">%</span><span class="err">]</span>
+</code></pre></div>
+<p>通过WRAPPER加载的squid.layout.tt模板如下：</p>
+<div class="highlight"><pre><code class="squid"><span class="c">#################ACL1############################</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span><span class="no">all</span><span class="w"> </span><span class="k">src</span><span class="w"> </span><span class="mf">0.0.0.0/0.0.0.0</span><span class="w"></span>
+<span class="c">#############################################</span><span class="w"></span>
+<span class="k">http_port</span><span class="w"> </span>[%<span class="w"> </span><span class="k">http_port</span><span class="w"> </span>%]<span class="w"> </span>accel<span class="w"> </span>vhost<span class="w"> </span>vport<span class="w"> </span>http11<span class="w"> </span><span class="no">allow</span>-direct<span class="w"></span>
+<span class="k">icp_port</span><span class="w"> </span><span class="m">0</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>shoutcast<span class="w"> </span>rep_header<span class="w"> </span>X-HTTP09-First-Line<span class="w"> </span>^ICY.[0-9]<span class="w"></span>
+upgrade_http0.9<span class="w"> </span><span class="no">deny</span><span class="w"> </span>shoutcast<span class="w"></span>
+<span class="k">negative_ttl</span><span class="w"> </span>[%<span class="w"> </span><span class="k">negative_ttl</span><span class="w"> </span>%]<span class="w"> </span>second<span class="w"></span>
+refresh_stale_hit<span class="w"> </span><span class="m">0</span><span class="w"> </span>minute<span class="w"></span>
+vary_ignore_expire<span class="w"> </span><span class="no">on</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>apache<span class="w"> </span>rep_header<span class="w"> </span>Server<span class="w"> </span>^Apache<span class="w"></span>
+broken_vary_encoding<span class="w"> </span><span class="no">allow</span><span class="w"> </span>apache<span class="w"></span>
+cache_vary<span class="w"> </span><span class="no">on</span><span class="w"></span>
+<span class="k">cache_mgr</span><span class="w"> </span>[%<span class="w"> </span>admin_email<span class="w"> </span>%]<span class="w"></span>
+<span class="k">visible_hostname</span><span class="w"> </span>[%<span class="w"> </span>local_hostname<span class="w"> </span>%]<span class="w"></span>
+<span class="k">icp_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span><span class="no">all</span><span class="w"></span>
+<span class="k">cache_effective_user</span><span class="w"> </span>nobody<span class="w"></span>
+<span class="k">cache_effective_group</span><span class="w"> </span>nobody<span class="w"></span>
+httpd_suppress_version_string<span class="w"> </span><span class="no">on</span><span class="w"></span>
+<span class="k">debug_options</span><span class="w"> </span><span class="no">ALL</span>,1<span class="w"></span>
+<span class="c">#####################################</span><span class="w"></span>
+pipeline_prefetch<span class="w"> </span><span class="no">on</span><span class="w"></span>
+<span class="k">pid_filename</span><span class="w"> </span>/var/run/squid.pid<span class="w"></span>
+<span class="k">hierarchy_stoplist</span><span class="w"></span>
+[%-<span class="w"> </span>FOREACH<span class="w"> </span>stop<span class="w"> </span>IN<span class="w"> </span>stoplist<span class="w"> </span>-%]<span class="w"></span>
+<span class="w"> </span>[%<span class="w"> </span>stop<span class="w"> </span>-%]<span class="w"></span>
+[%<span class="w"> </span>END<span class="w"> </span>%]<span class="w"></span>
+<span class="c">######################################</span><span class="w"></span>
+<span class="k">cache_mem</span><span class="w"> </span>[%<span class="w"> </span><span class="k">cache_mem</span><span class="w"> </span>%]<span class="w"> </span>MB<span class="w"></span>
+maximum_object_size_in_memory<span class="w"> </span>[%<span class="w"> </span>max_in_mem<span class="w"> </span>%]<span class="w"> </span>KB<span class="w"></span>
+<span class="k">maximum_object_size</span><span class="w"> </span>[%<span class="w"> </span>max_obj<span class="w"> </span>%]<span class="w"> </span>MB<span class="w"></span>
+<span class="k">minimum_object_size</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>KB<span class="w"></span>
+[%<span class="w"> </span>FOREACH<span class="w"> </span>coss<span class="w"> </span>IN<span class="w"> </span>cossdirs<span class="w"> </span>-%]<span class="w"></span>
+<span class="k">cache_dir</span><span class="w"> </span>coss<span class="w"> </span>[%<span class="w"> </span>coss.dir<span class="w"> </span>%]<span class="w"> </span>[%<span class="w"> </span>coss.dir_size<span class="w"> </span>%]<span class="w"> </span>max-size=[%<span class="w"> </span>coss.max_size<span class="w"> </span>%]<span class="w"> </span>block-size=[%<span class="w"> </span>coss.block_size<span class="w"> </span>%]<span class="w"> </span>membufs=[%<span class="w"> </span>coss.membufs<span class="w"> </span>%]<span class="w"></span>
+[%<span class="w"> </span>END<span class="w"> </span>-%]<span class="w"></span>
+[%<span class="w"> </span>FOREACH<span class="w"> </span>aufs<span class="w"> </span>IN<span class="w"> </span>aufsdirs<span class="w"> </span>-%]<span class="w"></span>
+<span class="k">cache_dir</span><span class="w"> </span>aufs<span class="w"> </span>[%<span class="w"> </span>aufs.dir<span class="w"> </span>%]<span class="w"> </span>[%<span class="w"> </span>aufs.dir_size<span class="w"> </span>%]<span class="w"> </span>[%<span class="w"> </span>aufs.num_1st<span class="w"> </span>%]<span class="w"> </span>[%<span class="w"> </span>aufs.num_2nd<span class="w"> </span>%]<span class="w"> </span>min-size=[%<span class="w"> </span>aufs.min_size<span class="w"> </span>%]<span class="w"></span>
+[%<span class="w"> </span>END<span class="w"> </span>-%]<span class="w"></span>
+<span class="k">quick_abort_min</span><span class="w"> </span><span class="m">32</span><span class="w"> </span>KB<span class="w"></span>
+<span class="k">quick_abort_max</span><span class="w"> </span><span class="m">32</span><span class="w"> </span>KB<span class="w"></span>
+<span class="k">quick_abort_pct</span><span class="w"> </span><span class="m">95</span><span class="w"></span>
+store_dir_select_algorithm<span class="w"> </span><span class="no">round-robin</span><span class="w"></span>
+cache_replacement_policy<span class="w"> </span><span class="no">lru</span><span class="w"></span>
+<span class="k">cache_swap_low</span><span class="w"> </span>[%<span class="w"> </span>swap_low<span class="w"> </span>%]<span class="w"></span>
+<span class="k">cache_swap_high</span><span class="w"> </span>[%<span class="w"> </span>swap_high<span class="w"> </span>%]<span class="w"></span>
+<span class="c">#################log#######################################</span><span class="w"></span>
+logformat<span class="w"> </span>apache_like<span class="w"> </span>%tl<span class="w"> </span>%6tr<span class="w"> </span>%&gt;a<span class="w"> </span>%Ss/%03Hs<span class="w"> </span>%&lt;st<span class="w"> </span>%rm<span class="w"> </span>%ru<span class="w"> </span>%Sh/%&lt;A<span class="w"> </span>%mt<span class="w"> </span>&quot;%{Referer}&gt;h&quot;<span class="w"> </span>&quot;%{User-Agent}&gt;h&quot;<span class="w"></span>
+<span class="k">access_log</span><span class="w"> </span>[%<span class="w"> </span><span class="k">access_log</span><span class="w"> </span>%]<span class="w"> </span>[%<span class="w"> </span>logformat<span class="w"> </span>%]<span class="w"></span>
+<span class="k">cache_log</span><span class="w"> </span>[%<span class="w"> </span><span class="k">cache_log</span><span class="w"> </span>%]<span class="w"></span>
+<span class="k">cache_store_log</span><span class="w"> </span><span class="no">none</span><span class="w"></span>
+<span class="k">logfile_rotate</span><span class="w"> </span><span class="m">4</span><span class="w"></span>
+<span class="k">strip_query_terms</span><span class="w"> </span><span class="no">off</span><span class="w"></span>
+<span class="c">#################configs###################################</span><span class="w"></span>
+[%#<span class="w"> </span>这里就是使用WARPPER特别的一点，必须用content标签标记插入位置<span class="w"> </span>%]<span class="w"></span>
+[%<span class="w"> </span>content<span class="w"> </span>%]<span class="w"></span>
+<span class="k">http_reply_access</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span><span class="no">all</span><span class="w"></span>
+<span class="k">refresh_pattern</span><span class="w"> </span>-i<span class="w"> </span>.tar<span class="w"> </span><span class="m">180</span><span class="w"> </span><span class="m">20%</span><span class="w"> </span><span class="m">10080</span><span class="w"> </span>override-expire<span class="w"> </span>ignore-reload<span class="w"> </span>reload-into-ims<span class="w"></span>
+<span class="c">##########ACL2###################</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>Safe_ports<span class="w"> </span><span class="k">port</span><span class="w"> </span><span class="m">80</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>manager<span class="w"> </span><span class="k">proto</span><span class="w"> </span>cache_object<span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>ControlCenter<span class="w"> </span><span class="k">src</span><span class="w"> </span><span class="mf">127.0.0.1</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>PURGE<span class="w"> </span><span class="k">method</span><span class="w"> </span>PURGE<span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>Safe_ports<span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>PURGE<span class="w"> </span>ControlCenter<span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>manager<span class="w"> </span>ControlCenter<span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span>PURGE<span class="w"> </span>!ControlCenter<span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span><span class="no">all</span><span class="w"></span>
+<span class="c">#############snmp############################</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>snmppublic<span class="w"> </span><span class="k">snmp_community</span><span class="w"> </span>cacti_china<span class="w"></span>
+<span class="k">snmp_access</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>snmppublic<span class="w"> </span>ControlCenter<span class="w"></span>
+<span class="k">snmp_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span><span class="no">all</span><span class="w"></span>
+<span class="k">always_direct</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span><span class="no">all</span><span class="w"></span>
+</code></pre></div>
+<p>最后域名配置config-china.com.yml如下：</p>
+<div class="highlight"><pre><code class="yaml"><span class="nn">---</span>
+<span class="c1">#yaml格式，用&quot;  &quot;区分层次，用&quot;: &quot;区分hash，用&quot;- &quot;区分array</span>
+<span class="l-Scalar-Plain">cache_deny_list</span><span class="p-Indicator">:</span> 
+  <span class="p-Indicator">-</span> <span class="s">&quot;^http://www.china.com/&quot;</span>
+  <span class="p-Indicator">-</span> <span class="s">&quot;^http://bbs.china.com/.*.html&quot;</span>
+<span class="l-Scalar-Plain">custom</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">china</span>
+<span class="l-Scalar-Plain">http_access_list</span><span class="p-Indicator">:</span> 
+<span class="c1">#下面两个-，第一个是优先级的数组标示，第二个是同一优先级里多条acl的数组标示</span>
+  <span class="p-Indicator">-</span> 
+    <span class="p-Indicator">-</span> 
+      <span class="l-Scalar-Plain">access</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">deny</span>
+      <span class="l-Scalar-Plain">priority</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">9</span>
+      <span class="l-Scalar-Plain">url_regex</span><span class="p-Indicator">:</span> <span class="s">&quot;^http://www.china.com/index.html&quot;</span>
+    <span class="p-Indicator">-</span> 
+      <span class="l-Scalar-Plain">access</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">deny</span>
+      <span class="l-Scalar-Plain">priority</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">9</span>
+      <span class="l-Scalar-Plain">url_regex</span><span class="p-Indicator">:</span> <span class="s">&quot;^http://news.china.com/.*.htm&quot;</span>
+<span class="c1">#嗯，上面优先级为9的数组元素里有两个acl，下面优先级为8和7的数组元素里都只有一个acl</span>
+  <span class="p-Indicator">-</span> 
+    <span class="p-Indicator">-</span> 
+      <span class="l-Scalar-Plain">access</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">allow</span>
+      <span class="l-Scalar-Plain">priority</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">8</span>
+      <span class="l-Scalar-Plain">url_regex</span><span class="p-Indicator">:</span> <span class="s">&quot;^http://.*.china.com/.*.html&quot;</span>
+  <span class="p-Indicator">-</span> 
+    <span class="p-Indicator">-</span> 
+      <span class="l-Scalar-Plain">access</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">deny</span>
+      <span class="l-Scalar-Plain">allow_referer</span><span class="p-Indicator">:</span> 
+        <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">china.com</span>
+        <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">cdc.com</span>
+      <span class="l-Scalar-Plain">deny_info</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">http://dvs.china.com/do_not_delete.png</span>
+      <span class="l-Scalar-Plain">priority</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">7</span>
+      <span class="l-Scalar-Plain">url_regex</span><span class="p-Indicator">:</span> <span class="s">&#39;^http://img.china.com/.*\.jpg$&#39;</span>
+<span class="l-Scalar-Plain">refresh_patterns</span><span class="p-Indicator">:</span> 
+  <span class="p-Indicator">-</span> 
+    <span class="l-Scalar-Plain">max</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">1440</span>
+    <span class="l-Scalar-Plain">min</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">180</span>
+    <span class="l-Scalar-Plain">options</span><span class="p-Indicator">:</span> 
+      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">ignore-reload</span>
+      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">reload-into-ims</span>
+    <span class="l-Scalar-Plain">per</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">20</span>
+    <span class="l-Scalar-Plain">url_regex</span><span class="p-Indicator">:</span> <span class="s">&#39;^http://.*china.com/.+\.(jsp|do)&#39;</span>
+</code></pre></div>
+<p>另一个配置config-cdcgame.net.yml如下：</p>
+<div class="highlight"><pre><code class="yaml"><span class="l-Scalar-Plain">custom</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">cdcgame</span>
+<span class="l-Scalar-Plain">rewrite</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">concurrency</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">5</span>
+  <span class="l-Scalar-Plain">program</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">/usr/local/squid/bin/rewrite.pl</span>
+  <span class="l-Scalar-Plain">url_regex</span><span class="p-Indicator">:</span> <span class="s">&#39;^http://www.cdcgame.net/[0-9]+\.js\?&#39;</span>
+</code></pre></div>
+<p>主要解决的就是acl和http_access的配合问题，最后想是通过优先级数组的方式，同一优先级的acl写完后就先写对应的http_access；这样yml书写起来有些啰嗦，最好还是能有web页面~~
+最后运行命令&rdquo;perl tt4squid.pl config.tt&rdquo;，结果如下：</p>
+<div class="highlight"><pre><code class="squid"><span class="c">#################ACL1############################</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span><span class="no">all</span><span class="w"> </span><span class="k">src</span><span class="w"> </span><span class="mf">0.0.0.0/0.0.0.0</span><span class="w"></span>
+<span class="c">#############################################</span><span class="w"></span>
+<span class="k">http_port</span><span class="w"> </span><span class="m">80</span><span class="w"> </span>accel<span class="w"> </span>vhost<span class="w"> </span>vport<span class="w"> </span>http11<span class="w"> </span><span class="no">allow</span>-direct<span class="w"></span>
+<span class="k">icp_port</span><span class="w"> </span><span class="m">0</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>shoutcast<span class="w"> </span>rep_header<span class="w"> </span>X-HTTP09-First-Line<span class="w"> </span>^ICY.[0-9]<span class="w"></span>
+upgrade_http0.9<span class="w"> </span><span class="no">deny</span><span class="w"> </span>shoutcast<span class="w"></span>
+<span class="k">negative_ttl</span><span class="w"> </span><span class="m">120</span><span class="w"> </span>second<span class="w"></span>
+refresh_stale_hit<span class="w"> </span><span class="m">0</span><span class="w"> </span>minute<span class="w"></span>
+vary_ignore_expire<span class="w"> </span><span class="no">on</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>apache<span class="w"> </span>rep_header<span class="w"> </span>Server<span class="w"> </span>^Apache<span class="w"></span>
+broken_vary_encoding<span class="w"> </span><span class="no">allow</span><span class="w"> </span>apache<span class="w"></span>
+cache_vary<span class="w"> </span><span class="no">on</span><span class="w"></span>
+<span class="k">cache_mgr</span><span class="w"> </span>admin@test.com<span class="w"></span>
+<span class="k">visible_hostname</span><span class="w"> </span>bja-01.test.com<span class="w"></span>
+<span class="k">icp_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span><span class="no">all</span><span class="w"></span>
+<span class="k">cache_effective_user</span><span class="w"> </span>nobody<span class="w"></span>
+<span class="k">cache_effective_group</span><span class="w"> </span>nobody<span class="w"></span>
+httpd_suppress_version_string<span class="w"> </span><span class="no">on</span><span class="w"></span>
+<span class="k">debug_options</span><span class="w"> </span><span class="no">ALL</span>,1<span class="w"></span>
+<span class="c">#####################################</span><span class="w"></span>
+pipeline_prefetch<span class="w"> </span><span class="no">on</span><span class="w"></span>
+<span class="k">pid_filename</span><span class="w"> </span>/var/run/squid.pid<span class="w"></span>
+<span class="k">hierarchy_stoplist</span><span class="w"> </span>aspx<span class="w"> </span>cgi<span class="w"> </span>\?<span class="w"></span>
+<span class="c">######################################</span><span class="w"></span>
+<span class="k">cache_mem</span><span class="w"> </span><span class="m">512</span><span class="w"> </span>MB<span class="w"></span>
+maximum_object_size_in_memory<span class="w"> </span><span class="m">56</span><span class="w"> </span>KB<span class="w"></span>
+<span class="k">maximum_object_size</span><span class="w"> </span><span class="m">8</span><span class="w"> </span>MB<span class="w"></span>
+<span class="k">minimum_object_size</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>KB<span class="w"></span>
+<span class="k">cache_dir</span><span class="w"> </span>coss<span class="w"> </span>/coss<span class="w"> </span><span class="m">1000000</span><span class="w"> </span>max-size=8000000<span class="w"> </span>block-size=8000<span class="w"> </span>membufs=512<span class="w"></span>
+<span class="k">cache_dir</span><span class="w"> </span>coss<span class="w"> </span>/coss2<span class="w"> </span><span class="m">1000000</span><span class="w"> </span>max-size=8000000<span class="w"> </span>block-size=8000<span class="w"> </span>membufs=512<span class="w"></span>
+<span class="k">cache_dir</span><span class="w"> </span>aufs<span class="w"> </span>/aufs<span class="w"> </span><span class="m">1000000</span><span class="w"> </span><span class="m">128</span><span class="w"> </span><span class="m">128</span><span class="w"> </span>min-size=8000000<span class="w"></span>
+<span class="k">quick_abort_min</span><span class="w"> </span><span class="m">32</span><span class="w"> </span>KB<span class="w"></span>
+<span class="k">quick_abort_max</span><span class="w"> </span><span class="m">32</span><span class="w"> </span>KB<span class="w"></span>
+<span class="k">quick_abort_pct</span><span class="w"> </span><span class="m">95</span><span class="w"></span>
+store_dir_select_algorithm<span class="w"> </span><span class="no">round-robin</span><span class="w"></span>
+cache_replacement_policy<span class="w"> </span><span class="no">lru</span><span class="w"></span>
+<span class="k">cache_swap_low</span><span class="w"> </span><span class="m">70</span><span class="w"></span>
+<span class="k">cache_swap_high</span><span class="w"> </span><span class="m">85</span><span class="w"></span>
+<span class="c">#################log#######################################</span><span class="w"></span>
+logformat<span class="w"> </span>apache_like<span class="w"> </span>%tl<span class="w"> </span>%6tr<span class="w"> </span>%&gt;a<span class="w"> </span>%Ss/%03Hs<span class="w"> </span>%&lt;st<span class="w"> </span>%rm<span class="w"> </span>%ru<span class="w"> </span>%Sh/%&lt;A<span class="w"> </span>%mt<span class="w"> </span>&quot;%{Referer}&gt;h&quot;<span class="w"> </span>&quot;%{User-Agent}&gt;h&quot;<span class="w"></span>
+<span class="k">access_log</span><span class="w"> </span>/data/proclog/squid/access_log<span class="w"> </span>apache_like<span class="w"></span>
+<span class="k">cache_log</span><span class="w"> </span>/data/proclog/squid/cache_log<span class="w"></span>
+<span class="k">cache_store_log</span><span class="w"> </span><span class="no">none</span><span class="w"></span>
+<span class="k">logfile_rotate</span><span class="w"> </span><span class="m">4</span><span class="w"></span>
+<span class="k">strip_query_terms</span><span class="w"> </span><span class="no">off</span><span class="w"></span>
+<span class="c">#################configs###################################</span><span class="w"></span>
+<span class="c">####cdcgame</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>cdcgame_url_rewrite<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^http://www.cdcgame.net/[0-9]+\.js\?<span class="w"></span>
+url_rewrite_access<span class="w"> </span><span class="no">deny</span><span class="w"> </span>!cdcgame_url_rewrite<span class="w"></span>
+url_rewrite_program<span class="w"> </span>/usr/local/squid/bin/rewrite.pl<span class="w"></span>
+url_rewrite_concurrency<span class="w"> </span><span class="m">5</span><span class="w"></span>
+<span class="c">####china</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>no_cache_acl4china<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^http://www.china.com/<span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>no_cache_acl4china<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^http://bbs.china.com/.*.html<span class="w"></span>
+cache<span class="w"> </span><span class="no">deny</span><span class="w"> </span>no_cache_acl4china<span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>acl_china_deny_9<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^http://www.china.com/index.html<span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>acl_china_deny_9<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^http://news.china.com/.*.htm<span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span>acl_china_deny_9<span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>acl_china_allow_8<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^http://.*.china.com/.*.html<span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>acl_china_allow_8<span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>acl_china_deny_7<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^http://img.china.com/.*\.jpg$<span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span>acl_china_deny_7<span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>not_null_referer<span class="w"> </span><span class="k">referer_regex</span><span class="w"> </span>-i<span class="w"> </span>.<span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>china_allow_referer<span class="w"> </span><span class="k">referer_regex</span><span class="w"> </span>-i<span class="w"> </span>china.com<span class="w"> </span>cdc.com<span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>acl_china_deny_7<span class="w"> </span>!not_null_referer<span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span>acl_china_deny_7<span class="w"> </span>china_allow_referer<span class="w"></span>
+<span class="k">refresh_pattern</span><span class="w"> </span>-i<span class="w"> </span>^http://.*china.com/.+\.(jsp|do)<span class="w"> </span><span class="m">180</span><span class="w"> </span><span class="m">20%</span><span class="w"> </span><span class="m">1440</span><span class="w"> </span>ignore-reload<span class="w"> </span>reload-into-ims<span class="w"></span>
+<span class="k">http_reply_access</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span><span class="no">all</span><span class="w"></span>
+...(略)<span class="w"></span>
+</code></pre></div>
+      <a href="/2011/10/25/rewrite_template_for_squid-conf" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2011/10/24/backup-script-4-my-blog" title="blog备份脚本" rel="bookmark">blog备份脚本</a>
     </h1>
     <p class="alt-font tight">
@@ -2268,124 +2568,6 @@ patch -p1 &lt; squid-snmp.patch
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/06/22/extend-open_conn-output-support-to-squid-snmp" title="给squid的snmp增加open_conn输出" rel="bookmark">给squid的snmp增加open_conn输出</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-06-22 00:00:00 +0800">22 Jun 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>做反向代理的squid集群监控，在单机维护时，squidclient mgr:server_list里的OPEN CONNS是经常看的一项数据，不过在开启snmp支持后，在mib里却没有找到相关的数据。还一度怀疑是不是cachePeerKeepAlRecv或者cachePeerKeepSent。今天想起来去src里grep了一把源码，顺利的在squid/src/neighbors.c里看到了OPEN CONNS等数据的来源，如下：</p>
-<div class="highlight"><pre><code class="c"><span class="k">static</span> <span class="kt">void</span>
-<span class="nf">dump_peers</span><span class="p">(</span><span class="n">StoreEntry</span> <span class="o">*</span> <span class="n">sentry</span><span class="p">,</span> <span class="n">peer</span> <span class="o">*</span> <span class="n">peers</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="n">peer</span> <span class="o">*</span><span class="n">e</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-<span class="err">……</span>
-    <span class="k">for</span> <span class="p">(</span><span class="n">e</span> <span class="o">=</span> <span class="n">peers</span><span class="p">;</span> <span class="n">e</span><span class="p">;</span> <span class="n">e</span> <span class="o">=</span> <span class="n">e</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">)</span> <span class="p">{</span>
-<span class="err">……</span>
-        <span class="n">storeAppendPrintf</span><span class="p">(</span><span class="n">sentry</span><span class="p">,</span> <span class="s">&quot;OPEN CONNS : %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="o">-&gt;</span><span class="n">stats</span><span class="p">.</span><span class="n">conn_open</span><span class="p">);</span>
-<span class="err">……</span>
-        <span class="n">storeAppendPrintf</span><span class="p">(</span><span class="n">sentry</span><span class="p">,</span> <span class="s">&quot;keep-alive ratio: %d%%</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span>
-            <span class="n">percent</span><span class="p">(</span><span class="n">e</span><span class="o">-&gt;</span><span class="n">stats</span><span class="p">.</span><span class="n">n_keepalives_recv</span><span class="p">,</span> <span class="n">e</span><span class="o">-&gt;</span><span class="n">stats</span><span class="p">.</span><span class="n">n_keepalives_sent</span><span class="p">));</span>
-</code></pre></div>
-<p>然后在squid/src/snmp_agent.c里看到了这些数据的snmp输出，如下：</p>
-<div class="highlight"><pre><code class="c"><span class="n">variable_list</span> <span class="o">*</span>
-<span class="nf">snmp_meshPtblFn</span><span class="p">(</span><span class="n">variable_list</span> <span class="o">*</span> <span class="n">Var</span><span class="p">,</span> <span class="n">snint</span> <span class="o">*</span> <span class="n">ErrP</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="n">variable_list</span> <span class="o">*</span><span class="n">Answer</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-    <span class="k">struct</span> <span class="n">in_addr</span> <span class="o">*</span><span class="n">laddr</span><span class="p">;</span>
-    <span class="kt">int</span> <span class="n">loop</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="kt">char</span> <span class="o">*</span><span class="n">cp</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-    <span class="n">peer</span> <span class="o">*</span><span class="n">p</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-    <span class="kt">int</span> <span class="n">cnt</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-<span class="err">……</span>
-    <span class="k">switch</span> <span class="p">(</span><span class="n">Var</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">[</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">2</span><span class="p">])</span> <span class="p">{</span>
-    <span class="k">case</span> <span class="n">MESH_PTBL_NAME</span>:
-        <span class="n">cp</span> <span class="o">=</span> <span class="n">p</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">;</span>
-        <span class="n">Answer</span> <span class="o">=</span> <span class="n">snmp_var_new</span><span class="p">(</span><span class="n">Var</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">Var</span><span class="o">-&gt;</span><span class="n">name_length</span><span class="p">);</span>
-<span class="err">……</span>
-    <span class="k">case</span> <span class="n">MESH_PTBL_KEEPAL_R</span>:
-        <span class="n">Answer</span> <span class="o">=</span> <span class="n">snmp_var_new_integer</span><span class="p">(</span><span class="n">Var</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">Var</span><span class="o">-&gt;</span><span class="n">name_length</span><span class="p">,</span>
-            <span class="n">p</span><span class="o">-&gt;</span><span class="n">stats</span><span class="p">.</span><span class="n">n_keepalives_recv</span><span class="p">,</span>
-            <span class="n">SMI_COUNTER32</span><span class="p">);</span>
-        <span class="k">break</span><span class="p">;</span>
-    <span class="k">case</span> <span class="n">MESH_PTBL_INDEX</span>:
-        <span class="n">Answer</span> <span class="o">=</span> <span class="n">snmp_var_new_integer</span><span class="p">(</span><span class="n">Var</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">Var</span><span class="o">-&gt;</span><span class="n">name_length</span><span class="p">,</span>
-            <span class="n">index</span><span class="p">,</span>
-            <span class="n">ASN_INTEGER</span><span class="p">);</span>
-        <span class="k">break</span><span class="p">;</span>
-    <span class="nl">default:</span>
-        <span class="o">*</span><span class="n">ErrP</span> <span class="o">=</span> <span class="n">SNMP_ERR_NOSUCHNAME</span><span class="p">;</span>
-        <span class="k">break</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="k">return</span> <span class="n">Answer</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>一对比，发现确实没有stats.conn_open输出……
-好在这个比较简单，稍微改一下，就能搞出来：
-1、修改squid/include/cache_snmp.h如下：</p>
-<div class="highlight"><pre><code class="c"><span class="k">enum</span> <span class="p">{</span>                          <span class="cm">/* cachePeerTable */</span>
-<span class="err">……</span>
-    <span class="n">MESH_PTBL_CONN_OPEN</span><span class="p">,</span>   <span class="cm">/*新增这个*/</span>
-    <span class="n">MESH_PTBL_HOST</span><span class="p">,</span>
-    <span class="n">MESH_PTBL_END</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>2、修改squid/src/snmp_core.c如下：</p>
-<div class="highlight"><pre><code class="c"><span class="kt">void</span>
-<span class="nf">snmpInit</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
-<span class="p">{</span>
-<span class="err">……</span>
-                                            <span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
-<span class="cm">/* LEN_SQ_MESH + 2, NULL, NULL, 15,这里改成16，大概在324行，通过原来的MIB知道有15的地方就两个，peer的是后一个 */</span>
-                                                <span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span>
-<span class="err">……</span>
-                                                <span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span>
-                                                    <span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">snmp_meshPtblFn</span><span class="p">,</span> <span class="n">peer_InstIndex</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-                                                <span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="cm">/*新增这个16*/</span>
-                                                    <span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">snmp_meshPtblFn</span><span class="p">,</span> <span class="n">peer_InstIndex</span><span class="p">,</span> <span class="mi">0</span><span class="p">))),</span>
-</code></pre></div>
-<p>3、修改squid/src/snmp_agent.c如下：</p>
-<div class="highlight"><pre><code class="c"><span class="err">……</span>
-    <span class="k">case</span> <span class="n">MESH_PTBL_INDEX</span>:
-        <span class="n">Answer</span> <span class="o">=</span> <span class="n">snmp_var_new_integer</span><span class="p">(</span><span class="n">Var</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">Var</span><span class="o">-&gt;</span><span class="n">name_length</span><span class="p">,</span>
-            <span class="n">index</span><span class="p">,</span>
-            <span class="n">ASN_INTEGER</span><span class="p">);</span>
-        <span class="k">break</span><span class="p">;</span>
-<span class="cm">/*新增下面这段，case的内容在第1步cache_snmp.h里增加了；stats.conn_open由之前grep的结果得知；INTEGER是数值类型，照抄RTT的即可*/</span>
-    <span class="k">case</span> <span class="n">MESH_PTBL_CONN_OPEN</span>:
-        <span class="n">Answer</span> <span class="o">=</span> <span class="n">snmp_var_new_integer</span><span class="p">(</span><span class="n">Var</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">Var</span><span class="o">-&gt;</span><span class="n">name_length</span><span class="p">,</span>
-            <span class="n">p</span><span class="o">-&gt;</span><span class="n">stats</span><span class="p">.</span><span class="n">conn_open</span><span class="p">,</span>
-            <span class="n">ASN_INTEGER</span><span class="p">);</span>
-        <span class="k">break</span><span class="p">;</span>
-</code></pre></div>
-<p>4、重新编译squid，然后用snmpwalk获取数据观察：</p>
-<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@naigos myops<span class="o">]</span><span class="c"># snmpwalk -v 2c -c cacti_china 10.168.168.69 .1.3.6.1.4.1.3495.1.5.1.2  -Cc  | tail</span>
-SNMPv2-SMI::enterprises.3495.1.5.1.2.13.3 <span class="o">=</span> Counter32: 0
-SNMPv2-SMI::enterprises.3495.1.5.1.2.14.1 <span class="o">=</span> INTEGER: 1
-SNMPv2-SMI::enterprises.3495.1.5.1.2.14.2 <span class="o">=</span> INTEGER: 2
-SNMPv2-SMI::enterprises.3495.1.5.1.2.14.3 <span class="o">=</span> INTEGER: 3
-SNMPv2-SMI::enterprises.3495.1.5.1.2.15.1 <span class="o">=</span> INTEGER: 3
-SNMPv2-SMI::enterprises.3495.1.5.1.2.15.2 <span class="o">=</span> INTEGER: 5
-SNMPv2-SMI::enterprises.3495.1.5.1.2.15.3 <span class="o">=</span> INTEGER: 6
-SNMPv2-SMI::enterprises.3495.1.5.1.2.16.1 <span class="o">=</span> STRING: <span class="s2">&quot;10.168.170.43&quot;</span>
-SNMPv2-SMI::enterprises.3495.1.5.1.2.16.2 <span class="o">=</span> STRING: <span class="s2">&quot;10.168.168.73&quot;</span>
-SNMPv2-SMI::enterprises.3495.1.5.1.2.16.3 <span class="o">=</span> STRING: <span class="s2">&quot;10.168.168.122&quot;</span>
-</code></pre></div>
-<p>原来的SNMPv2-SMI::enterprises.3495.1.5.1.2.15.1 = STRING: &ldquo;10.168.170.43&rdquo;变成了SNMPv2-SMI::enterprises.3495.1.5.1.2.16.1 = STRING: &ldquo;10.168.170.43&rdquo;，而SNMPv2-SMI::enterprises.3495.1.5.1.2.15.1 = INTEGER: 3就是需要的open_conn数据了！</p>
-      <a href="/2011/06/22/extend-open_conn-output-support-to-squid-snmp" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -2481,6 +2663,8 @@ SNMPv2-SMI::enterprises.3495.1.5.1.2.16.3 <span class="o">=</span> STRING: <span
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+              <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+              <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
           </ul>
         </div>
         <div class="well sidebar-nav">

@@ -43,6 +43,61 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/07/11/howto-filter-count-in-logstash" title="【Logstash 系列】根据事件统计值报警" rel="bookmark">【Logstash 系列】根据事件统计值报警</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-07-11 00:00:00 +0800">11 Jul 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>之前已经用很多博文说过了 logstash 如何配合 elasticsearch 以及 kibana 来做日子分析和实时搜索。其实 logstash 上百个插件还有很多其他的玩法，绝不是局限在日志搜索统计方面的。今天就展示另一个做法。根据日志中的异常值出现频率报警。</p>
+<p>在 logstash 的官网上，针对这个问题采用的办法是讲异常值计数 output 到 <code>statsd</code> 中，然后可以用通过观测 <code>graphite</code> 图形变化来判断异常。(或者配合 nagios 的 <code>check_graphite</code> 插件？) 官网说明见：<a href="http://logstash.net/docs/1.1.13/tutorials/metrics-from-logs">http://logstash.net/docs/1.1.13/tutorials/metrics-from-logs</a></p>
+<p>如果不想一直盯着页面看的话，可以利用另外几个插件来实现类似的做法，比如我要监控访问日志，如果其中 504 状态码每分钟超过 100 次，就报警出来。logstash 配置如下：</p>
+<div class="highlight"><pre><code class="ruby">    <span class="n">input</span> <span class="p">{</span>
+        <span class="n">stdin</span> <span class="p">{</span>
+            <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;apache&quot;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="n">filter</span> <span class="p">{</span>
+        <span class="n">grok</span> <span class="p">{</span>
+            <span class="n">pattern</span> <span class="o">=&gt;</span> <span class="s2">&quot;\[%{HTTPDATE:ts}\] %{NUMBER:status} %{IPORHOST:remotehost} %{URIHOST} %{WORD} %{URIPATHPARAM:url} HTTP/%{NUMBER} %{URIHOST:oh} %{NUMBER:responsetime:float} %{NUMBER:upstreamtime:float} (?:%{NUMBER:bytes:float}|-)&quot;</span>
+            <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;apache&quot;</span>
+        <span class="p">}</span>
+        <span class="n">metrics</span> <span class="p">{</span>
+            <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;apache&quot;</span>
+            <span class="n">meter</span> <span class="o">=&gt;</span> <span class="s2">&quot;error.%{status}&quot;</span>
+            <span class="n">add_tag</span> <span class="o">=&gt;</span> <span class="s2">&quot;metric&quot;</span>
+            <span class="n">ignore_older_than</span> <span class="o">=&gt;</span> <span class="mi">10</span>
+        <span class="p">}</span>
+        <span class="n">ruby</span> <span class="p">{</span>
+            <span class="n">tags</span> <span class="o">=&gt;</span> <span class="s2">&quot;metric&quot;</span>
+            <span class="n">code</span> <span class="o">=&gt;</span> <span class="s2">&quot;event.cancel if event[&#39;@fields&#39;][&#39;error.504.rate_1m&#39;] &lt; 100&quot;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="n">output</span> <span class="p">{</span>
+        <span class="nb">exec</span> <span class="p">{</span>
+            <span class="n">tags</span> <span class="o">=&gt;</span> <span class="s2">&quot;metric&quot;</span>
+            <span class="n">command</span> <span class="o">=&gt;</span> <span class="s2">&quot;sendsms.pl -m &#39;%{error\.504\.rate_1m}&#39;&quot;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+</code></pre></div>
+<p>其中关键在两个 filter。 metrics 插件可以每5秒(前天刚更新了源码，这个值可以自己指定了)更新一次统计值，支持 <code>meter</code> 和 <code>timer</code> 两种，<code>timer</code> 除了 <code>count</code> 和 <code>rate_1|5|15m</code> 外，还可以统计 <code>min|max|stddev|mean</code> 和 <code>p1|5|10|90|95|99</code> 等详细数据。</p>
+<p>ruby 插件则是直接 <code>eval</code> 写在 <code>code</code> 配置里的代码。</p>
+<p>需要注意的是： <code>output</code> 里使用的时候，需要用 <code>\</code> 转义 <code>.</code>。否则配置解析后会认为变量不存在。这是目前官网文档上写的有问题的地方。我已經跟作者提过，或许过些天会修改。</p>
+<p>值得一提的是：metrics 插件的输出是一个全新的 event，而不会去改变原先 grok 生成的 event。</p>
+      <a href="/2013/07/11/howto-filter-count-in-logstash" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/06/28/howto-get-peer-ipaddr-in-http-get" title="获取 Perl 程序中 GET 请求发向的具体 IP" rel="bookmark">获取 Perl 程序中 GET 请求发向的具体 IP</a>
     </h1>
     <p class="alt-font tight">
@@ -3000,71 +3055,6 @@ idle都在85%以上。平均响应时间长达40ms。限于环境，压力测试
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2013/01/10/update-puppet-to-3.0" title="升级 Puppet 到 3.0 及其他附件简介" rel="bookmark">升级 Puppet 到 3.0 及其他附件简介</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2013-01-10 00:00:00 +0800">10 Jan 2013</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#devops-ref" title="devops" rel="category tag">devops</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天把 puppet 从2.7 升级到了 3.0。同时放弃了之前通过 ENC 定义所有 top scope variable 的做法，改成只定义一个 role 变量，然后在各个 module 里根据 $role 加载不同的module::role ，把变量都写在 module::role 里。</p>
-<p>经历过上次事故后，我对全局变量已经大大的有不安全感，包括 puppet 3.0 新进内核的 hiera (<a href="http://docs.puppetlabs.com/puppet/3/reference/lang_classes.html#using-hierainclude">官网介绍文档</a>中也说是&rdquo;like a lightweight ENC&rdquo;)。虽然 module::role 看起来很多是重复内容，还是让人工的操作多经过一些检测才放心。</p>
-<p>从 2.7 升级到 3.0 没有太多的不适应。官网上列了很多<a href="http://docs.puppetlabs.com/puppet/3/reference/release_notes.html">不同</a>。不过实际上基本没改动什么。</p>
-<ul>
-  <li>运行命令统一成 <code>puppet command</code> 的形式，2.7的时候还保留的一堆命令都没有了。</li>
-  <li><code>--apply</code> 改成 <code>--catalog</code>  了。不过这个其实我没用过。</li>
-  <li><code>pluginsync</code> 默认开启了。这个是替代 <code>factsync</code> 的。2.7 的时候默认还是关闭。给 facter 写插件应该是很容易而且很必要的事情。</li>
-  <li>master 内置 webserver 取消了。也就是说原先各种优化文档里的 <code>--servertype=mongrel</code> 没用了。但是 3.0 变成了标准 Rack 应用。直接在 <code>/etc/puppet/rack</code> 下运行 <code>rackup -s thin -p 18140 -D -P /tmp/puppetmaster.pid</code> 就可以了。</li>
-  <li>自然对应的 rack 配置文件 <code>config.ru</code> 改了，看 example 就好。</li>
-  <li><code>include</code> 可以传递数组</li>
-  <li>agent 的 lockfile 把 fork running 和 disabled 区分成两个文件了。不知道能不能消灭掉原先 agent 跑着跑着僵死的情况。</li>
-</ul>
-<p>以上是官网列举的主要内容。以下还有我__实际测试中发现的问题__：</p>
-<ul>
-  <li>agent 的 puppet.conf 里需要添加一行 <code>preferred_serialization_format = yaml</code>，否则默认使用 pson 会直接报错。</li>
-</ul>
-<hr />
-<p>今天重温了一下 github 在 puppetconf 上的讲演<a href="https://speakerdeck.com/jnewland/chatops">《chatops》</a>。当然对其中的 hubot 不是重点关注。主要是其中提到的 rodjek 的几个 puppet 相关的项目觉得蛮有用的。</p>
-<ul>
-  <li>puppet-lint </li>
-</ul>
-<p>地址：<a href="https://github.com/rodjek/puppet-lint.git">https://github.com/rodjek/puppet-lint.git</a></p>
-<p>这是一个语法格式检查器，如果 ERROR 会 <code>exit 1</code>。之前两天我还刚在 CPAN 上发现过一个 <a href="https://metacpan.org/module/Puppet::Tidy">Puppet::Tidy</a> 模块。不过目前为止，这两个都不是很满意：</p>
-<ol>
-  <li>puppet-lint 只能检查格式而不会替你修改格式。</li>
-  <li>puppet-tidy 可以修改格式但是它对格式的检查太简陋了。</li>
-</ol>
-<p>当然比 puppet-tidy 稍微好一些的 puppet-lint 也不是很精准，比如他会对所有用双引号定义的变量报 &ldquo;WARNING: double quoted string containing no variables&rdquo;；而 puppet-tidy 更奇怪的给我 ip 地址的最后一段再加上了一个单引号变成了下面这个样子：</p>
-<div class="highlight"><pre><code class="perl">    <span class="nv">$iplist</span> <span class="o">=</span> <span class="p">[</span><span class="s">&quot;192.168.1.&#39;2&#39;&quot;</span><span class="p">,</span><span class="s">&quot;192.168.1.&#39;3&#39;&quot;</span><span class="p">]</span>
-</code></pre></div>
-<p>只能说规范化任重道远。</p>
-<ul>
-  <li>puppet-profiler</li>
-</ul>
-<p>地址：<a href="https://github.com/rodjek/puppet-profiler.git">https://github.com/rodjek/puppet-profiler.git</a></p>
-<p>这是一个 agent 执行的调试器，不过至今为止功能也还很简单：就是执行一次 </p>
-<div class="highlight"><pre><code class="bash">    puppet agent --test --evaltrace --nocolor
-</code></pre></div>
-<p>排序各个 Resource 的执行耗时，并打印前十名。</p>
-<ul>
-  <li>rspec-puppet</li>
-</ul>
-<p>地址：<a href="https://github.com/rodjek/rspec-puppet">https://github.com/rodjek/rspec-puppet</a></p>
-<p>这是一个 puppet 的 rspec 测试工具扩展。注意他依赖于 <code>puppetlabs_spec_helper</code> 但是 gem 里却没写。。。</p>
-<p>使用方法看 github 上的说明比较详细了，稍后我再单写一篇介绍。</p>
-      <a href="/2013/01/10/update-puppet-to-3.0" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -3160,6 +3150,8 @@ idle都在85%以上。平均响应时间长达40ms。限于环境，压力测试
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+              <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+              <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
           </ul>
         </div>
         <div class="well sidebar-nav">

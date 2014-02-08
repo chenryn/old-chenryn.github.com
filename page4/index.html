@@ -43,6 +43,202 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2012/09/26/jsonp-for-new-version-amcharts" title="用javascript操作新版本amcharts" rel="bookmark">用javascript操作新版本amcharts</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-09-26 00:00:00 +0800">26 Sep 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>新版本的amcharts用js和html5改写。不再简单的用settings.xml而是写成js的object了。好在例子依然详细。下面贴一段从数据库里取值并绘制成多栏图式的代码：</p>
+<div class="highlight"><pre><code class="javascript"><span class="o">&lt;</span><span class="nx">html</span><span class="o">&gt;</span>
+    <span class="o">&lt;</span><span class="nx">head</span><span class="o">&gt;</span>
+        <span class="o">&lt;</span><span class="nx">meta</span> <span class="nx">http</span><span class="o">-</span><span class="nx">equiv</span><span class="o">=</span><span class="s2">&quot;Content-Type&quot;</span> <span class="nx">content</span><span class="o">=</span><span class="s2">&quot;text/html; charset=utf-8&quot;</span><span class="o">&gt;</span>
+        <span class="o">&lt;</span><span class="nx">title</span><span class="o">&gt;</span><span class="nx">amStock</span> <span class="nx">Example</span><span class="o">&lt;</span><span class="err">/title&gt;</span>
+        <span class="o">&lt;</span><span class="nx">link</span> <span class="nx">rel</span><span class="o">=</span><span class="s2">&quot;stylesheet&quot;</span> <span class="nx">href</span><span class="o">=</span><span class="s2">&quot;../amcharts/style.css&quot;</span> <span class="nx">type</span><span class="o">=</span><span class="s2">&quot;text/css&quot;</span><span class="o">&gt;</span>
+        <span class="o">&lt;</span><span class="nx">script</span> <span class="nx">src</span><span class="o">=</span><span class="s2">&quot;../javascripts/jquery-1.7.2.min.js&quot;</span> <span class="nx">type</span><span class="o">=</span><span class="s2">&quot;text/javascript&quot;</span><span class="o">&gt;&lt;</span><span class="err">/script&gt;</span>
+        <span class="o">&lt;</span><span class="nx">script</span> <span class="nx">src</span><span class="o">=</span><span class="s2">&quot;../amcharts/amstock.js&quot;</span> <span class="nx">type</span><span class="o">=</span><span class="s2">&quot;text/javascript&quot;</span><span class="o">&gt;&lt;</span><span class="err">/script&gt;</span>
+        <span class="o">&lt;</span><span class="nx">script</span> <span class="nx">type</span><span class="o">=</span><span class="s2">&quot;text/javascript&quot;</span><span class="o">&gt;</span>
+            <span class="kd">var</span> <span class="nx">chart</span><span class="p">;</span>
+            <span class="kd">var</span> <span class="nx">dataProvider</span> <span class="o">=</span> <span class="p">[];</span>
+            <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">ready</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+                <span class="nx">$</span><span class="p">.</span><span class="nx">ajax</span><span class="p">({</span>
+                    <span class="nx">type</span><span class="o">:</span> <span class="s2">&quot;GET&quot;</span><span class="p">,</span>
+                    <span class="nx">dataType</span><span class="o">:</span><span class="s2">&quot;jsonp&quot;</span><span class="p">,</span>
+                    <span class="nx">url</span><span class="o">:</span> <span class="s2">&quot;http://api.domain.com/database/table/find&quot;</span><span class="p">,</span>
+                    <span class="nx">data</span><span class="o">:</span> <span class="p">{</span><span class="s2">&quot;body&quot;</span><span class="o">:</span><span class="s1">&#39;{&quot;sort&quot;:[[&quot;date&quot;,-1]], &quot;limit&quot;:10000}&#39;</span><span class="p">},</span>
+                    <span class="nx">jsonp</span><span class="o">:</span><span class="s1">&#39;jsonpCallback&#39;</span><span class="p">,</span>
+                    <span class="nx">jsonpCallback</span><span class="o">:</span><span class="s1">&#39;jsonCallbackFunction&#39;</span><span class="p">,</span>
+                    <span class="nx">success</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">){</span>
+                    <span class="p">},</span>
+                    <span class="nx">error</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">jqXHR</span><span class="p">,</span> <span class="nx">textStatus</span><span class="p">,</span> <span class="nx">errorThrown</span><span class="p">){</span>
+                        <span class="nx">alert</span><span class="p">(</span><span class="nx">jqXHR</span><span class="p">);</span>
+                        <span class="nx">alert</span><span class="p">(</span><span class="nx">textStatus</span><span class="p">);</span>
+                        <span class="nx">alert</span><span class="p">(</span><span class="nx">errorThrown</span><span class="p">);</span>
+                    <span class="p">},</span>
+                <span class="p">});</span>
+            <span class="p">});</span>
+            <span class="kd">function</span> <span class="nx">jsonCallbackFunction</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
+                <span class="nx">parseJSON</span><span class="p">(</span><span class="nx">data</span><span class="p">);</span>
+                <span class="nx">createStockChart</span><span class="p">();</span>
+            <span class="p">}</span>
+            <span class="kd">function</span> <span class="nx">createStockChart</span><span class="p">()</span> <span class="p">{</span>
+                <span class="nx">chart</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">AmStockChart</span><span class="p">();</span>
+                <span class="nx">chart</span><span class="p">.</span><span class="nx">pathToImages</span> <span class="o">=</span> <span class="s2">&quot;../amcharts/images/&quot;</span><span class="p">;</span>
+                <span class="kd">var</span> <span class="nx">categoryAxesSettings</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">CategoryAxesSettings</span><span class="p">();</span>
+                <span class="c1">//定义显示的最小时间段，前提是X轴是Date对象</span>
+                <span class="nx">categoryAxesSettings</span><span class="p">.</span><span class="nx">minPeriod</span> <span class="o">=</span> <span class="s2">&quot;hh&quot;</span><span class="p">;</span>
+                <span class="nx">chart</span><span class="p">.</span><span class="nx">categoryAxesSettings</span> <span class="o">=</span> <span class="nx">categoryAxesSettings</span><span class="p">;</span>
+                <span class="kd">var</span> <span class="nx">dataSet1</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">DataSet</span><span class="p">();</span>
+                <span class="c1">//注意这里的field要和json里的key一致</span>
+                <span class="nx">dataSet1</span><span class="p">.</span><span class="nx">fieldMappings</span> <span class="o">=</span> <span class="p">[{</span>
+                    <span class="nx">fromField</span><span class="o">:</span> <span class="s2">&quot;Total&quot;</span><span class="p">,</span>
+                    <span class="nx">toField</span><span class="o">:</span> <span class="s2">&quot;Total&quot;</span>
+                <span class="p">},</span> <span class="p">{</span>
+                    <span class="nx">fromField</span><span class="o">:</span> <span class="s2">&quot;Error&quot;</span><span class="p">,</span>
+                    <span class="nx">toField</span><span class="o">:</span> <span class="s2">&quot;Error&quot;</span>
+                <span class="p">},</span> <span class="p">{</span>
+                    <span class="nx">fromField</span><span class="o">:</span> <span class="s2">&quot;ErrorRate&quot;</span><span class="p">,</span>
+                    <span class="nx">toField</span><span class="o">:</span> <span class="s2">&quot;ErrorRate&quot;</span><span class="p">,</span>
+                <span class="p">}];</span>
+                <span class="nx">dataSet1</span><span class="p">.</span><span class="nx">dataProvider</span> <span class="o">=</span> <span class="nx">dataProvider</span><span class="p">;</span>
+                <span class="nx">dataSet1</span><span class="p">.</span><span class="nx">categoryField</span> <span class="o">=</span> <span class="s2">&quot;date&quot;</span><span class="p">;</span>
+                <span class="nx">chart</span><span class="p">.</span><span class="nx">dataSets</span> <span class="o">=</span> <span class="p">[</span><span class="nx">dataSet1</span><span class="p">];</span>
+                <span class="nx">stockPanel1</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">StockPanel</span><span class="p">();</span>
+                <span class="c1">//第一栏占全图的百分比</span>
+                <span class="nx">stockPanel1</span><span class="p">.</span><span class="nx">percentHeight</span> <span class="o">=</span> <span class="mi">70</span><span class="p">;</span>
+                <span class="kd">var</span> <span class="nx">valueAxis1</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">ValueAxis</span><span class="p">();</span>
+                <span class="c1">//Y轴数值位置，amstock中无法设定Y轴偏移量</span>
+                <span class="nx">valueAxis1</span><span class="p">.</span><span class="nx">position</span> <span class="o">=</span> <span class="s2">&quot;right&quot;</span><span class="p">;</span>
+                <span class="nx">valueAxis1</span><span class="p">.</span><span class="nx">axisColor</span> <span class="o">=</span> <span class="s2">&quot;#999999&quot;</span><span class="p">;</span>
+                <span class="nx">stockPanel1</span><span class="p">.</span><span class="nx">addValueAxis</span><span class="p">(</span><span class="nx">valueAxis1</span><span class="p">);</span>
+                <span class="kd">var</span> <span class="nx">graph1</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">StockGraph</span><span class="p">();</span>
+                <span class="nx">graph1</span><span class="p">.</span><span class="nx">valueField</span> <span class="o">=</span> <span class="s2">&quot;Total&quot;</span><span class="p">;</span>
+                <span class="nx">graph1</span><span class="p">.</span><span class="nx">title</span> <span class="o">=</span> <span class="s2">&quot;总计&quot;</span><span class="p">;</span>
+                <span class="c1">//平滑曲线</span>
+                <span class="nx">graph1</span><span class="p">.</span><span class="nx">type</span> <span class="o">=</span> <span class="s2">&quot;smoothedLine&quot;</span><span class="p">;</span>
+                <span class="nx">graph1</span><span class="p">.</span><span class="nx">lineColor</span> <span class="o">=</span> <span class="s2">&quot;#999999&quot;</span><span class="p">;</span>
+                <span class="c1">//曲线下方区域的透明度</span>
+                <span class="nx">graph1</span><span class="p">.</span><span class="nx">fillAlphas</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">;</span>
+                <span class="nx">graph1</span><span class="p">.</span><span class="nx">useDataSetColors</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+                <span class="nx">stockPanel1</span><span class="p">.</span><span class="nx">addStockGraph</span><span class="p">(</span><span class="nx">graph1</span><span class="p">);</span>
+                <span class="kd">var</span> <span class="nx">stockLegend1</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">StockLegend</span><span class="p">();</span>
+                <span class="nx">stockPanel1</span><span class="p">.</span><span class="nx">stockLegend</span> <span class="o">=</span> <span class="nx">stockLegend1</span><span class="p">;</span>
+                <span class="nx">stockPanel1</span><span class="p">.</span><span class="nx">drawingIconsEnabled</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+                <span class="kd">var</span> <span class="nx">valueAxis2</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">ValueAxis</span><span class="p">();</span>
+                <span class="nx">valueAxis2</span><span class="p">.</span><span class="nx">axisColor</span> <span class="o">=</span> <span class="s2">&quot;#FCD202&quot;</span><span class="p">;</span>
+                <span class="nx">valueAxis2</span><span class="p">.</span><span class="nx">gridAlpha</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+                <span class="nx">valueAxis2</span><span class="p">.</span><span class="nx">axisThickness</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+                <span class="nx">stockPanel1</span><span class="p">.</span><span class="nx">addValueAxis</span><span class="p">(</span><span class="nx">valueAxis2</span><span class="p">);</span>
+                <span class="kd">var</span> <span class="nx">graph2</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">StockGraph</span><span class="p">();</span>
+                <span class="nx">graph2</span><span class="p">.</span><span class="nx">valueAxis</span> <span class="o">=</span> <span class="nx">valueAxis2</span><span class="p">;</span>
+                <span class="nx">graph2</span><span class="p">.</span><span class="nx">type</span> <span class="o">=</span> <span class="s2">&quot;smoothedLine&quot;</span><span class="p">;</span>
+                <span class="nx">graph2</span><span class="p">.</span><span class="nx">title</span> <span class="o">=</span> <span class="s2">&quot;错误&quot;</span><span class="p">;</span>
+                <span class="nx">graph2</span><span class="p">.</span><span class="nx">valueField</span> <span class="o">=</span> <span class="s2">&quot;Error&quot;</span><span class="p">;</span>
+                <span class="c1">//绘点的形状</span>
+                <span class="nx">graph2</span><span class="p">.</span><span class="nx">bullet</span> <span class="o">=</span> <span class="s2">&quot;square&quot;</span><span class="p">;</span>
+                <span class="c1">//图上超过多少点就不显示形状了</span>
+                <span class="nx">graph2</span><span class="p">.</span><span class="nx">hideBulletsCount</span> <span class="o">=</span> <span class="mi">30</span><span class="p">;</span>
+                <span class="nx">graph2</span><span class="p">.</span><span class="nx">lineColor</span> <span class="o">=</span> <span class="s2">&quot;#FCD202&quot;</span><span class="p">;</span>
+                <span class="nx">graph2</span><span class="p">.</span><span class="nx">lineThickness</span> <span class="o">=</span> <span class="mi">3</span><span class="p">;</span>
+                <span class="nx">graph2</span><span class="p">.</span><span class="nx">useDataSetColors</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+                <span class="nx">stockPanel1</span><span class="p">.</span><span class="nx">addStockGraph</span><span class="p">(</span><span class="nx">graph2</span><span class="p">);</span>
+                <span class="nx">stockPanel2</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">StockPanel</span><span class="p">();</span>
+                <span class="nx">stockPanel2</span><span class="p">.</span><span class="nx">percentHeight</span> <span class="o">=</span> <span class="mi">30</span><span class="p">;</span>
+                <span class="nx">stockPanel2</span><span class="p">.</span><span class="nx">marginTop</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+                <span class="nx">stockPanel2</span><span class="p">.</span><span class="nx">categoryAxis</span><span class="p">.</span><span class="nx">dashLength</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
+                <span class="nx">stockPanel2</span><span class="p">.</span><span class="nx">showCategoryAxis</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+                <span class="nx">valueAxis5</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">ValueAxis</span><span class="p">();</span>
+                <span class="nx">valueAxis5</span><span class="p">.</span><span class="nx">dashLength</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
+                <span class="nx">valueAxis5</span><span class="p">.</span><span class="nx">gridAlpha</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+                <span class="nx">valueAxis5</span><span class="p">.</span><span class="nx">axisThickness</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+                <span class="nx">stockPanel2</span><span class="p">.</span><span class="nx">addValueAxis</span><span class="p">(</span><span class="nx">valueAxis5</span><span class="p">);</span>
+                <span class="kd">var</span> <span class="nx">graph5</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">StockGraph</span><span class="p">();</span>
+                <span class="nx">graph5</span><span class="p">.</span><span class="nx">valueAxis</span> <span class="o">=</span> <span class="nx">valueAxis5</span><span class="p">;</span>
+                <span class="nx">graph5</span><span class="p">.</span><span class="nx">valueField</span> <span class="o">=</span> <span class="s2">&quot;ErrorRate&quot;</span><span class="p">;</span>
+                <span class="nx">graph5</span><span class="p">.</span><span class="nx">title</span> <span class="o">=</span> <span class="s2">&quot;错误比率&quot;</span><span class="p">;</span>
+                <span class="c1">//漂浮显示的文字，可用graph.valueField的[[value]]和graph.descriptionField的[[description]]</span>
+                <span class="nx">graph5</span><span class="p">.</span><span class="nx">balloonText</span> <span class="o">=</span> <span class="s2">&quot;[[value]]%&quot;</span><span class="p">;</span>
+                <span class="nx">graph5</span><span class="p">.</span><span class="nx">type</span> <span class="o">=</span> <span class="s2">&quot;column&quot;</span><span class="p">;</span>
+                <span class="nx">graph5</span><span class="p">.</span><span class="nx">cornerRadiusTop</span> <span class="o">=</span> <span class="mi">4</span><span class="p">;</span>
+                <span class="nx">graph5</span><span class="p">.</span><span class="nx">fillAlphas</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+                <span class="nx">graph5</span><span class="p">.</span><span class="nx">lineColor</span> <span class="o">=</span> <span class="s2">&quot;#FCD202&quot;</span><span class="p">;</span>
+                <span class="nx">graph5</span><span class="p">.</span><span class="nx">useDataSetColors</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+                <span class="nx">stockPanel2</span><span class="p">.</span><span class="nx">addStockGraph</span><span class="p">(</span><span class="nx">graph5</span><span class="p">);</span>
+                <span class="kd">var</span> <span class="nx">stockLegend2</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">StockLegend</span><span class="p">();</span>
+                <span class="nx">stockPanel2</span><span class="p">.</span><span class="nx">stockLegend</span> <span class="o">=</span> <span class="nx">stockLegend2</span><span class="p">;</span>
+                <span class="nx">chart</span><span class="p">.</span><span class="nx">panels</span> <span class="o">=</span> <span class="p">[</span><span class="nx">stockPanel1</span><span class="p">,</span> <span class="nx">stockPanel2</span><span class="p">];</span>
+                <span class="kd">var</span> <span class="nx">sbsettings</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">ChartScrollbarSettings</span><span class="p">();</span>
+                <span class="c1">//根据graph1显示拖动条栏</span>
+                <span class="nx">sbsettings</span><span class="p">.</span><span class="nx">graph</span> <span class="o">=</span> <span class="nx">graph1</span><span class="p">;</span>
+                <span class="nx">sbsettings</span><span class="p">.</span><span class="nx">graphType</span> <span class="o">=</span> <span class="s2">&quot;line&quot;</span><span class="p">;</span>
+                <span class="nx">sbsettings</span><span class="p">.</span><span class="nx">height</span> <span class="o">=</span> <span class="mi">30</span><span class="p">;</span>
+                <span class="nx">chart</span><span class="p">.</span><span class="nx">chartScrollbarSettings</span> <span class="o">=</span> <span class="nx">sbsettings</span><span class="p">;</span>
+                <span class="kd">var</span> <span class="nx">cursorSettings</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">ChartCursorSettings</span><span class="p">();</span>
+                <span class="c1">//光标移动时跟随显示漂浮气球</span>
+                <span class="nx">cursorSettings</span><span class="p">.</span><span class="nx">valueBalloonsEnabled</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+                <span class="nx">chart</span><span class="p">.</span><span class="nx">chartCursorSettings</span> <span class="o">=</span> <span class="nx">cursorSettings</span><span class="p">;</span>
+                <span class="kd">var</span> <span class="nx">periodSelector</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">AmCharts</span><span class="p">.</span><span class="nx">PeriodSelector</span><span class="p">();</span>
+                <span class="nx">periodSelector</span><span class="p">.</span><span class="nx">position</span> <span class="o">=</span> <span class="s2">&quot;bottom&quot;</span><span class="p">;</span>
+                <span class="nx">periodSelector</span><span class="p">.</span><span class="nx">periods</span> <span class="o">=</span> <span class="p">[{</span>
+                    <span class="nx">period</span><span class="o">:</span> <span class="s2">&quot;DD&quot;</span><span class="p">,</span>
+                    <span class="nx">selected</span><span class="o">:</span> <span class="kc">true</span><span class="p">,</span>
+                    <span class="nx">count</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span>
+                    <span class="nx">label</span><span class="o">:</span> <span class="s2">&quot;1 day&quot;</span>
+                <span class="p">},</span> <span class="p">{</span>
+                    <span class="nx">period</span><span class="o">:</span> <span class="s2">&quot;DD&quot;</span><span class="p">,</span>
+                    <span class="nx">count</span><span class="o">:</span> <span class="mi">7</span><span class="p">,</span>
+                    <span class="nx">label</span><span class="o">:</span> <span class="s2">&quot;1 week&quot;</span>
+                <span class="p">},</span> <span class="p">{</span>
+                    <span class="nx">period</span><span class="o">:</span> <span class="s2">&quot;MM&quot;</span><span class="p">,</span>
+                    <span class="nx">count</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span>
+                    <span class="nx">label</span><span class="o">:</span> <span class="s2">&quot;1 month&quot;</span>
+                <span class="p">},</span> <span class="p">{</span>
+                    <span class="nx">period</span><span class="o">:</span> <span class="s2">&quot;YYYY&quot;</span><span class="p">,</span>
+                    <span class="nx">count</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span>
+                    <span class="nx">label</span><span class="o">:</span> <span class="s2">&quot;1 year&quot;</span>
+                <span class="p">},</span> <span class="p">{</span>
+                    <span class="nx">period</span><span class="o">:</span> <span class="s2">&quot;YTD&quot;</span><span class="p">,</span>
+                    <span class="nx">label</span><span class="o">:</span> <span class="s2">&quot;YTD&quot;</span>
+                <span class="p">},</span> <span class="p">{</span>
+                    <span class="nx">period</span><span class="o">:</span> <span class="s2">&quot;MAX&quot;</span><span class="p">,</span>
+                    <span class="nx">label</span><span class="o">:</span> <span class="s2">&quot;MAX&quot;</span>
+                <span class="p">}];</span>
+                <span class="nx">chart</span><span class="p">.</span><span class="nx">periodSelector</span> <span class="o">=</span> <span class="nx">periodSelector</span><span class="p">;</span>
+                <span class="nx">chart</span><span class="p">.</span><span class="nx">write</span><span class="p">(</span><span class="s2">&quot;chartdiv&quot;</span><span class="p">);</span>
+            <span class="p">};</span>
+            <span class="kd">function</span> <span class="nx">parseDate</span><span class="p">(</span><span class="nx">dateString</span><span class="p">)</span> <span class="p">{</span>
+                <span class="kd">var</span> <span class="nx">dateArray</span> <span class="o">=</span> <span class="nx">dateString</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">);</span>
+                <span class="kd">var</span> <span class="nx">date</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">(</span><span class="nb">Number</span><span class="p">(</span><span class="nx">dateArray</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">Number</span><span class="p">(</span><span class="nx">dateArray</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">Number</span><span class="p">(</span><span class="nx">dateArray</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span> <span class="nb">Number</span><span class="p">(</span><span class="nx">dateArray</span><span class="p">[</span><span class="mi">3</span><span class="p">]));</span>
+                <span class="k">return</span> <span class="nx">date</span><span class="p">;</span>
+            <span class="p">}</span>
+            <span class="kd">function</span> <span class="nx">parseJSON</span><span class="p">(</span><span class="nx">data</span><span class="p">){</span>
+                <span class="nx">dataProvider</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">reverse</span><span class="p">();</span>
+                <span class="c1">//其余列原样保存，时间列必须把字符串转换成Date对象</span>
+                <span class="k">for</span><span class="p">(</span> <span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">dataProvider</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="nx">dataProvider</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">date</span> <span class="o">=</span> <span class="nx">parseDate</span><span class="p">(</span><span class="nx">dataProvider</span><span class="p">[</span><span class="nx">i</span><span class="p">].</span><span class="nx">date</span><span class="p">);</span>
+                <span class="p">}</span>
+            <span class="p">};</span>
+        <span class="o">&lt;</span><span class="err">/script&gt;</span>
+    <span class="o">&lt;</span><span class="err">/head&gt;</span>
+    <span class="o">&lt;</span><span class="nx">body</span><span class="o">&gt;</span>
+        <span class="o">&lt;</span><span class="nx">div</span> <span class="nx">id</span><span class="o">=</span><span class="s2">&quot;chartdiv&quot;</span> <span class="nx">style</span><span class="o">=</span><span class="s2">&quot;width: 100%; height: 700px;&quot;</span><span class="o">&gt;&lt;</span><span class="err">/div&gt;</span>
+    <span class="o">&lt;</span><span class="err">/body&gt;</span>
+<span class="o">&lt;</span><span class="err">/html&gt;</span>
+</code></pre></div>
+      <a href="/2012/09/26/jsonp-for-new-version-amcharts" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2012/09/21/json-event-for-logstash" title="【Logstash系列】数据格式之json-event" rel="bookmark">【Logstash系列】数据格式之json-event</a>
     </h1>
     <p class="alt-font tight">
@@ -2377,178 +2573,6 @@ Spork -start
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/05/22/puppet-reports-analysis-by-web" title="【puppet系列】网页展示puppet的客户端报告" rel="bookmark">【puppet系列】网页展示puppet的客户端报告</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-05-22 00:00:00 +0800">22 May 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#devops-ref" title="devops" rel="category tag">devops</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>上篇说到怎样使用ENC脚本控制puppet的客户端配置，这篇说如何监控和展示客户端运行状态报告。</p>
-<p>目前还是使用puppet默认的store方式，也就是报告都存在/var/lib/puppet/reports/$host/$dates.yaml里。所以分析只要针对这个目录下的文件即可，主要使用File::Stat和File::Find两个模块搞定。注意这两个模块在Perl5.16里是默认内核模块了~~</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">autodie</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">File::</span><span class="n">Stat</span> <span class="sx">qw/:stat/</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">YAML::</span><span class="n">Syck</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">AnyEvent::Filesys::</span><span class="n">Notify</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">EV</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$interval</span> <span class="o">=</span> <span class="s">&quot;60&quot;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$watch_dir</span> <span class="o">=</span> <span class="s">&quot;/var/lib/puppet/reports&quot;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$periodic</span> <span class="o">=</span> <span class="nn">EV::</span><span class="n">periodic</span> <span class="mi">0</span><span class="p">,</span> <span class="nv">$interval</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$dirs</span> <span class="o">=</span> <span class="n">watchdir</span><span class="p">(</span><span class="nv">$interval</span><span class="p">);</span>
-    <span class="n">process</span><span class="p">(</span> <span class="nv">$_</span><span class="p">,</span> <span class="s">&#39;No reports return.&#39;</span> <span class="p">)</span> <span class="k">for</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$dirs</span><span class="p">};</span>
-<span class="p">};</span>
-<span class="k">my</span> <span class="nv">$notifier</span> <span class="o">=</span> <span class="nn">AnyEvent::Filesys::</span><span class="n">Notify</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
-    <span class="n">dirs</span>     <span class="o">=&gt;</span> <span class="p">[</span> <span class="nv">$watch_dir</span><span class="p">,</span> <span class="p">],</span>
-    <span class="n">interval</span> <span class="o">=&gt;</span> <span class="mf">0.5</span><span class="p">,</span>
-    <span class="n">filter</span>   <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nb">shift</span> <span class="o">=~</span><span class="sr"> /\.yaml$/</span> <span class="p">},</span>
-    <span class="n">cb</span>       <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-        <span class="k">my</span> <span class="nv">@events</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-        <span class="k">for</span> <span class="p">(</span> <span class="nv">@events</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="k">if</span> <span class="p">(</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="n">type</span> <span class="o">=~</span> <span class="sr">m/^(created|modified)$/</span> <span class="p">)</span> <span class="p">{</span>
-                <span class="k">my</span> <span class="nv">$file</span> <span class="o">=</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="n">path</span><span class="p">;</span>
-                <span class="k">my</span> <span class="nv">$logs</span> <span class="o">=</span> <span class="n">LoadFile</span><span class="p">(</span><span class="nv">$file</span><span class="p">)</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;logs&#39;</span><span class="p">};</span>
-                <span class="k">for</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$logs</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-                    <span class="k">if</span> <span class="p">(</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;level&#39;</span><span class="p">}</span> <span class="ow">eq</span> <span class="s">&#39;err&#39;</span> <span class="p">)</span> <span class="p">{</span>
-                        <span class="n">process</span><span class="p">(</span> <span class="nv">$file</span><span class="p">,</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;message&#39;</span><span class="p">}</span> <span class="p">);</span>
-                    <span class="p">};</span>
-                <span class="p">};</span>
-            <span class="p">};</span>
-        <span class="p">};</span>
-    <span class="p">},</span>
-<span class="p">);</span>
-<span class="nn">EV::</span><span class="n">loop</span><span class="p">();</span>
-<span class="k">sub </span><span class="nf">process</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span> <span class="nv">$path</span><span class="p">,</span> <span class="nv">$message</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nv">$path</span> <span class="o">=~</span> <span class="sr">m/\/([^\/]+\.opi\.com)/</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="k">print</span> <span class="nv">$1</span><span class="p">,</span><span class="s">&quot; has err: &quot;</span><span class="p">,</span><span class="nv">$message</span><span class="p">,</span><span class="s">&quot;\n&quot;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">watchdir</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$interval</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$dirs</span> <span class="o">=</span> <span class="nb">grep</span> <span class="p">{</span> <span class="nb">time</span> <span class="o">-</span> <span class="nb">stat</span><span class="p">(</span><span class="nv">$_</span><span class="p">)</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">9</span><span class="p">]</span> <span class="o">&gt;</span> <span class="nv">$interval</span> <span class="p">}</span> <span class="nb">glob</span><span class="p">(</span><span class="s">&quot;${watch_dir}/*&quot;</span><span class="p">);</span>
-    <span class="k">return</span> <span class="nv">$dirs</span><span class="p">;</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>上面这个脚本，通过libev的timer和io分别完成对diretory的mtime的遍历和对file的inotify的监听。process作为公共处理函数，可以随意改造成sms/email/msn等等方式。  <br />
-定时器没有用AnyEvent的封装，因为没看到AE有periodic，只有timer。而在io运行的时候，timer是中断的。如果不停有文件inotify发生，timer就没法进行了……periodic的方式与timer不同，是绝对定时而不是相对定时——虽然我个人的浅薄理解觉得应该也被io阻塞，但试验结果是OK的。</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">autodie</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Dancer</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Template</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">YAML::</span><span class="n">Syck</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">File::</span><span class="n">Find</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">File::</span><span class="n">Stat</span> <span class="sx">qw/:stat/</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw/strftime/</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Data::Section::</span><span class="n">Simple</span> <span class="sx">qw/get_data_section/</span><span class="p">;</span>
-<span class="n">set</span> <span class="n">port</span>   <span class="o">=&gt;</span> <span class="s">&quot;8080&quot;</span><span class="p">;</span>
-<span class="n">set</span> <span class="n">daemon</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">;</span>
-<span class="n">set</span> <span class="n">logger</span> <span class="o">=&gt;</span> <span class="s">&#39;console&#39;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$tt</span> <span class="o">=</span> <span class="n">Template</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
-<span class="c1">#                       DEBUG =&gt; &#39;all&#39;,</span>
-                      <span class="p">);</span>
-<span class="k">my</span> <span class="nv">$ds_check</span> <span class="o">=</span> <span class="n">get_data_section</span><span class="p">(</span><span class="s">&#39;check.tt&#39;</span><span class="p">);</span>
-<span class="n">get</span> <span class="s">&#39;/&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$html</span> <span class="o">=</span> <span class="s">&#39;&lt;form action=&quot;/ppcheck&quot;&gt;&#39;</span><span class="p">;</span>
-    <span class="nv">$html</span> <span class="o">.=</span> <span class="s">&#39;Write an interval minutes for reports timestamp check: &#39;</span><span class="p">;</span>
-    <span class="nv">$html</span> <span class="o">.=</span> <span class="s">&#39;&lt;input type=&quot;text&quot; name=&quot;interval&quot;/&gt; &lt;input type=&quot;submit&quot; value=&quot;submit&quot; /&gt;&#39;</span><span class="p">;</span>
-    <span class="nv">$html</span> <span class="o">.=</span> <span class="s">&#39;&lt;/form&gt;&#39;</span><span class="p">;</span>
-    <span class="k">return</span> <span class="nv">$html</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="n">get</span> <span class="s">&#39;/ppcheck&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$interval</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;interval&#39;</span><span class="p">}</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">||</span> <span class="mi">300</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$watch_dir</span> <span class="o">=</span> <span class="s">&quot;/var/lib/puppet/reports&quot;</span><span class="p">;</span>
-    <span class="k">return</span> <span class="s">&quot;Too large number&quot;</span> <span class="k">if</span> <span class="nv">$interval</span> <span class="o">&gt;</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">24</span><span class="p">;</span>   <span class="c1"># one day</span>
-    <span class="k">my</span> <span class="nv">$context</span> <span class="o">=</span> <span class="p">{};</span>
-    <span class="nv">$context</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;dirs&#39;</span><span class="p">}</span> <span class="o">=</span> <span class="n">watch_timeout</span><span class="p">(</span> <span class="nv">$interval</span><span class="p">,</span> <span class="nv">$watch_dir</span> <span class="p">);</span>
-    <span class="nv">$context</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;logs&#39;</span><span class="p">}</span> <span class="o">=</span> <span class="n">watch_errlogs</span><span class="p">(</span> <span class="nv">$interval</span><span class="p">,</span> <span class="nv">$watch_dir</span> <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$output</span><span class="p">;</span>
-    <span class="nv">$tt</span><span class="o">-&gt;</span><span class="n">process</span><span class="p">(</span><span class="o">\</span><span class="nv">$ds_check</span><span class="p">,</span> <span class="nv">$context</span><span class="p">,</span> <span class="o">\</span><span class="nv">$output</span><span class="p">);</span>
-<span class="c1">#    $tt-&gt;process(\*DATA, $context, \$output);</span>
-<span class="c1">#    seek *DATA, 1234, 0;</span>
-    <span class="k">return</span> <span class="nv">$output</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">watch_timeout</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span> <span class="nv">$interval</span><span class="p">,</span> <span class="nv">$watch_dir</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">@dirs</span> <span class="o">=</span> <span class="nb">grep</span> <span class="p">{</span> <span class="nb">time</span> <span class="o">-</span> <span class="nb">stat</span><span class="p">(</span><span class="nv">$_</span><span class="p">)</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">9</span><span class="p">]</span> <span class="o">&gt;</span> <span class="nv">$interval</span> <span class="p">}</span> <span class="nb">glob</span><span class="p">(</span><span class="s">&quot;${watch_dir}/*&quot;</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">@ret</span><span class="p">;</span>
-    <span class="k">for</span> <span class="p">(</span> <span class="nv">@dirs</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$dirtime</span> <span class="o">=</span> <span class="n">strftime</span><span class="p">(</span><span class="s">&quot;%F %T&quot;</span><span class="p">,</span> <span class="nb">localtime</span><span class="p">(</span><span class="nb">stat</span><span class="p">(</span><span class="nv">$_</span><span class="p">)</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">9</span><span class="p">]));</span>
-        <span class="k">my</span> <span class="nv">$dirname</span> <span class="o">=</span> <span class="nv">$1</span> <span class="k">if</span> <span class="nv">$_</span> <span class="o">=~</span> <span class="n">s</span><span class="c1">#([^/]+\.opi\.com)#$1#;</span>
-        <span class="nb">push</span> <span class="nv">@ret</span><span class="p">,</span> <span class="p">{</span><span class="n">name</span> <span class="o">=&gt;</span> <span class="nv">$dirname</span><span class="p">,</span> <span class="nb">time</span> <span class="o">=&gt;</span> <span class="nv">$dirtime</span><span class="p">,</span> <span class="p">};</span>
-    <span class="p">};</span>
-    <span class="k">return</span> <span class="o">\</span><span class="nv">@ret</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">watch_errlogs</span> <span class="p">{</span>
-    <span class="k">my</span><span class="p">(</span> <span class="nv">$interval</span><span class="p">,</span> <span class="nv">$watch_dir</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">my</span><span class="p">(</span> <span class="nv">$wanted</span><span class="p">,</span> <span class="nv">$list_reporter</span> <span class="p">)</span> <span class="o">=</span> <span class="n">find_file_by_mtime</span><span class="p">(</span><span class="nv">$interval</span><span class="p">);</span>
-    <span class="nn">File::Find::</span><span class="n">find</span><span class="p">(</span> <span class="nv">$wanted</span><span class="p">,</span> <span class="nv">$watch_dir</span> <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">@ret</span> <span class="o">=</span> <span class="nv">$list_reporter</span><span class="o">-&gt;</span><span class="p">();</span>
-    <span class="k">return</span> <span class="o">\</span><span class="nv">@ret</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">find_file_by_mtime</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$interval</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">@found</span> <span class="o">=</span> <span class="p">();</span>
-    <span class="k">my</span> <span class="nv">$finder</span> <span class="o">=</span> <span class="k">sub </span><span class="p">{</span>
-        <span class="k">if</span> <span class="p">(</span> <span class="o">-</span><span class="n">f</span> <span class="nv">$</span><span class="nn">File::Find::</span><span class="nv">name</span> <span class="o">&amp;&amp;</span> <span class="nb">time</span> <span class="o">-</span> <span class="nb">stat</span><span class="p">(</span><span class="nv">$</span><span class="nn">File::Find::</span><span class="nv">name</span><span class="p">)</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">9</span><span class="p">]</span> <span class="o">&lt;</span> <span class="nv">$interval</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="k">my</span> <span class="nv">$yaml</span> <span class="o">=</span> <span class="nn">YAML::Syck::</span><span class="n">LoadFile</span><span class="p">(</span><span class="nv">$</span><span class="nn">File::Find::</span><span class="nv">name</span><span class="p">);</span>
-            <span class="k">my</span> <span class="nv">@logs</span> <span class="o">=</span> <span class="nb">grep</span> <span class="p">{</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;level&#39;</span><span class="p">}</span> <span class="ow">eq</span> <span class="s">&#39;err&#39;</span> <span class="p">}</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$yaml</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;logs&#39;</span><span class="p">}};</span>
-            <span class="k">for</span> <span class="p">(</span> <span class="nv">@logs</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nb">push</span> <span class="nv">@found</span><span class="p">,</span> <span class="p">{</span> <span class="n">host</span> <span class="o">=&gt;</span> <span class="nv">$yaml</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;host&#39;</span><span class="p">},</span> <span class="n">message</span> <span class="o">=&gt;</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;message&#39;</span><span class="p">},</span> <span class="p">};</span>
-            <span class="p">};</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$reporter</span> <span class="o">=</span> <span class="k">sub </span><span class="p">{</span> <span class="nv">@found</span> <span class="p">};</span>
-    <span class="k">return</span><span class="p">(</span> <span class="nv">$finder</span><span class="p">,</span> <span class="nv">$reporter</span> <span class="p">);</span>
-<span class="p">};</span>
-<span class="n">dance</span><span class="p">;</span>
-<span class="bp">__DATA__</span>
-<span class="nv">@@</span> <span class="nv">check</span><span class="o">.</span><span class="n">tt</span>
-<span class="o">&lt;</span><span class="n">div</span> <span class="n">id</span><span class="o">=</span><span class="s">&quot;timeoutdirs&quot;</span><span class="o">&gt;</span>
-<span class="n">List</span> <span class="n">of</span> <span class="n">nodes</span> <span class="n">whose</span> <span class="n">report</span> <span class="n">is</span> <span class="n">timeout:</span> <span class="o">&lt;</span><span class="n">br</span> <span class="o">/&gt;</span>
-<span class="sr">&lt;ul&gt;</span>
-<span class="p">[</span><span class="nv">%</span> <span class="nv">FOREACH</span> <span class="n">dir</span> <span class="n">IN</span> <span class="n">dirs</span> <span class="nv">%</span><span class="err">]</span>
-<span class="err">&lt;</span><span class="nv">li</span> <span class="n">style</span><span class="o">=</span><span class="s">&quot;width:200px;float:left&quot;</span><span class="o">&gt;</span><span class="p">[</span><span class="nv">%</span> <span class="nv">dir</span><span class="o">.</span><span class="n">name</span> <span class="nv">%</span><span class="err">]&lt;/</span><span class="nv">li</span><span class="o">&gt;&lt;</span><span class="n">li</span> <span class="n">style</span><span class="o">=</span><span class="s">&quot;width:200px;margin:0;float:left&quot;</span><span class="o">&gt;</span><span class="p">[</span><span class="nv">%</span> <span class="nv">dir</span><span class="o">.</span><span class="nb">time</span> <span class="nv">%</span><span class="err">]&lt;/</span><span class="nv">li</span><span class="o">&gt;</span>
-<span class="p">[</span><span class="nv">%</span> <span class="nv">END</span> <span class="nv">%</span><span class="err">]</span>
-<span class="err">&lt;/</span><span class="nv">ul</span><span class="o">&gt;</span>
-<span class="sr">&lt;/div&gt;</span>
-<span class="o">&lt;</span><span class="n">br</span> <span class="sr">/&gt;&lt;hr /</span><span class="o">&gt;&lt;</span><span class="n">br</span> <span class="o">/&gt;</span>
-<span class="o">&lt;</span><span class="n">div</span> <span class="n">id</span><span class="o">=</span><span class="s">&quot;runerrlogs&quot;</span><span class="o">&gt;</span>
-<span class="n">Error</span> <span class="n">messages</span> <span class="n">of</span> <span class="n">running</span> <span class="n">nodes:</span> <span class="o">&lt;</span><span class="n">br</span> <span class="o">/&gt;</span>
-<span class="sr">&lt;ul&gt;</span>
-<span class="p">[</span><span class="nv">%</span> <span class="nv">FOREACH</span> <span class="nb">log</span> <span class="n">IN</span> <span class="n">logs</span> <span class="nv">%</span><span class="err">]</span>
-<span class="err">&lt;</span><span class="nv">li</span> <span class="n">style</span><span class="o">=</span><span class="s">&quot;width:200px;float:left&quot;</span><span class="o">&gt;</span><span class="p">[</span><span class="nv">%</span> <span class="nv">log</span><span class="o">.</span><span class="n">host</span> <span class="nv">%</span><span class="err">]&lt;/</span><span class="nv">li</span><span class="o">&gt;</span>
-<span class="o">&lt;</span><span class="n">li</span> <span class="n">style</span><span class="o">=</span><span class="s">&quot;width:400px;margin:0;float:left&quot;</span><span class="o">&gt;</span><span class="p">[</span><span class="nv">%</span> <span class="nv">log</span><span class="o">.</span><span class="n">message</span> <span class="nv">%</span><span class="err">]&lt;/</span><span class="nv">li</span><span class="o">&gt;</span>
-<span class="p">[</span><span class="nv">%</span> <span class="nv">END</span> <span class="nv">%</span><span class="err">]</span>
-<span class="err">&lt;/</span><span class="nv">ul</span><span class="o">&gt;</span>
-<span class="sr">&lt;/div&gt;</span>
-</code></pre></div>
-<p>这个脚本实现的功能其实和上面那个类似。不过报警改成web页面，event触发改成web请求触发。  <br />
-这里两个新难点：</p>
-<p>其一是没有inotify后如何根据web请求参数查找范围内新建的报表。File::Find模块只有一个函数find(\&amp;wanted,@dirs)。其中&amp;wanted是不能传参进去的。  <br />
-在CPAN上看到一个叫做File::Find::Closures的模块，提供了一系列可以给File::Find使用的&amp;wanted函数，包括一个示例。于是稍微改造一下，就写成了find_file_by_mtime()函数。</p>
-<p>其二是因为偷懒没有用dancer建立完整项目，使用了perl virtual file来提供template。所以不能直接使用Dancer的template &lsquo;ttname&rsquo;, {var=&gt;$var};定义了。  <br />
-Template::Toolkit提供的process()可以操作的template来源很多，可以是字符串／文件／句柄。所以process(*DATA)也是生效的。但是问题出现了：这样启动后，第一次访问正常；第二次访问返回空！  <br />
-打开Template的DEBUG看到，第二次访问的时候，从*DATA里读不到数据了。也就是说，必须重新seek回去——而且试验证明seek的起始点是shebang行。。。。  <br />
-所以只能先从__DATA__里读出数据，然后以字符串形式传递给process()了。    </p>
-<p>这里用到了Data::Section模块。从CloudForecast项目里学来的。CloudForecast中的web页面，使用的Text::Xslate模板技术读取__DATA__。其中包括有index／server／servers／service等页面。也就是说，在一个__DATA__里实现了多个virtual file。用的就是Data::Section::Simple模块。以@@为标签分割即可。</p>
-      <a href="/2012/05/22/puppet-reports-analysis-by-web" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -2644,6 +2668,8 @@ Template::Toolkit提供的process()可以操作的template来源很多，可以�
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+              <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+              <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
           </ul>
         </div>
         <div class="well sidebar-nav">
