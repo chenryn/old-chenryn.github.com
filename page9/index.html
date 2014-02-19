@@ -43,6 +43,61 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/12/12/learning-cache-control-from-mop-com" title="从猫扑论坛看终极页的缓存控制" rel="bookmark">从猫扑论坛看终极页的缓存控制</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-12-12 00:00:00 +0800">12 Dec 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>GF找我要猫扑账号，只好去申请了一个，顺带着之前分析天涯的劲头，把猫扑也看看~</p>
+<p>猫扑的左右分栏与天涯等论坛都不同，其左侧栏提供了大量推荐文章和栏目列表，右侧栏作为具体内容的阅读使用，通过firebug和源码阅读可以看到，左侧栏是通过frame加载的 <code>/leftFrame.jsp?type=*</code> ，再由该jsp根据后面的参数来调用相应的html页；右侧栏是通过js中定义的 <code>openRightUrl</code> 来打开具体某个html帖子，这个 <code>openRightUrl</code> 定义在<a href="http://txt.mop.com/dzhjs/dzh2js/turlUrl.js?version">http://txt.mop.com/dzhjs/dzh2js/turlUrl.js?version</a>里，其实就是一个 <code>right.location.href</code>。显然这个js将成为上猫扑时最常用的文件，其缓存时间相当长~header中可以看到 <code>Cache-Control: max-age=8640000</code> </p>
+<p>另，虽然header中的Server内容被修改，但当不带参数访问 <code>/leftFrame.jsp</code> 时，其调用的 <code>*_0_0.html</code> 不存在，显示出了 nginx0.7.34 的 404 错误页面。但随意输入 abcd.html，却能返回猫扑自定的错误页面，这也是比较怪的一点，怀疑其 nginx 的 proxy 配置不太正确。</p>
+<p>最后还是看html的缓存控制和回复时的控制。</p>
+<p>从列表中复制具体一个帖子的html链接地址另行打开，比如 <code>http://dzh.mop.com/topic/readSub_12990049_0_0.html</code> 第一个数应该是帖子号，第二个数是页码（从0开始计数~），第三个未知……</p>
+<p>可以看到这该域名下的html的默认配置，max-age是180。</p>
+<p>然后写下评论，点击提交回复。内容随即更新了，但url抓起到的url却是 <code>http://dzh.mop.com/topic/readSub_12990049_-1_0.html</code> ，而这个url的max-age设定是0！
+比较奇怪的是，回复时POST提交的url并没有和天涯一样返回一个302指向，而是返回一个无内容的200，但页码依然跳转了，而且 <code>-1_0.html</code> 的refer也不是POST的jsp，而是原先停留的 <code>0_0.html</code> ……</p>
+<p>另外点了一下全文观看，其页码是-2，max-age也是180，显然回复后的显示url是特意定制的header~~</p>
+<p>最后，有图有真相：</p>
+<p><img src="/mop.jpg" alt="mop" /></p>
+      <a href="/2010/12/12/learning-cache-control-from-mop-com" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/12/10/xen-dom0-memory-setup" title="xen的dom0内存设置" rel="bookmark">xen的dom0内存设置</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-12-10 00:00:00 +0800">10 Dec 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cloud-ref" title="cloud" rel="category tag">cloud</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>公司测试环境使用了xen来提供大批逻辑隔离的服务器供内部调测使用。随着应用系统和同事人数的增加，虚拟机数量越来越多，原先每台server开两三个vm已经吃紧，遂要增加新的vm。cp相应的img后，启动却失败了。</p>
+<p>连上server看了一下具体的报错和系统信息，server的BIOS上识别出了1G内存，free命令的mem-total是491MB，xm li看到dom0的mem正是491M，而dom1、dom2各255M。</p>
+<p>修改/etc/grub.conf，在kernel /xen.gz-2.6.18-8.el5后面加上dom0_mem=128M。reboot之后再启动第三台vm，OK！</p>
+<p>另：按照一般经验，一台2G的server，dom0最低使用mem在128-256M，单个vm的mem最低为64M(debian)或128M(CentOS)</p>
+      <a href="/2010/12/10/xen-dom0-memory-setup" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/12/10/learning-cache-control-from-tianya-cn" title="从天涯论坛看终极页的缓存控制" rel="bookmark">从天涯论坛看终极页的缓存控制</a>
     </h1>
     <p class="alt-font tight">
@@ -2629,106 +2684,6 @@ collect2: ld returned 1 exit status</p>
 </ul>
 <p>保存后重新编译，顺利通过。</p>
       <a href="/2010/10/13/a-problem-of-php-compiling" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/10/09/change-time-zone-of-linux" title="linux更改时区" rel="bookmark">linux更改时区</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-10-09 00:00:00 +0800">09 Oct 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>linux上的时间，一般用定时ntpdate或者守护ntpd服务来保持正确。不过有时候会发现系统时间显示不是我们熟悉的CST，而是莫名其妙的其他地方。比如EDT什么的，ntpdate的时候，可不会自己辨别时区的~~
-那么就要自己手动更改了。
-办法很多，第一：
-/usr/bin/tzselect命令，然后采用一问一答的方式完成配置，这个命令其实就是一个shell脚本，利用select和case命令完成交互，从/usr/share/zoneinfo/中获取指定的文件完成操作。
-第二：
-既然知道了tzselect的操作过程，也就可以自己来干这件事情：直接进入/usr/share/zoneinfo目录，找到需要的文件，比如cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime即可；
-第三：
-各linux发行版都会有一些自己定制的配置工具，最有名的比如红帽的setup~
-对于时区设置，也有这种工具，redhat系列有timeconfig，debian系列有dpkg-reconfigure tzdata。</p>
-      <a href="/2010/10/09/change-time-zone-of-linux" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/10/06/a-question-of-google" title="google校招笔试题" rel="bookmark">google校招笔试题</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-10-06 00:00:00 +0800">06 Oct 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>刚在CU看到传说中的一道google2011年校招笔试题，如下：</p>
-<p>现在北京有一套房子，价格200万，假设房价每年上涨 10%，一个软件工程师每年固定能赚40万。如果他想买这套房子，不贷 款，不涨工资，没有其他收入，每年不吃不喝不消费，那么他需要几年才能攒够钱买这套房子？
-A, 5年
-B, 7年
-C, 8年
-D, 9年
-E, 永远买不起</p>
-<p>最简单的思路，算算每年的房价和攒下的工资总数，最多到房价超过400万的时候就不用算了，因为那时候10%就大于工资了……</p>
-<h1 id="binbash">!/bin/bash</h1>
-<p>fangzi=200
-gongzi=40
-while true
-do
-fangzi_new=<code>echo $fangzi|awk '{print $1*1.1}'</code>
-gongzi_new=<code>echo $gongzi|awk '{print $1+40}'</code>
-echo -ne &ldquo;$fangzi_new\t$gongzi_new\n&rdquo;
-fangzi=<code>echo $fangzi_new</code>
-gongzi=<code>echo $gongzi_new</code>
-sleep 5
-done
-运行结果如下：
-220    80
-242    120
-266.2    160
-292.82    200
-322.102    240
-354.312    280
-389.743    320
-428.717    360</p>
-<p>完蛋了，永远买不起……</p>
-<p>不过有人提供另一种思路，如果先买40万的房子，第二年卖出，然后买84万的……</p>
-<h1 id="binbash-1">!/bin/bash</h1>
-<p>fangzi=200
-gongzi=40
-while true
-do
-fangzi_new=<code>echo $fangzi|awk '{print $1*1.1}'</code>
-gongzi_new=<code>echo $gongzi|awk '{print $1*1.1+40}'</code>
-echo -ne &ldquo;$fangzi_new\t$gongzi_new\n&rdquo;
-fangzi=<code>echo $fangzi_new</code>
-gongzi=<code>echo $gongzi_new</code>
-sleep 5
-done
-运行结果如下：
-220    84
-242    132.4
-266.2    185.64
-292.82    244.204
-322.102    308.624
-354.312    379.486</p>
-<p>第七年就搞定了！！而第七年的工资总数是280万，倒房能倒到379.5万！！</p>
-<p>唉~~</p>
-      <a href="/2010/10/06/a-question-of-google" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

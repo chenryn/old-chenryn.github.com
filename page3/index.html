@@ -43,6 +43,165 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/01/31/puppet-define-type-and-custom-function" title="Puppet 自定义 type 和 function" rel="bookmark">Puppet 自定义 type 和 function</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-01-31 00:00:00 +0800">31 Jan 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#devops-ref" title="devops" rel="category tag">devops</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>Puppet 除了原有 DSL 以外，还提供了不少接口方便大家开发插件来更简单的完成一些高级功能。</p>
+<h1 id="define-type">Define Type</h1>
+<p>比如我们要维护一个上千域名组成的 ProxyServer 集群，其域名配置是相近的。那么我们就可以提炼出 template 里会变化的部分作为参数。由此定义出一个 type 如下：</p>
+<div class="highlight"><pre><code class="ruby">    <span class="n">define</span> <span class="ss">nginx</span><span class="p">:</span><span class="ss">:vhost4proxy</span><span class="p">(</span>
+        <span class="vg">$iplist</span> <span class="o">=</span> <span class="o">[]</span><span class="p">,</span>
+        <span class="vg">$domainlist</span> <span class="o">=</span> <span class="o">[]</span><span class="p">,</span>
+        <span class="vg">$extconf</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+    <span class="p">)</span> <span class="p">{</span>
+        <span class="vg">$nginx_proxy_name</span>    <span class="o">=</span> <span class="vg">$name</span>
+        <span class="vg">$nginx_proxy_servers</span> <span class="o">=</span> <span class="vg">$iplist</span>
+        <span class="vg">$nginx_server_names</span>  <span class="o">=</span> <span class="vg">$domainlist</span>
+        <span class="n">file</span> <span class="p">{</span> <span class="s2">&quot;${nginx_proxy_name}.server.conf&quot;</span><span class="p">:</span>
+            <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="n">file</span><span class="p">,</span>
+            <span class="nb">require</span> <span class="o">=&gt;</span> <span class="no">File</span><span class="o">[</span><span class="s1">&#39;/etc/nginx/conf.d&#39;</span><span class="o">]</span><span class="p">,</span>
+            <span class="n">path</span>    <span class="o">=&gt;</span> <span class="s2">&quot;/etc/nginx/conf.d/${nginx_proxy_name}.server.conf&quot;</span><span class="p">,</span>
+            <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s1">&#39;nginx/vhost_proxy.conf.erb&#39;</span><span class="p">),</span>
+            <span class="n">notify</span>  <span class="o">=&gt;</span> <span class="no">Service</span><span class="o">[</span><span class="s1">&#39;nginx&#39;</span><span class="o">]</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+</code></pre></div>
+<p>然后在 template 里使用参数来生成结果：</p>
+<div class="highlight"><pre><code class="ruby">    <span class="n">upstream</span> <span class="o">&lt;</span><span class="sx">%= nginx_proxy_name %&gt; {</span>
+<span class="sx">            consistent_hash $request_uri;</span>
+<span class="sx">    &lt;% nginx_proxy_servers.each do |ip| -%&gt;</span>
+<span class="sx">            server &lt;%=</span> <span class="n">ip</span> <span class="sx">%&gt;;</span>
+<span class="sx">    &lt;% end %&gt;</span>
+    <span class="p">}</span>
+    <span class="n">server</span> <span class="p">{</span>
+        <span class="n">listen</span> <span class="mi">80</span><span class="p">;</span>
+        <span class="n">server_name</span> <span class="o">&lt;</span><span class="sx">% scope.lookupvar(&quot;nginx_server_names&quot;).each </span><span class="k">do</span> <span class="o">|</span><span class="nb">name</span><span class="o">|</span> <span class="o">-</span><span class="sx">%&gt; &lt;%= name -%&gt;</span><span class="o">&lt;</span><span class="sx">% end %&gt;;</span>
+<span class="sx">    </span>
+<span class="sx">        location / {</span>
+<span class="sx">            proxy_pass       http://&lt;%= scope.lookupvar(&quot;nginx_proxy_name&quot;) %&gt;</span><span class="p">;</span>
+            <span class="kp">include</span>          <span class="n">conf</span><span class="o">.</span><span class="n">d</span><span class="o">/</span><span class="n">proxy</span><span class="o">.</span><span class="n">conf</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="o">&lt;</span><span class="sx">% if </span><span class="n">has_variable?</span><span class="p">(</span><span class="s2">&quot;extconf&quot;</span><span class="p">)</span> <span class="sx">%&gt;</span>
+<span class="sx">        &lt;%= scope.lookupvar(&quot;extconf&quot;) %&gt;</span>
+    <span class="o">&lt;</span><span class="sx">% end </span><span class="o">%&gt;</span>
+    <span class="p">}</span>
+</code></pre></div>
+<p>这样我们只需要在 puppet 中这样调用，就可以直接生成对应的配置了：</p>
+<div class="highlight"><pre><code class="ruby">    <span class="ss">nginx</span><span class="p">:</span><span class="ss">:vhost4proxy</span><span class="p">(</span><span class="s1">&#39;server1&#39;</span><span class="p">:</span>
+        <span class="o">[</span><span class="s1">&#39;1.1.1.1 weight=2&#39;</span><span class="p">,</span> <span class="s1">&#39;2.2.2.2 weight=3&#39;</span><span class="o">]</span><span class="p">,</span>
+        <span class="o">[</span><span class="s1">&#39;server1.domain&#39;</span><span class="p">,</span> <span class="s1">&#39;server1.alias.domain&#39;</span><span class="o">]</span><span class="p">,</span>
+        <span class="s1">&#39;access_log /path/to/other_log format&#39;</span>
+    <span class="p">)</span>
+</code></pre></div>
+<h1 id="custom-function">Custom Function</h1>
+<p>不过用上面 define type 还不能完全解决我们提出的问题。因为在 puppet 配置里写几千行 nginx::vhost4proxy 也是一件很可怕的事情！</p>
+<p>这时候可以更进一步，把 vhost4proxy 的调用过程隐藏成一个 function，如下：</p>
+<div class="highlight"><pre><code class="ruby">    <span class="nb">require</span> <span class="s1">&#39;yaml&#39;</span>
+    <span class="k">module</span> <span class="nn">Puppet::Parser::Functions</span>
+      <span class="n">newfunction</span><span class="p">(</span><span class="ss">:gen_proxy_confd</span><span class="p">,</span> <span class="ss">:type</span> <span class="o">=&gt;</span> <span class="ss">:statement</span><span class="p">)</span> <span class="k">do</span> <span class="o">|</span><span class="n">args</span><span class="o">|</span>
+        <span class="ss">Puppet</span><span class="p">:</span><span class="ss">:Parser</span><span class="o">::</span><span class="no">Functions</span><span class="o">.</span><span class="n">autoloader</span><span class="o">.</span><span class="n">loadall</span>
+        <span class="n">resource_type</span> <span class="o">=</span> <span class="n">args</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span>
+        <span class="n">yaml_dir</span> <span class="o">=</span> <span class="n">args</span><span class="o">[</span><span class="mi">1</span><span class="o">]</span>
+        <span class="no">Dir</span><span class="o">.</span><span class="n">foreach</span><span class="p">(</span><span class="n">yaml_dir</span><span class="p">)</span> <span class="k">do</span> <span class="o">|</span><span class="n">yaml_file</span><span class="o">|</span>
+          <span class="n">file_path</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">#{</span><span class="n">yaml_dir</span><span class="si">}</span><span class="s2">/</span><span class="si">#{</span><span class="n">yaml_file</span><span class="si">}</span><span class="s2">&quot;</span>
+          <span class="k">next</span> <span class="k">unless</span> <span class="n">file_path</span><span class="o">[-</span><span class="mi">5</span><span class="o">.</span><span class="n">.</span><span class="o">-</span><span class="mi">1</span><span class="o">].</span><span class="n">eql?</span><span class="p">(</span><span class="s1">&#39;.yaml&#39;</span><span class="p">)</span>
+          <span class="n">res_params</span> <span class="o">=</span> <span class="no">YAML</span><span class="o">.</span><span class="n">load_file</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+          <span class="n">function_create_resources</span><span class="p">(</span><span class="o">[</span><span class="n">resource_type</span><span class="p">,</span> <span class="n">res_params</span><span class="o">]</span><span class="p">)</span>
+        <span class="k">end</span>
+      <span class="k">end</span>
+    <span class="k">end</span>
+</code></pre></div>
+<p>然后只要把原先传递给 vhost4proxy 的参数写成 yaml 文件放好就行了。</p>
+<div class="highlight"><pre><code class="yaml">    <span class="l-Scalar-Plain">---</span> 
+    <span class="l-Scalar-Plain">server1</span><span class="p-Indicator">:</span> 
+      <span class="l-Scalar-Plain">iplist</span><span class="p-Indicator">:</span> 
+        <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">1.1.1.1 weight=2</span>
+        <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">2.2.2.2 weight=3</span>
+      <span class="l-Scalar-Plain">domainlist</span><span class="p-Indicator">:</span>
+        <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">server1.domain</span>
+        <span class="p-Indicator">-</span> <span class="s">&#39;*.server1.alias.domain&#39;</span>
+      <span class="l-Scalar-Plain">extconf</span><span class="p-Indicator">:</span> <span class="p-Indicator">|-</span>
+        <span class="no">chunkin on;</span>
+        <span class="no">error_page 411 = @my_411_error;</span>
+        <span class="no">location @my_411_error {</span>
+            <span class="no">chunkin_resume;</span>
+        <span class="no">}</span>
+        <span class="no">access_log /path/to/other_log format;</span>
+</code></pre></div>
+<p>大家看起来是不是有点眼熟？没错，这个 yaml 的思路完全是借鉴了 hiera 的写法。但是 hiera 的设计是垂直继承的，不适合这里假设的平面式的情况 —— 当然，如果你觉得把这几千个 yaml 都写在一个大 yaml 文件里也不费劲的话。就不用上我这么折腾了~~</p>
+<p>最后在 puppet 配置中只用一行就搞定全部：</p>
+<div class="highlight"><pre><code class="ruby">    <span class="n">gen_proxy_confd</span><span class="p">(</span><span class="s1">&#39;nginx::vhost4proxy&#39;</span><span class="p">,</span><span class="s2">&quot;${modulepath}/nginx/yaml&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h1 id="section">要点</h1>
+<p>type 基本没有什么难度，因为他还是属于 puppet DSL 的运用。可以在其他配置文件内部直接写 define type，不过 puppet-lint 工具会报一个 warnings，所以建议还是单独拆分出来。</p>
+<p>function 首先是路径和命名问题。</p>
+<ol>
+  <li>要把写 function 的文件放在 <code>${modulepath}/yourmodule/lib/puppet/parser/functions/</code> 路径下；</li>
+  <li>和其他 type、class 一样，文件名必须和 function 一致，puppet 才能 autoload；</li>
+  <li>格式是固定的，注意有两种:type，statement和rvalue。如果你的 function 目的是返回一个值给 puppet 继续使用，要指定好。默认是 statement；</li>
+  <li>在自定义 function 里调用其他 function 有两种办法，一种写全路径 <code>Puppet::Parser::Functions.function('file')</code>；一种是使用 <code>Puppet::Parser::Functions.autoloader.loadall</code> 加载全部 function，然后用 <code>function_**</code> 的方式来调用；</li>
+  <li>示例中最关键的一个是调用了 <code>function_create_resources</code> 。<code>create_resources</code> 用来批量创建资源。直接在 puppet 配置文件里使用的时候，接收的是列表参数。但是在 Ruby 里直接使用 <code>function_create_resources</code> 的话，接收的是一个匿名数组作为唯一参数。</li>
+  <li>function 和 type 在 puppet 中可以认为是 class 的一种，所以它们也是有自己的作用域的。所以看到传递参数时写的是 &ldquo;nginx::vhost4proxy&rdquo;。</li>
+</ol>
+<h1 id="section-1">参考内容</h1>
+<p>关于 Facts 在 function 中的运用，rvalue 的示例等更多内容见官网：<a href="http://docs.puppetlabs.com/guides/custom_functions.html">http://docs.puppetlabs.com/guides/custom_functions.html</a>。</p>
+<p>关于 puppet 自带的各种 function 的说明，见官网(很多也没写)：<a href="http://docs.puppetlabs.com/references/latest/function.html">http://docs.puppetlabs.com/references/latest/function.html</a>。</p>
+<h1 id="section-2">鸣谢</h1>
+<p>感谢 <a href="http://weibo.com/liucy1983">@liu.cy</a> 童鞋提醒我变量作用域的问题。function 的调试过程很痛苦。</p>
+      <a href="/2013/01/31/puppet-define-type-and-custom-function" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2013/01/11/systemtap-to-debug-kmsg-dump" title="用 systemtap 调试 kmsg dump" rel="bookmark">用 systemtap 调试 kmsg dump</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-01-11 00:00:00 +0800">11 Jan 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>google 之前推出了一个 netoops 的 patch，可以让 linux kernel 在崩溃的时候通过 udp 协议把信息发送到远端主机上。我之前在 CentOS6.2 的内核上做过测试，详细做法可以参见淘宝内核组 wiki 的<a href="http://kernel.taobao.org/index.php/Documents/Kernel_build">编译使用淘宝内核</a>和 <a href="kernel.taobao.org/index.php/Documents/Kernel_netoops_howto">netoops 使用指南</a>。唯一有区别的地方就是淘宝使用的 RedHat6 的内核在 CentOS6 上有签名问题，需要自己从 CentOS 官网 ftp 下载 src.rpm 来用 —— 当然如果要自己搞定编译那步，少不了就要自己修改 config-genaric 和 kernel.spc 文件了。</p>
+<p>昨天同事升级修改到 CentOS6.3 内核( 2.6.32.220 -&gt; 2.6.32.279 )上。结果发现修改冲突代码编译通过后，再使用 soft dump 方式测试，远端主机 nc 收不到结果了。</p>
+<p>稍微 grep 一下代码，发现是在 <code>kernel/printk.c</code> 里定义 <code>void kmsg_dump()</code> 的。好了，使用 systemtap 来检查这里： </p>
+<div class="highlight"><pre><code class="c">    <span class="n">stap</span> <span class="o">-</span><span class="n">ve</span> <span class="err">&#39;</span><span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">function</span><span class="p">(</span><span class="s">&quot;kmsg_dump&quot;</span><span class="p">){</span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="err">$$</span><span class="n">vars</span><span class="err">$$</span><span class="p">)}</span><span class="err">&#39;</span>
+</code></pre></div>
+<p>结果发现在 soft dump 的时候有输出，也就是说调用了 <code>kmsg_dump()</code>。</p>
+<p>比较 2.6.32.220 和 2.6.32.279 的代码，发现在 <code>kmsg_dump()</code> 里，新内核多了一点判断，如果reason 低于 <code>KERNEL_OOPS</code> 而且没有设置 <code>always_kmsg_dump</code> 变量，那么直接返回不再 <code>dumper-&gt;dump()</code> 了。</p>
+<div class="highlight"><pre><code class="c"><span class="mi">1546</span>    <span class="k">if</span> <span class="p">((</span><span class="n">reason</span> <span class="o">&gt;</span> <span class="n">KMSG_DUMP_OOPS</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">always_kmsg_dump</span><span class="p">)</span>
+<span class="mi">1547</span>            <span class="k">return</span><span class="p">;</span> 
+</code></pre></div>
+<p>我们验证一下是不是这个原因：</p>
+<div class="highlight"><pre><code class="c">    <span class="n">stap</span> <span class="o">-</span><span class="n">gve</span> <span class="err">&#39;</span><span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">statement</span><span class="p">(</span><span class="s">&quot;*@kernel/printk.c:1548&quot;</span><span class="p">)</span>  <span class="p">{</span> <span class="n">printf</span><span class="p">(</span><span class="s">&quot;%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="err">$$</span><span class="n">parms</span><span class="err">$$</span><span class="p">)</span> <span class="p">}</span><span class="err">&#39;</span>
+</code></pre></div>
+<p>显然测试的时候 reason 是 <code>KERNEL_SOFT</code>，这个是不好调的，那么我们可以调整这个变量，找了一下没发现这个可以在 sysctl 什么的里面，所以继续用 systemtap 搞定：</p>
+<div class="highlight"><pre><code class="c">    <span class="n">stap</span> <span class="o">-</span><span class="n">gve</span> <span class="err">&#39;</span><span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">statement</span><span class="p">(</span><span class="s">&quot;*@kernel/printk.c:1545&quot;</span><span class="p">)</span>  <span class="p">{</span> <span class="err">$</span><span class="n">always_kmsg_dump</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span> <span class="n">printf</span><span class="p">(</span><span class="s">&quot;%d&quot;</span><span class="p">,</span><span class="err">$</span><span class="n">always_kmsg_dump</span><span class="p">);</span> <span class="n">printf</span><span class="p">(</span><span class="s">&quot;%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="err">$$</span><span class="n">parms</span><span class="err">$$</span><span class="p">)</span> <span class="p">}</span><span class="err">&#39;</span>
+</code></pre></div>
+<p>果然搞定。</p>
+      <a href="/2013/01/11/systemtap-to-debug-kmsg-dump" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/01/10/update-puppet-to-3.0" title="升级 Puppet 到 3.0 及其他附件简介" rel="bookmark">升级 Puppet 到 3.0 及其他附件简介</a>
     </h1>
     <p class="alt-font tight">
@@ -3673,240 +3832,6 @@ bbs 9876
 <h1 id="section-2">邮件列表</h1>
 <p>ES的邮件列表基本每天都有四五十封邮件，地址是：<a href="&#109;&#097;&#105;&#108;&#116;&#111;:&#101;&#108;&#097;&#115;&#116;&#105;&#099;&#115;&#101;&#097;&#114;&#099;&#104;&#064;&#103;&#111;&#111;&#103;&#108;&#101;&#103;&#114;&#111;&#117;&#112;&#115;&#046;&#099;&#111;&#109;">&#101;&#108;&#097;&#115;&#116;&#105;&#099;&#115;&#101;&#097;&#114;&#099;&#104;&#064;&#103;&#111;&#111;&#103;&#108;&#101;&#103;&#114;&#111;&#117;&#112;&#115;&#046;&#099;&#111;&#109;</a>。</p>
       <a href="/2012/10/21/elasticearch-simple-usage" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/10/17/juggernaut-for-syslog-check" title="用Juggernaut实时推送syslog分析结果" rel="bookmark">用Juggernaut实时推送syslog分析结果</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-10-17 00:00:00 +0800">17 Oct 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>大家一般都会用rsyslog或者syslog-ng之类的收集系统日志。不过收集之后的处理就各种各样了。这里提供一个简单的处理，按日期保存成文件，然后定时分析新增内容，通过websocket推送到页面报警。这对于像磁盘错误等信息比较有用。因为等nagios之类的监控反应出来，故障可能就已经到你措手不及的地步了。</p>
-<p>这里介绍一下Juggernaut项目，作者当初还在上学的时候就开始搞这个项目并最终因为这个项目找到的工作。不过几个月前他宣布不再维护了，因为他觉得html5已经普及，大家直接写websocket就够了。额，在口年的中国，我觉得Juggernaut还是很有意义的。项目地址：<a href="https://github.com/maccman/juggernaut">https://github.com/maccman/juggernaut</a>。</p>
-<p>举例中有ruby、js和python的样例，不过既然是用Redis传消息，那么改成perl的代码跟python的比差距也就很小了。</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl</span>
-<span class="k">use</span> <span class="n">AnyEvent</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Getopt::</span><span class="n">Long</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Redis</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">JSON</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw/ strftime /</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="mf">5.010</span><span class="p">;</span>
-<span class="c1"># 后台运行</span>
-<span class="k">use</span> <span class="nn">App::</span><span class="n">Daemon</span> <span class="sx">qw( daemonize )</span><span class="p">;</span>
-<span class="nv">$</span><span class="nn">App::Daemon::</span><span class="nv">as_user</span>    <span class="o">=</span> <span class="s">&quot;root&quot;</span><span class="p">;</span>
-<span class="n">daemonize</span><span class="p">();</span>
-<span class="c1"># 设定调试和间隔</span>
-<span class="k">my</span> <span class="p">(</span><span class="nv">$debug</span><span class="p">,</span> <span class="nv">$interval</span><span class="p">,</span> <span class="nv">$help</span><span class="p">);</span>                                                                                                                                                        
-<span class="n">GetOptions</span><span class="p">(</span>                                                                                                                                                                           
-    <span class="s">&quot;debug|d&quot;</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">$debug</span><span class="p">,</span>                                                                                                                                                             
-    <span class="s">&quot;interval|i=i&quot;</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">$interval</span><span class="p">,</span>                                                                                                                                                     
-    <span class="s">&quot;help|h&quot;</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">$help</span><span class="p">,</span>                                                                                                                                                               
-<span class="p">);</span>                                                                                                                                                                                    
-<span class="k">if</span><span class="p">(</span> <span class="nv">$help</span> <span class="p">)</span> <span class="p">{</span>
-    <span class="n">say</span> <span class="s">&quot;Usage: $0 [start|stop|-X] -d -i num&quot;</span><span class="p">;</span>
-    <span class="n">say</span> <span class="s">&quot;       -X means run frontend;&quot;</span><span class="p">;</span>
-    <span class="n">say</span> <span class="s">&quot;       -d means debug for timer and submit;&quot;</span><span class="p">;</span>
-    <span class="n">say</span> <span class="s">&quot;       -i means define a special interval seconds for regexp and submit, default set 300s.&quot;</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="nv">$interval</span> <span class="o">=</span> <span class="mi">300</span> <span class="k">unless</span> <span class="nv">$interval</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">@str</span> <span class="o">=</span> <span class="p">();</span>
-<span class="c1"># syslog的pri，定义见http://www.ietf.org/rfc/rfc3164.txt。因为本例只收集kernel信息，即Facility = 0,所以PRI = 0 * 8 + Severity。这里为了页面好看直接写成bootstrap里button的class了。</span>
-<span class="k">my</span> <span class="nv">@pri</span> <span class="o">=</span> <span class="sx">qw(</span>
-<span class="sx">    btn-inverse</span>
-<span class="sx">    btn-danger</span>
-<span class="sx">    btn-warning</span>
-<span class="sx">    btn-success</span>
-<span class="sx">    btn-info</span>
-<span class="sx">    btn-primary</span>
-<span class="sx">    btn</span>
-<span class="sx">    disabled</span>
-<span class="sx">)</span><span class="p">;</span>
-<span class="c1"># syslog格式&lt;IP&gt; &lt;TIME&gt; &lt;PRI&gt; kernel: &lt;MSG&gt;</span>
-<span class="c1"># 注意最后msg里的\S.+，因为当内存出错等情况时，msg里开头会以空格表示附属关系</span>
-<span class="k">my</span> <span class="nv">$re</span> <span class="o">=</span> <span class="sx">qr/((?:\d{1,3}\.){3}\d{1,3}) \[(\w+ \d+ \d{2}:\d{2}:\d{2})\] &lt;(\d+)&gt; kernel: (\S.+)/</span><span class="p">;</span>
-<span class="c1"># 目前是直接收集成时间格式命名了，所以每天crond里要restart脚本，如果是日志名不变，crond切割的，那么脚本可以一直跑</span>
-<span class="nb">open</span><span class="p">(</span><span class="k">my</span> <span class="nv">$r</span><span class="p">,</span> <span class="s">&quot;-|&quot;</span><span class="p">,</span> <span class="s">&quot;tail&quot;</span><span class="p">,</span> <span class="s">&quot;-F&quot;</span><span class="p">,</span> <span class="s">&#39;/data1/syslog/kern.&#39;</span> <span class="o">.</span> <span class="n">strftime</span><span class="p">(</span><span class="s">&quot;%Y%m%d&quot;</span><span class="p">,</span> <span class="nb">localtime</span><span class="p">)</span> <span class="o">.</span> <span class="s">&#39;.log&#39;</span> <span class="p">)</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;can&#39;t fork: $!&quot;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$io</span> <span class="o">=</span> <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">io</span><span class="p">(</span>
-    <span class="n">fh</span> <span class="o">=&gt;</span> <span class="nv">$r</span><span class="p">,</span>
-    <span class="n">poll</span> <span class="o">=&gt;</span> <span class="s">&quot;r&quot;</span><span class="p">,</span>
-    <span class="n">cb</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$input</span> <span class="o">=</span> <span class="nb">scalar</span> <span class="sr">&lt;$r&gt;</span><span class="p">;</span>
-        <span class="k">return</span> <span class="k">if</span> <span class="nv">$input</span> <span class="o">=~</span><span class="sr"> /repeat|suppress|window/</span><span class="p">;</span>
-        <span class="nb">push</span> <span class="nv">@str</span><span class="p">,</span> <span class="nv">$input</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="p">);</span>
-<span class="k">my</span> <span class="nv">$w</span> <span class="o">=</span> <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">timer</span><span class="p">(</span>
-    <span class="n">after</span> <span class="o">=&gt;</span> <span class="nv">$interval</span><span class="p">,</span>
-    <span class="n">interval</span> <span class="o">=&gt;</span> <span class="nv">$interval</span><span class="p">,</span>
-    <span class="n">cb</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$data</span><span class="p">;</span>
-        <span class="n">say</span> <span class="s">&quot;######## &quot;</span><span class="p">,</span><span class="nb">time</span> <span class="k">if</span> <span class="nv">$debug</span><span class="p">;</span>
-        <span class="k">for</span> <span class="p">(</span> <span class="nv">@str</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="k">next</span> <span class="k">unless</span> <span class="nv">$_</span> <span class="o">=~</span> <span class="nv">$re</span><span class="p">;</span>
-            <span class="k">my</span> <span class="p">(</span> <span class="nv">$ip</span><span class="p">,</span> <span class="nv">$time</span><span class="p">,</span> <span class="nv">$level</span><span class="p">,</span> <span class="nv">$msg</span> <span class="p">)</span> <span class="o">=</span> <span class="p">(</span> <span class="nv">$1</span><span class="p">,</span> <span class="nv">$2</span><span class="p">,</span> <span class="nv">$3</span><span class="p">,</span> <span class="nv">$4</span> <span class="p">);</span>
-            <span class="k">next</span> <span class="k">if</span> <span class="nb">exists</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$ip</span><span class="p">};</span>
-            <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$ip</span><span class="p">}</span> <span class="o">=</span> <span class="n">classify</span><span class="p">(</span><span class="nv">$msg</span><span class="p">);</span>
-            <span class="n">submit</span><span class="p">(</span> <span class="nv">$time</span><span class="p">,</span> <span class="nv">$ip</span><span class="p">,</span> <span class="nv">$pri</span><span class="p">[</span><span class="nv">$level</span><span class="p">],</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$ip</span><span class="p">},</span> <span class="nv">$msg</span> <span class="p">);</span>
-        <span class="p">};</span>
-        <span class="nv">@str</span> <span class="o">=</span> <span class="p">();</span>
-    <span class="p">},</span>
-<span class="p">);</span>
-<span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">condvar</span><span class="o">-&gt;</span><span class="nb">recv</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">submit</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">@msg</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="n">say</span> <span class="nv">@msg</span> <span class="k">if</span> <span class="nv">$debug</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$redis</span> <span class="o">=</span> <span class="n">Redis</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">server</span> <span class="o">=&gt;</span> <span class="s">&#39;198.168.0.2:6379&#39;</span> <span class="p">);</span>
-    <span class="nv">$redis</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">(</span><span class="s">&quot;juggernaut&quot;</span><span class="p">,</span> <span class="n">to_json</span><span class="p">({</span>
-        <span class="n">channels</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="s">&#39;channel1&#39;</span><span class="p">],</span>
-        <span class="n">data</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@msg</span><span class="p">,</span>
-    <span class="p">}));</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">classify</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$msg</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nv">$msg</span> <span class="o">=~</span><span class="sr"> /TCP|UDP|SYN|socket/</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="s">&#39;network&#39;</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$msg</span> <span class="o">=~</span><span class="sr"> /segfault|swap|mem|allocation/</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="s">&#39;memory&#39;</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$msg</span> <span class="o">=~</span><span class="sr"> /IPMI|EXT|cciss|scsi|mpt|usb|DRAC|sd\w/</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="s">&#39;disk&#39;</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$msg</span> <span class="o">=~</span><span class="sr"> /CPU|IRQ/</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="s">&#39;cpu&#39;</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-        <span class="s">&#39;unknown&#39;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>然后写html页面来接收。</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;html&gt;</span>
-<span class="nt">&lt;head&gt;</span>
-  <span class="nt">&lt;meta</span> <span class="na">name=</span><span class="s">&quot;charset&quot;</span> <span class="na">content=</span><span class="s">&quot;utf-8&quot;</span><span class="nt">&gt;</span>
-  <span class="nt">&lt;title&gt;</span>syslog-push-webUI<span class="nt">&lt;/title&gt;</span>
-  <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;http://192.168.0.2:8080/application.js&quot;</span> <span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">charset=</span><span class="s">&quot;utf-8&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
-  <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;/javascripts/jquery-1.7.2.min.js &quot;</span> <span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">charset=</span><span class="s">&quot;utf-8&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
-<span class="nt">&lt;/head&gt;</span>
-<span class="nt">&lt;body&gt;</span>
-  <span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">&#39;syslog&#39;</span> <span class="na">style=</span><span class="s">&quot;overflow-y: scroll; border: #999&quot;</span><span class="nt">&gt;</span>
-    <span class="nt">&lt;ul</span> <span class="na">class=</span><span class="s">&quot;unstyled&quot;</span> <span class="na">id=</span><span class="s">&#39;msg&#39;</span><span class="nt">&gt;</span>
-    <span class="nt">&lt;/ul&gt;</span>
-  <span class="nt">&lt;/div&gt;</span>
-  <span class="nt">&lt;div&gt;&lt;button</span> <span class="na">class=</span><span class="s">&quot;btn&quot;</span> <span class="na">id=</span><span class="s">&quot;notify-permission-button&quot;</span><span class="nt">&gt;</span>开启桌面通知<span class="nt">&lt;/button&gt;&lt;/div&gt;</span>
-  <span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">charset=</span><span class="s">&quot;utf-8&quot;</span><span class="nt">&gt;</span>
-    <span class="nx">$</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-      <span class="kd">var</span> <span class="nx">log</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">){</span>
-        <span class="kd">var</span> <span class="nx">msg</span><span class="p">;</span>
-        <span class="nx">$</span><span class="p">(</span><span class="s1">&#39;#msg li:gt(40)&#39;</span><span class="p">).</span><span class="nx">remove</span><span class="p">();</span>
-        <span class="k">if</span><span class="p">(</span> <span class="k">typeof</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="o">==</span> <span class="s1">&#39;string&#39;</span> <span class="p">)</span> <span class="p">{</span>
-          <span class="nx">msg</span> <span class="o">=</span> <span class="nx">data</span><span class="p">;</span>
-        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-          <span class="nx">msg</span> <span class="o">=</span> <span class="s1">&#39;&lt;blockquote&gt;&#39;</span><span class="p">;</span>
-          <span class="nx">msg</span> <span class="o">+=</span> <span class="s1">&#39;&lt;button type = &quot;button&quot; class=&quot;btn-mini &#39;</span> <span class="o">+</span> <span class="nx">data</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;&quot;&gt;&#39;</span> <span class="o">+</span> <span class="nx">data</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;&lt;/button&gt;: &#39;</span><span class="p">;</span>
-          <span class="nx">msg</span> <span class="o">+=</span> <span class="s1">&#39;&lt;code&gt;&#39;</span> <span class="o">+</span> <span class="nx">data</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;&lt;/code&gt;&#39;</span><span class="p">;</span>
-          <span class="nx">msg</span> <span class="o">+=</span> <span class="s1">&#39;&lt;small&gt;&lt;strong&gt;&#39;</span> <span class="o">+</span> <span class="nx">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;&lt;/strong&gt; &#39;</span><span class="p">;</span>
-          <span class="nx">msg</span> <span class="o">+=</span> <span class="s1">&#39;&lt;cite&gt;&#39;</span> <span class="o">+</span> <span class="nx">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39;&lt;/cite&gt;&lt;/small&gt;&#39;</span><span class="p">;</span>
-          <span class="nx">msg</span> <span class="o">+=</span> <span class="s1">&#39;&lt;/blockquote&gt;&#39;</span><span class="p">;</span>
-        <span class="p">}</span>
-        <span class="nx">$</span><span class="p">(</span><span class="s1">&#39;#msg:first-child&#39;</span><span class="p">).</span><span class="nx">prepend</span><span class="p">(</span><span class="s1">&#39;&lt;li&gt;&#39;</span> <span class="o">+</span> <span class="nx">msg</span> <span class="o">+</span> <span class="s1">&#39;&lt;/li&gt;&#39;</span><span class="p">);</span>
-      <span class="p">};</span>
-      <span class="kd">var</span> <span class="nx">jug</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Juggernaut</span><span class="p">({</span>
-        <span class="nx">secure</span><span class="o">:</span> <span class="p">(</span><span class="s1">&#39;https:&#39;</span> <span class="o">==</span> <span class="nb">document</span><span class="p">.</span><span class="nx">location</span><span class="p">.</span><span class="nx">protocol</span><span class="p">),</span>
-        <span class="nx">host</span><span class="o">:</span> <span class="nb">document</span><span class="p">.</span><span class="nx">location</span><span class="p">.</span><span class="nx">hostname</span><span class="p">,</span>
-        <span class="nx">port</span><span class="o">:</span> <span class="mi">8080</span> <span class="o">||</span> <span class="nb">document</span><span class="p">.</span><span class="nx">location</span><span class="p">.</span><span class="nx">port</span>
-      <span class="p">});</span>
-      <span class="nx">jug</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s2">&quot;connect&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(){</span> <span class="nx">log</span><span class="p">(</span><span class="s2">&quot;&lt;code&gt;Connected&lt;/code&gt;&quot;</span><span class="p">)</span> <span class="p">});</span>
-      <span class="nx">jug</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s2">&quot;disconnect&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(){</span> <span class="nx">log</span><span class="p">(</span><span class="s2">&quot;&lt;code&gt;Disconnected&lt;/code&gt;&quot;</span><span class="p">)</span> <span class="p">});</span>
-      <span class="nx">jug</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s2">&quot;reconnect&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(){</span> <span class="nx">log</span><span class="p">(</span><span class="s2">&quot;&lt;code&gt;Reconnecting&lt;/code&gt;&quot;</span><span class="p">)</span> <span class="p">});</span>
-      <span class="nx">jug</span><span class="p">.</span><span class="nx">subscribe</span><span class="p">(</span><span class="s2">&quot;channel1&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">){</span>
-        <span class="nx">log</span><span class="p">(</span><span class="nx">data</span><span class="p">);</span>
-        <span class="k">if</span> <span class="p">(</span> <span class="nx">data</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;btn&#39;</span> <span class="p">)</span> <span class="p">{</span>
-          <span class="nx">desk_notify</span><span class="p">(</span><span class="nx">data</span><span class="p">);</span>
-        <span class="p">};</span>
-      <span class="p">});</span>
-      <span class="kd">var</span> <span class="nx">desk_notify</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">if</span><span class="p">(</span><span class="nb">window</span><span class="p">.</span><span class="nx">webkitNotifications</span><span class="p">){</span>
-          <span class="k">if</span> <span class="p">(</span><span class="nb">window</span><span class="p">.</span><span class="nx">webkitNotifications</span><span class="p">.</span><span class="nx">checkPermission</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
-            <span class="nx">RequestPermission</span><span class="p">(</span><span class="nx">desk_notify</span><span class="p">(</span><span class="nx">data</span><span class="p">));</span>
-          <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-            <span class="kd">var</span> <span class="nx">notification</span> <span class="o">=</span> <span class="nx">webkitNotifications</span><span class="p">.</span><span class="nx">createNotification</span><span class="p">(</span>
-              <span class="s1">&#39;http://a.xnimg.cn/imgpro/app/mobile/renren_phone_icon2.png&#39;</span><span class="p">,</span>
-              <span class="nx">data</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-              <span class="nx">data</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
-            <span class="p">);</span>
-            <span class="nx">notification</span><span class="p">.</span><span class="nx">show</span><span class="p">();</span>
-          <span class="p">}</span>
-        <span class="p">}</span>
-      <span class="p">}</span>
-      <span class="kd">function</span> <span class="nx">RequestPermission</span><span class="p">(</span><span class="nx">callback</span><span class="p">)</span> <span class="p">{</span>
-        <span class="nb">window</span><span class="p">.</span><span class="nx">webkitNotifications</span><span class="p">.</span><span class="nx">requestPermission</span><span class="p">(</span><span class="nx">callback</span><span class="p">);</span>
-      <span class="p">}</span>
-      <span class="nx">$</span><span class="p">(</span><span class="s1">&#39;#notify-permission-button&#39;</span><span class="p">).</span><span class="nx">click</span><span class="p">(</span><span class="kd">function</span><span class="p">(){</span>
-        <span class="nx">$</span><span class="p">(</span><span class="s1">&#39;#notify-permission-button&#39;</span><span class="p">).</span><span class="nx">hide</span><span class="p">();</span>
-        <span class="nx">desk_notify</span><span class="p">([</span><span class="s1">&#39;&#39;</span><span class="p">,</span><span class="s1">&#39;syslog realtime push&#39;</span><span class="p">,</span><span class="s1">&#39;&#39;</span><span class="p">,</span><span class="s1">&#39;&#39;</span><span class="p">,</span><span class="s1">&#39;开启&#39;</span><span class="p">]);</span>
-      <span class="p">});</span>
-    <span class="p">});</span>
-  <span class="nt">&lt;/script&gt;</span>
-<span class="nt">&lt;/body&gt;</span>
-<span class="nt">&lt;/html&gt;</span>
-</code></pre></div>
-<p>这里除了juggernaut的代码以外，还加上了chrome独有的webkitnotification功能，这样使用chrome的话，可以打开桌面通知，监控效果更佳～</p>
-<p>注意：chrome桌面通知的权限授予，不能通过页面代码自动触发，必须显式的用button.click来触发。</p>
-<p><strong>2013 年 2 月 17 日更新：</strong></p>
-<p>我的 Ubuntu 12.10 更新到 firefox 18.0.2 版本后，以上代码也可以出现桌面通知了。不过奇怪的是：第一至今没有看到哪里有这个更新说明；第二我确实没有安装相关的extension，事实上我一共就安装了 firebug/xmarks/adblocks 三个扩展。</p>
-      <a href="/2012/10/17/juggernaut-for-syslog-check" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/10/02/gather-take-in-perl5" title="Perl5里的gather/take" rel="bookmark">Perl5里的gather/take</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-10-02 00:00:00 +0800">02 Oct 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>九月末的YAPC::Asia上，Larry Wall展示了一下怎么把一个perl5上很标准的排序脚本改造成perl6脚本。主要是条件语句不再用()了，子函数传参方式，对象化操作等等。唯独有个命令是之前未见过的：gather/take。用这个可以减少临时变量的使用。</p>
-<p>找了一下，类似命令在perl5中有多个模块对应：<a href="http://search.cpan.org/~moritz/Perl6-GatherTake-0.0.3/lib/Perl6/GatherTake.pm">Perl6::GatherTake</a>、<a href="http://search.cpan.org/~gaal/Perl6-Take-0.04/lib/Perl6/Take.pm">Perl6::Take</a>、<a href="http://search.cpan.org/~dconway/Perl6-Gather-0.42/lib/Perl6/Gather.pm">Perl6::Gather</a>、<a href="http://search.cpan.org/~flora/List-Gather-0.06/lib/List/Gather.pm">List::Gather</a>和<a href="http://search.cpan.org/~frew/Syntax-Keyword-Gather-1.002000/lib/Syntax/Keyword/Gather.pm">Syntax::Keyword::Gather</a>。</p>
-<p>具体的说明，可以看<a href="http://search.cpan.org/~dconway/Perl6-Gather-0.42/lib/Perl6/Gather.pm">Perl6::Gather</a>的POD说明，比较详细。其他的都是简单给个例子就是了。</p>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Perl6::</span><span class="n">Gather</span><span class="p">;</span>
-<span class="k">print</span> <span class="n">gather</span> <span class="p">{</span>
-    <span class="k">for</span> <span class="p">(</span><span class="nv">@data</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">take</span> <span class="k">if</span> <span class="nv">$_</span> <span class="nv">%</span> <span class="nv">2</span><span class="p">;</span>
-        <span class="n">take</span> <span class="n">to_num</span><span class="p">(</span><span class="nv">$_</span><span class="p">)</span> <span class="k">if</span> <span class="sr">/(?:one|three|five|nine)\z/</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="n">take</span> <span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span><span class="mi">9</span> <span class="k">unless</span> <span class="n">gathered</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>相当于：</p>
-<div class="highlight"><pre><code class="perl"><span class="k">my</span> <span class="nv">@arrays</span><span class="p">;</span>
-<span class="k">for</span> <span class="p">(</span><span class="nv">@data</span><span class="p">)</span> <span class="p">{</span>
-    <span class="nb">push</span> <span class="nv">@arrays</span><span class="p">,</span> <span class="nv">$_</span> <span class="k">if</span> <span class="nv">$_</span> <span class="nv">%</span> <span class="nv">2</span><span class="p">;</span>
-    <span class="nb">push</span> <span class="nv">@arrays</span><span class="p">,</span> <span class="n">to_num</span><span class="p">(</span><span class="nv">$_</span><span class="p">)</span> <span class="k">if</span> <span class="sr">/(?:one|three|five|nine)\z/</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="nv">@arrays</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span><span class="mi">9</span><span class="p">)</span> <span class="k">unless</span> <span class="nv">@arrays</span><span class="p">;</span>
-<span class="k">print</span> <span class="nv">@arrays</span><span class="p">;</span>
-</code></pre></div>
-<p>省略的就是这个push用的临时@arrays变量。同样也可以是标量，用~gather就可以省略.=了，比gather前面多一个波浪号~。</p>
-      <a href="/2012/10/02/gather-take-in-perl5" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

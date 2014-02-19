@@ -43,6 +43,368 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2011/06/28/a-dancer-demo-of-monitor-squid" title="squid监控+dancer小试验" rel="bookmark">squid监控+dancer小试验</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-06-28 00:00:00 +0800">28 Jun 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#dancer-ref" title="dancer" rel="category tag">dancer</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>squid监控之前有一篇关于snmp的内容，不过这次是真要用上了，所以细细挑出来几个做监控。碰巧凯哥更新了一把modern perl的东西，我亦步亦趋，也试试dancer。不过花了两天时间，DBIx::Class::Schema还是没搞出来，最终还是简单的用DBI跳过了……
+用的database就是之前nmap试验时生成的数据，有application/channel/intranet等column。
+首先安装：</p>
+<div class="highlight"><pre><code class="perl"><span class="n">cpanm</span> <span class="n">Dancer</span> <span class="n">DBI</span> <span class="n">DBD:mysql</span> <span class="n">Template</span> <span class="nn">Dancer::Session::</span><span class="n">YAML</span>
+<span class="n">dancer</span> <span class="o">-</span><span class="n">a</span> <span class="n">cachemoni</span>
+</code></pre></div>
+<p>然后修改cachemoni/lib/cachemoni.pm如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="n">cachemoni</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">Dancer</span> <span class="s">&#39;:syntax&#39;</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Dancer::Plugin::</span><span class="n">Database</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Net::</span><span class="n">SNMP</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
+<span class="k">our</span> <span class="nv">$VERSION</span> <span class="o">=</span> <span class="s">&#39;0.1&#39;</span><span class="p">;</span>
+<span class="n">get</span> <span class="s">&#39;/monitor&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$app</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">app</span><span class="p">}</span> <span class="o">||</span> <span class="s">&#39;squid&#39;</span><span class="p">;</span>
+    <span class="k">return</span> <span class="s">&#39;Only support squid now&#39;</span> <span class="k">unless</span> <span class="nv">$app</span> <span class="ow">eq</span> <span class="s">&#39;squid&#39;</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$checkstat</span> <span class="o">=</span> <span class="n">_snmp_check</span><span class="p">(</span><span class="nv">$app</span><span class="p">);</span>
+    <span class="n">template</span> <span class="s">&#39;monitor&#39;</span><span class="p">,</span> <span class="p">{</span> <span class="n">status</span> <span class="o">=&gt;</span> <span class="nv">$checkstat</span><span class="p">,</span>
+                          <span class="n">name</span>   <span class="o">=&gt;</span> <span class="p">[</span><span class="s">&#39;IP地址&#39;</span><span class="p">,</span><span class="s">&#39;流量命中率&#39;</span><span class="p">,</span><span class="s">&#39;请求数命中率&#39;</span><span class="p">,</span><span class="s">&#39;回源请求响应毫秒&#39;</span><span class="p">,</span><span class="s">&#39;当前客户端数&#39;</span><span class="p">,</span><span class="s">&#39;剩余文件描述符数&#39;</span><span class="p">,</span><span class="s">&#39;已缓存文件数&#39;</span><span class="p">,</span><span class="s">&#39;平均每秒请求数&#39;</span><span class="p">],</span>
+                        <span class="p">};</span>
+<span class="p">};</span>
+<span class="n">any</span><span class="p">[</span><span class="s">&#39;get&#39;</span><span class="p">,</span> <span class="s">&#39;post&#39;</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="s">&#39;/login&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$err</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="n">request</span><span class="o">-&gt;</span><span class="n">method</span><span class="p">()</span> <span class="ow">eq</span> <span class="s">&#39;POST&#39;</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="nv">$name</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">username</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$passwd</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">password</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="n">database</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span>
+            <span class="s">&#39;select audit,passwd from ops_user where name = ?&#39;</span>
+        <span class="p">);</span>
+        <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">(</span><span class="nv">$name</span><span class="p">);</span>
+        <span class="k">my</span> <span class="nv">$ref</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">fetchrow_arrayref</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nb">defined</span> <span class="nv">$ref</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">redirect</span> <span class="s">&#39;/register&#39;</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">ne</span> <span class="s">&#39;yes&#39;</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="nv">$err</span> <span class="o">=</span> <span class="s">&#39;你的帐户还没通过审核&#39;</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="n">md5_hex</span><span class="p">(</span><span class="s">&quot;$passwd&quot;</span><span class="p">)</span> <span class="ow">ne</span> <span class="s">&quot;$ref-&gt;[1]&quot;</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="nv">$err</span> <span class="o">=</span> <span class="s">&#39;密码错误&#39;</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="n">session</span> <span class="s">&#39;logged_in&#39;</span> <span class="o">=&gt;</span> <span class="nv">$name</span><span class="p">;</span>
+            <span class="n">redirect</span> <span class="s">&#39;/&#39;</span><span class="p">;</span>
+        <span class="p">};</span>
+    <span class="p">};</span>
+    <span class="n">template</span> <span class="s">&#39;login&#39;</span><span class="p">,</span> <span class="p">{</span> <span class="s">&#39;err&#39;</span> <span class="o">=&gt;</span> <span class="nv">$err</span><span class="p">,</span> <span class="p">};</span>
+<span class="p">};</span>
+<span class="n">any</span><span class="p">[</span><span class="s">&#39;get&#39;</span><span class="p">,</span> <span class="s">&#39;post&#39;</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="s">&#39;/register&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$err</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="n">request</span><span class="o">-&gt;</span><span class="n">method</span><span class="p">()</span> <span class="ow">eq</span> <span class="s">&#39;POST&#39;</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="nv">$name</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">username</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$passwd</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">password</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$check_sth</span> <span class="o">=</span> <span class="n">database</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span>
+            <span class="s">&#39;select count(name) from ops_user where name = ?&#39;</span>
+        <span class="p">);</span>
+        <span class="nv">$check_sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">(</span><span class="nv">$name</span><span class="p">);</span>
+        <span class="k">my</span> <span class="nv">$ref</span> <span class="o">=</span> <span class="nv">$check_sth</span><span class="o">-&gt;</span><span class="n">fetchrow_arrayref</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span> <span class="s">&quot;$ref-&gt;[0]&quot;</span> <span class="o">==</span> <span class="s">&#39;0&#39;</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="k">my</span> <span class="nv">$insert_sth</span> <span class="o">=</span> <span class="n">database</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span>
+                <span class="s">&#39;insert into ops_user (name,passwd) value(?,?)&#39;</span>
+            <span class="p">);</span>
+            <span class="nv">$insert_sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">(</span><span class="nv">$name</span><span class="p">,</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$passwd</span><span class="p">));</span>
+            <span class="nv">$err</span> <span class="o">=</span> <span class="s">&#39;等待人工审核通过,3Q&#39;</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="nv">$err</span> <span class="o">=</span> <span class="s">&#39;该用户名已注册&#39;</span><span class="p">;</span>
+        <span class="p">};</span>
+    <span class="p">};</span>
+    <span class="n">template</span> <span class="s">&#39;register&#39;</span><span class="p">,</span> <span class="p">{</span> <span class="s">&#39;err&#39;</span> <span class="o">=&gt;</span> <span class="nv">$err</span><span class="p">,</span> <span class="p">};</span>
+<span class="p">};</span>
+<span class="n">get</span> <span class="s">&#39;/&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="n">template</span> <span class="s">&#39;index&#39;</span><span class="p">;</span>
+<span class="p">};</span>
+<span class="n">get</span> <span class="s">&#39;/logout&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="n">session</span><span class="o">-&gt;</span><span class="n">destroy</span><span class="p">;</span>
+    <span class="n">redirect</span> <span class="s">&#39;/&#39;</span><span class="p">;</span>
+<span class="p">};</span>
+<span class="k">sub </span><span class="nf">_snmp_check</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$app</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$list</span> <span class="o">=</span> <span class="p">{};</span>
+<span class="c1">#之前通过use加载了plugin::database，所以直接有database对象引用了</span>
+    <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="n">database</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span>
+        <span class="s">&#39;select channel,intranet from myhost where application = ?&#39;</span><span class="p">,</span>
+    <span class="p">);</span>
+    <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">(</span><span class="nv">$app</span><span class="p">);</span>
+    <span class="k">while</span> <span class="p">(</span><span class="k">my</span> <span class="nv">$ref</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">fetchrow_hashref</span><span class="p">())</span> <span class="p">{</span>
+        <span class="nv">$list</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$ref-&gt;{&#39;channel&#39;}&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="o">[]</span> <span class="k">unless</span> <span class="nb">exists</span> <span class="nv">$list</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$ref-&gt;{&#39;channel&#39;}&quot;</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;intranet&#39;</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">@snmpstat</span> <span class="o">=</span> <span class="n">_snmp_walk</span><span class="p">(</span><span class="s">&quot;$ip&quot;</span><span class="p">);</span>
+<span class="c1">#这里第一是没想到比较好的把每个ip的各项检查结果导出的办法；所以干脆采用固定次序输出；</span>
+<span class="c1">#第二是因为unshift很耗资源，所以先push再reverse</span>
+        <span class="nb">push</span> <span class="nv">@snmpstat</span><span class="p">,</span> <span class="nv">$ip</span><span class="p">;</span>
+        <span class="nv">@snmpstat</span> <span class="o">=</span> <span class="nb">reverse</span> <span class="nv">@snmpstat</span><span class="p">;</span>
+        <span class="nb">push</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$list</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$ref-&gt;{&#39;channel&#39;}&quot;</span><span class="p">}},</span> <span class="o">\</span><span class="nv">@snmpstat</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="nb">push</span> <span class="k">my</span> <span class="nv">@checkstat</span><span class="p">,</span> <span class="nb">map</span><span class="p">{</span>
+        <span class="p">{</span> <span class="n">channel</span> <span class="o">=&gt;</span> <span class="nv">$_</span><span class="p">,</span>
+          <span class="n">host</span>    <span class="o">=&gt;</span> <span class="nv">$list</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$_&quot;</span><span class="p">},</span>
+        <span class="p">}</span>
+    <span class="p">}</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$list</span><span class="p">};</span>
+    <span class="k">return</span> <span class="o">\</span><span class="nv">@checkstat</span><span class="p">;</span>
+<span class="p">};</span>
+<span class="k">sub </span><span class="nf">_snmp_walk</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$o_host</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$o_community</span> <span class="o">=</span> <span class="s">&#39;public&#39;</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$result</span> <span class="o">=</span> <span class="p">{};</span>
+    <span class="k">my</span> <span class="nv">%oids</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s">&#39;cacheUptime&#39;</span>                  <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.1.3.0&#39;</span><span class="p">,</span>
+        <span class="s">&#39;cacheProtoClientHttpRequests&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.3.2.1.1.0&#39;</span><span class="p">,</span>
+        <span class="s">&#39;cacheNumObjCount&#39;</span>             <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.3.1.7.0&#39;</span><span class="p">,</span>
+        <span class="s">&#39;cacheCurrentUnusedFDescrCnt&#39;</span>  <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.3.1.10.0&#39;</span><span class="p">,</span>
+        <span class="s">&#39;cacheClients&#39;</span>                 <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.3.2.1.15.0&#39;</span><span class="p">,</span>
+        <span class="s">&#39;cacheHttpMissSvcTime&#39;</span>         <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.3.2.2.1.3.1&#39;</span><span class="p">,</span>
+        <span class="s">&#39;cacheRequestHitRatio&#39;</span>         <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.3.2.2.1.9.1&#39;</span><span class="p">,</span>
+        <span class="s">&#39;cacheRequestByteRatio&#39;</span>        <span class="o">=&gt;</span> <span class="s">&#39;.1.3.6.1.4.1.3495.1.3.2.2.1.10.1&#39;</span><span class="p">,</span>
+    <span class="p">);</span>
+    <span class="k">my</span> <span class="p">(</span><span class="nv">$session</span><span class="p">,</span> <span class="nv">$error</span><span class="p">)</span> <span class="o">=</span> <span class="nn">Net::</span><span class="n">SNMP</span><span class="o">-&gt;</span><span class="n">session</span><span class="p">(</span>
+        <span class="o">-</span><span class="n">hostname</span>  <span class="o">=&gt;</span> <span class="nv">$o_host</span><span class="p">,</span>
+        <span class="o">-</span><span class="n">community</span> <span class="o">=&gt;</span> <span class="nv">$o_community</span><span class="p">,</span>
+<span class="c1">#默认是5秒超时，如果有没开snmp的，这页面打开时间一下就上去了，所以要调短</span>
+        <span class="o">-</span><span class="n">timeout</span>   <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">defined</span> <span class="nv">$session</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$session</span><span class="o">-&gt;</span><span class="n">translate</span><span class="p">(</span><span class="nn">Net::</span><span class="n">SNMP</span><span class="o">-&gt;</span><span class="n">TRANSLATE_NONE</span><span class="p">);</span>
+        <span class="k">my</span> <span class="nv">$squid_status</span> <span class="o">=</span> <span class="nv">$session</span><span class="o">-&gt;</span><span class="n">get_request</span><span class="p">(</span> <span class="o">-</span><span class="n">varbindlist</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheUptime&#39;</span><span class="p">},</span> <span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheProtoClientHttpRequests&#39;</span><span class="p">},</span> <span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheNumObjCount&#39;</span><span class="p">},</span> <span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheCurrentUnusedFDescrCnt&#39;</span><span class="p">},</span> <span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheClients&#39;</span><span class="p">},</span> <span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheHttpMissSvcTime&#39;</span><span class="p">},</span> <span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheRequestHitRatio&#39;</span><span class="p">},</span> <span class="nv">$oids</span><span class="p">{</span><span class="s">&#39;cacheRequestByteRatio&#39;</span><span class="p">},</span> <span class="p">],</span> <span class="p">);</span>
+        <span class="nv">$session</span><span class="o">-&gt;</span><span class="nb">close</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">defined</span> <span class="nv">$squid_status</span><span class="p">)</span> <span class="p">{</span>
+<span class="c1">#如果要算当前的rps，那得sleep 1再取一次，对几十台集群监控来说不可取；</span>
+<span class="c1">#姑且用总的平均值做个衡量，或许可以采用二八法则估算一个高峰时间的rps；</span>
+<span class="c1">#注意这个cacheUptime是保留两位ms的，所以算rps的时候要除以100；</span>
+<span class="c1">#上述原因也是一般大家对单机squid监控采用rrd的原因，采用COUNTER32数据源，直接递增显示。</span>
+            <span class="k">my</span> <span class="nv">$request_sum</span> <span class="o">=</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheProtoClientHttpRequests&#39;}&quot;</span><span class="p">};</span>
+            <span class="k">my</span> <span class="nv">$uptime</span> <span class="o">=</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheUptime&#39;}&quot;</span><span class="p">};</span>
+            <span class="k">return</span> <span class="nv">$request_sum</span> <span class="o">/</span> <span class="nv">$uptime</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheNumObjCount&#39;}&quot;</span><span class="p">},</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheCurrentUnusedFDescrCnt&#39;}&quot;</span><span class="p">},</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheClients&#39;}&quot;</span><span class="p">},</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheHttpMissSvcTime&#39;}&quot;</span><span class="p">},</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheRequestHitRatio&#39;}&quot;</span><span class="p">},</span> <span class="nv">$squid_status</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$oids{&#39;cacheRequestByteRatio&#39;}&quot;</span><span class="p">};</span>
+        <span class="p">};</span>
+    <span class="p">};</span>
+<span class="p">};</span>
+<span class="n">true</span><span class="p">;</span>
+</code></pre></div>
+<p>修改cachemoni/config.yml如下：</p>
+<div class="highlight"><pre><code class="yaml"><span class="l-Scalar-Plain">appname</span><span class="p-Indicator">:</span> <span class="s">&quot;cachemoni&quot;</span>
+<span class="l-Scalar-Plain">layout</span><span class="p-Indicator">:</span> <span class="s">&quot;main&quot;</span>
+<span class="l-Scalar-Plain">charset</span><span class="p-Indicator">:</span> <span class="s">&quot;UTF-8&quot;</span>
+<span class="c1">#采用TT作为view模板，注意tt默认是[%%]，而dancer里是&lt;%%&gt;，所以另外要定义标签</span>
+<span class="l-Scalar-Plain">template</span><span class="p-Indicator">:</span> <span class="s">&quot;template_toolkit&quot;</span>
+<span class="l-Scalar-Plain">engines</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">template_toolkit</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">encoding</span><span class="p-Indicator">:</span>  <span class="s">&#39;utf8&#39;</span>
+    <span class="l-Scalar-Plain">start_tag</span><span class="p-Indicator">:</span> <span class="s">&#39;[%&#39;</span>
+    <span class="l-Scalar-Plain">end_tag</span><span class="p-Indicator">:</span>   <span class="s">&#39;%]&#39;</span>
+<span class="c1">#用默认的Simple，即存在内存的一个hash里，实际效果很不稳定，改用yaml，但也有yml文件在关闭浏览器后依旧存在的问题。</span>
+<span class="l-Scalar-Plain">session</span><span class="p-Indicator">:</span> <span class="s">&quot;YAML&quot;</span>
+<span class="l-Scalar-Plain">session_dir</span><span class="p-Indicator">:</span> <span class="s">&quot;/tmp/dancer_session_dir&quot;</span>
+<span class="l-Scalar-Plain">session_expires</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">300</span>
+<span class="l-Scalar-Plain">plugins</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">Database</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">driver</span><span class="p-Indicator">:</span> <span class="s">&#39;mysql&#39;</span>
+    <span class="l-Scalar-Plain">database</span><span class="p-Indicator">:</span> <span class="s">&#39;myops&#39;</span>
+    <span class="l-Scalar-Plain">host</span><span class="p-Indicator">:</span> <span class="s">&#39;10.1.1.25&#39;</span>
+    <span class="l-Scalar-Plain">username</span><span class="p-Indicator">:</span> <span class="s">&#39;user&#39;</span>
+    <span class="l-Scalar-Plain">password</span><span class="p-Indicator">:</span> <span class="s">&#39;password&#39;</span>
+    <span class="l-Scalar-Plain">connection_check_threshold</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">10</span>
+    <span class="l-Scalar-Plain">dbi_params</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">RaiseError</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">1</span>
+      <span class="l-Scalar-Plain">AutoCommit</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">1</span>
+    <span class="l-Scalar-Plain">on_connect_do</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="s">&quot;SET</span><span class="nv"> </span><span class="s">NAMES</span><span class="nv"> </span><span class="s">&#39;utf8&#39;&quot;</span><span class="p-Indicator">,</span> <span class="s">&quot;SET</span><span class="nv"> </span><span class="s">CHARACTER</span><span class="nv"> </span><span class="s">SET</span><span class="nv"> </span><span class="s">&#39;utf8&#39;&quot;</span> <span class="p-Indicator">]</span>
+    <span class="l-Scalar-Plain">log_queries</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">1</span>
+</code></pre></div>
+<p>创建cachemoni/views/monitor.tt如下：</p>
+<div class="highlight"><pre><code class="html">[% IF session.logged_in %]
+[% FOREACH stat IN status %]
+  <span class="nt">&lt;hr&gt;</span> channel: [% stat.channel %]
+  <span class="nt">&lt;table</span> <span class="na">width=</span><span class="s">&quot;100%&quot;</span> <span class="na">cellspacing=</span><span class="s">&quot;0&quot;</span> <span class="na">cellpadding=</span><span class="s">&quot;0&quot;</span> <span class="na">border=</span><span class="s">&quot;1&quot;</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;tr&gt;</span>
+  [% FOREACH col IN name %] 
+    <span class="nt">&lt;th&gt;&lt;center&gt;</span>
+    [% col %]
+    <span class="nt">&lt;/center&gt;&lt;/th&gt;</span>
+  [% END %]
+  <span class="nt">&lt;/tr&gt;</span>
+  [% FOREACH host IN stat.host %]
+    <span class="nt">&lt;tr&gt;</span>
+    [% FOREACH list IN host %]
+      <span class="nt">&lt;td&gt;</span>
+      [% list %]
+      <span class="nt">&lt;/td&gt;</span>
+    [% END %]
+  [% END %]
+  <span class="nt">&lt;/tr&gt;&lt;/table&gt;</span>
+[% END %]
+[% ELSE %]
+  内部信息，请登陆后查看
+[% END %]
+</code></pre></div>
+<p>创建cachemoni/views/login.tt如下：</p>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;center&gt;</span>
+<span class="nt">&lt;h2&gt;</span>登陆页面<span class="nt">&lt;/h2&gt;</span>
+[% IF err %]<span class="nt">&lt;p</span> <span class="na">class=</span><span class="s">error</span><span class="nt">&gt;&lt;strong&gt;</span>Error:<span class="nt">&lt;/strong&gt;</span> [% err %][% END %]
+<span class="nt">&lt;form</span> <span class="na">action=</span><span class="s">&quot;/login&quot;</span> <span class="na">method=</span><span class="s">post</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;dl&gt;</span>
+    <span class="nt">&lt;dt&gt;</span>用户名:
+    <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">text</span> <span class="na">name=</span><span class="s">username</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;dt&gt;</span>密  码:
+    <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">password</span> <span class="na">name=</span><span class="s">password</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;dd&gt;&lt;input</span> <span class="na">type=</span><span class="s">submit</span> <span class="na">value=</span><span class="s">login</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;/dl&gt;</span>
+<span class="nt">&lt;/form&gt;</span>
+<span class="nt">&lt;/center&gt;</span>
+</code></pre></div>
+<p>注册页面类似，不贴了。
+然后是layout层的共用部分，之前定义了是views/layouts/main.tt，如下：</p>
+<div class="highlight"><pre><code class="html">……
+<span class="nt">&lt;body&gt;</span>
+<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">metanav</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;/&quot;</span><span class="nt">&gt;</span>首页<span class="nt">&lt;/a&gt;</span> | 
+  [% IF not session.logged_in %]
+    <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;/register&quot;</span><span class="nt">&gt;</span>注册<span class="nt">&lt;/a&gt;</span> | 
+    <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;/login&quot;</span><span class="nt">&gt;</span>登陆<span class="nt">&lt;/a&gt;</span>
+  [% ELSE %]
+    <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;/logout&quot;</span><span class="nt">&gt;</span>退出<span class="nt">&lt;/a&gt;</span>
+  [% END %]
+[% content %]
+<span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">&quot;footer&quot;</span><span class="nt">&gt;</span>
+Powered by <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://perldancer.org/&quot;</span><span class="nt">&gt;</span>Dancer<span class="nt">&lt;/a&gt;</span> [% dancer_version %]
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div>
+<p>这里修改了&lt;%%&gt;为[%%]，其他的tt模版也要改。
+然后运行perl cachemoni/bin/app.pl，启动3000端口的监听，访问一下如下：
+<img src="/images/uploads/squid-monitor-demo.jpg" alt="" title="123" width="571" height="401" class="alignnone size-full wp-image-2505" />&lt;/a&gt;
+这就算完成一个小的网页了，然后开始配置进apache：</p>
+<div class="highlight"><pre><code class="bash">cpanm Plack::Handler::Apache2
+wget http://search.cpan.org/CPAN/authors/id/P/PH/PHRED/mod_perl-2.0.5.tar.gz
+tar zxvf mod_perl-2.0.5.tar.gz
+<span class="nb">cd </span>mod_perl-2.0.5
+perl Makefile.PL
+然后会提示输入apxs的全路径：/usr/local/apache2/bin/apxs
+make <span class="o">&amp;&amp;</span> make install
+sed -i s<span class="err">&#39;</span>/LoadModule/i<span class="se">\L</span>oadModule perl_module modules/mod_perl.so<span class="se">\&#39;</span> /usr/local/apache2/conf/httpd.conf
+cat &gt;&gt; /usr/local/apache2/conf/httpd.conf <span class="s">&lt;&lt;EOF</span>
+<span class="s">&lt;VirtualHost *:80&gt;</span>
+<span class="s">        ServerName dancer.test.china.com</span>
+<span class="s">        DocumentRoot /www/html/cachemoni</span>
+<span class="s">        &lt;Directory /www/html/cachemoni&gt;</span>
+<span class="s">            AllowOverride None</span>
+<span class="s">            Order allow,deny</span>
+<span class="s">            Allow from all</span>
+<span class="s">        &lt;/Directory&gt;</span>
+<span class="s">        &lt;Location /&gt;</span>
+<span class="s">            SetHandler perl-script</span>
+<span class="s">            PerlHandler Plack::Handler::Apache2</span>
+<span class="s">            PerlSetVar psgi_app /www/html/cachemoni/bin/app.pl</span>
+<span class="s">        &lt;/Location&gt;</span>
+<span class="s">&lt;/VirtualHost&gt;</span>
+<span class="s">EOF</span>
+/usr/local/apache2/bin/apachectl restart
+</code></pre></div>
+<p>访问一下，OK~
+各种和webserver搭配的方法（其实就是两种：mod_perl和各种cgi）详见：<a href="http://search.cpan.org/~sukria/Dancer-1.3060/lib/Dancer/Deployment.pod">CPAN文档</a></p>
+      <a href="/2011/06/28/a-dancer-demo-of-monitor-squid" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2011/06/23/make-patch-of-squid-snmp" title="patch制作和使用" rel="bookmark">patch制作和使用</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-06-23 00:00:00 +0800">23 Jun 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>做运维几年没用过patch，说来也怪了~~趁着上一篇自己的小改动，熟悉一下这个命令的简单用法。
+首先是patch的制作，用diff命令。</p>
+<div class="highlight"><pre><code class="bash">tar zxvf squid-2.7.STABLE9.tar.gz
+cp squid-2.7.STABLE9 squid-2.7.STABLE9-old <span class="o">&amp;&amp;</span> mv squid-2.7.STABLE9 squid-2.7.STABLE9-new
+<span class="c">#然后按照上篇的内容修改squid-2.7.STABLE9-new/里的文件</span>
+diff -uNr squid-2.7.STABLE9-old squid-2.7.STABLE9-new &gt; squid-snmp.patch
+</code></pre></div>
+<p>这就完成了，好简单啊~来看看patch文件的内容吧：</p>
+<div class="highlight"><pre><code class="c"><span class="n">diff</span> <span class="o">-</span><span class="n">uNr</span> <span class="n">squid</span><span class="o">-</span><span class="mf">2.7</span><span class="p">.</span><span class="n">STABLE9</span><span class="o">-</span><span class="n">old</span><span class="o">/</span><span class="n">include</span><span class="o">/</span><span class="n">cache_snmp</span><span class="p">.</span><span class="n">h</span> <span class="n">squid</span><span class="o">-</span><span class="mf">2.7</span><span class="p">.</span><span class="n">STABLE9</span><span class="o">-</span><span class="n">new</span><span class="o">/</span><span class="n">include</span><span class="o">/</span><span class="n">cache_snmp</span><span class="p">.</span><span class="n">h</span>
+<span class="o">---</span> <span class="n">squid</span><span class="o">-</span><span class="mf">2.7</span><span class="p">.</span><span class="n">STABLE9</span><span class="o">-</span><span class="n">old</span><span class="o">/</span><span class="n">include</span><span class="o">/</span><span class="n">cache_snmp</span><span class="p">.</span><span class="n">h</span>	<span class="mi">2006</span><span class="o">-</span><span class="mi">09</span><span class="o">-</span><span class="mi">22</span> <span class="mi">10</span><span class="o">:</span><span class="mi">49</span><span class="o">:</span><span class="mf">24.000000000</span> <span class="o">+</span><span class="mi">0800</span>
+<span class="o">+++</span> <span class="n">squid</span><span class="o">-</span><span class="mf">2.7</span><span class="p">.</span><span class="n">STABLE9</span><span class="o">-</span><span class="n">new</span><span class="o">/</span><span class="n">include</span><span class="o">/</span><span class="n">cache_snmp</span><span class="p">.</span><span class="n">h</span>	<span class="mi">2011</span><span class="o">-</span><span class="mo">06</span><span class="o">-</span><span class="mi">23</span> <span class="mi">13</span><span class="o">:</span><span class="mi">25</span><span class="o">:</span><span class="mf">04.000000000</span> <span class="o">+</span><span class="mi">0800</span>
+<span class="err">@@</span> <span class="o">-</span><span class="mi">125</span><span class="p">,</span><span class="mi">6</span> <span class="o">+</span><span class="mi">125</span><span class="p">,</span><span class="mi">7</span> <span class="err">@@</span>
+     <span class="n">MESH_PTBL_KEEPAL_S</span><span class="p">,</span>
+     <span class="n">MESH_PTBL_KEEPAL_R</span><span class="p">,</span>
+     <span class="n">MESH_PTBL_INDEX</span><span class="p">,</span>
+<span class="o">+</span>    <span class="n">MESH_PTBL_CONN_OPEN</span><span class="p">,</span>
+     <span class="n">MESH_PTBL_HOST</span><span class="p">,</span>
+     <span class="n">MESH_PTBL_END</span>
+ <span class="p">};</span>
+<span class="n">diff</span> <span class="o">-</span><span class="n">uNr</span> <span class="n">squid</span><span class="o">-</span><span class="mf">2.7</span><span class="p">.</span><span class="n">STABLE9</span><span class="o">-</span><span class="n">old</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">snmp_agent</span><span class="p">.</span><span class="n">c</span> <span class="n">squid</span><span class="o">-</span><span class="mf">2.7</span><span class="p">.</span><span class="n">STABLE9</span><span class="o">-</span><span class="n">new</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">snmp_agent</span><span class="p">.</span><span class="n">c</span>
+<span class="o">---</span> <span class="n">squid</span><span class="o">-</span><span class="mf">2.7</span><span class="p">.</span><span class="n">STABLE9</span><span class="o">-</span><span class="n">old</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">snmp_agent</span><span class="p">.</span><span class="n">c</span>	<span class="mi">2009</span><span class="o">-</span><span class="mo">06</span><span class="o">-</span><span class="mi">26</span> <span class="mo">06</span><span class="o">:</span><span class="mi">58</span><span class="o">:</span><span class="mf">10.000000000</span> <span class="o">+</span><span class="mi">0800</span>
+<span class="o">+++</span> <span class="n">squid</span><span class="o">-</span><span class="mf">2.7</span><span class="p">.</span><span class="n">STABLE9</span><span class="o">-</span><span class="n">new</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">snmp_agent</span><span class="p">.</span><span class="n">c</span>	<span class="mi">2011</span><span class="o">-</span><span class="mo">06</span><span class="o">-</span><span class="mi">23</span> <span class="mi">13</span><span class="o">:</span><span class="mi">27</span><span class="o">:</span><span class="mf">31.000000000</span> <span class="o">+</span><span class="mi">0800</span>
+<span class="err">@@</span> <span class="o">-</span><span class="mi">264</span><span class="p">,</span><span class="mi">6</span> <span class="o">+</span><span class="mi">264</span><span class="p">,</span><span class="mi">11</span> <span class="err">@@</span>
+ 	    <span class="n">index</span><span class="p">,</span>
+ 	    <span class="n">ASN_INTEGER</span><span class="p">);</span>
+ 	<span class="k">break</span><span class="p">;</span>
+<span class="o">+</span>    <span class="k">case</span> <span class="n">MESH_PTBL_CONN_OPEN</span>:
+<span class="o">+</span>        <span class="n">Answer</span> <span class="o">=</span> <span class="n">snmp_var_new_integer</span><span class="p">(</span><span class="n">Var</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">Var</span><span class="o">-&gt;</span><span class="n">name_length</span><span class="p">,</span>
+<span class="o">+</span>            <span class="n">p</span><span class="o">-&gt;</span><span class="n">stats</span><span class="p">.</span><span class="n">conn_open</span><span class="p">,</span>
+<span class="o">+</span>            <span class="n">ASN_INTEGER</span><span class="p">);</span>
+<span class="o">+</span>        <span class="k">break</span><span class="p">;</span>
+     <span class="nl">default:</span>
+ 	<span class="o">*</span><span class="n">ErrP</span> <span class="o">=</span> <span class="n">SNMP_ERR_NOSUCHNAME</span><span class="p">;</span>
+ 	<span class="k">break</span><span class="p">;</span>
+<span class="n">diff</span> <span class="o">-</span><span class="n">uNr</span> <span class="n">squid</span><span class="o">-</span><span class="mf">2.7</span><span class="p">.</span><span class="n">STABLE9</span><span class="o">-</span><span class="n">old</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">snmp_core</span><span class="p">.</span><span class="n">c</span> <span class="n">squid</span><span class="o">-</span><span class="mf">2.7</span><span class="p">.</span><span class="n">STABLE9</span><span class="o">-</span><span class="n">new</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">snmp_core</span><span class="p">.</span><span class="n">c</span>
+<span class="o">---</span> <span class="n">squid</span><span class="o">-</span><span class="mf">2.7</span><span class="p">.</span><span class="n">STABLE9</span><span class="o">-</span><span class="n">old</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">snmp_core</span><span class="p">.</span><span class="n">c</span>	<span class="mi">2008</span><span class="o">-</span><span class="mo">05</span><span class="o">-</span><span class="mo">05</span> <span class="mo">07</span><span class="o">:</span><span class="mi">23</span><span class="o">:</span><span class="mf">13.000000000</span> <span class="o">+</span><span class="mi">0800</span>
+<span class="o">+++</span> <span class="n">squid</span><span class="o">-</span><span class="mf">2.7</span><span class="p">.</span><span class="n">STABLE9</span><span class="o">-</span><span class="n">new</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">snmp_core</span><span class="p">.</span><span class="n">c</span>	<span class="mi">2011</span><span class="o">-</span><span class="mo">06</span><span class="o">-</span><span class="mi">23</span> <span class="mi">20</span><span class="o">:</span><span class="mi">36</span><span class="o">:</span><span class="mf">54.000000000</span> <span class="o">+</span><span class="mi">0800</span>
+<span class="err">@@</span> <span class="o">-</span><span class="mi">321</span><span class="p">,</span><span class="mi">7</span> <span class="o">+</span><span class="mi">321</span><span class="p">,</span><span class="mi">7</span> <span class="err">@@</span>
+ 						<span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span>
+ 						    <span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">snmp_meshPtblFn</span><span class="p">,</span> <span class="n">peer_Inst</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span>
+ 					    <span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+<span class="o">-</span>						<span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span>
+<span class="o">+</span>						<span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span>
+ 						<span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+ 						    <span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">snmp_meshPtblFn</span><span class="p">,</span> <span class="n">peer_InstIndex</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+ 						<span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+<span class="err">@@</span> <span class="o">-</span><span class="mi">351</span><span class="p">,</span><span class="mi">6</span> <span class="o">+</span><span class="mi">351</span><span class="p">,</span><span class="mi">8</span> <span class="err">@@</span>
+ 						<span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span>
+ 						    <span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">snmp_meshPtblFn</span><span class="p">,</span> <span class="n">peer_InstIndex</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+ 						<span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span>
+<span class="o">+</span>                                                    <span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">snmp_meshPtblFn</span><span class="p">,</span> <span class="n">peer_InstIndex</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+<span class="o">+</span>                                                <span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
+ 						    <span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">snmp_meshPtblFn</span><span class="p">,</span> <span class="n">peer_InstIndex</span><span class="p">,</span> <span class="mi">0</span><span class="p">))),</span>
+ 					<span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+ 					    <span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span>
+</code></pre></div>
+<p>制作练完了，再练一次使用：</p>
+<div class="highlight"><pre><code class="bash"><span class="nb">cd </span>squid-2.7.STABLE9-old
+mv ../squid-snmp.patch .
+patch -p1 &lt; squid-snmp.patch
+</code></pre></div>
+<p>-p指定从那层目录开始，因为之前diff的时候顶层目录分别叫old和new，如果在其他地方时候的话，别人的目录肯定不会这么命名的，所以就往里进一层，然后用-p1来patch。
+然后more一下那三个文件，确认都修改了~
+最后回退patch：</p>
+<div class="highlight"><pre><code class="bash">patch -R -p1 &lt; squid-snmp.patch
+</code></pre></div>
+<p>完成~</p>
+      <a href="/2011/06/23/make-patch-of-squid-snmp" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2011/06/22/extend-open_conn-output-support-to-squid-snmp" title="给squid的snmp增加open_conn输出" rel="bookmark">给squid的snmp增加open_conn输出</a>
     </h1>
     <p class="alt-font tight">
@@ -2061,70 +2423,6 @@ tar zxvf gearmand-0.14
 <p>这时候telnet看status，显示是“1 0 1”，表示一个job正在运行。</p>
 <p>再过一会儿，stat看，发现/tmp/test的CTIME突然变成一个新的时间了。可见touch命令确实是由worker执行的。</p>
       <a href="/2011/03/18/gearmand-test-on-single-server" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/03/17/initctl-error" title="linux小报错一例" rel="bookmark">linux小报错一例</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-03-17 00:00:00 +0800">17 Mar 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>需要给某台服务器加内存，准备关机的时候，却一直报错。考虑直接断电危害比较大，还是找找原因，报错如下：
-shutdown: timeout opening/writing control channel /dev/initctl 
-init: timeout opening/writing control channel /dev/initctl 
-从messages日志里没有发现任何附加信息。只能求助百度。好在解答很多：
-是原有的initscripts和SysVinit找不到了导致的。
-传上去initscripts-8.45.19.EL-1.x86<em>64.rpm和SysVinit-2.86-14.x86</em>64.rpm两个包，rpm -ivh安装。
-重新poweroff还是报错；但强制-f跳过shutdown过程后，成功了。稍后再启动设备，试着再敲一次poweroff，这次就不报错，成功关机了。</p>
-      <a href="/2011/03/17/initctl-error" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/03/15/simple-test-between-squid-varnish-ats" title="squid/varnish/ats简单测试" rel="bookmark">squid/varnish/ats简单测试</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-03-15 00:00:00 +0800">15 Mar 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>简单的试试varnish和apache traffic server。跟squid进行一下对比。
-介于varnish和ats都是出现不太久的东西（至少是开源流行不长），选择其最新开发版本测试，正巧都是2.15版。呵呵~
-varnish配置文件，只修改了backend到具体某台nginx发布点上。其他都是反向代理缓存的标配。（可参考张宴博客http://blog.s135.com和varnish权威指南http://linuxguest.blog.51cto.com/195664/354889）
-ats说明更少，从目前的资料看，修改了records.config中的监听，cache.config遵循源站未改，remap.config添加了map一条，绑定域名到同一台nginx上。
-注：varnish和ats都没有修改缓存路径，即分别为var/varnish/varnish.cache和var/trafficserver，都是磁盘。</p>
-<p>然后从线上某台squid2.7上收集www.domain.com下的html页面url一共164条，存成urllist。
-使用http_load进行测试。第一遍，先用http_load -r 100 -s 10完成cache的加载；第二遍改用-r 1000 -s 60进行测试。
-1、先是varnish
-开另一个窗口看netstat，发现在第一次加载的时候，varnish启动了相当多的链接到后端nginx请求数据！第二遍时，-r1000一直在刷wrong，修改成-r900就没有问题。最后的报告显示fetch/sec还略大于指定的900达到990，建连时间平均1.3ms，响应时间1.8ms。
-2、然后ats
--r1000也报wrong，于是同样使用-r900，fetch/sec和和建连时间与varnish相近，响应时间2.1ms。
-从trafficserver_shell的show:proxy_stats和show:cache_stats命令结果来看，缓存命中率98%，磁盘IO几乎没有。可见其实都在内存中返回了。
-3、最后squid2.7.9
--r900时，fetch/sec只有880，响应时间1.9ms；提高到-r1000时，没有wrong报错，fetch/sec下降到850，响应时间2.3ms；另一个窗口的netstat命令直接卡住……
-squid按照公司默认做法，缓存目录建在了tmpfs上。从squidclient来看，98%的命中率中只有三分之一是直接通过cache_mem返回的，另三分之二是通过cache_dir的tmpfs返回。</p>
-<p>另：最后du -sh查看三者的缓存目录大小，赫然发现squid的是19M，ats是39M，varnish是41M。这个差别也是比较怪异的，值得后续研究……</p>
-<p>从这个简单测试结果看，squid的稳定性依然没的说：对于大多数情况来说，是乐于见到这种宁愿响应慢点点也要保证响应正确的情况的；varnish在大批量回源时对后端服务器的冲击，显然比较让人担心；ats和varnish具有同样高效的响应速度（和高压下的错误……），而且其详细到甚至稍显繁琐的那堆config文件的配置格式，相比varnish来说，更加贴近运维人员（也就是说看起来不像编程语言）~~</p>
-      <a href="/2011/03/15/simple-test-between-squid-varnish-ats" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

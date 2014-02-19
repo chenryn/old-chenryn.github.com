@@ -43,6 +43,72 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/06/23/intro-random-variable" title="$RANDOM变量妙用" rel="bookmark">$RANDOM变量妙用</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-06-23 00:00:00 +0800">23 Jun 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>$RANDOM是linux自带的一个随机数变量，其随机范围从0-32767（man bash说的）。每次unset再恢复后，$RANDOM都会变化。</p>
+<p>那么，在想获得某个范围内的随机数的时候，只需要很简单的利用一下这个变量就可以了。比如想随机生成一个C段的ip。如下：</p>
+<p>echo 192.168.0.$[$RANDOM*255/32767]
+192.168.0.71</p>
+      <a href="/2010/06/23/intro-random-variable" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2010/06/07/testing-awk-shell-variables" title="折腾 awk 内调用 shell 变量" rel="bookmark">折腾 awk 内调用 shell 变量</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-06-07 00:00:00 +0800">07 Jun 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>在对squid进行目录刷新的时候，一般使用的脚本都是采用for i in <code>squidclient mgr:objects|grep $1|awk '{print $2}'</code>;do squidclient -m purge &ldquo;$i&rdquo;;done的方式。</p>
+<p>mgr:objects本来就是一个比较费资源的请求，假如一个200G的cache，这个$i变量该卡多久才能有反应？抑或直接挂掉……</p>
+<table>
+  <tbody>
+    <tr>
+      <td>于是把这个稍微改进一下，变成squidclient mgr:objects</td>
+      <td>awk &lsquo;/&rdquo;&lsquo;$1&rsquo;&rdquo;/{system(&ldquo;squidclient -m purge &ldquo;$2)}&rsquo;，因为awk对每行进行匹配后，就可以同时作出反应，所以比存一个大变量要好一些。</td>
+    </tr>
+  </tbody>
+</table>
+<p>不过在使用中发现还有一些别的问题。比如碰到http://www.test.com/abc(123).html这样的url的时候，就会出错：</p>
+<p>sh: -c: line 0: syntax error near unexpected token `(&lsquo;</p>
+<p>url里的括号和awk函数的括号冲突了。所以对$2不能简单引用就完，还得处理。
+CU上有人给出如下写法：</p>
+<p>awk &lsquo;{system(&ldquo;squidclient -m purge &lsquo;&rsquo;&rsquo;&ldquo;$2&rdquo;&rsquo;&rsquo;&rsquo;&rdquo;)}&rsquo;</p>
+<p>一试果然可以，试着分解一下这堆引号：</p>
+<p>&lsquo;{system(&ldquo;squidclient -m purge &lsquo;第一部分，单引号表示里面的内容都传递给awk处理；</p>
+<p>&lsquo;第二部分，shell环境下转义单引号为普通字符；</p>
+<p>&rsquo;&ldquo;$2&rdquo;&lsquo;第三部分，传递给awk，其中第一个&rdquo;接第一部分的&rdquo;，完成system函数的命令部分，其中包括了第二部分的普通字符&rsquo;；</p>
+<p>&lsquo;第四部分，shell环境下转义单引号为普通字符；</p>
+<p>&rsquo;&rdquo;)}&rsquo;第五部分，传递给awk，其中&rdquo;接第三部分的第二个&rdquo;，其中包含了第四部分的普通字符&rsquo;；</p>
+<p>合在一起，就给替换好的$2加上了一对&rsquo;&lsquo;，然后通过system函数传递给shell执行。OK~~</p>
+      <a href="/2010/06/07/testing-awk-shell-variables" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/05/30/intro-two-lock-tools" title="文件锁和 CPU 绑定" rel="bookmark">文件锁和 CPU 绑定</a>
     </h1>
     <p class="alt-font tight">
@@ -1211,126 +1277,6 @@ rm -f <span class="nv">$TMPFILE</span>
 <span class="k">fi</span>
 </code></pre></div>
       <a href="/2010/04/25/learning-concurrent-shell-script" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/04/23/cdn-analysis-for-www-qidian-com" title="起点小说网的cdn分析~（绝非正式报告）" rel="bookmark">起点小说网的cdn分析~（绝非正式报告）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-04-23 00:00:00 +0800">23 Apr 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>每天习惯了在起点小说网看看小说轻松一下神经，今天一不小心，看见了squid错误页面。于是小小的查看了一下起点的cdn状况。
-首先声明本身的接入情况：宽带通4M接入，ip138显示为北京网通adsl……
-访问的是决战朝鲜的第三十三章。页面内容来看，域名主要有www.qidian.com、image.cmfu.com、ipagent.igalive.com、cj.qidian.com四个，前两个在网宿加速(lxdns)、第三个在蓝汛加速(ccgslb)、第四个在起点母公司盛大加速(sdo)，其余零散域名未加速。
-lxdns返回的ip是天津网通（ping值7ms）；
-ccgslb返回的ip是北京蓝汛（ping值8ms）；
-sdo返回的是上海联通（本地ping不通，在沈阳网通测试机上居然ping通了，返回的是同一个ip，30ms，汗）……
-整个页面一共81个对象:
-加速的域名uedas.qidian.com和sdo的cj.qidian.com下的对象，time都在100ms以上；
-网宿加速域名下的对象，主要是小图片和页面；
-图片小到以B计算，返回time在16ms左右；页面包括aspx和html，html大小在15-20KB左右，返回time在50ms左右；
-耗时最大的是主页面http://www.qidian.com/BookReader/1501306,27478560.aspx，耗时437ms，其中15ms建立链接，而422ms传输内容，content-length 69408，请求头带有no-cache的cache-control和gzip,deflate的压缩；返回头带有Age 1的HIT结果，但X-Cache有两层，分别是一层MISS一层HIT，via头信息是jsyz232:80 (Cdn Cache Server V2.0), tg146:80 (Cdn Cache Server V2.0)。预计应该是parent上设定强制缓存，而leaf上不缓存；
-另一个耗时较大的是http://www.qidian.com/Javascript/ReadChapterNew.js?t=091216，耗时250ms，content-length 35423，其他情况和aspx差不多，不过返回了三个X-Cache，一个MISS两个HIT，在via头上很奇怪的看到三个服务器分别是jsyz232:80 (Cdn Cache Server V2.0), zb99:80 (Cdn Cache Server V2.0), tg134:8103 (Cdn Cache Server V2.0)，不知道这个开8103端口的是什么意思？？（网上查了一下，民生网银用的是这个端口，~~）
-最后是蓝汛加速域名下的对象，都是广告；
-js文件url是相同的，都是http://ipagent.igalive.com/show_ads.js，但先后请求了5次，返回时间依次为：4.28s、48.42s、3.14s、6.17s和875ms，波动相当大！观察这5次的Age，分别是778、827、782、834、835；对应返回时间，可以看出是同一台服务器返回的同一份缓存。再具体看time的细分，建立连接时间都很短，传输内容时间从500ms到1.5s不等。也就是说，主要波动在于服务器的响应时间上。
-aspx?文件，url比较长，类似这种：http://ipagent.igalive.com/s.aspx?adid=100144&amp;host=http://ipagent.igalive.com&amp;dt=1272030174514&amp;lmt=1272028966&amp;output=101&amp;url=http://www.qidian.com/BookReader/1501306/27478560.aspx&amp;ref=http://me.qidian.com/BookCase/1/1&amp;flash=10&amp;u_h=660&amp;u_w=1126&amp;u_ah=627&amp;u_aw=1126&amp;u_cd=24&amp;u_tz=480&amp;u_his=1&amp;u_nplug=7&amp;u_nmime=16，都是MISS回源的。长度和上面的js差不多都在40KB左右。但是到最后甚至有一个文件连接超时了……&lt;/</p>
-<hr />
-<p>综上：
-网宿给起点的cache服务器，应该是针对超小文件做过优化的，所以在16KB以下的图片，返回TCP_MEM_HIT；超过这个大小的那两个文件，响应速度就下降的比较厉害。
-蓝汛给起点的cache服务器，负载压力可能比较大，导致响应速度很慢且有极大波动；我猜测对于js文件，其服务器可能还采用了304回源；从回源的aspx来看，回源效果很差很差……
-盛大给起点的cache服务器，不说啥了~~
-最后附squid的错误信息ERR_READ_TIMEOUT图：
-<img src="/images/uploads/err_read_timeout.jpg" alt="" /></p>
-      <a href="/2010/04/23/cdn-analysis-for-www-qidian-com" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/04/22/perl-built_in-variables" title="perl内置变量" rel="bookmark">perl内置变量</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-04-22 00:00:00 +0800">22 Apr 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>$_ 默认输入/模式搜索空间，常用于-f -d测试、print unlink函数、m// s/// tr///匹配、foreach while循环</p>
-<p>@_ 传递给函数的所有参数</p>
-<p>$&amp;/$<code>/$' 分别是上次匹配成功（时/前/后）的字符串（这三个变量会导致效率显著降低）
-local $_ = 'abcdefghi';
-/def/;
-print "$</code>:$&amp;:$&rsquo;n&rdquo;;         # prints abc:def:ghi</p>
-<p>$+ 上次搜索中最后一个括号匹配的文本
-/Version: (.<em>)|Revision: (.</em>)/ &amp;&amp; ($rev = $+);</p>
-<p>$^N 上次搜索中最后闭合的组所匹配的文本（可能嵌套）
-(?:(&hellip;)(?{ $var = $^N }));    #这样可以省去计算括号个数</p>
-<p>$* 匹配模式优化（即当其==0时，perl认为字符串仅为一行(n)，推荐使用/s和/m代替此变量）</p>
-<p>$. 相当于awk中的NR，但如果文件句柄被close()，$.就会复位，相当于FNR</p>
-<p>$/ 相当于RS，正常情况设置为字符串；设置为undef即一口气全读入；设置为整数标量时则读入小于该整数的记录而不是行；一些小文件，可以采用$data = do { local $/;<fh>; };单行命令读入，就是这个原理。</fh></p>
-<p>$ 相当于ORS</p>
-<p>$, 相当于OFS</p>
-<p>$&rdquo; 同$,不过用于向用&rdquo;引起的字符串插入数据的时候</p>
-<p>$; 模拟多维数组时下标的分隔符。
-$foo{$a,$b,$c};
-$foo{join($;, $a, $b, $c)};        #两者相当</p>
-<table>
-  <tbody>
-    <tr>
-      <td>$</td>
-      <td>设置为非零值时，强制刷新每次输出缓存；在向管道和套接字输出时设置该变量</td>
-    </tr>
-  </tbody>
-</table>
-<p>$# 相当于OFMT，不过awk里是%.6g，perl里是%<em>n</em>g，<em>n</em>取决于OS上float.h 中 DBL_DIG 宏的值（不建议使用该变量）</p>
-<p>@-/@+ 分别是模式匹配时，每次成功匹配字符串开始和结束处的偏移量</p>
-<p>在对某个变量 $var 进行匹配后：
-$` 和 &ldquo;substr($var, 0, $-[0])&rdquo; 相同
-$&amp; 和 &ldquo;substr($var, $-[0], $+[0] - $-[0])&rdquo; 相同
-$&rsquo; 和 &ldquo;substr($var, $+[0])&rdquo; 相同
-$1 和 &ldquo;substr($var, $-[1], $+[1] - $-[1])&rdquo; 相同
-$2 和 &ldquo;substr($var, $-[2], $+[2] - $-[2])&rdquo; 相同</p>
-<p>$#+是最近成功匹配了多少个组</p>
-<p>$[ 数组中的第一个元素/字符串中第一个字符的索引号，默认为0（最好不要改）</p>
-<p>$] perl解释器版本（5.001格式）</p>
-<p>$^V perl解释器版本（5.8.8格式）</p>
-<p>$^T 程序运行时间（UNIX秒）</p>
-<p>$$ perl脚本的运行进程号</p>
-<p>$&lt; perl脚本的运行实际用户</p>
-<p>$&gt; perl脚本的运行有效用户</p>
-<p>$( perl脚本的运行实际用户组</p>
-<p>$) perl脚本的运行有效用户组</p>
-<p>$0 当前程序名</p>
-<p>$@/$!/$^E/$? 分别是perl解释器、C库、操作系统、外部程序检测到的错误</p>
-<div class="highlight"><pre><code class="perl"><span class="nb">eval</span> <span class="sx">q{</span>
-<span class="sx">    open my $pipe, &quot;/cdrom/install |&quot; or die $!;</span>
-<span class="sx">    my @res = &lt;$pipe&gt;;</span>
-<span class="sx">    close $pipe or die &quot;bad pipe: $?, $!&quot;;</span>
-<span class="sx">}</span><span class="p">;</span>
-</code></pre></div>
-<p>在需要 &ldquo;eval&rdquo; 的字符串没有通过编译(若 &ldquo;open&rdquo; 或 &ldquo;close&rdquo;导入的原型错误则可能发生)或者 Perl 代码在执行过程中 die() 掉，则 $@变量会被设置。这些情况下 $@ 的值是编译错误信息或 &ldquo;die&rdquo; 的参数(其中会内插 $! 和 $?)。(另见 Fatal)  <br />
-上面的 eval() 表达式执行后，open()、&rdquo;<pipe>" 和 "close" 被翻译成对 C运行库的调用，继而 进入操作系统内核。若其中某个调用失败，则 $! 会设置为C 库的 "errno" 值。</pipe></p>
-<p>在少数操作系统下，$^E 可能含有更详细的错误指示，例如“CDROM仓门没有关闭”。不支持扩展错误 信息的系统只是将 $^E 设置为和 $!一样的值。</p>
-<p>最后，$? 在外部程序 /cdrom/install 失败时设置为非 0 值。高8位反映出该程序遇到的特定错误 条件(程序的 exit() 值)，低8位反映失败方式，例如信号致死或核心转储，细节参见 wait(2)。对比仅在检测到错误条件时才设置的 $! 和 $^E，变量 $? 在每个 &ldquo;wait&rdquo; 或管道&rdquo;close&rdquo; 时都会 设置并冲掉旧值。这一行为更接近 $@，后者在每次 eval()后总是在失败时设置并在成功时清除。</p>
-<p>更多细节请分别参见 $@、$!、$^E 和 $? 各自的说明。</p>
-      <a href="/2010/04/22/perl-built_in-variables" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
