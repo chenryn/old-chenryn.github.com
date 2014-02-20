@@ -43,6 +43,73 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2011/03/18/gearmand-test-on-single-server" title="gearman单机试验" rel="bookmark">gearman单机试验</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-03-18 00:00:00 +0800">18 Mar 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>想把前端缓存几十台服务器的访问日志数据计入数据库中，以便核算各频道带宽。按照一般流量统计的惯例，在服务器上设定crontab每5分钟rotate一次access.log。但是想到一个问题——当A服务器select了数据库里的数据但还没来得及update时，B服务器也开始执行任务select数据来了，最后的结果就不准确了——我相信这个问题对coder来说很低级，不过我是op，搞不来……</p>
+<p>不过op有op的思路——咱把所有的数据汇总由一台服务器来写数据库。考虑scp或者rsync可能会出现的各种未知失败（这个失败太普遍了，相信所有的op都有体会），打算试试gearman。</p>
+<p>gearman出现的本意，是由jobserver来派发client的jobs到workers完成，比如张宴提到金山用它来分发上传图片的缩略裁剪（这也正是LiveJourna发明gearman的初始用途）；比如TimYang提到用它来分发监控任务；OSCON2009的文档上，还提到了搜索引擎、分布式文件系统、map/reduce、日志分析、mysql集群处理等多种应用。</p>
+<p>其中关于日志分析的结构图如下：</p>
+<p><img src="/images/uploads/gearman4log.jpg" alt="gearman" /></p>
+<p>好了。上面都是虚的。现在开始做实验。</p>
+<p>下载gearman的c语言版，毕竟单纯就为了记录下带宽值的话，没必要下perl版的来折腾——注意，和memcached一样，gearman也采用了libevent，所以必须先安好libevent：</p>
+<div class="highlight"><pre><code class="bash">wget http://launchpad.net/gearmand/trunk/0.14/+download/gearmand-0.14.tar.gz
+tar zxvf gearmand-0.14
+<span class="nb">cd</span> !<span class="err">$</span>
+./configure <span class="o">&amp;&amp;</span> make <span class="o">&amp;&amp;</span> make install
+</code></pre></div>
+<p>默认会采用sqlite存储持久化队列。如果觉得memcached什么的更有爱，也可以&ndash;with。</p>
+<p>安装完成后，会在/usr/local/bin下生成gearman和gearmand两个文件，前一个是worker和client共用的；后一个是jobserver。</p>
+<p>首先要启动jobserver：</p>
+<pre><code>gearmand -d -p 7003
+</code></pre>
+<p>然后开启一个client：</p>
+<pre><code>echo 'test' | gearman -h 127.0.0.1 -p 7003 -f testwork
+</code></pre>
+<p>资料都说7003是gearman的默认端口，但C版的必须明确定义才行。</p>
+<p>这个时候，可以telnet 127.0.0.1 7003上去，输入status看看了，上面显示“1 0 0”，表示有一个请求在队列中等待执行了。</p>
+<p>然后注册一个worker：</p>
+<pre><code>gearman -n -w -f testwork -- ls -lh
+</code></pre>
+<p>资料也都没有要使用-n参数。但如果不用这个，worker会在接收执行完队列中的第一个任务后就主动退出了！</p>
+<p>ok，现在执行结果出来了。在client端（因为单机执行，其实就是运行client命令的ssh窗口），显示出来了一串文件信息，就是worker端的ls -lh结果。</p>
+<p>然后重新注册worker，以测试client传递的内容能被worker正确处理：</p>
+<pre><code>gearman -n -w -f testwork | awk '{print $0}'
+</code></pre>
+<p>嗯？worker端还是没有反应啊？切到client来，发现client这边显示了test！难道是标准输出就是用来返回给client的？那试试别的命令试试吧。</p>
+<p>重新注册worker：</p>
+<pre><code>gearman -n -w -f testwork | awk '{system("touch /tmp/"$0}'
+</code></pre>
+<p>这时候也可以telnet上去看看status，会显示“0 0 1”，表示有一个注册在jobserver上的worker；</p>
+<p>然后重新发起client：</p>
+<pre><code>echo 'test' | gearman -h 127.0.0.1 -p 7003 -f testwork
+</code></pre>
+<p>在到/tmp下一看，确实出现了/tmp/test文件了~~</p>
+<p>不过，如何确定这个/tmp/test是worker生成的，而不是client呢（单机测试就是郁闷啊……）</p>
+<p>修改一下worker：</p>
+<pre><code>gearman -n -w -f testwork | awk '{system("sleep 100;touch /tmp/"$0}'
+</code></pre>
+<p>重新发起client，因为有sleep 100在，这次client没有立刻退出，但为了测试需要，按下Ctrl+C，终止client的运行，以确保命令不会是由client执行的（更确保一点，可以退出ssh会话）。</p>
+<p>切换到/tmp/目录下，用stat命令查看/tmp/test文件的CTIME——目前还是上一次试验时的生成时间。</p>
+<p>这时候telnet看status，显示是“1 0 1”，表示一个job正在运行。</p>
+<p>再过一会儿，stat看，发现/tmp/test的CTIME突然变成一个新的时间了。可见touch命令确实是由worker执行的。</p>
+      <a href="/2011/03/18/gearmand-test-on-single-server" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2011/03/17/initctl-error" title="linux小报错一例" rel="bookmark">linux小报错一例</a>
     </h1>
     <p class="alt-font tight">
@@ -1584,65 +1651,6 @@ a b c d
 <p>另，看到一个网站，专门介绍单行shell命令的，对SA来说，比较有用，url如下：
 <a href="http://www.commandlinefu.com/commands/browse">http://www.commandlinefu.com/commands/browse</a></p>
       <a href="/2010/12/16/diff-between-for-while" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/12/12/learning-weathermap-cacti-plugin-3" title="weathermap-cacti-plugin学习(3)" rel="bookmark">weathermap-cacti-plugin学习(3)</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-12-12 00:00:00 +0800">12 Dec 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天继续啃weathermap的php代码，因为lib的readdata里return了$inbw和$outbw，尝试在之前理解的ReadConfig()相应match处加上了一段 <code>if($inbw=='0'){$this-&gt;width=0;$linematched++;}elseif</code>……等几分钟后cache过期，一看weathermap效果，所有的链路曲线箭头图都变成了一根直线~~然后仔细看了看这串if之前的while，发现原来weathermap不是每次针对数据进行config匹配，而是统一读取一次config。也就是说ReadConfig()里的任何修改都会对全局起作用。</p>
-<p>既然在源头的配置参数无法修改，那么就只能在末端的绘图的时候做出改变了，找到 <code>draw_curve()</code> 函数，这个函数就是画线的。最终由 <code>Draw()</code> 函数分别调用 <code>calc_curve</code> 描点，<code>draw_curve</code> 连线，<code>drawlabel</code> 画框。<code>Draw()</code> 内容是一个顺序处理过程，在最后的 <code>drawlabel()</code> 前面，可以很清晰的看到 <code>$task[*]</code> 是怎么取出的：</p>
-<div class="highlight"><pre><code class="php"><span class="x">$outbound=array($q1_x,$q1_y,0,0,$this-&gt;outpercent,$this-&gt;bandwidth_out,$q1_angle);</span>
-<span class="x">$inbound=array($q3_x,$q3_y,0,0,$this-&gt;inpercent,$this-&gt;bandwidth_in,$q3_angle);</span>
-</code></pre></div>
-<p>那么在draw_curve()前面，依葫芦画瓢来上一段就好了：</p>
-<div class="highlight"><pre><code class="php"><span class="x">if(($this-&gt;bandwidth_out == &#39;0&#39;) &amp;&amp; ($this-&gt;bandwidth_in == &#39;0&#39;))</span>
-<span class="x">{</span>
-<span class="x">    $link_width=&#39;0&#39;;</span>
-<span class="x">}</span>
-<span class="x">else</span>
-<span class="x">{</span>
-<span class="x">    $link_width=$this-&gt;width;</span>
-<span class="x">}</span>
-<span class="x">draw_curve($im, $this-&gt;curvepoints, $link_width, $outline_colour, $comment_colour, array($link_in_colour, $link_out_colour), $this-&gt;name, $map);</span>
-</code></pre></div>
-<p>这个改完当然不能看到效果，看到就该排障去了~不过可以采用一点变通的方法来验证一下，比如某些线路现在比较空闲，我们就把预定的阀值0（断网的流量）改大一些，刚好超过某个空载线路即可了：</p>
-<p>比如改成 <code>if ( $this-&gt;bandwidth_out &lt; '1000' )</code> 的话，weathermap效果变成如下：</p>
-<p><img src="/images/uploads/qqe688aae59bbee69caae591bde5908d.jpg" alt="wethermap" /></p>
-<p>其中两条流量小于1000bits的线路，其width就变成了0，只留下一条直线了~~</p>
-<p>至于为了 <code>width==0</code> 却还留下了一条线，这就跟weathermap的绘图方式有关了。<code>draw_curve</code> 中是这么利用gd画图的：</p>
-<ol>
-  <li>根据node的位置，获取在二维空间上的x轴、y轴坐标，在两个node之间通过打点的方式进行矢量连线；</li>
-  <li>获取设定的width，将之前的坐标点平移相应的位置，再次打点；</li>
-  <li>在连线的中点处绘制箭头；</li>
-  <li>填充颜色。</li>
-</ol>
-<p>如果要完全去除掉这根连线，或许可以在 <code>draw_curve</code> 中设定其连线长度为0？在 <code>draw_curve()</code> 中有一个变量叫 <code>$totaldistance</code>，指的是两个node之间的距离，之后包括箭头、文字等，都是以这个变量*50%来计算的。添加 <code>if($this-&gt;bandwidth_out&lt;1000){$totaldistance=0}</code>，等了十分钟再刷新，可图片依然没有更新！</p>
-<p>继续看 <code>$totaldistance</code> 是怎么得出的，看到了 <code>$this-&gt;curvepoints</code>，而 <code>$this-&gt;curvepoints</code> 是通过 <code>calc_curve($xpoints, $ypoints)</code> 返回的。那么在 <code>Draw()</code> 中继续修改 <code>$this-&gt;curvepoints</code> 即可。变通一下上面的测试代码如下：</p>
-<div class="highlight"><pre><code class="php"><span class="x">$link_width=$this-&gt;width;</span>
-<span class="x">$this-&gt;curvepoints = calc_curve($xpoints, $ypoints);</span>
-<span class="x">if ( $this-&gt;bandwidth_out &lt; &#39;2000&#39; )</span>
-<span class="x">{</span>
-<span class="x">    $link_width=0; //没有连线的话，宽度设啥都一样了~</span>
-<span class="x">    $this-&gt;curvepoints = array( );</span>
-<span class="x">}</span>
-</code></pre></div>
-<p>稍后刷新页面，看到原来的连线已经不见了~ 不过从效果图来看，少了连线反而不起眼了，还不如留着一根线容易引起警觉……</p>
-<p><img src="/images/uploads/qqe688aae59bbee69caae591bde5908d1.jpg" alt="new-weathermap" /></p>
-      <a href="/2010/12/12/learning-weathermap-cacti-plugin-3" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

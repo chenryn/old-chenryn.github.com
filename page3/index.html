@@ -43,6 +43,101 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/02/22/setup-stf2" title="STF 2.0 安装测试" rel="bookmark">STF 2.0 安装测试</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-02-22 00:00:00 +0800">22 Feb 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>STF 更新到 2.0 版本，支持使用 redis 队列做任务分发，比原先的 Q4M 容易上手多了；新增了 cluster 概念，虽然目前看没什么用，不过估计以后肯定要在这方面做文章的。</p>
+<p>部署步骤如下：</p>
+<div class="highlight"><pre><code class="bash">    <span class="c"># 因为 stf 要求在 Perl5.12 以上运行，CentOS6 还是 5.10 的老版本，所以直接用 Debian 测试了</span>
+    apt-get install -y memcached redis-server libmysqlclient-dev libdbd-mysql-perl
+    <span class="c"># 设置 mysql-server 包安装时需要的问答</span>
+    <span class="nb">echo </span>mysql-server-5.5 mysql-server/root_password <span class="k">select </span>123456 | debconf-set-selections
+    <span class="nb">echo </span>mysql-server-5.5 mysql-server/root_password_again <span class="k">select </span>123456 | debconf-set-selections
+    apt-get install mysql-server-5.5
+    <span class="c"># 系统依赖解决，开始 perl 部分</span>
+    git clone git://github.com/stf-storage/stf.git
+    <span class="nb">cd </span>stf
+    cpanm Redis Data::Dumper::Concise
+    cpanm --installdeps .
+    <span class="c"># 创建 mysql 库和用户</span>
+    mysql -uroot -p -e <span class="s1">&#39;create database stf&#39;</span>
+    mysql -uroot -p -e <span class="s1">&#39;grant all privileges on stf.* to stf@&quot;%&quot; identified by &quot;654321&quot;&#39;</span>
+    <span class="c"># 默认监听本机，分布式系统肯定是要放开这个的</span>
+    sed -i <span class="s1">&#39;s/127.0.0.1/0.0.0.0/&#39;</span> /etc/mysql/my.cnf
+    service mysql restart
+    <span class="c"># 导入 sql 建表</span>
+    mysql -ustf -p stf &lt; misc/stf.sql
+    <span class="c"># 给 worker 和 dispatcher 设置队列使用 redis</span>
+    <span class="nb">export </span><span class="nv">STF_QUEUE_TYPE</span><span class="o">=</span>Redis
+    <span class="nb">export </span><span class="nv">STF_REDIS_HOSTPORT</span><span class="o">=</span>192.168.0.101:6379
+    <span class="c"># 所有的角色都要有自己独有的 hostid</span>
+    <span class="nb">export </span><span class="nv">STF_HOST_ID</span><span class="o">=</span>1
+    <span class="nb">export </span><span class="nv">STF_HOME</span><span class="o">=</span>/root/stf
+    <span class="c"># 启动 dispatcher，这里目前还只会用 plack，不知道怎么用 nginx/apache</span>
+    <span class="nb">export </span><span class="nv">USE_PLACK_REPROXY</span><span class="o">=</span>1
+    <span class="c"># 研究阶段可以打开 debug 看系统是怎么分发怎么平衡怎么确定使用哪个storage的file的过程</span>
+    <span class="nb">export </span><span class="nv">STF_DEBUG</span><span class="o">=</span>1
+    plackup -a etc/dispatcher.psgi
+    <span class="c"># 启动 worker</span>
+    ./bin/stf-worker
+    <span class="c"># 启动管理界面网站，可以通过 web 添加 cluster 和 storage</span>
+    plackup -a etc/admin.psgi -p 9000 &amp;
+    <span class="c"># 一个 cluster 下至少需要有 3 个 storage，这里用三个目录三个端口来模拟</span>
+    mkdir -p /data<span class="o">{</span>1,2,3<span class="o">}</span>
+    <span class="nb">export </span><span class="nv">STF_STORAGE_ROOT</span><span class="o">=</span>/data1
+    plackup -a etc/storage.psgi -p 8888 &amp;
+    <span class="nb">export </span><span class="nv">STF_STORAGE_ROOT</span><span class="o">=</span>/data2
+    plackup -a etc/storage.psgi -p 8889 &amp;
+    <span class="nb">export </span><span class="nv">STF_STORAGE_ROOT</span><span class="o">=</span>/data3
+    plackup -a etc/storage.psgi -p 8890 &amp;
+</code></pre></div>
+<p>然后上 9000 端口的 web 添加 cluster 和 storage，如下截图：</p>
+<p><img src="/images/uploads/stf-admin1.png" alt="cluster" /></p>
+<p><img src="/images/uploads/stf-admin.png" alt="storage" /></p>
+<p>最后测试一下上传下载，如果上面 psgi 是 DEBUG 运行的，就可以看到详细的过程了。</p>
+<div class="highlight"><pre><code class="bash">    lwp-request -m PUT http://192.168.0.101/bucket
+    ^D
+    lwp-request -m PUT http://192.168.0.101:5000/bucket/test.txt
+    <span class="nb">test</span>
+    ^D
+    lwp-request http://192.168.0.101:5000/bucket/test.txt
+    ls /data1/p/e/g/k/pegkuclninhsyqxftuzpwcuhgughpa.txt
+    ls /data2/p/e/g/k/pegkuclninhsyqxftuzpwcuhgughpa.txt
+</code></pre></div>
+<p><strong>2013 年 03 月 20 日更新</strong></p>
+<p>前面测试记录的，都是纯 perl 的部分。实际运用的时候，有些地方是可以用 nginx 来替代的。</p>
+<p>源代码包中，apache-sample.conf 比 nginx-sample.conf 要全面的多。不过其实还是 nginx 配置起来容易，比如给 dispatcher.psgi 加上 nginx 代理，只需要这样就可以了：</p>
+<div class="highlight"><pre><code class="nginx"><span class="k">server</span> <span class="p">{</span>
+    <span class="kn">listen</span> <span class="mi">80</span><span class="p">;</span>
+    <span class="kn">server_name</span> <span class="s">stf</span><span class="p">;</span>
+    <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
+        <span class="kn">proxy_pass</span> <span class="s">http://192.168.0.101:5000/</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="kn">location</span> <span class="s">/reproxy</span> <span class="p">{</span>
+        <span class="kn">internal</span><span class="p">;</span>
+        <span class="kn">set</span> <span class="nv">$reproxy</span> <span class="nv">$upstream_http_x_reproxy_url</span><span class="p">;</span>
+        <span class="kn">proxy_pass</span> <span class="nv">$reproxy</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>然后我们就可以直接通过 <code>http://192.168.0.101/bucket/test.txt</code> 来访问了。</p>
+      <a href="/2013/02/22/setup-stf2" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/01/31/puppet-define-type-and-custom-function" title="Puppet 自定义 type 和 function" rel="bookmark">Puppet 自定义 type 和 function</a>
     </h1>
     <p class="alt-font tight">
@@ -3640,198 +3735,6 @@ http://home.schmorp.de/</p>
 </code></pre></div>
 <p>把上面两个修改加入到之前的文件，然后测试增大ulimit限制(记住ulimit要大于64，否则不起作用哟)，就没问题了。</p>
       <a href="/2012/10/26/systemtap-and-file-descriptor" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/10/21/elasticearch-simple-usage" title="【Logstash系列】ElasticSearch的几点使用事项" rel="bookmark">【Logstash系列】ElasticSearch的几点使用事项</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-10-21 00:00:00 +0800">21 Oct 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>之前已经写过一些ES的使用，也翻译了一篇官网上关于ES存储日志的建议日志。今天稍微总结一下近期以来实践出来的方案。</p>
-<h1 id="shardreplica">shard和replica的选择</h1>
-<p>在测试期，可以单节点上设置成1 shard + 0 replica的方式，这种的indexing速度是最快的(存疑:我至今没搞清楚ES在index的时候集群&rdquo;应该&rdquo;是比单node快还是慢)。</p>
-<p>我曾经按照&rdquo;常理&rdquo;(我想象中的)理解，设定成10 shards + 0 replica，期望能用上并行写双node加倍index，事实上压根没用，而且因为另一台node上有其他负载的原因导致更慢了。</p>
-<p>更可怕的是：就在前几天，突然出现一个shard挂了，……毫无办法，整个index全作废了。</p>
-<p>所以结论是：无论如何，一定要保证有 &gt; 0 份的replica!! 至于shards，保持默认的5个，或者顶多到20个也就差不多了。在maillist里看到有哥们设了100个，然后苦着脸问性能问题…… 要知道shards的份数是一旦设定不能更改的。</p>
-<h1 id="template">template的使用</h1>
-<p>刚开始的时候，每次实验都去改/etc/elasticsearch/elasticsearch.yml配置文件。事实上在template里修改settings更方便而且灵活！当然最主要的，还是调节里面的properties设定，合理的控制store和analyze了。</p>
-<p>template设定也有多种方法。最简单的就是和存储数据一样POST上去。长期的办法，就是写成json文件放在配置路径里。其中，default配置放在/etc/elasticsearch/下，其他配置放在/etc/elasticsearch/templates/下。举例我现在的一个templates/template-logstash.json内容如下：</p>
-<div class="highlight"><pre><code class="json"><span class="p">{</span>
-  <span class="nt">&quot;template-logstash&quot;</span> <span class="p">:</span> <span class="p">{</span>
-    <span class="nt">&quot;template&quot;</span> <span class="p">:</span> <span class="s2">&quot;logstash*&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;settings&quot;</span> <span class="p">:</span> <span class="p">{</span>
-      <span class="nt">&quot;index.number_of_shards&quot;</span> <span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
-      <span class="nt">&quot;number_of_replicas&quot;</span> <span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
-      <span class="nt">&quot;index&quot;</span> <span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;store&quot;</span> <span class="p">:</span> <span class="p">{</span>
-          <span class="nt">&quot;compress&quot;</span> <span class="p">:</span> <span class="p">{</span>
-            <span class="nt">&quot;stored&quot;</span> <span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-            <span class="nt">&quot;tv&quot;</span><span class="p">:</span> <span class="kc">true</span>
-          <span class="p">}</span>
-        <span class="p">}</span>
-      <span class="p">}</span>
-    <span class="p">},</span>
-    <span class="nt">&quot;mappings&quot;</span> <span class="p">:</span> <span class="p">{</span>
-      <span class="nt">&quot;_default_&quot;</span> <span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;properties&quot;</span> <span class="p">:</span> <span class="p">{</span>
-          <span class="nt">&quot;dynamic&quot;</span> <span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span>
-        <span class="p">},</span>
-      <span class="p">},</span>
-      <span class="nt">&quot;loadbalancer&quot;</span> <span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;_source&quot;</span> <span class="p">:</span> <span class="p">{</span>
-          <span class="nt">&quot;compress&quot;</span> <span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-        <span class="p">},</span>
-        <span class="nt">&quot;_ttl&quot;</span> <span class="p">:</span> <span class="p">{</span>
-          <span class="nt">&quot;enabled&quot;</span> <span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
-          <span class="nt">&quot;default&quot;</span> <span class="p">:</span> <span class="s2">&quot;10d&quot;</span>
-        <span class="p">},</span>
-        <span class="nt">&quot;_all&quot;</span> <span class="p">:</span> <span class="p">{</span>
-          <span class="nt">&quot;enabled&quot;</span> <span class="p">:</span> <span class="kc">false</span>
-        <span class="p">},</span>
-        <span class="nt">&quot;properties&quot;</span> <span class="p">:</span> <span class="p">{</span>
-          <span class="nt">&quot;@fields&quot;</span> <span class="p">:</span> <span class="p">{</span>
-            <span class="nt">&quot;dynamic&quot;</span> <span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;properties&quot;</span> <span class="p">:</span> <span class="p">{</span>
-              <span class="nt">&quot;client&quot;</span> <span class="p">:</span> <span class="p">{</span>
-                <span class="nt">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;index&quot;</span> <span class="p">:</span> <span class="s2">&quot;not_analyzed&quot;</span>
-              <span class="p">},</span>
-              <span class="nt">&quot;domain&quot;</span> <span class="p">:</span> <span class="p">{</span>
-                <span class="nt">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;index&quot;</span> <span class="p">:</span> <span class="s2">&quot;not_analyzed&quot;</span>
-              <span class="p">},</span>
-              <span class="nt">&quot;oh&quot;</span> <span class="p">:</span> <span class="p">{</span>
-                <span class="nt">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;index&quot;</span> <span class="p">:</span> <span class="s2">&quot;not_analyzed&quot;</span>
-              <span class="p">},</span>
-              <span class="nt">&quot;responsetime&quot;</span> <span class="p">:</span> <span class="p">{</span>
-                <span class="nt">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;double&quot;</span><span class="p">,</span>
-              <span class="p">},</span>
-              <span class="nt">&quot;size&quot;</span> <span class="p">:</span> <span class="p">{</span>
-                <span class="nt">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;long&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;index&quot;</span> <span class="p">:</span> <span class="s2">&quot;not_analyzed&quot;</span>
-              <span class="p">},</span>
-              <span class="nt">&quot;status&quot;</span> <span class="p">:</span> <span class="p">{</span>
-                <span class="nt">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;index&quot;</span> <span class="p">:</span> <span class="s2">&quot;not_analyzed&quot;</span>
-              <span class="p">},</span>
-              <span class="nt">&quot;upstreamtime&quot;</span> <span class="p">:</span> <span class="p">{</span>
-                <span class="nt">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;double&quot;</span><span class="p">,</span>
-              <span class="p">},</span>
-              <span class="nt">&quot;url&quot;</span> <span class="p">:</span> <span class="p">{</span>
-                <span class="nt">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
-                <span class="nt">&quot;index&quot;</span> <span class="p">:</span> <span class="s2">&quot;not_analyzed&quot;</span>
-              <span class="p">}</span>
-            <span class="p">}</span>
-          <span class="p">},</span>
-          <span class="nt">&quot;@source&quot;</span> <span class="p">:</span> <span class="p">{</span>
-            <span class="nt">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;index&quot;</span> <span class="p">:</span> <span class="s2">&quot;not_analyzed&quot;</span>
-          <span class="p">},</span>
-          <span class="nt">&quot;@timestamp&quot;</span> <span class="p">:</span> <span class="p">{</span>
-            <span class="nt">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;date&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;format&quot;</span> <span class="p">:</span> <span class="s2">&quot;dateOptionalTime&quot;</span>
-          <span class="p">},</span>
-          <span class="nt">&quot;@type&quot;</span> <span class="p">:</span> <span class="p">{</span>
-            <span class="nt">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;index&quot;</span> <span class="p">:</span> <span class="s2">&quot;not_analyzed&quot;</span><span class="p">,</span>
-            <span class="nt">&quot;store&quot;</span> <span class="p">:</span> <span class="s2">&quot;no&quot;</span>
-          <span class="p">}</span>
-        <span class="p">}</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-<p><strong>注意：POST 发送的 json 内容比存储的 json 文件内容要少最外层的名字，因为名字是在 url 里体现的。</strong></p>
-<h1 id="mapping">mapping简介</h1>
-<p>上面template中除了index/shard/replica之外的部分，就是mapping了，大家注意到其中的dynamic，默认情况下，index会在第一条数据进入的时候自动分析这条数据的情况，给每个value找到最恰当的type，然后以此为该index的mapping。之后再PUT上来的数据，格式如果不符合mapping的，也能存储成功，但是就无法检索了。</p>
-<p>mapping中关于store和compress的部分，之前翻译的<a href="http://chenlinux.com/2012/08/26/translate-using-elasticsearch-for-logs">《用ElasticSearch存储日志》</a>已经说的比较详细了。这里我的建议是 disable 掉 <code>_all</code>，但是 enable 住 <code>_source</code>!! 经过我的惨痛测试，如果连 <code>_source</code> 也 disable 掉的话，一旦你重启进程，整个 index 里除了 <code>_id</code>，<code>_timestamp</code> 和 <code>_score</code> 三个默认字段，啥都丢了……</p>
-<h1 id="api">API简介</h1>
-<p>ES的API，最基本的就是CRUD操作了，这部分是标准的REST，就不说了。</p>
-<p>然后还有三个API比较重要且常用，分别是: bulk/count/search。</p>
-<ul>
-  <li>Bulk顾名思义，把多个单条的记录合并成一个大数组统一提交，这样避免一条条发送的header解析，索引频繁更新，indexing速度大大提高</li>
-  <li>Count根据POST的json，返回命中范围内的总条数。当然没POST时就直接返回该index的总条数了。</li>
-  <li>Search根据POST的json或者GET的args，返回命中范围内的数据。这是最重要的部分了。下面说说常用的search API：</li>
-</ul>
-<h2 id="query">query</h2>
-<p>一旦使用search，必须至少提供query参数，然后在这个query的基础上进行接下来其他的检索。query参数又分三类：</p>
-<ul>
-  <li><code>"match_all" : { }</code> 直接请求全部；</li>
-  <li><code>"term"/"text"/"prefix"/"wildcard" : { "key" : "value" }</code> 根据字符串搜索(严格相等/片断/前缀/匹配符);</li>
-  <li><code>"range" : { "@timestamp" : { "from" : "now-1d", "to" : "now" } }</code> 根据范围搜索，如果type是时间格式，可以使用内置的now表示当前，然后用-1d/h/m/s来往前推。</li>
-</ul>
-<h2 id="filter">filter</h2>
-<p>上面提到的query的参数，在filter中也都存在。此外，还有比较重要的参数就是连接操作：</p>
-<ul>
-  <li><code>"or"/"and" : [{"range":{}}, {"prefix":""}]</code> 两个filter的查询，交集或者合集；</li>
-  <li><code>"bool" : ["must":{},"must_not":{},"should":{}]</code> 上面的and虽然更快，但是只能支持两个，超过两个的，要用 bool 方法；</li>
-  <li><code>"not"/"limit" : {}</code> 取反和限定执行数。注意这个limit和mysql什么的有点不同：它限定的是在每个shards上执行多少条。如果你有5个shards，其实对整个index是limit了5倍大小的设定值。</li>
-</ul>
-<p>另一点比较关键的是：filter结果默认是不缓存的，如果常用，需要指定 <code>"_cache" : true</code>。</p>
-<h2 id="facets">facets</h2>
-<p>facets接口可以根据query返回统计数据，最基础的是terms和statistical两种。不过在日志分析的情况下，最常用的是：</p>
-<ul>
-  <li><code>"histogram" : { "key_field" : "", "value_field" : "", "interval" : "" }</code> 根据时间间隔返回柱状图式的统计数据；</li>
-  <li><code>"terms_stats" : { "key_field" : "", "value_field" : "" }</code> 根据key的情况返回value的统计数据，类似group by的意思。</li>
-</ul>
-<p>这里就涉及到前面mapping里为什么针对每个field都设定type的原因了。因为 <code>histogram</code> 里的 <code>key_field</code> 只能是 <code>dateOptionalTime</code> 格式的，<code>value_field</code> 只能是 <code>string</code> 格式的；而 <code>terms_stats</code> 里的 <code>key_field</code> 只能是 <code>string</code> 格式的，<code>value_field</code> 只能是 <code>numberic</code> 格式的。</p>
-<p>而我们都知道，http code那些200/304/400/503神马的，看起来是数字，我们却需要的是他们的count数据，不是算他们的平均数。所以不能由ES动态的认定为long，得指定为string。</p>
-<h1 id="analyze">analyze简介</h1>
-<p>对于logstash分析日志，基本没有提到analyze的部分，包括Kibana也是。但是做web日志分析，其实也需要注意analyze。因为ES默认提供并开启了一些analyze。最简单的比如空格分隔表示单词，斜线分割表示url路径，@分割表示email地址等等。文档地址见<a href="http://www.elasticsearch.org/guide/reference/index-modules/analysis/">http://www.elasticsearch.org/guide/reference/index-modules/analysis/</a>。当然ES社区的中国人也有提供中文分词的plugin。通常情况下，analyze工作的很好。嗯，ES比其他全文索引工具在默认情况下都工作的好。</p>
-<p>但是当你想算的是今天访问的url排名，或者来访者IP排名的时候，麻烦来了，你苦苦等待N久，最后一看排名是这样的：</p>
-<pre><code>jpg  2345678
-html 123456
-20121021 34567
-bbs 9876
-</code></pre>
-<p>对，你的url被ES辛辛苦苦的用 / 和 . 分割了，然后每个单词排序来再返回给你。如果你是在一个数千万条的大型库上运行的话，基本吃个饭回来才能有结果。</p>
-<p>事实上，url就是一个整体，所以在mapping中，要定义好在indexing的时候，不要启用analyzer。这样，返回一个你心目中想要的正确的url排名，时间从吃个午饭直接缩减到打个喷嚏了！而如果是访问者ip，时间则是眨下眼就够了！</p>
-<p>注意：analyze不是只有indexing的时候能用，在query的时候，也可以单独指定某个analyze来分析记录。analyze其实是和search并列的API，不过目前场景下用不上，就不说了。</p>
-<p>有以上API，基本上一个针对logstash的ES数据分析系统后台就足够构建出来了。剩下的就是前端页面的事情，这方面可以参考logstash的Kibana，更广义一些的ES数据可视化可以参考ES的blog: <a href="http://www.elasticsearch.cn/blog/2011/05/13/data-visualization-with-elasticsearch-and-protovis.html">http://www.elasticsearch.cn/blog/2011/05/13/data-visualization-with-elasticsearch-and-protovis.html</a>，笔者的译文见<a href="http://chenlinux.com/2012/11/18/data-visualization-with-elasticsearch-and-protovis">http://chenlinux.com/2012/11/18/data-visualization-with-elasticsearch-and-protovis</a>。</p>
-<h1 id="section">性能监控</h1>
-<p>ES周边的工具有很多。目前我主要用三种方式：</p>
-<ul>
-  <li>es_head: 这个主要提供的是健康状态查询，当然标签页里也提供了简单的form给你提交API请求。es_head现在可以直接通过 <code>elasticsearch/bin/plugin -install mobz/elasticsearch-head</code> 安装，然后浏览器里直接输入 <code>http://$eshost:9200/_plugin/head/</code> 就可以看到cluster/node/index/shards的状态了。</li>
-  <li>bigdesk: 这个主要提供的是节点的实时状态监控，包括jvm的情况，linux的情况，elasticsearch的情况。排查性能问题的时候很有用，现在也可以通过 <code>elasticsearch/bin/plugin -install lukas-vlcek/bigdesk</code> 直接安装了。然后浏览器里直接输入 <code>http://$eshost:9200/_plugin/bigdesk/</code> 就可以看到了。注意如果使用的 <code>bulk_index</code> 的话，如果选择的刷新间隔太长，indexing per second数据是不准的。</li>
-  <li>然后是最基础的办法，通过ES本身的status API获取状态。因为上面都是web工具，如果想要避免上文提到的故障很久才发现的问题，我们需要一个可以提供给nagios使用的办法，这很简单就可以做到。刚巧ES本身也有green/yellow/red等不同的状态。所以很简单完成一个check_es_health.sh如下：</li>
-</ul>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/sh</span>
-    <span class="nv">ES_HOST</span><span class="o">=</span><span class="nv">$1</span>
-    <span class="nv">ES_URI</span><span class="o">=</span><span class="s2">&quot;http://${ES_HOST}:9200/_cluster/health&quot;</span>
-    <span class="nv">RES_JSON</span><span class="o">=</span><span class="sb">`</span>curl -s <span class="k">${</span><span class="nv">ES_URI</span><span class="k">}</span><span class="sb">`</span>
-    <span class="nv">status</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="k">${</span><span class="nv">RES_JSON</span><span class="k">}</span>|awk -F<span class="se">\&quot;</span> <span class="s1">&#39;{print $8}&#39;</span><span class="sb">`</span>
-    <span class="nv">failed</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="k">${</span><span class="nv">RES_JSON</span><span class="k">}</span>|awk -F<span class="se">\&quot;</span> <span class="s1">&#39;{print $NF}&#39;</span>|sed <span class="s1">&#39;s/^:\([0-9]*\)}/\1/&#39;</span><span class="sb">`</span>
-    <span class="k">if</span> <span class="o">[[</span> <span class="s2">&quot;$status&quot;</span> -eq <span class="s2">&quot;green&quot;</span> <span class="o">]]</span>;<span class="k">then</span>
-<span class="k">        </span><span class="nb">echo</span> <span class="s2">&quot;ES Cluster OK | failed_node=${failed}&quot;</span>
-        <span class="nb">exit </span>0
-    <span class="k">elif</span> <span class="o">[[</span> <span class="s2">&quot;$status&quot;</span> -eq <span class="s2">&quot;yellow&quot;</span> <span class="o">]]</span>;<span class="k">then</span>
-<span class="k">        </span><span class="nb">echo</span> <span class="s2">&quot;Warning! ES Cluster shards relocating or initializing. | failed_node=${failed}&quot;</span>
-        <span class="nb">exit </span>1
-    <span class="k">else</span>
-<span class="k">        </span><span class="nb">echo</span> <span class="s2">&quot;Critical! ES Cluster shards unassigned. | failed_node=${failed}&quot;</span>
-        <span class="nb">exit </span>2
-    <span class="k">fi</span>
-</code></pre></div>
-<h1 id="section-1">其他插件</h1>
-<p>ES是一个很活跃的开源项目，所以如果有其他目前ES没有你有觉得有需要的功能，大可以上github搜索一下，或许别人早已经做完相关插件了。</p>
-<p>比如我就在上面找到一个plugin叫elasticfacets。加强了ES的 <code>date_histogram</code> 功能，原先只能针对某个 <code>value_field</code> 做攻击，这个plugin可以在这个基础上，把 <code>value_field</code> 加强成又一层facets。项目地址: <a href="https://github.com/bleskes/elasticfacets">https://github.com/bleskes/elasticfacets</a>。之前和作者反馈了在ES 0.19.8上的问题，不知道修复没。或许最好还是用0.19.9吧。</p>
-<h1 id="section-2">邮件列表</h1>
-<p>ES的邮件列表基本每天都有四五十封邮件，地址是：<a href="&#109;&#097;&#105;&#108;&#116;&#111;:&#101;&#108;&#097;&#115;&#116;&#105;&#099;&#115;&#101;&#097;&#114;&#099;&#104;&#064;&#103;&#111;&#111;&#103;&#108;&#101;&#103;&#114;&#111;&#117;&#112;&#115;&#046;&#099;&#111;&#109;">&#101;&#108;&#097;&#115;&#116;&#105;&#099;&#115;&#101;&#097;&#114;&#099;&#104;&#064;&#103;&#111;&#111;&#103;&#108;&#101;&#103;&#114;&#111;&#117;&#112;&#115;&#046;&#099;&#111;&#109;</a>。</p>
-      <a href="/2012/10/21/elasticearch-simple-usage" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
