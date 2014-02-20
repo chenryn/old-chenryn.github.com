@@ -43,6 +43,106 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2012/06/01/dist-logstash-and-elasticsearch" title="【Logstash系列】用rabbitmq和elasticsearch搭建分布式日志收集存储系统" rel="bookmark">【Logstash系列】用rabbitmq和elasticsearch搭建分布式日志收集存储系统</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-06-01 00:00:00 +0800">01 Jun 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>上上篇讲到怎样用MRI的ruby在客户端收集日志。今天主要注意服务器端，考虑grok、elastic、web这几个功能在JRuby上才好。所以服务器端可以再开一个JRuby的进程。</p>
+<ul>
+  <li>首先安装RabbitMQ的过程</li>
+</ul>
+<p>最简单的办法，采用epel的yum，或者apt安装。其次简单的办法，从rabbitmq上下载bin的tar.gz。 <br />
+这里需要注意一下，rabbitmq-server启动的时候，默认node启动在rabbit@${hostname}上。而且这个hostname不是fqdn的，是第一个主机名。比方说你的hostname是MyHome-1.mydomain.com.，那node就是rabbit@MyHome-1。这个时候很容易报Connect MyHome-1 timeout。所以/etc/hosts一定要写好。  <br />
+rabbitmq-server起来之后，可以用rabbitmyctl来具体的创建user啊，vhost啊之类的东西，作为测试，我们就直接使用默认的guest用户和/了。</p>
+<ul>
+  <li>然后安装elasticsearch的过程</li>
+</ul>
+<p>这一步在logstash的docs里讲的很清楚了，就是下载tar.gz，解压然后java运行起来即可：    </p>
+<div class="highlight"><pre><code class="bash"><span class="nv">ES_PACKAGE</span><span class="o">=</span>elasticsearch-0.18.7.zip
+<span class="nv">ES_DIR</span><span class="o">=</span><span class="k">${</span><span class="nv">ES_PACKAGE</span><span class="p">%%.zip</span><span class="k">}</span>
+<span class="nv">SITE</span><span class="o">=</span>https://github.com/downloads/elasticsearch/elasticsearch
+<span class="k">if</span> <span class="o">[</span> ! -d <span class="s2">&quot;$ES_DIR&quot;</span> <span class="o">]</span> ; <span class="k">then</span>
+<span class="k">  </span>wget --no-check-certificate <span class="nv">$SITE</span>/<span class="nv">$ES_PACKAGE</span>
+  unzip <span class="nv">$ES_PACKAGE</span>
+<span class="k">fi</span>
+</code></pre></div>
+<ul>
+  <li>部署一个logstash的采集节点</li>
+</ul>
+<p>和上篇所述一样，传输一个删减版的Gemfile到采集节点。然后使用bundle安装这些模块：    </p>
+<div class="highlight"><pre><code class="bash">mkdir -p /usr/local/logstash/etc /usr/local/logstash/bin /usr/local/logstash/lib
+scp <span class="k">${</span><span class="nv">logstashmaster</span><span class="k">}</span>:/usr/local/logstash/Gemfile /usr/local/logstash/
+scp -rf <span class="k">${</span><span class="nv">logstashmaster</span><span class="k">}</span>:/usr/local/logstash/lib/* /usr/local/logstash/lib/
+scp <span class="k">${</span><span class="nv">logstashmaster</span><span class="k">}</span>:/usr/local/logstash/bin/logstash /usr/local/logstash/bin/
+gem install bundler
+<span class="nb">cd</span> /usr/local/logstash/
+bundle install
+</code></pre></div>
+<p>然后编写一个使用rabbitmq的配置文件：</p>
+<div class="highlight"><pre><code class="ruby"><span class="n">input</span> <span class="p">{</span>
+  <span class="n">file</span> <span class="p">{</span>
+    <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;syslog&quot;</span>
+    <span class="n">path</span> <span class="o">=&gt;</span> <span class="o">[</span><span class="s2">&quot;/var/log/syslog.log&quot;</span><span class="p">,</span> <span class="s2">&quot;/var/log/messages&quot;</span> <span class="o">]</span>
+  <span class="p">}</span> 
+<span class="p">}</span>
+<span class="n">output</span> <span class="p">{</span>
+  <span class="n">amqp</span> <span class="p">{</span>
+    <span class="n">host</span> <span class="o">=&gt;</span> <span class="s2">&quot;MyHome-1&quot;</span>
+    <span class="n">exchange_type</span> <span class="o">=&gt;</span> <span class="s2">&quot;fanout&quot;</span>
+    <span class="nb">name</span> <span class="o">=&gt;</span> <span class="s2">&quot;rawlogs&quot;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>OK，用ruby /usr/local/logstash/bin/logstash agent -f /usr/local/logstash/etc/agent.conf启动即可。</p>
+<ul>
+  <li>部署一个logstash的汇聚节点</li>
+</ul>
+<p>这一步因为用到的模块大多是JRuby的，所以可以直接使用jar包的方式简单搞定。
+编写一个使用rabbitmq和elasticsearch的配置文件：</p>
+<div class="highlight"><pre><code class="ruby"><span class="n">input</span> <span class="p">{</span>
+  <span class="n">amqp</span> <span class="p">{</span>
+    <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;syslog&quot;</span>
+    <span class="n">host</span> <span class="o">=&gt;</span> <span class="s2">&quot;MyHome-1&quot;</span>
+    <span class="n">exchange</span> <span class="o">=&gt;</span> <span class="s2">&quot;rawlogs&quot;</span>
+    <span class="nb">name</span> <span class="o">=&gt;</span> <span class="s2">&quot;rawlogs_consumer&quot;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+<span class="n">filter</span> <span class="p">{</span>
+  <span class="n">grok</span> <span class="p">{</span>
+    <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;syslog&quot;</span>
+    <span class="n">pattern</span> <span class="o">=&gt;</span> <span class="s2">&quot;%{SYSLOG}&quot;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+<span class="n">output</span> <span class="p">{</span>
+  <span class="n">elasticsearch</span> <span class="p">{</span> <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>这里比较讨厌的还是rabbitmq的部分。假如前面的步骤rabbitmq-server压根启动失败了，这里amqp不会返回报错说连接失败或者连接node超时什么的，而是说你试图连接一个私有的被锁定的队列……</p>
+<ul>
+  <li>部署一个logstash的展示节点</li>
+</ul>
+<p>这个节点就没必要再单开一台了，就用上面的jar包再启动一个web即可：java -jar logstash-1.1.0-monolithic.jar agent -f server.conf &ndash; web &ndash;backend &lsquo;elasticsearch:///?local&rsquo;</p>
+<ul>
+  <li>测试</li>
+</ul>
+<p>现在可以打开浏览器访问web查看了。很简单的页面，顶上一个搜索栏，中间一个按时间轴显示的柱状图，下面是具体的日志记录。点具体的某条日志，会有浮框显示该条记录的详细信息(host/date/event/message等)</p>
+<p>下一步研究grok正则匹配的编写，然后stated实时绘图，lucene查询语法。</p>
+      <a href="/2012/06/01/dist-logstash-and-elasticsearch" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2012/06/01/create-slides-by-using-spork-and-tt2" title="用Spork和Template::Toolkit生成slides胶片展示" rel="bookmark">用Spork和Template::Toolkit生成slides胶片展示</a>
     </h1>
     <p class="alt-font tight">
@@ -2301,95 +2401,6 @@ bar和line都是grid的。Chart::OFC的pod里举例是pie的，我这里写的�
 然后还发现一个小问题，如果table里一条数据都没有，fields为undef，模块运行有问题的……
 最后，<em>quick_update()是Dancer::Plugin::Database::Handle模块里提供的，这个模块里提供了一系列_quick</em>*()方法，用来快速操作数据库。</p>
       <a href="/2011/12/15/learning_dancer_plugin_simplecrud" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/12/12/nginx_perl_demo" title="nginx_perl试用" rel="bookmark">nginx_perl试用</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-12-12 00:00:00 +0800">12 Dec 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#nginx-ref" title="nginx" rel="category tag">nginx</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>因为空闲时间比较多，所以在CPAN上乱翻，看到了nginx_perl这个项目(原名Nginx::Engine)，现在托管在github.com上。地址见：
-https://github.com/zzzcpan/nginx-perl
-这个模块的目的，是在nginx内置官方perl模块的基础上，实现一系列异步非阻塞的api。用connector/writer/reader完成类似proxy的功能（这里因为是交给perl完成，所以不单单局限在http上了），用take_connection/give_connection完成类似websocket的功能，用ssl_handshaker完成ssl的解析，用timer完成定时器，用resolver完成域名解析…使用方法简单来说，就是用main_count_inc/finalize_request控制计数器，用NGX_READ/NGX_WRITE/NGX_CLOSE等控制callback。
-其他内容和apache的mod_perl，或者nginx.org的perl类似。最新版的POD地址如下：
-http://zzzcpan.github.com/nginx-perl/Nginx.html
-最后举例一个自己写的简单的例子：</p>
-<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="n">HelloWorld</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Nginx</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="c1">#用来在nginx启动的时候做的事情，这里单纯显示一下</span>
-<span class="k">sub </span><span class="nf">init_worker</span> <span class="p">{</span>
-    <span class="nb">warn</span> <span class="s">&#39;nginx_perl start [OK]&#39;</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="c1">#这里是nginx的http模块中调用的handler，alexander有计划改成tcp级别的</span>
-<span class="k">sub </span><span class="nf">handler</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-<span class="c1">#增加主循环的计数器</span>
-    <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">main_count_inc</span><span class="p">;</span>
-<span class="c1">#使用非阻塞的连接器连接127.0.0.1的80端口，10秒超时</span>
-    <span class="n">ngx_connector</span> <span class="s">&#39;127.0.0.1&#39;</span><span class="p">,</span> <span class="mi">80</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
-<span class="c1">#如果连接出问题，会记录在$!中</span>
-        <span class="k">if</span> <span class="p">(</span><span class="vg">$!</span><span class="p">)</span> <span class="p">{</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">send_http_header</span><span class="p">(</span><span class="s">&#39;text/html&#39;</span><span class="p">);</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="k">print</span><span class="p">(</span><span class="s">&quot;Connection failed, $!\n&quot;</span><span class="p">);</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">send_special</span><span class="p">(</span><span class="n">NGX_HTTP_LAST</span><span class="p">);</span>
-<span class="c1">#不管怎么处理这次连接，最后一定要记得用$r-&gt;finalize_request()，会decrease之前$r-&gt;main_count_inc;里加上的计数。</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">finalize_request</span><span class="p">(</span><span class="n">NGX_OK</span><span class="p">);</span>
-            <span class="k">return</span> <span class="n">NGX_CLOSE</span><span class="p">;</span>
-        <span class="p">};</span>
-<span class="c1">#返回$c是建立的连接</span>
-        <span class="k">my</span> <span class="nv">$c</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$req_buf</span> <span class="o">=</span> <span class="s">&quot;GET /index.php HTTP/1.0\x0d\x0a&quot;</span><span class="o">.</span>
-              <span class="s">&quot;Host: chenlinux.com\x0d\x0a&quot;</span><span class="o">.</span>
-              <span class="s">&quot;Connection: close\x0d\x0a&quot;</span><span class="o">.</span>
-              <span class="s">&quot;\x0d\x0a&quot;</span><span class="p">;</span>
-<span class="c1">#这里记住定义buffer的时候不要搞成undef了，会报段错误的，不过俄国佬回信说他修复了</span>
-        <span class="k">my</span> <span class="nv">$res_buf</span> <span class="o">=</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="c1">#非阻塞写入，超时10秒</span>
-        <span class="n">ngx_writer</span> <span class="nv">$c</span><span class="p">,</span> <span class="nv">$req_buf</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
-            <span class="k">if</span> <span class="p">(</span><span class="vg">$!</span><span class="p">)</span> <span class="p">{</span>
-                 <span class="o">......</span>
-            <span class="p">};</span>
-            <span class="nv">$req_buf</span> <span class="o">=</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="c1">#之前的buffer测试就是这里，如果加一个warn，就不会报错……汗</span>
-<span class="c1">#warn &quot;$req_buf\n$res_buf\n&quot;;</span>
-<span class="c1">#写入完成后，开始调用读取</span>
-            <span class="k">return</span> <span class="n">NGX_READ</span><span class="p">;</span>
-        <span class="p">};</span>
-<span class="c1">#读取到buffer，最短0字节，最长8000字节，超时10秒</span>
-        <span class="n">ngx_reader</span> <span class="nv">$c</span><span class="p">,</span> <span class="nv">$res_buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">8000</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
-            <span class="k">if</span> <span class="p">(</span><span class="vg">$!</span><span class="p">)</span> <span class="p">{</span>
-            <span class="o">......</span>
-            <span class="p">}</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">send_http_header</span><span class="p">(</span><span class="s">&#39;text/html&#39;</span><span class="p">);</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="k">print</span><span class="p">(</span><span class="nv">$res_buf</span><span class="p">);</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">send_special</span><span class="p">(</span><span class="n">NGX_HTTP_LAST</span><span class="p">);</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">finalize_request</span><span class="p">(</span><span class="n">NGX_OK</span><span class="p">);</span>
-            <span class="k">return</span> <span class="n">NGX_CLOSE</span><span class="p">;</span>
-        <span class="p">};</span>
-<span class="c1">#这个是connector的语句，表示连接成功后调用写入</span>
-        <span class="k">return</span> <span class="n">NGX_WRITE</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="c1">#各个非阻塞调用完成后的返回，NGX_DONE只能用在http的handler里，不能在ngx_*r里用，里面请用NGX_CLOSE。</span>
-    <span class="k">return</span> <span class="n">NGX_DONE</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="mi">1</span><span class="p">;</span>
-</code></pre></div>
-<p>另：源码中带有一个真正的反向http的例子Nginx::Util和一个Redis的例子。并且与nodejs读取redis的性能做了对比。可以参见~~
-<strong style="display:block;margin:12px 0 4px"><a href="http://www.slideshare.net/chenryn/perlnginx" title="Perl在nginx里的应用" target="_blank">Perl在nginx里的应用</a></strong></p>
-      <a href="/2011/12/12/nginx_perl_demo" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

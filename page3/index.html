@@ -43,6 +43,840 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/02/25/nginx-testing-10Gibps" title="Nginx 万兆网络环境测试" rel="bookmark">Nginx 万兆网络环境测试</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-02-25 00:00:00 +0800">25 Feb 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#testing-ref" title="testing" rel="category tag">testing</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <ul id="markdown-toc">
+  <li><a href="#section">测试目标</a></li>
+  <li><a href="#section-1">测试设备</a></li>
+  <li><a href="#section-2">测试环境说明</a></li>
+  <li><a href="#section-3">特别注意事项</a>    <ul>
+      <li><a href="#keepalive">Keepalive</a></li>
+      <li><a href="#rpspps">RPS、PPS与流量吞吐率</a></li>
+      <li><a href="#section-4">压缩</a></li>
+      <li><a href="#section-5">规则集</a></li>
+      <li><a href="#section-6">实际网络情况</a></li>
+    </ul>
+  </li>
+  <li><a href="#section-7">测试项目</a>    <ul>
+      <li><a href="#section-8">测试一</a></li>
+      <li><a href="#section-9">测试二</a></li>
+      <li><a href="#section-10">测试三</a></li>
+      <li><a href="#section-11">测试四</a></li>
+      <li><a href="#section-12">测试五</a></li>
+      <li><a href="#section-13">测试六</a></li>
+      <li><a href="#section-14">测试七</a></li>
+    </ul>
+  </li>
+  <li><a href="#section-15">术语及缩写说明</a></li>
+  <li><a href="#section-16">附注</a></li>
+</ul>
+<h1 id="section">测试目标</h1>
+<p>本次测试的目标是将nginx作为7层负载均衡软件，应用于万兆环境下，获得</p>
+<ul>
+  <li>
+    <p>极限性能</p>
+  </li>
+  <li>
+    <p>在服务质量保证约束条件下的极限性能</p>
+  </li>
+  <li>
+    <p>提升极限性能的方法</p>
+  </li>
+  <li>
+    <p>在万兆环境下部署的一般方法和特殊注意事项</p>
+  </li>
+</ul>
+<p>同时，由于nginx还作为静态页面的提供者，附带还进行获得nginx作为静态文件服务器的</p>
+<ul>
+  <li>
+    <p>极限性能</p>
+  </li>
+  <li>
+    <p>在服务质量保证约束条件下的极限性能</p>
+  </li>
+  <li>
+    <p>提升极限性能的方法</p>
+  </li>
+  <li>
+    <p>在万兆环境下部署的一般方法和特殊注意事项</p>
+  </li>
+</ul>
+<p>操作系统是一个很大的影响因素，在测试开始，会对操作系统版本进行选择，以确定哪个是更合适的平台。</p>
+<h1 id="section-1">测试设备</h1>
+<p>测试设备如下</p>
+<ul>
+  <li>
+    <p>万兆网卡X520-DA2</p>
+  </li>
+  <li>
+    <p>万兆交换机DCS-7124SX-F</p>
+  </li>
+  <li>
+    <p>万兆DA线</p>
+  </li>
+  <li>
+    <p>SNB服务器</p>
+  </li>
+  <li>
+    <p>WSM服务器</p>
+  </li>
+</ul>
+<h1 id="section-2">测试环境说明</h1>
+<p>所有测试服务器连接在同一个万兆交换机下，处于同一个网段。</p>
+<p>服务器划分为</p>
+<ul>
+  <li>
+    <p>服务器（以S简称）：提供静态或动态页面，次要测试对象</p>
+  </li>
+  <li>
+    <p>7层负载均衡（以LB简称）：提供负载均衡功能，主要测试对象</p>
+  </li>
+  <li>
+    <p>客户端（以C简称）：提供测试压力</p>
+  </li>
+</ul>
+<h1 id="section-3">特别注意事项</h1>
+<h2 id="keepalive">Keepalive</h2>
+<p>由于LB和S数量少，高RPS情况下，LB如果采用短连接方式连接S，LB的outgoing port会很快用尽。</p>
+<p>解决的方法有两种：</p>
+<ol>
+  <li>
+    <p>S采用多IP配置，模拟众多S的情况，减小每个S所要消耗的LB outgoing port；</p>
+  </li>
+  <li>
+    <p>LB与S之间采用keepalive连接</p>
+  </li>
+</ol>
+<p>短连接的方式下，CPU会有相当一部分消耗在三次握手上，这主要是操作系统开销（小包处理），以及nginx初始化会话上下文的开销。</p>
+<h2 id="rpspps">RPS、PPS与流量吞吐率</h2>
+<p>极限测试下，PPS考验服务器的CPU能力；而HTTP协议请求头的处理也是CPU密集型任务。</p>
+<p>相同流量吞吐率下</p>
+<ul>
+  <li>
+    <p>较小的响应意味着较高的RPS</p>
+  </li>
+  <li>
+    <p>当响应小于一个最大TCP报文长度时，响应越小，也意味着PPS越高</p>
+  </li>
+</ul>
+<p>极限测试中，需要测试以下三种情形</p>
+<ul>
+  <li>
+    <p>全部是大报文。可以通过构造响应为一个最大TCP报文长度实现</p>
+  </li>
+  <li>
+    <p>全部是小报文。可以通过构造响应为最小HTTP响应实现</p>
+  </li>
+  <li>
+    <p>混合报文。可以通过构造响应为一个或两个TCP报文，一个是最大TCP报文长度，另外一个的长度可以控制，来满足特定的混合比例</p>
+  </li>
+</ul>
+<p>流量吞吐率是一个表观指标，但我们更关心的是在带宽足够的条件下，RPS指标（的范围）。</p>
+<h2 id="section-4">压缩</h2>
+<p>在我们的实际使用中，LB是不负责压缩的。但测试中需要测试压缩对RPS的影响。需要考察压缩方面的优化方法。</p>
+<h2 id="section-5">规则集</h2>
+<p>负载均衡规则集大小对性能会有影响。由于规则集处理开销正比于RPS，测试中应对较大的规则集进行测试以找出影响大小和可能的优化措施。</p>
+<h2 id="section-6">实际网络情况</h2>
+<p>一般而言，极限性能是最理想情况。在本次测试中，我们还需要测试接近实际网络情况下的极限性能，这可以通过引入丢包率、延时来模拟。</p>
+<h1 id="section-7">测试项目</h1>
+<h2 id="section-8">测试一</h2>
+<p>测试目标：了解nginx的带宽满载的最小文件大小 （web服务器模式），确定之后测试的文件大小上限</p>
+<p>测试工具：ab</p>
+<p>测试方法：</p>
+<ol>
+  <li>
+    <p>S上Nginx做简单配置，使其成为web server；</p>
+  </li>
+  <li>
+    <p>在C1上使用 <测试工具> 对S测试10000字节文件，每次减小1000字节，至带宽和RPS均为最高为止。</测试工具></p>
+  </li>
+  <li>
+    <p>根据第二步测试情况调整文件大小，以逼近S的带宽恰好满载且CPU占用率最高时的情况，并记录最终的阈值大小和RPS/PPS指标。</p>
+  </li>
+</ol>
+<p>测试结果：</p>
+<table>
+  <thead>
+    <tr>
+      <th><strong>文件大小(Bytes)</strong></th>
+      <th><strong>CPU idle(%)</strong></th>
+      <th><strong>带宽(MBps)</strong></th>
+      <th style="text-align: right"><strong>PPS</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>10K</td>
+      <td>65</td>
+      <td>1140</td>
+      <td style="text-align: right">606K</td>
+    </tr>
+    <tr>
+      <td>3K</td>
+      <td>12</td>
+      <td>1135</td>
+      <td style="text-align: right">1060K</td>
+    </tr>
+    <tr>
+      <td>2590</td>
+      <td>0</td>
+      <td>1088</td>
+      <td style="text-align: right">1138K</td>
+    </tr>
+    <tr>
+      <td>1K</td>
+      <td>0</td>
+      <td>585</td>
+      <td style="text-align: right">783K</td>
+    </tr>
+  </tbody>
+</table>
+<p>在采用kernel的pktgen发包测试中，苏能达到的最大PPS为1200K。2590Bytes文件测试中的PPS已经很接近纯发包测试的极限，所以最终，最充
+分利用CPU和带宽的文件大小是2590Bytes。</p>
+<h2 id="section-9">测试二</h2>
+<p>测试目标：了解 nginx 的大致性能（web服务器模式）</p>
+<p>测试工具：ab</p>
+<p>测试方法：</p>
+<ol>
+  <li>
+    <p>S上Nginx做简单配置，使其成为web server；</p>
+  </li>
+  <li>
+    <p>在C1上使用 <测试工具> 对S分别测试空文件、616字节文件(半个包长度)、1232字节文件（即含header字节数为1448，整TCP包长度）、1
+233字节文件（超过一个TCP/IP包大小1字节）和2590字节文件；3. 测试中记录S的网络吞吐量和CPU状况；C1的RPS，PPS指标波动情况。</测试工具></p>
+  </li>
+</ol>
+<p>测试预期：</p>
+<ol>
+  <li>
+    <p>吞吐量应超过1Gbps；</p>
+  </li>
+  <li>
+    <p>吞吐量接近5Gbps；</p>
+  </li>
+  <li>
+    <p>适当调整网卡等其他配置，应使RPS超过50万（原有百兆环境下的极限值）。</p>
+  </li>
+</ol>
+<p>初步测试：</p>
+<p>1、在CentOS6.2系统上，十次测试平均结果发现空文件的RPS仅为458005，响应时间0.88715ms，S带宽121M，未能达到预期。</p>
+<p>2、检查发现CentOS6.2的ixgbe驱动版本为3.4.8，与最新版本差距较大，升级ixgbe驱动至最新版3.11.33。</p>
+<p>更新后原先的8核client已经无法压满server，更换Client设备，ab并发由50×8提高到50×24，测试不同的InterruptThrottle
+Rate条件下数据如下：</p>
+<p>1000：</p>
+<p><img src="/images/Nginx-testing-10Gibps/c568fc0.png" alt="" /></p>
+<p>1500：</p>
+<p><img src="/images/Nginx-testing-10Gibps/m15b564f6.png" alt="" /></p>
+<p>2500：</p>
+<p><img src="/images/Nginx-testing-10Gibps/85b1bbd.png" alt="" /></p>
+<p>3500：</p>
+<p><img src="/images/Nginx-testing-10Gibps/335545b5.png" alt="" /></p>
+<p>4500：</p>
+<p><img src="/images/Nginx-testing-10Gibps/m25052f88.png" alt="" /></p>
+<p>根据以上数据可知，在ITR1500的情况下，空文件的RPS最高，对比数据如下：</p>
+<table>
+  <thead>
+    <tr>
+      <th><strong>ITR</strong></th>
+      <th><strong>RPS</strong></th>
+      <th><strong>带宽(MBps)</strong></th>
+      <th><strong>user%</strong></th>
+      <th><strong>sys%</strong></th>
+      <th style="text-align: right"><strong>irq%</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1000</td>
+      <td>688425</td>
+      <td>186.886</td>
+      <td>30.112</td>
+      <td>52.936</td>
+      <td style="text-align: right">16.951</td>
+    </tr>
+    <tr>
+      <td>1500</td>
+      <td>691614</td>
+      <td>187.408</td>
+      <td>30.125</td>
+      <td>52.208</td>
+      <td style="text-align: right">17.667</td>
+    </tr>
+    <tr>
+      <td>2500</td>
+      <td>682326</td>
+      <td>183.277</td>
+      <td>29.191</td>
+      <td>53.253</td>
+      <td style="text-align: right">17.556</td>
+    </tr>
+    <tr>
+      <td>3500</td>
+      <td>650367</td>
+      <td>175.477</td>
+      <td>26.803</td>
+      <td>56.732</td>
+      <td style="text-align: right">16.382</td>
+    </tr>
+    <tr>
+      <td>4500</td>
+      <td>630178</td>
+      <td>169.474</td>
+      <td>26.417</td>
+      <td>56.708</td>
+      <td style="text-align: right">16.833</td>
+    </tr>
+  </tbody>
+</table>
+<p>（注：表格中RPS和带宽数据均为峰值，CPU数据为平稳运行期的中间时刻采样值。下同）</p>
+<p>所以在新驱动ITR1500的条件下，重新测试616,1232,1233,2590字节的数据：</p>
+<p>616：</p>
+<p><img src="/images/Nginx-testing-10Gibps/m2c94d5e6.png" alt="" /></p>
+<p>1232：</p>
+<p><img src="/images/Nginx-testing-10Gibps/3bd4c0bf.png" alt="" /></p>
+<p>1233：</p>
+<p><img src="/images/Nginx-testing-10Gibps/m1cb568d3.png" alt="" /></p>
+<p>2590</p>
+<p><img src="/images/Nginx-testing-10Gibps/m73a60e04.png" alt="" /></p>
+<p>测试过程出现剧烈的吞吐量波动，在原有的itr1500的条件下服务极不稳定。</p>
+<p>总结ITR1500条件下各文件大小的测试数据对比如下：</p>
+<table>
+  <thead>
+    <tr>
+      <th>文件大小(Btyes)</th>
+      <th>RPS</th>
+      <th><strong>带宽(MBps)</strong></th>
+      <th>CPU usr%</th>
+      <th>CPU sys%</th>
+      <th style="text-align: right">CPU irq%</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>691614</td>
+      <td>187.408</td>
+      <td>30.125</td>
+      <td>52.208</td>
+      <td style="text-align: right">17.667</td>
+    </tr>
+    <tr>
+      <td>616</td>
+      <td>586296</td>
+      <td>459.435</td>
+      <td>29.583</td>
+      <td>54.250</td>
+      <td style="text-align: right">16.083</td>
+    </tr>
+    <tr>
+      <td>1232</td>
+      <td>579103</td>
+      <td>838.146</td>
+      <td>29.471</td>
+      <td>50.563</td>
+      <td style="text-align: right">16.048</td>
+    </tr>
+    <tr>
+      <td>1233</td>
+      <td>513099</td>
+      <td>772.826</td>
+      <td>28.417</td>
+      <td>48.875</td>
+      <td style="text-align: right">22.708</td>
+    </tr>
+    <tr>
+      <td>2590</td>
+      <td>418226</td>
+      <td>1173.760</td>
+      <td>23.343</td>
+      <td>41.934</td>
+      <td style="text-align: right">18.216</td>
+    </tr>
+  </tbody>
+</table>
+<p>另经测试，ITR上调到15000后，2590字节文件测试的S吞吐量恢复成稳定满带宽运行。而且支持并发到80×24。对比ITR5000/10000/15000
+条件下数据：</p>
+<p>ITR5000图</p>
+<p><img src="/images/Nginx-testing-10Gibps/m7333a2.png" alt="" /></p>
+<p>ITR10000图：</p>
+<p><img src="/images/Nginx-testing-10Gibps/m7721129e.png" alt="" /></p>
+<p>ITR15000图：</p>
+<p><img src="/images/Nginx-testing-10Gibps/a58a533.png" alt="" /></p>
+<p>2.59KB文件在不同ITR下的测试数据对比如下：</p>
+<table>
+  <thead>
+    <tr>
+      <th>ITR</th>
+      <th>RPS</th>
+      <th><strong>带宽(MBps)</strong></th>
+      <th>usr%</th>
+      <th>sys%</th>
+      <th>irq%</th>
+      <th style="text-align: right">错误进程</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1500</td>
+      <td>418226</td>
+      <td>1173.760</td>
+      <td>23.343</td>
+      <td>41.934</td>
+      <td>18.216</td>
+      <td style="text-align: right">6</td>
+    </tr>
+    <tr>
+      <td>5000</td>
+      <td>418216</td>
+      <td>1172.530</td>
+      <td>24.250</td>
+      <td>55.792</td>
+      <td>19.667</td>
+      <td style="text-align: right">3</td>
+    </tr>
+    <tr>
+      <td>10000</td>
+      <td>417989</td>
+      <td>1171.960</td>
+      <td>24.625</td>
+      <td>52.958</td>
+      <td>22.292</td>
+      <td style="text-align: right">2</td>
+    </tr>
+    <tr>
+      <td>15000</td>
+      <td>404330</td>
+      <td>1132.490</td>
+      <td>23.802</td>
+      <td>52.855</td>
+      <td>23.343</td>
+      <td style="text-align: right">0</td>
+    </tr>
+  </tbody>
+</table>
+<h2 id="section-10">测试三</h2>
+<p>测试目标：了解nginx配置对性能的影响(access_log)</p>
+<p>测试工具：ab</p>
+<p>测试方法：</p>
+<ol>
+  <li>
+    <p>S上做简单配置，关闭 access_log 后进行测试；</p>
+  </li>
+  <li>
+    <p>再测试关闭 access_log buffer 的情况（对比测试二的 access_log buffer=1024k 的情况）</p>
+  </li>
+  <li>
+    <p>在C1上使用 <测试工具> 对S分别测试空文件(ITR为1500)</测试工具></p>
+  </li>
+  <li>
+    <p>测试中记录CPU占用率，网络吞吐量，RPS和平均响应时间指标</p>
+  </li>
+</ol>
+<p>测试结果：</p>
+<p>1、设置<code>access_log /data/access_log main;</code>的情况：</p>
+<p>与关闭日志相比，吞吐量下降，并且无法支持相同数并发（平均有20%的ab进程退出），只能在30×24的并发数情况下完成稳定测试。</p>
+<p><img src="/images/Nginx-testing-10Gibps/604d3126.png" alt="" /></p>
+<p>2、将日志写入SSD磁盘，验证是否有性能提升。</p>
+<p><img src="/images/Nginx-testing-10Gibps/m34c0cd58.png" alt="" /></p>
+<p>由上两图对比，可见虽然将日志写入SSD对RPS稍有提升，但离关闭日志的70万差距甚远，更换SSD没有实质的意义。</p>
+<p>3、普通磁盘上设置buffer=1024k参数</p>
+<p><img src="/images/Nginx-testing-10Gibps/5637f0f7.png" alt="" /></p>
+<p>4、设置buffer=64k参数</p>
+<p><img src="/images/Nginx-testing-10Gibps/m3d18099f.png" alt="" /></p>
+<p>5、设置buffer=4k参数</p>
+<p><img src="/images/Nginx-testing-10Gibps/m160f2f0b.png" alt="" /></p>
+<p>可见在使用buffer参数后，RPS明显提升到和关闭日志时一个数量级的水准。而buffer的大小，从4k到1024k，也可以提高10%左右。</p>
+<p>测试三各项数据对比如下：</p>
+<table>
+  <thead>
+    <tr>
+      <th><strong>配置</strong></th>
+      <th><strong>RPS</strong></th>
+      <th><strong>带宽(MBps)</strong></th>
+      <th><strong>Usr%</strong></th>
+      <th><strong>Sys%</strong></th>
+      <th><strong>irq%</strong></th>
+      <th style="text-align: right"><strong>稳定并发</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>关闭日志</td>
+      <td>691614</td>
+      <td>187.408</td>
+      <td>30.125</td>
+      <td>52.208</td>
+      <td>17.667</td>
+      <td style="text-align: right">50*24</td>
+    </tr>
+    <tr>
+      <td>打开日志</td>
+      <td>180148</td>
+      <td>49.074</td>
+      <td>8.966</td>
+      <td>21.337</td>
+      <td>4.483</td>
+      <td style="text-align: right">30*24</td>
+    </tr>
+    <tr>
+      <td>使用SSD</td>
+      <td>144347</td>
+      <td>39.179</td>
+      <td>10.875</td>
+      <td>25.708</td>
+      <td>5.750</td>
+      <td style="text-align: right">30*24</td>
+    </tr>
+    <tr>
+      <td>buffer4K</td>
+      <td>588767</td>
+      <td>159.297</td>
+      <td>27.613</td>
+      <td>55.352</td>
+      <td>16.951</td>
+      <td style="text-align: right">50*24</td>
+    </tr>
+    <tr>
+      <td>buffer64K</td>
+      <td>593022</td>
+      <td>160.172</td>
+      <td>26.845</td>
+      <td>57.065</td>
+      <td>16.048</td>
+      <td style="text-align: right">50*24</td>
+    </tr>
+    <tr>
+      <td>buffer1M</td>
+      <td>659290</td>
+      <td>177.959</td>
+      <td>32.042</td>
+      <td>51.875</td>
+      <td>16.000</td>
+      <td style="text-align: right">50*24</td>
+    </tr>
+  </tbody>
+</table>
+<h2 id="section-11">测试四</h2>
+<p>测试目标：了解nginx配置对性能的影响(tcp_nopush off)</p>
+<p>测试工具：ab</p>
+<p>测试方法：</p>
+<ol>
+  <li>
+    <p>S上做简单配置，同时关闭tcp_nopush off;</p>
+  </li>
+  <li>
+    <p>在C1上使用 <测试工具> 对S分别测试1232字节文件和1233字节文件</测试工具></p>
+  </li>
+  <li>
+    <p>测试中记录网络吞吐量，RPS和PPS指标</p>
+  </li>
+</ol>
+<p>测试预期：</p>
+<p>根据对TCP_NOPUSH的理解，在关闭此参数的情况下，1232字节文件的rps应该和开启状态下有较大差别。</p>
+<p>测试结果：</p>
+<p>1232字节文件数据：</p>
+<p>当ITR为1500时：</p>
+<p><img src="/images/Nginx-testing-10Gibps/51d7bf66.png" alt="" /></p>
+<p>峰值带宽比测试二中的数据稍差，但是运行不稳定，CPU的波动与rps图相对应，尝试加大并发则有client进程出现connection timeout错误。</p>
+<p>加大itr到15000后波动变的比较稳定。但RPS下降到40万，与测试二相差接近30%。数据如下：</p>
+<p><img src="/images/Nginx-testing-10Gibps/m21d6c756.png" alt="" /></p>
+<p>该项测试相关数据对比如下：</p>
+<table>
+  <thead>
+    <tr>
+      <th><strong>配置</strong></th>
+      <th><strong>RPS</strong></th>
+      <th><strong>带宽(MBps)</strong></th>
+      <th><strong>Usr%</strong></th>
+      <th><strong>Sys%</strong></th>
+      <th><strong>Irq%</strong></th>
+      <th style="text-align: right"><strong>退出进程</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>tcp_nopush on+ITR1500</td>
+      <td>579103</td>
+      <td>838.146</td>
+      <td>29.471</td>
+      <td>50.563</td>
+      <td>16.048</td>
+      <td style="text-align: right">0</td>
+    </tr>
+    <tr>
+      <td>tcp_nopush off+ITR1500</td>
+      <td>543050</td>
+      <td>817.746</td>
+      <td>27.095</td>
+      <td>51.438</td>
+      <td>21.467</td>
+      <td style="text-align: right">1</td>
+    </tr>
+    <tr>
+      <td>tcp_nopush off+ITR15000</td>
+      <td>393416</td>
+      <td>593.411</td>
+      <td>22.458</td>
+      <td>55.583</td>
+      <td>21.958</td>
+      <td style="text-align: right">0</td>
+    </tr>
+  </tbody>
+</table>
+<h2 id="section-12">测试五</h2>
+<p>测试目标：了解nginx的大致性能（代理模式）</p>
+<p>测试工具：ab</p>
+<p>测试方法：</p>
+<ol>
+  <li>
+    <p>S上nginx做简单配置，使其成为webserver，作为后端；</p>
+  </li>
+  <li>
+    <p>LB上nginx做简单配置，使其成为L7 HTTP 代理，所有请求代理至S。LB后端keepalive在测试中测试两种情况，即打开和关闭</p>
+  </li>
+  <li>
+    <p>在C1/C2上使用 <测试工具> 对LB分别测试空文件、1232字节文件和2590字节文件</测试工具></p>
+  </li>
+  <li>
+    <p>测试中记录S和LB的CPU占用率，网络吞吐量，RPS三个指标</p>
+  </li>
+</ol>
+<p>测试预期：</p>
+<ol>
+  <li>
+    <p>Keepalive关闭时，可能需要对LB的内核参数进行调整才能够完成测试；</p>
+  </li>
+  <li>
+    <p>Keepalive关闭时，仅调整内核参数可能不够，S需绑定多个IP地址，LB需使用S的多个IP地址；</p>
+  </li>
+</ol>
+<p>测试结果：</p>
+<p>（注：因为C1/C2的主板架构/CPU配置不一。8核的C2会先于24核的C1结束测试，后半段数据不如前半段稳定，不过单C1运行也基本可以逼近LB极限，不影响
+数据采集和判断。）</p>
+<p>1、空文件：</p>
+<p><img src="/images/Nginx-testing-10Gibps/m45af05e8.png" alt="" /></p>
+<p>2、1232字节文件</p>
+<p><img src="/images/Nginx-testing-10Gibps/4687c6d4.png" alt="" /></p>
+<p>3、2590字节文件</p>
+<p><img src="/images/Nginx-testing-10Gibps/m449464d4.png" alt="" /></p>
+<p>4、10K字节文件</p>
+<p><img src="/images/Nginx-testing-10Gibps/m3622cdb6.png" alt="" /></p>
+<p>根据测试二的经验，非空文件ITR为15000时表现更稳定，修改后数据如下：</p>
+<p>1、1232字节：</p>
+<p><img src="/images/Nginx-testing-10Gibps/9098f14.png" alt="" /></p>
+<p>2、2590字节：</p>
+<p><img src="/images/Nginx-testing-10Gibps/m7d14ebde.png" alt="" /></p>
+<p>3、10k字节文件</p>
+<p><img src="/images/Nginx-testing-10Gibps/278a77c9.png" alt="" /></p>
+<p>4、100k字节文件</p>
+<p><img src="/images/Nginx-testing-10Gibps/ffd255.png" alt="" /></p>
+<p>关闭proxy_keepalive，使用2台Client测试，并发2400。空文件测试带宽只能压到18MBps，LB和S的CPU
+idle都在85%以上。平均响应时间长达40ms。限于环境，压力测试无法继续进行。</p>
+<p>本测试proxy_keepalive情况时各项数据对比如下：</p>
+<table>
+  <thead>
+    <tr>
+      <th><strong>ITR+文件大小</strong></th>
+      <th><strong>RPS</strong></th>
+      <th><strong>带宽(MBps)</strong></th>
+      <th><strong>Usr%</strong></th>
+      <th><strong>Sys%</strong></th>
+      <th style="text-align: right"><strong>Irq%</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ITR1500+0Byte</td>
+      <td>392406</td>
+      <td>165.185</td>
+      <td>39.533</td>
+      <td>26.647</td>
+      <td style="text-align: right">30.234</td>
+    </tr>
+    <tr>
+      <td>ITR1500+1232Bytes</td>
+      <td>369582</td>
+      <td>588.209</td>
+      <td>41.142</td>
+      <td>28.595</td>
+      <td style="text-align: right">28.929</td>
+    </tr>
+    <tr>
+      <td>ITR1500+2590Bytes</td>
+      <td>296866</td>
+      <td>898.885</td>
+      <td>34.250</td>
+      <td>29.417</td>
+      <td style="text-align: right">36.167</td>
+    </tr>
+    <tr>
+      <td>ITR1500+10KBytes</td>
+      <td>118163</td>
+      <td>1167.280</td>
+      <td>17.870</td>
+      <td>18.319</td>
+      <td style="text-align: right">15.218</td>
+    </tr>
+    <tr>
+      <td>ITR15000+1232Bytes</td>
+      <td>370590</td>
+      <td>588.422</td>
+      <td>41.167</td>
+      <td>28.375</td>
+      <td style="text-align: right">29.208</td>
+    </tr>
+    <tr>
+      <td>ITR15000+2590Bytes</td>
+      <td>297289</td>
+      <td>897.755</td>
+      <td>34.890</td>
+      <td>28.429</td>
+      <td style="text-align: right">35.682</td>
+    </tr>
+    <tr>
+      <td>ITR15000+10KBytes</td>
+      <td>118033</td>
+      <td>1168.160</td>
+      <td>21.137</td>
+      <td>21.426</td>
+      <td style="text-align: right">25.752</td>
+    </tr>
+    <tr>
+      <td>ITR15000+100KBytes</td>
+      <td>11388</td>
+      <td>1168.890</td>
+      <td>4.798</td>
+      <td>12.542</td>
+      <td style="text-align: right">10.522</td>
+    </tr>
+  </tbody>
+</table>
+<h2 id="section-13">测试六</h2>
+<p>测试目标：nginx LB在多域名情况下的性能</p>
+<p>测试工具：ab</p>
+<p>测试方法：</p>
+<p>1、S上nginx做简单配置，使其成为webserver，作为后端；</p>
+<p>2、LB上nginx使用我司实际代理配置(800+域名)，使其成为L7 HTTP
+代理，所有请求代理至S。LB后端keepalive在测试中测试两种情况，即打开和关闭</p>
+<p>3、在C1上使用 <测试工具> 对LB分别测试单域名和随机多域名空文件请求</测试工具></p>
+<p>4、测试中记录S和LB的CPU占用率，网络吞吐量，RPS三个指标</p>
+<p>测试预期：</p>
+<p>多域名代理情况下性能应和直接通过IP访问在一个数量级内。</p>
+<p>测试结果：</p>
+<p>1、单域名：</p>
+<p><img src="/images/Nginx-testing-10Gibps/m76022a04.png" alt="" /></p>
+<p>2、随机域名。因为测试在2台服务器上一共开启了32个ab进程，即随机选出32个域名做的测试，结果如下：</p>
+<p><img src="/images/Nginx-testing-10Gibps/41f8c534.png" alt="" /></p>
+<p>3、关闭keepalive的情况：</p>
+<p><img src="/images/Nginx-testing-10Gibps/m6f56712d.png" alt="" /></p>
+<p>可见代理模式使用多个domain和upstream配置，对性能没有太大影响。有影响的依然是keepalive是否开启。具体数据对比如下：</p>
+<table>
+  <thead>
+    <tr>
+      <th><strong>测试条件</strong></th>
+      <th><strong>RPS</strong></th>
+      <th><strong>带宽(MBps)</strong></th>
+      <th><strong>Usr%</strong></th>
+      <th><strong>Sys%</strong></th>
+      <th style="text-align: right"><strong>Irq%</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>IP访问</td>
+      <td>392406</td>
+      <td>165.185</td>
+      <td>39.533</td>
+      <td>26.647</td>
+      <td style="text-align: right">30.234</td>
+    </tr>
+    <tr>
+      <td>单域名</td>
+      <td>377292</td>
+      <td>179.832</td>
+      <td>41.091</td>
+      <td>26.811</td>
+      <td style="text-align: right">29.559</td>
+    </tr>
+    <tr>
+      <td>多域名</td>
+      <td>384513</td>
+      <td>185.632</td>
+      <td>43.297</td>
+      <td>27.186</td>
+      <td style="text-align: right">28.185</td>
+    </tr>
+    <tr>
+      <td>No keepalive</td>
+      <td>34879</td>
+      <td>28.310</td>
+      <td>5.973</td>
+      <td>7.341</td>
+      <td style="text-align: right">9.083</td>
+    </tr>
+  </tbody>
+</table>
+<h2 id="section-14">测试七</h2>
+<p>测试目标：其他常见server性能对比</p>
+<p>测试工具：ab</p>
+<p>测试方法：</p>
+<p>Resin4pro加临时lisence，默认配置(关闭日志)，测试空文件。</p>
+<p>测试结果：</p>
+<p><img src="/images/Nginx-testing-10Gibps/m2e7e1790.png" alt="" /></p>
+<p>与nginx的webserver模式对比如下：</p>
+<table>
+  <thead>
+    <tr>
+      <th><strong>Webserver</strong></th>
+      <th><strong>RPS</strong></th>
+      <th><strong>带宽(MBps)</strong></th>
+      <th><strong>Usr%</strong></th>
+      <th><strong>Sys%</strong></th>
+      <th style="text-align: right"><strong>Irq%</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>resin4</td>
+      <td>44873</td>
+      <td>32.353</td>
+      <td>3.884</td>
+      <td>4.545</td>
+      <td style="text-align: right">10.455</td>
+    </tr>
+    <tr>
+      <td>Nginx1.2</td>
+      <td>691614</td>
+      <td>187.408</td>
+      <td>30.125</td>
+      <td>52.208</td>
+      <td style="text-align: right">17.667</td>
+    </tr>
+  </tbody>
+</table>
+<h1 id="section-15">术语及缩写说明</h1>
+<p>RPS: Requests per Second，每秒请求数</p>
+<p>PPS: Packets per second，每秒报文数</p>
+<h1 id="section-16">附注</h1>
+<p>生成图片的 GNUplot 脚本见<a href="http://chenlinux.com/2012/11/22/gnuplot-to-draw-multi-graph">http://chenlinux.com/2012/11/22/gnuplot-to-draw-multi-graph</a>。</p>
+      <a href="/2013/02/25/nginx-testing-10Gibps" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/02/22/setup-stf2" title="STF 2.0 安装测试" rel="bookmark">STF 2.0 安装测试</a>
     </h1>
     <p class="alt-font tight">
@@ -3554,187 +4388,6 @@ http://home.schmorp.de/</p>
 <p><strong>2013 年 02 月 26 日附注：</strong></p>
 <p>最新版的 Logstash::Outputs::ElasticSearchHTTP 已经加入随机选择 node 功能。是其他网友在 ftw 模块基础上添加的。</p>
       <a href="/2012/10/30/faraday-select-rand-node-for-logstash-output-elasticsearch-http" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/10/26/systemtap-and-file-descriptor" title="用systemtap调试文件描述符限制" rel="bookmark">用systemtap调试文件描述符限制</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-10-26 00:00:00 +0800">26 Oct 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>在运行一些非root用户进程的时候，我们都习惯要在前面加上一个ulimit -HSn 65535的命令。而且我们还知道关于文件描述符的限制，不止这一个地方，还有limits.conf，sysctl -w fs.file-max等等。但是到底这些是什么个关系呢？而且，如果是一个已经在运行的程序，有没有可能在更改他的文件描述符限制呢？</p>
-<p>以最经常碰到这种情况的squid为例。我们可以在squid/src/comm.c里看到<code>comm_openex()</code>是如何发现超出限制的，嗯，可以说没有&rdquo;自己发现&rdquo;，直接判断socket()是否成功而已。所以接下来的事情是看socket创建过程怎么判断的。</p>
-<p>关于socket过程，主要看kernel/net/socket.c和kernel/fs/file.c，作为C菜鸟，如下系列博文在这方面说的非常清楚，我就不详细说了：</p>
-<p><a href="http://blog.chinaunix.net/uid-23629988-id-3080166.html">TCP/IP源码学习(47)——socket与VFS的关联(1)</a></p>
-<p><a href="http://blog.chinaunix.net/uid-23629988-id-3083376.html">TCP/IP源码学习(48)——socket与VFS的关联(2)</a></p>
-<p>大体来说，就是socket本身是不触及这个限制的，但是创建出来的socket必须和文件描述符关联起来(<code>sock_map_fd()</code> &ndash; <code>sock_alloc_file()</code> &ndash; <code>get_unused_fd_flags()</code> &ndash; <code>alloc_fd()</code>)，这就相关了。在<code>alloc_fd()</code>中会读取当前进程(current)的fdtable，fdtable的结构由&rdquo;linux/fdtable.h&rdquo;定义如下：</p>
-<div class="highlight"><pre><code class="c">    <span class="k">struct</span> <span class="n">fdtable</span> <span class="p">{</span>
-        <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">max_fds</span><span class="p">;</span>
-        <span class="k">struct</span> <span class="n">file</span> <span class="o">**</span> <span class="n">fd</span><span class="p">;</span>      <span class="cm">/* current fd array */</span>
-        <span class="n">fd_set</span> <span class="o">*</span><span class="n">close_on_exec</span><span class="p">;</span>
-        <span class="n">fd_set</span> <span class="o">*</span><span class="n">open_fds</span><span class="p">;</span>
-        <span class="k">struct</span> <span class="n">rcu_head</span> <span class="n">rcu</span><span class="p">;</span>
-        <span class="k">struct</span> <span class="n">fdtable</span> <span class="o">*</span><span class="n">next</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="k">struct</span> <span class="n">files_struct</span> <span class="p">{</span>
-        <span class="kt">atomic_t</span> <span class="n">count</span><span class="p">;</span>
-        <span class="k">struct</span> <span class="n">fdtable</span> <span class="o">*</span><span class="n">fdt</span><span class="p">;</span>
-        <span class="k">struct</span> <span class="n">fdtable</span> <span class="n">fdtab</span><span class="p">;</span>
-        <span class="kt">spinlock_t</span> <span class="n">file_lock</span> <span class="n">____cacheline_aligned_in_smp</span><span class="p">;</span>
-        <span class="kt">int</span> <span class="n">next_fd</span><span class="p">;</span>
-        <span class="k">struct</span> <span class="n">embedded_fd_set</span> <span class="n">close_on_exec_init</span><span class="p">;</span>
-        <span class="k">struct</span> <span class="n">embedded_fd_set</span> <span class="n">open_fds_init</span><span class="p">;</span>
-        <span class="k">struct</span> <span class="n">file</span> <span class="o">*</span> <span class="n">fd_array</span><span class="p">[</span><span class="n">NR_OPEN_DEFAULT</span><span class="p">];</span>
-    <span class="p">};</span>
-    <span class="err">#</span><span class="n">define</span> <span class="n">files_fdtable</span><span class="p">(</span><span class="n">files</span><span class="p">)</span> <span class="p">(</span><span class="n">rcu_dereference</span><span class="p">((</span><span class="n">files</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">fdt</span><span class="p">))</span>
-</code></pre></div>
-<p>打开fd的过程如下：</p>
-<ol>
-  <li>如果有files-&gt;next_fd，直接使用;</li>
-  <li>否则从fdtable-&gt;open_fds-&gt;fds_bits[]找到fdtable-&gt;max_fds，到找到一个可用的为止;</li>
-  <li>否则说明当前fdtable不够用，需要扩充expand_files();</li>
-  <li>完成后把获得的fd+1赋值给files-&gt;next_fd，这样下次就可以直接用;</li>
-  <li>最后把这个fd加入fdtable-&gt;open_fds里。</li>
-</ol>
-<p>那么涉及max open files的显然就是这个<code>expand_files()</code>了。继续看，可以发现其中的判断分三部分：</p>
-<ol>
-  <li>if (nr &gt;= current-&gt;signal-&gt;rlim[RLIMIT_NOFILE].rlim_cur)</li>
-  <li>if (nr &lt; fdt-&gt;max_fds)</li>
-  <li>if (nr &gt;= sysctl_nr_open)</li>
-</ol>
-<p>都逃过之后才进入<code>expand_fdtable()</code>真正扩展。很好，现在我们看到之前就知道的ulimit/sysctl神马的是怎么限定的了。那么这第二个呢？我们可以找到files这个结构的init，如下：</p>
-<div class="highlight"><pre><code class="c">    <span class="k">struct</span> <span class="n">files_struct</span> <span class="n">init_files</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="p">.</span><span class="n">count</span>          <span class="o">=</span> <span class="n">ATOMIC_INIT</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
-        <span class="p">.</span><span class="n">fdt</span>            <span class="o">=</span> <span class="o">&amp;</span><span class="n">init_files</span><span class="p">.</span><span class="n">fdtab</span><span class="p">,</span>
-        <span class="p">.</span><span class="n">fdtab</span>          <span class="o">=</span> <span class="p">{</span>
-            <span class="p">.</span><span class="n">max_fds</span>        <span class="o">=</span> <span class="n">NR_OPEN_DEFAULT</span><span class="p">,</span>
-            <span class="p">.</span><span class="n">fd</span>             <span class="o">=</span> <span class="o">&amp;</span><span class="n">init_files</span><span class="p">.</span><span class="n">fd_array</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-            <span class="p">.</span><span class="n">close_on_exec</span>  <span class="o">=</span> <span class="p">(</span><span class="n">fd_set</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">init_files</span><span class="p">.</span><span class="n">close_on_exec_init</span><span class="p">,</span>
-            <span class="p">.</span><span class="n">open_fds</span>       <span class="o">=</span> <span class="p">(</span><span class="n">fd_set</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">init_files</span><span class="p">.</span><span class="n">open_fds_init</span><span class="p">,</span>
-            <span class="p">.</span><span class="n">rcu</span>            <span class="o">=</span> <span class="n">RCU_HEAD_INIT</span><span class="p">,</span>
-        <span class="p">},</span>
-        <span class="p">.</span><span class="n">file_lock</span>      <span class="o">=</span> <span class="n">__SPIN_LOCK_UNLOCKED</span><span class="p">(</span><span class="n">init_task</span><span class="p">.</span><span class="n">file_lock</span><span class="p">),</span>
-    <span class="p">};</span>
-</code></pre></div>
-<p>这个<code>NR_OPEN_DEFAULT</code>可以在fdtable.h里看到就是<code>BITS_PER_LONG</code>。<code>BITS_PER_LONG</code>应该是32或者64，取决于CPU是32还是64位的了。</p>
-<p>其实这里还可以继续看<code>alloc_fdtable()</code>中怎么确定新扩展的<code>fdt-&gt;max_fds</code>的，如果nr大于sysctl的设定，那么nr会计算成</p>
-<div class="highlight"><pre><code class="c">    <span class="p">((</span><span class="n">sysctl_nr_open</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">BITS_PER_LONG</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span>
-</code></pre></div>
-<p>然后<code>copy_fdtable()</code>转移数据，奇怪的是看到转移完后，还判断了原有<code>fdt-&gt;max_fds &gt; NR_OPEN_DEFAULT</code>才释放，我不清楚什么情况下会有<code>fdt-&gt;max_fds</code>小于init值了&hellip;</p>
-<p>回到主题。三个条件里后两个条件都很明白了。现在就是第一个，这是根据current不同有不同的，我们可以试试看如果修改这个值会怎么样？</p>
-<p>修改工具我用到了systemtap大神器，不过我是菜鸟啦～脚本如下：</p>
-<div class="highlight"><pre><code class="c">    <span class="err">#</span><span class="o">!/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="n">stap</span>
-    <span class="o">%</span><span class="p">{</span>
-    <span class="err">#</span><span class="n">include</span> <span class="o">&lt;</span><span class="n">linux</span><span class="o">/</span><span class="n">sched</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
-    <span class="err">#</span><span class="n">include</span> <span class="o">&lt;</span><span class="n">linux</span><span class="o">/</span><span class="n">resource</span><span class="p">.</span><span class="n">h</span><span class="o">&gt;</span>
-    <span class="o">%</span><span class="p">}</span>
-    <span class="n">probe</span> <span class="n">begin</span> <span class="p">{</span>
-        <span class="n">printf</span><span class="p">(</span><span class="s">&quot;begin...</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">)</span>
-    <span class="p">}</span>
-    <span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">function</span><span class="p">(</span><span class="s">&quot;expand_files@fs/file.c&quot;</span><span class="p">).</span><span class="n">call</span>
-    <span class="p">{</span>
-        <span class="k">if</span> <span class="p">(</span> <span class="n">execname</span><span class="p">()</span> <span class="o">==</span> <span class="s">&quot;squid&quot;</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="n">printf</span><span class="p">(</span><span class="s">&quot;[%s] %s fdt:%d, task:%d, rlim:%d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">tz_ctime</span><span class="p">(</span><span class="n">gettimeofday_s</span><span class="p">()),</span> <span class="n">execname</span><span class="p">(),</span> <span class="err">$</span><span class="n">files</span><span class="o">-&gt;</span><span class="n">fdtab</span><span class="o">-&gt;</span><span class="n">max_fds</span><span class="p">,</span> <span class="n">task_open_file_handles</span><span class="p">(</span><span class="n">task_current</span><span class="p">()),</span> <span class="n">rlim_cur</span><span class="p">());</span>
-            <span class="n">printf</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">args_nr: %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="err">$</span><span class="n">nr</span><span class="p">);</span>
-            <span class="k">if</span> <span class="p">(</span> <span class="n">rlim_cur</span><span class="p">()</span> <span class="o">&lt;</span> <span class="err">$</span><span class="mi">1</span> <span class="p">)</span> <span class="p">{</span>
-                <span class="n">printf</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">set rlim: %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">set_rlim_cur</span><span class="p">(</span><span class="err">$</span><span class="mi">1</span><span class="p">));</span>
-                <span class="n">exit</span><span class="p">();</span>
-            <span class="p">}</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-    <span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">function</span><span class="p">(</span><span class="s">&quot;expand_files@fs/file.c&quot;</span><span class="p">).</span><span class="k">return</span>
-    <span class="p">{</span>
-        <span class="k">if</span> <span class="p">(</span> <span class="n">execname</span><span class="p">()</span> <span class="o">==</span> <span class="s">&quot;squid&quot;</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="n">printf</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">return: %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="err">$</span><span class="k">return</span><span class="p">);</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-    <span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">function</span><span class="p">(</span><span class="s">&quot;expand_fdtable&quot;</span><span class="p">)</span>
-    <span class="p">{</span>
-        <span class="n">printf</span><span class="p">(</span><span class="s">&quot;%s call fdtable with %s&quot;</span><span class="p">,</span> <span class="n">execname</span><span class="p">(),</span> <span class="err">$$</span><span class="n">vars</span><span class="p">);</span>
-    <span class="p">}</span>
-    <span class="n">function</span> <span class="n">rlim_cur</span><span class="o">:</span><span class="kt">long</span> <span class="p">()</span>
-    <span class="o">%</span><span class="p">{</span> <span class="cm">/* pure */</span> <span class="cm">/* unprivileged */</span>
-        <span class="k">struct</span> <span class="n">signal_struct</span> <span class="o">*</span><span class="n">ss</span> <span class="o">=</span> <span class="n">kread</span><span class="p">(</span> <span class="o">&amp;</span><span class="p">(</span><span class="n">current</span><span class="o">-&gt;</span><span class="n">signal</span><span class="p">)</span> <span class="p">);</span>
-        <span class="n">THIS</span><span class="o">-&gt;</span><span class="n">__retvalue</span> <span class="o">=</span> <span class="n">kread</span> <span class="p">(</span><span class="o">&amp;</span><span class="p">(</span><span class="n">ss</span><span class="o">-&gt;</span><span class="n">rlim</span><span class="p">[</span><span class="n">RLIMIT_NOFILE</span><span class="p">].</span><span class="n">rlim_cur</span><span class="p">));</span>
-        <span class="n">CATCH_DEREF_FAULT</span><span class="p">();</span>
-    <span class="o">%</span><span class="p">}</span>
-    <span class="n">function</span> <span class="n">set_rlim_cur</span><span class="o">:</span><span class="kt">long</span> <span class="p">(</span><span class="n">val</span><span class="o">:</span><span class="kt">long</span><span class="p">)</span>
-    <span class="o">%</span><span class="p">{</span> <span class="cm">/* pure */</span> <span class="cm">/* unprivileged */</span>
-        <span class="k">struct</span> <span class="n">signal_struct</span> <span class="o">*</span><span class="n">ss</span> <span class="o">=</span> <span class="n">kread</span><span class="p">(</span> <span class="o">&amp;</span><span class="p">(</span><span class="n">current</span><span class="o">-&gt;</span><span class="n">signal</span><span class="p">)</span> <span class="p">);</span>
-        <span class="n">kwrite</span><span class="p">(</span><span class="o">&amp;</span><span class="p">(</span><span class="n">ss</span><span class="o">-&gt;</span><span class="n">rlim</span><span class="p">[</span><span class="n">RLIMIT_NOFILE</span><span class="p">].</span><span class="n">rlim_cur</span><span class="p">),</span> <span class="n">THIS</span><span class="o">-&gt;</span><span class="n">val</span><span class="p">);</span>
-        <span class="n">CATCH_DEREF_FAULT</span><span class="p">();</span>
-    <span class="o">%</span><span class="p">}</span>
-</code></pre></div>
-<p>systemtap自己提供了一系列tapset函数，比如这里的execname(),task_*都是。注意systemtap是脚本语言的，所以这些函数直接在/usr/share/systemtap/下面可以看怎么写的。比如我上面定义的两个function就是仿照里面<code>task_max_file_handles()</code>写的。</p>
-<p>用%和{}标记的是内嵌C代码，systemtap在编译成C的时候直接插入进去，可以stap -k保留在/tmp/stap123456下查看的到。</p>
-<p>kread/kwrite是systemtap-runtime提供的函数，封装的是put_user/get_user指令。</p>
-<p>现在我们启动squid进程和stap脚本：</p>
-<div class="highlight"><pre><code class="bash">    <span class="nb">ulimit</span> -HSn 256;squid -D
-    stap -g max_fds.stp 1024
-</code></pre></div>
-<p>注意要加-g，否则不会加载内嵌C的。
-另开窗口发起一次请求，然后看到stap输出：</p>
-<pre><code>begin...
-[Fri Oct 26 19:20:34 2012 CST] squid fdt:64, task:16, rlim:256
-        args_nr: 12
-        set rlim: 0
-</code></pre>
-<p>额，这个set是返回值0。function里如果把kwrite的返回值赋给<code>THIS-&gt;retvalue</code>会报void的错误。挺奇怪的。</p>
-<p>再运行stap，发起请求，就可以看到squid的rlim变成1024了：</p>
-<pre><code>begin...
-[Fri Oct 26 19:24:40 2012 CST] squid fdt:64, task:16, rlim:1024
-        args_nr: 12
-        return: 0
-[Fri Oct 26 19:24:40 2012 CST] squid fdt:64, task:17, rlim:1024
-        args_nr: 17
-        return: 0
-</code></pre>
-<p>不过我的虚拟机跑不出这么大的并发，没法超过<code>BITS_PER_LONG</code>的64。所以我们可以换一个思路来验证<code>expand_files()</code>的执行。</p>
-<ul>
-  <li>先ulimit -HSn 16启动squid，然后stap修改到1024</li>
-</ul>
-<p>这个时候，搞笑而现实的事情发生了。nr越过了1024的判断，却越不过<code>BITS_PER_LONG</code>的判断，于是<code>expand_files</code>永远过不去。squid的max open files只能停留在16。这一步的return是0。所以看到stap里.return{}打印的是0。</p>
-<ul>
-  <li>先ulimit -HSn 1024启动squid，然后stap修改到16</li>
-</ul>
-<p>这个时候，由之前的测试可以看到，squid本身就要用掉十多个fd来维护运行的。所以基本一接请求nr就超过16了。squid完全无法响应请求。这一步的return是-EMFILE，于是屏幕上开始出现一行行squid call fdtable {.n}&hellip;&hellip;&hellip;</p>
-<p>附注：使用systemtap需要debuginfo。内核调试需要kernel-debuginfo/kernel-devel，程序也需要。如果是自己编译的，没问题直接probe process(&ldquo;${path}/command&rdquo;)即可，如果是rpm安装的，那就必须得把debuginfo包安装上，比如nginx-debuginfo.rpm这样子。</p>
-<p>2012年12月3日更新：</p>
-<p>采用tc延时的办法，可以达到在虚拟机上获取squid高连接的模拟环境。然后作出如下修正：</p>
-<ul>
-  <li>在修改<code>rlim_cur</code>的时候也需要修改<code>rlim_max</code></li>
-</ul>
-<p>在上面的缩小测试里不会触发问题，不过在增大的测试中，问题来了——<code>setrlimit()</code>函数会很诧异为毛自己参数里那个<code>&amp;rl</code>的<code>rlim_cur</code>比<code>rlim_max</code>还大？然后悲剧的报出&rdquo;etrlimit(RLIMIT_NOFILE) failed: Invalid argument (22)&rdquo;的错误……</p>
-<div class="highlight"><pre><code class="c">    <span class="n">kwrite</span><span class="p">(</span><span class="o">&amp;</span><span class="p">(</span><span class="n">ss</span><span class="o">-&gt;</span><span class="n">rlim</span><span class="p">[</span><span class="n">RLIMIT_NOFILE</span><span class="p">].</span><span class="n">rlim_max</span><span class="p">),</span> <span class="n">THIS</span><span class="o">-&gt;</span><span class="n">val</span><span class="p">);</span>
-</code></pre></div>
-<ul>
-  <li>对于squid还需要修改<code>Squid_MaxFD</code>全局变量</li>
-</ul>
-<p>上面都是对kernel里的socket和file的修改，在实际运用中，用户程序本身也会有各种判断。squid维护了一堆全局变量，比如<code>Squid_MaxFD</code>，<code>Biggest_FD</code>和<code>Number_FD</code>，这就是squidclient mgr:info里看到的关于文件描述符的那几个值。其中<code>Squid_MaxFD</code>是在init的时候根据主进程启动时的ulimit情况一次性设定的，即便child进程重启也不会变。而<code>Biggest_FD</code>则是由<code>fdUpdateBiggest()</code>函数每次更新。不巧的是，里面有这么一句判断：</p>
-<div class="highlight"><pre><code class="c">    <span class="n">assert</span><span class="p">(</span><span class="n">fd</span> <span class="o">&lt;</span> <span class="n">Squid_MaxFD</span><span class="p">);</span>
-</code></pre></div>
-<p>所以，光修改kernel里的限制，socket返回后在更新<code>Biggest_FD</code>时squid会直接挂掉……</p>
-<p>下面是修改squid进程里全局变量的办法，和修改kernel其实很类似：</p>
-<div class="highlight"><pre><code class="c"><span class="n">probe</span> <span class="nf">process</span><span class="p">(</span><span class="s">&quot;/usr/sbin/squid&quot;</span><span class="p">).</span><span class="n">function</span><span class="p">(</span><span class="s">&quot;fdUpdateBiggest@src/fd.c&quot;</span><span class="p">)</span>        
-<span class="p">{</span>                                                                            
-    <span class="k">if</span> <span class="p">(</span> <span class="err">$</span><span class="n">Squid_MaxFD</span> <span class="o">&lt;</span> <span class="mi">65535</span> <span class="p">)</span> <span class="p">{</span>                                            
-        <span class="err">$</span><span class="n">Squid_MaxFD</span> <span class="o">=</span> <span class="mi">65535</span><span class="p">;</span>                                                
-    <span class="p">}</span>                                                                        
-<span class="p">}</span> 
-</code></pre></div>
-<p>把上面两个修改加入到之前的文件，然后测试增大ulimit限制(记住ulimit要大于64，否则不起作用哟)，就没问题了。</p>
-      <a href="/2012/10/26/systemtap-and-file-descriptor" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
