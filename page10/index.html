@@ -43,6 +43,43 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/10/21/auto-refresh-of-pnp4nagios" title="页面自动刷新小问题" rel="bookmark">页面自动刷新小问题</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-10-21 00:00:00 +0800">21 Oct 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>cacti的页面，每5分钟自动刷新一次，这样就可以“实时”的看到rrd绘图的最新结果。</p>
+<p>nagios加上pnp插件后，也有rrd绘图的页面，但却没有自动刷新。</p>
+<p>查看pnp/config.cfg，里面已经配置了$conf[&lsquo;refresh&rsquo;] = &ldquo;90&rdquo;;但页面没有反应。</p>
+<p>于是分别查看cacti和pnp的页面源代码，cacti的如下：</p>
+<p>&lt;meta http-equiv=refresh content=&rsquo;300&rsquo;&gt;</p>
+<p>pnp的如下：</p>
+<meta http-equiv="refresh" content="90; URL=***" />
+<p>看来时这个META标签写法不对，修改nagios/share/pnp/include/funcation.inc.php如下：</p>
+<ul>
+  <li>
+    <p>print &ldquo;&lt;meta http-equiv="refresh" content="&rdquo; . $conf[&lsquo;refresh&rsquo;] . &ldquo;; URL=&rdquo; . $_SERVER[&lsquo;REQUEST_URI&rsquo;] . &ldquo;"&gt;\n&rdquo;;</p>
+  </li>
+  <li>
+    <p>print &ldquo;&lt;meta http-equiv="refresh" content="&rdquo;.$conf[&lsquo;refresh&rsquo;].&rdquo;"&gt;\n&rdquo;;</p>
+  </li>
+</ul>
+<p>保存退出，刷新页面后等待90s，果然更新了~~</p>
+      <a href="/2010/10/21/auto-refresh-of-pnp4nagios" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/10/20/solution-of-tcp_overflow" title="tcp overflow报错" rel="bookmark">tcp overflow报错</a>
     </h1>
     <p class="alt-font tight">
@@ -1343,55 +1380,6 @@ Ctrl+F5刷新：
 <p>dns 上也没有配反向解析。    </p>
 <p>实在想不到还有哪里能泄露出这个toold了……    </p>
       <a href="/2010/07/17/location-seo" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/07/17/intro-netapp" title="初识NetApp存储" rel="bookmark">初识NetApp存储</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-07-17 00:00:00 +0800">17 Jul 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>对专门的存储设备实在所知甚少，今天有时间找了找netapp的资料看看，有点基本了解。资料见豆丁：<a href="http://www.docin.com/p-56454923.html">http://www.docin.com/p-56454923.html</a>    </p>
-<p>从系统运维角度来说，首先关注的是RAID部分，netapp自定义有RAID-DP。这是一个私有的RAID6解决方案，在RAID4的基础上发展而来的。  <br />
-RAID4即专有一个同位数据校验盘，原始数据以块大小分割存储；  <br />
-RAID5则将同位校验数据和原始数据重新组合，以位大小分割存储；  <br />
-RAID6标准是在存放同位校验数据同时，还增加了针对块的校验数据；  <br />
-RAID-DP，同时拥有两种校验，并把这两种校验都单独存盘。  <br />
-即，RAID-DP，每组至少需要3个盘；而据资料显示，netapp最多支持每组28个盘，默认则是16个。    </p>
-<p>多个RAID组组成一个Plex，然后plex组成aggregate。从资料上看，aggr中的plex一般不多。这些硬件上的情况，可以用aggr status -r来查看。  <br />
-在aggr上，再进行逻辑卷volume的划分，一个flexvol最小20MB，最大16T，可以4K大小的加减；最多可以创建500个flexvol。    </p>
-<p>然后是使用方式，DAS/NAS/SAN都行，现在在用的是NFS挂载（NAS），以后或许试试iscsi（SAN）。这部分内容看之前相关博文就行。    </p>
-<p>IO方式，分file和blockI/O两种。    </p>
-<p>监控方式，netapp自带一些性能监控命令，sysstat、nfsstat、netstat等等。    </p>
-<hr />
-<p>在存储设备选择比较时，最经常被提及的一个参数是IOPS，即每秒IO操作数。  <br />
-在netapp上运行sysstat命令，看到最前列有个ops/s，峰值高达15k。这个数值被设备方的销售认为是绝对不可能的……    </p>
-<p>于是抠字眼吧，iops和ops有什么不同呢？有文档说ops叫每秒并发操作数，并不限定是IO。不过作为专业存储设备，基本除了IO也不会有什么别的操作了吧？    </p>
-<p>正好，因为图省事，我比较喜欢看设备的web界面性能监控页自动画出的柱状图。第二个图就是ops/s的图，图左的文字说明是“Network File Operate per second“，即每秒网络文件操作数。而询问销售，IOPS却是指的block的操作数——区别就在这里！    </p>
-<p>因为采用NFS挂载存储的方式无法直接观察block的操作监控，最后采用一个估算的办法，统计每秒IO的文件大小，然后除以block的大小，得出每秒IO操作数。  <br />
-还是用systat命令，取max的r/s和w/s（KB）值，相加得32k。  <br />
-然后用aggr status -b命令，取得block值为4KB，估算得IOPS为8k。  <br />
-还是用aggr status -r命令，取得disk的总数为42，估算每块盘的IOPS为180。  <br />
-和网上的评论比较，一般测试在170多的时候性能最好，再高就下降。看来这个设备运行在比较悬的状态了——目前CPU监测使用率在95%左右。    </p>
-<p>存储上的磁盘都是15000转的，在IO发生时，磁盘要转动，机头要移动，都需要时间，开始计算：  <br />
-15000/60=250PRS  <br />
-1/250=0.004spr=4mspr  <br />
-4/2=2ms（磁盘转动耗时RD，最多半圈）  <br />
-2+4=6ms（机头寻道时间，百度一下，希捷3.4，日立3.3，都是最快的那种，就按4ms算吧）  <br />
-1000/6=167IOPS（按日立那个最快的算是188）    </p>
-<p>写到最后，在CU上看到一个好帖子，链接如右：<a href="http://bbs.chinaunix.net/thread-1607334-1-1.html">http://bbs.chinaunix.net/thread-1607334-1-1.html</a>    </p>
-      <a href="/2010/07/17/intro-netapp" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

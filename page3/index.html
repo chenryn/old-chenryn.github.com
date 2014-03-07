@@ -43,6 +43,118 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/03/15/puppet-provider-development" title="Puppet 自定义 Provider" rel="bookmark">Puppet 自定义 Provider</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-03-15 00:00:00 +0800">15 Mar 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#devops-ref" title="devops" rel="category tag">devops</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>Puppet 默认提供了相当多的资源类型，不过我们还可以更进一步的扩展这个庞大的阵营。比如在 <code>package</code> 类型的资源里，我们看到 puppet 除了系统级别的<code>yum</code>,<code>apt</code>之类意外，还提供了 <code>gem</code>,<code>pip</code> 来管理 ruby 和 python 的 package。那么很自然的，我们就可以进一步扩充 <code>package</code> 来管理 perl 的 package 。只需要新加一个 provider 就可以了。</p>
+<p>关于 provider 开发的原理说明，见 <a href="http://docs.puppetlabs.com/guides/provider_development.html">http://docs.puppetlabs.com/guides/provider_development.html</a>。</p>
+<p>下面是 <code>/etc/puppet/modules/production/myclass/lib/puppet/provider/package/cpan.rb</code> 的内容，他会被 puppet 以 <code>pluginsync</code> 的方式下发。</p>
+<div class="highlight"><pre><code class="ruby"><span class="c1"># 加载父类，这里是扩展 package 功能</span>
+<span class="nb">require</span> <span class="s1">&#39;puppet/provider/package&#39;</span>
+<span class="ss">Puppet</span><span class="p">:</span><span class="ss">:Type</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="ss">:package</span><span class="p">)</span><span class="o">.</span><span class="n">provide</span> <span class="ss">:cpan</span><span class="p">,</span> <span class="ss">:parent</span> <span class="o">=&gt;</span> <span class="ss">Puppet</span><span class="p">:</span><span class="ss">:Provider</span><span class="o">::</span><span class="no">Package</span> <span class="k">do</span>
+  <span class="n">desc</span> <span class="s2">&quot;CPAN modules support.  You can pass any `source` which `cpanm` support, </span>
+<span class="s2">    like URL, git repos and local tar.gz. If source is not present at all,</span>
+<span class="s2">    the module will be installed from the default CPAN source.</span>
+<span class="s2">    You must install App::cpanminus, App::pmodinfo, App::pmuninstall before.&quot;</span>
+  <span class="n">has_feature</span> <span class="ss">:versionable</span>
+  <span class="c1"># 下面这个是 Puppet::Provider 提供的私有方法，用来指定类内部适用的系统命令</span>
+  <span class="c1"># puppet agent 会通过对这个的运行测试来确认该 provider 是否适用于本机</span>
+  <span class="c1"># 所以在使用这个 provider 之前，要先通过其他方式在 node 上安装好这三个命令</span>
+  <span class="n">commands</span> <span class="ss">:cpanmcmd</span> <span class="o">=&gt;</span> <span class="s2">&quot;cpanm&quot;</span>
+  <span class="n">commands</span> <span class="ss">:pmodinfocmd</span> <span class="o">=&gt;</span> <span class="s2">&quot;pmodinfo&quot;</span>
+  <span class="n">commands</span> <span class="ss">:pmuninstallcmd</span> <span class="o">=&gt;</span> <span class="s2">&quot;pm-uninstall&quot;</span>
+  <span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">pmodlist</span><span class="p">(</span><span class="n">options</span><span class="p">)</span>
+    <span class="n">pmodlist_command</span> <span class="o">=</span> <span class="o">[</span><span class="n">command</span><span class="p">(</span><span class="ss">:pmodinfocmd</span><span class="p">),</span><span class="o">]</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">[</span><span class="ss">:local</span><span class="o">]</span>
+      <span class="n">pmodlist_command</span> <span class="o">&lt;&lt;</span> <span class="s2">&quot;-l&quot;</span>
+    <span class="k">else</span>
+      <span class="n">pmodlist_command</span> <span class="o">&lt;&lt;</span> <span class="s2">&quot;-c&quot;</span>
+    <span class="k">end</span>
+    <span class="k">if</span> <span class="nb">name</span> <span class="o">=</span> <span class="n">options</span><span class="o">[</span><span class="ss">:justme</span><span class="o">]</span>
+      <span class="n">pmodlist_command</span> <span class="o">&lt;&lt;</span> <span class="nb">name</span>
+      <span class="c1"># execute 是 Puppet::Util::Execution 提供的方法，接受数组传入，输出标准输出结果字符串</span>
+      <span class="n">list</span> <span class="o">=</span> <span class="o">[</span><span class="n">execute</span><span class="p">(</span><span class="n">pmodlist_command</span><span class="p">)</span><span class="o">].</span><span class="n">map</span> <span class="p">{</span><span class="o">|</span><span class="n">set</span><span class="o">|</span> <span class="n">pmodsplit</span><span class="p">(</span><span class="n">set</span><span class="p">)</span> <span class="p">}</span><span class="o">.</span><span class="n">reject</span> <span class="p">{</span><span class="o">|</span><span class="n">x</span><span class="o">|</span> <span class="n">x</span><span class="o">.</span><span class="n">nil?</span> <span class="p">}</span>
+    <span class="k">else</span>
+      <span class="n">list</span> <span class="o">=</span> <span class="n">execute</span><span class="p">(</span><span class="n">pmodlist_command</span><span class="p">)</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">map</span> <span class="p">{</span><span class="o">|</span><span class="n">set</span><span class="o">|</span> <span class="n">pmodsplit</span><span class="p">(</span><span class="n">set</span><span class="p">)</span> <span class="p">}</span><span class="o">.</span><span class="n">reject</span> <span class="p">{</span><span class="o">|</span><span class="n">x</span><span class="o">|</span> <span class="n">x</span><span class="o">.</span><span class="n">nil?</span> <span class="p">}</span>
+    <span class="k">end</span>
+    <span class="k">if</span> <span class="nb">name</span> <span class="o">=</span> <span class="n">options</span><span class="o">[</span><span class="ss">:justme</span><span class="o">]</span>
+      <span class="k">return</span> <span class="n">list</span><span class="o">.</span><span class="n">shift</span>
+    <span class="k">else</span>
+      <span class="k">return</span> <span class="n">list</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+  <span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">pmodsplit</span><span class="p">(</span><span class="n">desc</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">desc</span> <span class="o">=~</span> <span class="sr">/^(\S+) version is (.+)\.(\n  Last cpan version: (.+))?/</span>
+      <span class="nb">name</span> <span class="o">=</span> <span class="vg">$1</span>
+      <span class="c1"># 整个rb是从gem.rb复制过来的，gem list -r所有版本列成一行，split成一个数组</span>
+      <span class="c1"># 这里为了改动少点，就照样做成数组</span>
+      <span class="n">versions</span> <span class="o">=</span> <span class="o">[</span><span class="vg">$2</span><span class="o">]</span>
+      <span class="k">if</span> <span class="n">latest_version</span> <span class="o">=</span> <span class="vg">$3</span>
+        <span class="n">versions</span><span class="o">.</span><span class="n">unshift</span><span class="p">(</span><span class="vg">$4</span><span class="p">)</span>
+      <span class="k">end</span>
+      <span class="p">{</span>
+        <span class="ss">:name</span>     <span class="o">=&gt;</span> <span class="nb">name</span><span class="p">,</span>
+        <span class="ss">:ensure</span>   <span class="o">=&gt;</span> <span class="n">versions</span><span class="p">,</span>
+        <span class="ss">:provider</span> <span class="o">=&gt;</span> <span class="ss">:cpan</span>
+      <span class="p">}</span>
+    <span class="k">else</span>
+      <span class="no">Puppet</span><span class="o">.</span><span class="n">warning</span> <span class="s2">&quot;Could not match </span><span class="si">#{</span><span class="n">desc</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">unless</span> <span class="n">desc</span><span class="o">.</span><span class="n">chomp</span><span class="o">.</span><span class="n">empty?</span>
+      <span class="kp">nil</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+  <span class="c1"># 这个 instances 方法是 provider 必须提供，在package里就是本地模块的列表</span>
+  <span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">instances</span><span class="p">(</span><span class="n">justme</span> <span class="o">=</span> <span class="kp">false</span><span class="p">)</span>
+    <span class="n">pmodlist</span><span class="p">(</span><span class="ss">:local</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span> <span class="k">do</span> <span class="o">|</span><span class="nb">hash</span><span class="o">|</span>
+      <span class="kp">new</span><span class="p">(</span><span class="nb">hash</span><span class="p">)</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+  <span class="c1"># 往下的方法都是 package 要求提供的</span>
+  <span class="k">def</span> <span class="nf">install</span><span class="p">(</span><span class="n">useversion</span> <span class="o">=</span> <span class="kp">true</span><span class="p">)</span>
+    <span class="n">command</span> <span class="o">=</span> <span class="o">[</span><span class="n">command</span><span class="p">(</span><span class="ss">:cpanmcmd</span><span class="p">)</span><span class="o">]</span>
+    <span class="c1"># cpanm 指定安装版本的命令格式是这样： cpanm Dancer@1.000</span>
+    <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span> <span class="o">+=</span> <span class="s1">&#39;@&#39;</span> <span class="o">+</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:ensure</span><span class="o">]</span> <span class="k">if</span> <span class="p">(</span><span class="o">!</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:ensure</span><span class="o">].</span><span class="n">is_a?</span> <span class="no">Symbol</span><span class="p">)</span> <span class="ow">and</span> <span class="n">useversion</span>
+    <span class="n">command</span> <span class="o">&lt;&lt;</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">execute</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+    <span class="nb">self</span><span class="o">.</span><span class="n">fail</span> <span class="s2">&quot;Could not install: </span><span class="si">#{</span><span class="n">output</span><span class="o">.</span><span class="n">chomp</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">output</span><span class="o">.</span><span class="n">include?</span><span class="p">(</span><span class="s2">&quot;failed&quot;</span><span class="p">)</span>
+  <span class="k">end</span>
+  <span class="k">def</span> <span class="nf">latest</span>
+    <span class="n">pmodinfo_options</span> <span class="o">=</span> <span class="p">{</span><span class="ss">:justme</span> <span class="o">=&gt;</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span><span class="p">}</span>
+    <span class="nb">hash</span> <span class="o">=</span> <span class="nb">self</span><span class="o">.</span><span class="n">class</span><span class="o">.</span><span class="n">pmodlist</span><span class="p">(</span><span class="n">pmodlist_options</span><span class="p">)</span>
+    <span class="c1"># 这里就是前面要用数组的原因了</span>
+    <span class="nb">hash</span><span class="o">[</span><span class="ss">:ensure</span><span class="o">][</span><span class="mi">0</span><span class="o">]</span>
+  <span class="k">end</span>
+  <span class="c1"># 请求本地是否存在具体某个包</span>
+  <span class="k">def</span> <span class="nf">query</span>
+    <span class="nb">self</span><span class="o">.</span><span class="n">class</span><span class="o">.</span><span class="n">pmodlist</span><span class="p">(</span><span class="ss">:justme</span> <span class="o">=&gt;</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span><span class="p">,</span> <span class="ss">:local</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">)</span>
+  <span class="k">end</span>
+  <span class="k">def</span> <span class="nf">uninstall</span>
+    <span class="n">pmuninstallcmd</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span>
+  <span class="k">end</span>
+  <span class="k">def</span> <span class="nf">update</span>
+    <span class="nb">self</span><span class="o">.</span><span class="n">install</span><span class="p">(</span><span class="kp">false</span><span class="p">)</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div>
+<p>在一台没有安装 cpanm 等命令的主机上运行 <code>puppet agent --debug</code>，可以看到这么一行输出：</p>
+<pre><code>debug: Puppet::Type::Package::ProviderCpan: file cpanm does not exist
+</code></pre>
+      <a href="/2013/03/15/puppet-provider-development" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/03/14/JPush-example" title="极光推送demo" rel="bookmark">极光推送demo</a>
     </h1>
     <p class="alt-font tight">
@@ -4183,196 +4295,6 @@ curl -X POST <span class="s2">&quot;http://localhost:9200/dashboard/_refresh&quo
 <p>Marc Lehmann <a href="&#109;&#097;&#105;&#108;&#116;&#111;:&#115;&#099;&#104;&#109;&#111;&#114;&#112;&#064;&#115;&#099;&#104;&#109;&#111;&#114;&#112;&#046;&#100;&#101;">&#115;&#099;&#104;&#109;&#111;&#114;&#112;&#064;&#115;&#099;&#104;&#109;&#111;&#114;&#112;&#046;&#100;&#101;</a>
 http://home.schmorp.de/</p>
       <a href="/2012/11/18/coro" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/11/09/chrome-app-demo" title="Chrome的APP简单用法" rel="bookmark">Chrome的APP简单用法</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-11-09 00:00:00 +0800">09 Nov 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>学习一下简单的chrome app写法。首先，chrome的ext和web app和packaged app就要分清楚。简单说，ext就是可以出现在地址栏右侧的，app是可以出现在任务栏右侧的。而web app其实就是用json描述了一个url地址，packaged app则是最接近普通桌面程序的，需要完整的带有html/css/js等内容。但同时，因为packaged app可以在关闭chrome浏览器后运行，所以有些浏览器上的API它也用不了。</p>
-<p>首先上一个web app的demo，只要一个manifest.json在本地就够了。关键点是app里指定为url，permissions指定需要的权限。</p>
-<div class="highlight"><pre><code class="javascript"><span class="p">{</span>
-  <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;WebApp&quot;</span><span class="p">,</span>
-  <span class="s2">&quot;version&quot;</span><span class="o">:</span> <span class="s2">&quot;0.1&quot;</span><span class="p">,</span>
-  <span class="s2">&quot;app&quot;</span><span class="o">:</span> <span class="p">{</span>
-    <span class="s2">&quot;urls&quot;</span><span class="o">:</span> <span class="p">[</span> <span class="s2">&quot;http://www.domain.com/chrome/&quot;</span> <span class="p">],</span>
-    <span class="s2">&quot;launch&quot;</span><span class="o">:</span> <span class="p">{</span>
-      <span class="s2">&quot;web_url&quot;</span><span class="o">:</span> <span class="s2">&quot;http://www.domain.com/chrome/index.html&quot;</span>
-    <span class="p">}</span>
-  <span class="p">},</span>
-  <span class="s2">&quot;permissions&quot;</span><span class="o">:</span> <span class="p">[</span><span class="s2">&quot;background&quot;</span><span class="p">,</span> <span class="s2">&quot;notifications&quot;</span><span class="p">],</span>
-  <span class="s2">&quot;manifest_version&quot;</span><span class="o">:</span> <span class="mi">2</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>然后余下的事情就是web上的了。在<code>http://www.domain.com/chrome/index.html</code>里定义内容。比如我这是这样：</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;html&gt;&lt;head&gt;&lt;/head&gt;</span>
-<span class="nt">&lt;body&gt;</span>
-<span class="nt">&lt;button</span> <span class="na">id=</span><span class="s">&quot;openBackgroundWindow&quot;</span><span class="nt">&gt;</span>开启后台运行<span class="nt">&lt;/button&gt;</span>
-<span class="nt">&lt;button</span> <span class="na">id=</span><span class="s">&quot;closeBackgroundWindow&quot;</span><span class="nt">&gt;</span>关闭后台运行<span class="nt">&lt;/button&gt;</span>
-<span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;index.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
-<span class="nt">&lt;/body&gt;</span>
-<span class="nt">&lt;/html&gt;</span>
-</code></pre></div>
-<p>然后把事情交给index.js来完成。这也是chrome app的通常做法，尽量拆分干净，尤其到packaged app的时候，压根就不让你在html里写script了。index.js如下：</p>
-<div class="highlight"><pre><code class="javascript"><span class="kd">var</span> <span class="nx">bgWinUrl</span> <span class="o">=</span> <span class="s2">&quot;background.html#yay&quot;</span><span class="p">;</span>
-<span class="kd">var</span> <span class="nx">bgWinName</span> <span class="o">=</span> <span class="s2">&quot;bgNotifier&quot;</span><span class="p">;</span>
-<span class="kd">function</span> <span class="nx">openBackgroundWindow</span><span class="p">()</span> <span class="p">{</span>
-  <span class="nb">window</span><span class="p">.</span><span class="nx">open</span><span class="p">(</span><span class="nx">bgWinUrl</span><span class="p">,</span> <span class="nx">bgWinName</span><span class="p">,</span> <span class="s2">&quot;background&quot;</span><span class="p">);</span>
-<span class="p">}</span>
-<span class="kd">function</span> <span class="nx">closeBackgroundWindow</span><span class="p">()</span> <span class="p">{</span>
-  <span class="kd">var</span> <span class="nx">w</span> <span class="o">=</span> <span class="nb">window</span><span class="p">.</span><span class="nx">open</span><span class="p">(</span><span class="nx">bgWinUrl</span><span class="p">,</span> <span class="nx">bgWinName</span><span class="p">,</span> <span class="s2">&quot;background&quot;</span><span class="p">);</span>
-  <span class="nx">w</span><span class="p">.</span><span class="nx">close</span><span class="p">();</span>
-<span class="p">}</span>
-<span class="nb">document</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="s1">&#39;DOMContentLoaded&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-  <span class="nb">document</span><span class="p">.</span><span class="nx">querySelector</span><span class="p">(</span><span class="s1">&#39;#openBackgroundWindow&#39;</span><span class="p">).</span><span class="nx">addEventListener</span><span class="p">(</span>
-    <span class="s1">&#39;click&#39;</span><span class="p">,</span> <span class="nx">openBackgroundWindow</span><span class="p">);</span>
-  <span class="nb">document</span><span class="p">.</span><span class="nx">querySelector</span><span class="p">(</span><span class="s1">&#39;#closeBackgroundWindow&#39;</span><span class="p">).</span><span class="nx">addEventListener</span><span class="p">(</span>
-    <span class="s1">&#39;click&#39;</span><span class="p">,</span> <span class="nx">closeBackgroundWindow</span><span class="p">);</span>
-<span class="p">});</span>
-</code></pre></div>
-<p>注意到这里的<code>background.html</code>加了锚点，原因我懒得看英文说明了，反正大意是不写个锚点有时候会出问题。</p>
-<p>最后是background.html，内容参见之前博客里写的juggernaut。简单几十行。一个可以不再打开具体页面自动收报警消息的app就改造出来了～～</p>
-<p>这时候进一步折腾的想法就出来了：既然叫app嘛，功能应该多一点，不单收报警，还能存下来，这样出去一趟回来可以看离线记录。</p>
-<p>下面就说离线的packaged app。</p>
-<p><code>manifest.json</code>的app里就不能写urls要写background了。文档中说background可以写scripts或者page，但是我实验发现scripts正常page不起作用(也确实不报错)。</p>
-<div class="highlight"><pre><code class="javascript"><span class="p">{</span>
-  <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;Packaged App&quot;</span><span class="p">,</span>
-  <span class="s2">&quot;version&quot;</span><span class="o">:</span> <span class="s2">&quot;0.1&quot;</span><span class="p">,</span>
-  <span class="s2">&quot;app&quot;</span><span class="o">:</span> <span class="p">{</span>
-    <span class="s2">&quot;background&quot;</span><span class="o">:</span> <span class="p">{</span>
-      <span class="s2">&quot;scripts&quot;</span><span class="o">:</span> <span class="p">[</span><span class="s2">&quot;juggernaut.js&quot;</span><span class="p">,</span> <span class="s2">&quot;filesystem.js&quot;</span><span class="p">,</span> <span class="s2">&quot;background.js&quot;</span><span class="p">]</span>
-    <span class="p">}</span>
-  <span class="p">},</span>
-  <span class="s2">&quot;permissions&quot;</span><span class="o">:</span> <span class="p">[</span><span class="s2">&quot;background&quot;</span><span class="p">,</span> <span class="s2">&quot;notifications&quot;</span><span class="p">,</span> <span class="s2">&quot;unlimitedStorage&quot;</span><span class="p">],</span>
-  <span class="s2">&quot;manifest_version&quot;</span><span class="o">:</span> <span class="mi">2</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>chrome app会自动把scripts数组<code>依次</code>加载。
-这里需要注意修改一下默认的juggernaut/application.js，因为chrome packaged app没有浏览器框架，所以disconnect那有个报错，删除掉那三行即可。
-然后background.js里最常见的功能是当点击app的时候弹出的页面，代码如下：</p>
-<div class="highlight"><pre><code class="javascript"><span class="nx">chrome</span><span class="p">.</span><span class="nx">app</span><span class="p">.</span><span class="nx">runtime</span><span class="p">.</span><span class="nx">onLaunched</span><span class="p">.</span><span class="nx">addListener</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-  <span class="nx">chrome</span><span class="p">.</span><span class="nx">app</span><span class="p">.</span><span class="nb">window</span><span class="p">.</span><span class="nx">create</span><span class="p">(</span><span class="s1">&#39;main.html&#39;</span><span class="p">,</span> <span class="p">{</span>
-    <span class="s1">&#39;width&#39;</span><span class="o">:</span> <span class="mi">400</span><span class="p">,</span>
-    <span class="s1">&#39;height&#39;</span><span class="o">:</span> <span class="mi">500</span><span class="p">,</span>
-    <span class="c1">//frame: &#39;none&#39;</span>
-  <span class="p">});</span>
-<span class="p">});</span>
-</code></pre></div>
-<p>如果css够好，可以开启<code>frame: none</code>，然后页面看不到一丝浏览器的样子，你就可以做得跟真的app一样有自己的控制了。</p>
-<p>然后是文件操作。html5有file api。所以可以直接操作文件了：</p>
-<div class="highlight"><pre><code class="javascript"><span class="nb">window</span><span class="p">.</span><span class="nx">webkitRequestFileSystem</span><span class="p">(</span><span class="nb">window</span><span class="p">.</span><span class="nx">TEMPORARY</span><span class="p">,</span> <span class="mi">5</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">fs</span><span class="p">)</span> <span class="p">{</span>
-    <span class="nx">fs</span><span class="p">.</span><span class="nx">root</span><span class="p">.</span><span class="nx">getFile</span><span class="p">(</span><span class="s2">&quot;syslog.txt&quot;</span><span class="p">,</span> <span class="p">{</span><span class="nx">create</span><span class="o">:</span> <span class="kc">true</span><span class="p">},</span> <span class="kd">function</span><span class="p">(</span><span class="nx">fileEntry</span><span class="p">){</span>
-        <span class="nx">fileEntry</span><span class="p">.</span><span class="nx">createWriter</span><span class="p">(</span><span class="kd">function</span><span class="p">(</span><span class="nx">fileWriter</span><span class="p">){</span>
-            <span class="kd">var</span> <span class="nx">bb</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Blob</span><span class="p">([</span><span class="s2">&quot;New File Ready\n&quot;</span><span class="p">],</span> <span class="p">{</span><span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;text/plain&#39;</span><span class="p">});</span>
-            <span class="nx">fileWriter</span><span class="p">.</span><span class="nx">write</span><span class="p">(</span><span class="nx">bb</span><span class="p">);</span>
-        <span class="p">},</span> <span class="nx">errorHandler</span><span class="p">);</span>
-    <span class="p">},</span> <span class="nx">errorHandler</span><span class="p">);</span>
-<span class="p">},</span> <span class="nx">errorHandler</span><span class="p">);</span>
-<span class="kd">function</span> <span class="nx">append_file</span><span class="p">(</span><span class="nx">msg</span><span class="p">)</span> <span class="p">{</span>
-    <span class="nb">window</span><span class="p">.</span><span class="nx">webkitRequestFileSystem</span><span class="p">(</span><span class="nb">window</span><span class="p">.</span><span class="nx">TEMPORARY</span><span class="p">,</span> <span class="mi">5</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">fs</span><span class="p">)</span> <span class="p">{</span>
-        <span class="nx">fs</span><span class="p">.</span><span class="nx">root</span><span class="p">.</span><span class="nx">getFile</span><span class="p">(</span><span class="s2">&quot;syslog.txt&quot;</span><span class="p">,</span> <span class="p">{</span><span class="nx">create</span><span class="o">:</span> <span class="kc">false</span><span class="p">},</span> <span class="kd">function</span><span class="p">(</span><span class="nx">fileEntry</span><span class="p">){</span>
-            <span class="nx">fileEntry</span><span class="p">.</span><span class="nx">createWriter</span><span class="p">(</span><span class="kd">function</span><span class="p">(</span><span class="nx">fileWriter</span><span class="p">){</span>
-                <span class="nx">fileWriter</span><span class="p">.</span><span class="nx">seek</span><span class="p">(</span><span class="nx">fileWriter</span><span class="p">.</span><span class="nx">length</span><span class="p">);</span>
-                <span class="kd">var</span> <span class="nx">bb</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Blob</span><span class="p">([</span><span class="nx">msg</span><span class="p">],</span> <span class="p">{</span><span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;text/plain&#39;</span><span class="p">});</span>
-                <span class="nx">fileWriter</span><span class="p">.</span><span class="nx">write</span><span class="p">(</span><span class="nx">bb</span><span class="p">);</span>
-            <span class="p">},</span> <span class="nx">errorHandler</span><span class="p">);</span>
-        <span class="p">},</span> <span class="nx">errorHandler</span><span class="p">);</span>
-    <span class="p">},</span> <span class="nx">errorHandler</span><span class="p">);</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>这里大多数网上的例子都还是用的<code>BlobBuilder()</code>，经过我试验，至少在chromium version24上，已经没有这个API了。</p>
-<p>这里注意一个问题：Juggernaut同时收到多条消息，调用append_file()的话，会有文件锁问题。所以我加上一个缓冲控制：</p>
-<div class="highlight"><pre><code class="javascript"><span class="kd">var</span> <span class="nx">message</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">;</span>
-<span class="nx">setInterval</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nx">message</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nx">append_file</span><span class="p">(</span><span class="nx">message</span><span class="p">);</span>
-        <span class="nx">message</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="p">},</span> <span class="mi">60000</span><span class="p">);</span>
-<span class="nx">jug</span><span class="p">.</span><span class="nx">subscribe</span><span class="p">(</span><span class="s2">&quot;syslog&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">){</span>
-    <span class="kd">var</span> <span class="nx">msg</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;|&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;\n&quot;</span><span class="p">;</span>
-    <span class="nx">message</span> <span class="o">+=</span> <span class="nx">msg</span><span class="p">;</span>
-    <span class="p">...</span>
-    <span class="nx">notification</span><span class="p">.</span><span class="nx">show</span><span class="p">();</span>
-<span class="p">});</span>
-</code></pre></div>
-<p>后台的工作大概就是这些。然后是弹出的main.html。记住之前提到的，不能在里面写js。所以html里除了写个div啥都没有，功能依然交给main.js来做：</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;html&gt;</span>
-<span class="nt">&lt;head&gt;</span>
-<span class="nt">&lt;meta</span> <span class="na">charset=</span><span class="s">&quot;utf-8&quot;</span> <span class="nt">/&gt;</span>
-<span class="nt">&lt;title&gt;</span>Storage test<span class="nt">&lt;/title&gt;</span>
-<span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;main.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
-<span class="nt">&lt;/head&gt;</span>
-<span class="nt">&lt;body&gt;</span>
-<span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">&quot;bar&quot;</span><span class="nt">&gt;</span>
-    <span class="nt">&lt;form</span> <span class="na">id=</span><span class="s">&quot;form&quot;</span><span class="nt">&gt;</span>
-        <span class="nt">&lt;button</span> <span class="na">id=</span><span class="s">&quot;reload-window-button&quot;</span><span class="nt">&gt;</span>刷新<span class="nt">&lt;/button&gt;</span>
-        <span class="nt">&lt;button</span> <span class="na">id=</span><span class="s">&quot;remove-window-button&quot;</span><span class="nt">&gt;</span>清空<span class="nt">&lt;/button&gt;</span>
-        <span class="nt">&lt;button</span> <span class="na">id=</span><span class="s">&quot;close-window-button&quot;</span><span class="nt">&gt;</span>关闭<span class="nt">&lt;/button&gt;</span>
-    <span class="nt">&lt;/form&gt;</span>
-<span class="nt">&lt;/div&gt;</span>
-<span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">&#39;log&#39;</span><span class="nt">&gt;</span>
-    <span class="nt">&lt;ul</span> <span class="na">id=</span><span class="s">&#39;msg&#39;</span><span class="nt">&gt;</span>
-    <span class="nt">&lt;/ul&gt;</span>
-<span class="nt">&lt;/div&gt;</span>
-<span class="nt">&lt;/body&gt;</span>
-<span class="nt">&lt;/html&gt;</span>
-</code></pre></div>
-<p>不过关于刷新页面的问题现在还比较茫然，试过metadata/reload/location.href等各种办法，都不起作用，只能在页面上右键选择刷新……</p>
-<div class="highlight"><pre><code class="javascript"><span class="nx">onload</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-    <span class="kd">var</span> <span class="nx">channel_file</span> <span class="o">=</span> <span class="s1">&#39;syslog.txt&#39;</span><span class="p">;</span>
-    <span class="nb">window</span><span class="p">.</span><span class="nx">webkitRequestFileSystem</span><span class="p">(</span><span class="nb">window</span><span class="p">.</span><span class="nx">TEMPORARY</span><span class="p">,</span> <span class="mi">5</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">fs</span><span class="p">)</span> <span class="p">{</span>
-        <span class="nx">fs</span><span class="p">.</span><span class="nx">root</span><span class="p">.</span><span class="nx">getFile</span><span class="p">(</span><span class="nx">channel_file</span><span class="p">,</span> <span class="p">{},</span> <span class="kd">function</span><span class="p">(</span><span class="nx">fileEntry</span><span class="p">)</span> <span class="p">{</span>
-            <span class="nx">fileEntry</span><span class="p">.</span><span class="nx">file</span><span class="p">(</span><span class="kd">function</span><span class="p">(</span><span class="nx">file</span><span class="p">)</span> <span class="p">{</span>
-            <span class="kd">var</span> <span class="nx">reader</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">FileReader</span><span class="p">();</span>
-            <span class="nx">reader</span><span class="p">.</span><span class="nx">onloadend</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-                <span class="kd">var</span> <span class="nx">logul</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">);</span>
-                <span class="kd">var</span> <span class="nx">logli</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">createElement</span><span class="p">(</span><span class="s1">&#39;li&#39;</span><span class="p">);</span>
-                <span class="nx">logli</span><span class="p">.</span><span class="nx">innerText</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">result</span><span class="p">;</span>
-                <span class="nx">logul</span><span class="p">.</span><span class="nx">insertBefore</span><span class="p">(</span><span class="nx">logli</span><span class="p">,</span> <span class="nx">logul</span><span class="p">.</span><span class="nx">firstChild</span><span class="p">);</span>
-            <span class="p">};</span>
-            <span class="nx">reader</span><span class="p">.</span><span class="nx">readAsText</span><span class="p">(</span><span class="nx">file</span><span class="p">);</span>
-            <span class="p">},</span> <span class="nx">errorHandler</span><span class="p">);</span>
-        <span class="p">},</span> <span class="nx">errorHandler</span><span class="p">);</span>
-    <span class="p">},</span> <span class="nx">errorHandler</span><span class="p">);</span>
-    <span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s2">&quot;remove-window-button&quot;</span><span class="p">).</span><span class="nx">onclick</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-        <span class="nb">window</span><span class="p">.</span><span class="nx">webkitRequestFileSystem</span><span class="p">(</span><span class="nb">window</span><span class="p">.</span><span class="nx">TEMPORARY</span><span class="p">,</span> <span class="mi">5</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">,</span> <span class="kd">function</span> <span class="p">(</span><span class="nx">fs</span><span class="p">)</span> <span class="p">{</span>
-            <span class="nx">fs</span><span class="p">.</span><span class="nx">root</span><span class="p">.</span><span class="nx">getFile</span><span class="p">(</span><span class="nx">channel_file</span><span class="p">,</span> <span class="p">{</span><span class="nx">create</span><span class="o">:</span> <span class="kc">false</span><span class="p">},</span> <span class="kd">function</span><span class="p">(</span><span class="nx">fileEntry</span><span class="p">){</span>
-                <span class="nx">fileEntry</span><span class="p">.</span><span class="nx">remove</span><span class="p">(</span><span class="kd">function</span><span class="p">(){</span>
-                    <span class="nx">fs</span><span class="p">.</span><span class="nx">root</span><span class="p">.</span><span class="nx">getFile</span><span class="p">(</span><span class="nx">channel_file</span><span class="p">,</span> <span class="p">{</span><span class="nx">create</span><span class="o">:</span> <span class="kc">true</span><span class="p">},</span> <span class="kd">function</span><span class="p">(</span><span class="nx">fileEntry</span><span class="p">){</span>
-                        <span class="nx">fileEntry</span><span class="p">.</span><span class="nx">createWriter</span><span class="p">(</span><span class="kd">function</span><span class="p">(</span><span class="nx">fileWriter</span><span class="p">){</span>
-                            <span class="kd">var</span> <span class="nx">bb</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Blob</span><span class="p">([</span><span class="s2">&quot;Clean Over\n&quot;</span><span class="p">],</span> <span class="p">{</span><span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;text/plain&#39;</span><span class="p">});</span>
-                            <span class="nx">fileWriter</span><span class="p">.</span><span class="nx">write</span><span class="p">(</span><span class="nx">bb</span><span class="p">);</span>
-                        <span class="p">},</span> <span class="nx">errorHandler</span><span class="p">);</span>
-                    <span class="p">},</span> <span class="nx">errorHandler</span><span class="p">);</span>
-                <span class="p">},</span> <span class="nx">errorHandler</span><span class="p">);</span>
-            <span class="p">},</span> <span class="nx">errorHandler</span><span class="p">);</span>
-        <span class="p">},</span> <span class="nx">errorHandler</span><span class="p">);</span>
-    <span class="p">}</span>
-    <span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s2">&quot;close-window-button&quot;</span><span class="p">).</span><span class="nx">onclick</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-        <span class="nb">window</span><span class="p">.</span><span class="nx">close</span><span class="p">();</span>
-    <span class="p">}</span>
-    <span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s2">&quot;reload-window-button&quot;</span><span class="p">).</span><span class="nx">onclick</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-        <span class="nb">window</span><span class="p">.</span><span class="nx">location</span><span class="p">.</span><span class="nx">reload</span><span class="p">(</span><span class="kc">true</span><span class="p">);</span>
-    <span class="p">}</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>以上。</p>
-<p>最后，如果完成了，在浏览器上直接选择打包即可。不过新版本的chrome已经不再允许直接安装非web store的crx了……</p>
-      <a href="/2012/11/09/chrome-app-demo" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

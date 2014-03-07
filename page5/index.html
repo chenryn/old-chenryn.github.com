@@ -43,6 +43,50 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2012/06/08/intro-trafficserver-ssd-branch-in-taobao" title="淘宝TrafficServer的SSD分支测试与介绍" rel="bookmark">淘宝TrafficServer的SSD分支测试与介绍</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-06-08 00:00:00 +0800">08 Jun 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>同事介绍说淘宝有关于trafficserver的一个分支支持SSD的。下来试试。<a href="http://gitorious.org/trafficserver/taobao/commits/tbtrunk_ssd">下载地址</a></p>
+<p>官方的ats安装过程很简单，这个分支稍微麻烦一些，因为有些包变成强制依赖了，包括：expat/openssl/pcre等。根据提示安装好再重新编译即可。</p>
+<p>表面看几乎没什么差别，就是多了一个storage_ssd.config配置文件。</p>
+<p>基础配置项说明网上都有，无外乎就是records.config里的监听，remap.config里的域名，storage.config里的目录。下面说几个比较怪异或者难受的地方：</p>
+<ol>
+  <li>
+    <p>trafficserver极其依赖DNS解析。我在parents.config中定义了多个parents的IP:port后，打开records.config里的debug信息，包括http.*、dns.*、cdn.*和url.*，结果发现ats针对每个url，会在获取完parents后依然去请求dns解析——注意这是在records.config里已经配置了no_dns_just_forward_to_parent为1之后，这种与字面意思严重不一样的结果让我很诧异……</p>
+  </li>
+  <li>
+    <p>由于上面说的parent配置不可行，所以在remap.config中只能使用单个ip的方式回源。这里配置说明一般都说前后域名必须不一样，但是我在debug中没有发现这个逻辑，事实上ats不管这个事情，所谓不能一样，大概是怕本机dns解析回到自己变成loop吧。</p>
+  </li>
+  <li>
+    <p>默认关于内存，是每1GB的磁盘启用1MB的内存。所以如果不指定的话，基本上磁盘的IO会很高很高！而最恶心的地方来了：配置里所有的数值都是以Byte为单位的，尼玛写4GB内存写的跟裹脚布一样长啊！</p>
+  </li>
+</ol>
+<p>然后说测试。在性能方面，ats还是不错的。基本上我在单机走lo口，用http_load做压测，都是http_load先到瓶颈——因为http_load只用单核CPU。使用-p 1000的参数测试（因为最大只让开到1020），同机上的squid2.6.23、trafficserver和trafficserver-ssd三种，rps分别在6000，19000和14000的样子。first-bytes msec在10，4，1的样子，cpu在150％，25％，25％的样子。</p>
+<p>以上是只用了4个域名每个域名1个url的小样本测试。实际运行起来应该不会这么高。</p>
+<p>另：在需要dns解析的时候，14000的rps降到只有300＋，深表无语。</p>
+<hr />
+<p>线上流量运行测试后的补充：</p>
+<ul>
+  <li>不要使用文件存储，直接把裸设备交给ats管理！</li>
+  <li>预估好要缓存的文件的平均大小，默认是8000。ats和squid不一样的是这个值会影响ats的文件组织结构。每次修改都会重建缓存。</li>
+</ul>
+      <a href="/2012/06/08/intro-trafficserver-ssd-branch-in-taobao" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2012/06/08/create-python-module-for-ganglia" title="用ganglia监控trafficserver" rel="bookmark">用ganglia监控trafficserver</a>
     </h1>
     <p class="alt-font tight">
@@ -2431,76 +2475,6 @@ omd会自动在linux系统上添加一个monitor用户，然后其他操作可�
 切换到monitor用户后，运行omd start，即可启动。
 先写到这里，慢慢看具体配置。</p>
       <a href="/2011/12/19/omd_intro_install_on_centos5" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/12/19/intro_open_flash_chart" title="Chart::OFC试用" rel="bookmark">Chart::OFC试用</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-12-19 00:00:00 +0800">19 Dec 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>这几天ppt看的比较多，一样一样来玩。今天先说OFC，之前有试过amcharts和fusioncharts。amcharts最全最漂亮（尤其是有scroll和map），可惜图上都自动标上了amcharts.com的字样；fusioncharts的free版本，也蛮好用的，虽然scroll怪怪的居然靠的是点击控制。比较相同的一点就是，这两都只提供了php、python等的模块，如果是perl写的网页，那只能通过提供xml/json数据给js控制的办法。稍微一点点遗憾……
-这次在cpan上终于看到一个chart控制的模块，叫Chart::OFC。这个OFC的项目地址如下：
-<a href="http://teethgrinder.co.uk/open-flash-chart/" target="_blank">http://teethgrinder.co.uk/open-flash-chart/</a>
-其实用法上没什么特殊，无非是省略一点点xml代码，通过OO的方式自动生成而已。让我觉得蛮好玩的是官网上作者的声明。因为他曾经在维护公司一个付费的flash chart项目时，给甲方发信要求修改bug，等了一个月没反应。于是自己现学as语言开始自己搞= =！然后念念不忘的提示说：要重视客户的反馈。。。。。。哈哈
-这个项目目前用as3改写，所以新版本叫OFC2了，不过作者自己也说不太稳定，建议继续用OFC1.9.7，所以先不说Chart::OFC2，继续用Chart::OFC好了：</p>
-<div class="highlight"><pre><code class="perl"><span class="n">get</span> <span class="s">&#39;/ofc_data&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="k">use</span> <span class="nn">Chart::</span><span class="n">OFC</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$line_array</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span> <span class="o">..</span> <span class="mi">20</span><span class="p">];</span>
-    <span class="k">my</span> <span class="nv">$bars_array</span><span class="p">;</span> <span class="nv">@$bars_array</span> <span class="o">=</span> <span class="nb">map</span> <span class="p">{</span><span class="nv">$_</span> <span class="o">-</span> <span class="mf">2.5</span><span class="p">}</span> <span class="nv">@$line_array</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$leng</span> <span class="o">=</span> <span class="nv">$#$line_array</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$bars</span> <span class="o">=</span> <span class="nn">Chart::OFC::Dataset::</span><span class="n">Bar</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="nb">values</span> <span class="o">=&gt;</span> <span class="nv">$bars_array</span> <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$line</span> <span class="o">=</span> <span class="nn">Chart::OFC::Dataset::</span><span class="n">Line</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="nb">values</span> <span class="o">=&gt;</span> <span class="nv">$line_array</span> <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$x_axis</span> <span class="o">=</span> <span class="nn">Chart::OFC::</span><span class="n">XAxis</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">axis_label</span> <span class="o">=&gt;</span> <span class="s">&#39;X Axis&#39;</span><span class="p">,</span> <span class="n">label_steps</span> <span class="o">=&gt;</span> <span class="mi">2</span><span class="p">,</span> <span class="n">tick_steps</span> <span class="o">=&gt;</span> <span class="mi">2</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=&gt;</span> <span class="nv">$line_array</span> <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$y_axis</span> <span class="o">=</span> <span class="nn">Chart::OFC::</span><span class="n">YAxis</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">axis_label</span> <span class="o">=&gt;</span> <span class="s">&#39;Y Axis&#39;</span><span class="p">,</span> <span class="n">max</span> <span class="o">=&gt;</span> <span class="nv">$leng</span><span class="p">,</span> <span class="n">label_steps</span> <span class="o">=&gt;</span> <span class="mi">2</span> <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$grid</span> <span class="o">=</span> <span class="nn">Chart::OFC::</span><span class="n">Grid</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">title</span>    <span class="o">=&gt;</span> <span class="s">&#39;My Grid Chart&#39;</span><span class="p">,</span>
-                                      <span class="n">datasets</span> <span class="o">=&gt;</span> <span class="p">[</span> <span class="nv">$bars</span><span class="p">,</span> <span class="nv">$line</span> <span class="p">],</span>
-                                      <span class="n">x_axis</span>   <span class="o">=&gt;</span> <span class="nv">$x_axis</span><span class="p">,</span>
-                                      <span class="n">y_axis</span>   <span class="o">=&gt;</span> <span class="nv">$y_axis</span><span class="p">,</span>
-                                    <span class="p">);</span>
-    <span class="k">return</span> <span class="nv">$grid</span><span class="o">-&gt;</span><span class="n">as_ofc_data</span><span class="p">();</span>
-<span class="p">};</span>
-<span class="n">get</span> <span class="s">&#39;/ofc_test&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="n">template</span> <span class="s">&#39;ofc&#39;</span><span class="p">;</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>然后ofc.tt是这样：</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;html&gt;&lt;head&gt;</span>
-<span class="nt">&lt;meta</span> <span class="na">http-equiv=</span><span class="s">&quot;content-type&quot;</span> <span class="na">content=</span><span class="s">&quot;text/html; charset=UTF-8&quot;</span><span class="nt">&gt;</span>
-<span class="nt">&lt;/head&gt;</span>
-<span class="nt">&lt;body&gt;</span>
-<span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">src=</span><span class="s">&quot;/ofc/js/swfobject.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
-<span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">&quot;my_chart&quot;</span><span class="nt">&gt;&lt;/div&gt;</span>
-<span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span><span class="nt">&gt;</span>
-<span class="kd">var</span> <span class="nx">so</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">SWFObject</span><span class="p">(</span><span class="s2">&quot;/ofc/actionscript/open-flash-chart.swf&quot;</span><span class="p">,</span> <span class="s2">&quot;ofc&quot;</span><span class="p">,</span> <span class="s2">&quot;500&quot;</span><span class="p">,</span> <span class="s2">&quot;200&quot;</span><span class="p">,</span> <span class="s2">&quot;9&quot;</span><span class="p">,</span> <span class="s2">&quot;#FFFFFF&quot;</span><span class="p">);</span>
-<span class="nx">so</span><span class="p">.</span><span class="nx">addVariable</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;/ofc_data&quot;</span><span class="p">);</span>
-<span class="nx">so</span><span class="p">.</span><span class="nx">addParam</span><span class="p">(</span><span class="s2">&quot;allowScriptAccess&quot;</span><span class="p">,</span> <span class="s2">&quot;always&quot;</span> <span class="p">);</span><span class="c1">//&quot;sameDomain&quot;);</span>
-<span class="nx">so</span><span class="p">.</span><span class="nx">write</span><span class="p">(</span><span class="s2">&quot;my_chart&quot;</span><span class="p">);</span>
-<span class="nt">&lt;/script&gt;</span>
-<span class="nt">&lt;div&gt;</span>boo<span class="nt">&lt;/div&gt;</span>
-<span class="nt">&lt;/body&gt;</span>
-<span class="nt">&lt;/html&gt;</span>
-</code></pre></div>
-<p>运行即可。
-这里chart主要分两种，pie和grid。
-bar和line都是grid的。Chart::OFC的pod里举例是pie的，我这里写的举例是grid的，来自Chart::OFC::Grid的说明；
-在DataSet中可以看到，area、candle和scatter都是从Line.pm模块extends出来的（嗯，这个模块是用Moose构建滴），所以具体生成的时候都是用grid。
-<img src="/images/uploads/ofc.png" alt="" title="ofc" width="600" height="240" class="alignnone size-full wp-image-2824" /></p>
-<hr />
-<p>另外，CPAN上还有一个模块是给XML/SWF Chart生成数据的，不过那个东东也是要buy滴……
-再另，有木有仪表盘的charts可用呢……</p>
-      <a href="/2011/12/19/intro_open_flash_chart" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

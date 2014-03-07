@@ -43,6 +43,58 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2014/03/07/howto-search-dynamic-url-in-elasticsearch" title="如何搜索 Elasticsearch 中存储的动态请求 URL" rel="bookmark">如何搜索 Elasticsearch 中存储的动态请求 URL</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2014-03-07 00:00:00 +0800">07 Mar 2014</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>当我们用 logstash 处理 WEB 服务器访问日志的时候，肯定就涉及到一个后期查询的问题。</p>
+<p>可能一般我们在 Kibana 上更多的是针对响应时间做数值统计，针对来源IP、域名或者客户端情况做分组统计。但是如果碰到这么个问题的时候呢——<strong>过滤所有动态请求的响应时间</strong>。</p>
+<p>这时候你可能会发现一个问题：我们肯定都是用 URL 里带有问号? 来作为过滤条件。但是实际是 Kibana 里一条数据都过滤不出来。</p>
+<p>于是我开测试库模拟了一下：</p>
+<div class="highlight"><pre><code class="bash"><span class="c"># 插入两条数据</span>
+curl http://localhost:9200/test/log/1 -d <span class="s1">&#39;{&quot;url&quot;:&quot;http://locahost/index.html&quot;}&#39;</span>
+curl http://localhost:9200/test/log/2 -d <span class="s1">&#39;{&quot;url&quot;:&quot;http://locahost/index.php?key=value&quot;}&#39;</span>
+<span class="c"># 搜索显示全部数据</span>
+curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span>1 -d <span class="s1">&#39;{&quot;query&quot;:{&quot;regexp&quot;:{&quot;url&quot;:{&quot;value&quot;:&quot;.*&quot;}}}}&#39;</span>
+<span class="c"># 搜索返回请求格式解析失败</span>
+curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span>1 -d <span class="s1">&#39;{&quot;query&quot;:{&quot;regexp&quot;:{&quot;url&quot;:{&quot;value&quot;:&quot;\?.*&quot;}}}}&#39;</span>
+<span class="c"># 搜索返回空数据</span>
+curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span>1 -d <span class="s1">&#39;{&quot;query&quot;:{&quot;regexp&quot;:{&quot;url&quot;:{&quot;value&quot;:&quot;.*\\?.*&quot;}}}}&#39;</span>
+</code></pre></div>
+<p>后来发现问题出在分词上面。</p>
+<div class="highlight"><pre><code class="bash"><span class="c"># 删除之前的测试数据和索引</span>
+curl -XDELETE http://localhost:9200/test/log
+<span class="c"># 预定义索引类型的映射，url字段在索引的时候不分词</span>
+curl http://localhost:9200/test/log/_mapping -d <span class="s1">&#39;{&quot;log&quot;:{&quot;properties&quot;:{&quot;url&quot;:{&quot;index&quot;:&quot;not_analyzed&quot;,&quot;type&quot;:&quot;string&quot;}}}}&#39;</span>
+<span class="c"># 还是插入两条数据</span>
+curl http://localhost:9200/test/log/1 -d <span class="s1">&#39;{&quot;url&quot;:&quot;http://locahost/index.html&quot;}&#39;</span>
+curl http://localhost:9200/test/log/2 -d <span class="s1">&#39;{&quot;url&quot;:&quot;http://locahost/index.php?key=value&quot;}&#39;</span>
+<span class="c"># 同样的搜索请求，返回了一条结果(index.php?这条)</span>
+curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span>1 -d <span class="s1">&#39;{&quot;query&quot;:{&quot;regexp&quot;:{&quot;url&quot;:{&quot;value&quot;:&quot;.*\\?.*&quot;}}}}&#39;</span>
+</code></pre></div>
+<p>上面这个搜索还可以简写成 Query DSL 的样式：</p>
+<p><code>
+curl 'http://localhost:9200/test/log/_search?q=url:/.*\\?.*/&amp;pretty=1'
+</code></p>
+<p>而在 Logstash 比较新的 1.3.3 版本之后，有自带的 template 定义，会对每个 fields 采用 <a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/_multi_fields.html">multi-fields</a> 特性，也就是除了默认分词的 <code>URL</code> 字段以外，还有一个 <code>URL.raw</code> 字段都是不分词的。所以只要过滤这个字段就可以了。</p>
+<p>(<em>注意，ES1.0版的multi-fields的template写法完全不一样了，所以要用这个特性的童鞋还是谨慎测试logstash和es的版本配套</em>)</p>
+<p>Medcl 大神提示我：<strong>不指定 mapping 的情况下，ES 默认采用 unigram 分词</strong>。也就是切成尽可能小的单词。</p>
+      <a href="/2014/03/07/howto-search-dynamic-url-in-elasticsearch" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2014/03/07/genarate-fig-from-diagramo" title="转换 diagramo 绘制的拓扑图成 fig.yml 格式" rel="bookmark">转换 diagramo 绘制的拓扑图成 fig.yml 格式</a>
     </h1>
     <p class="alt-font tight">
@@ -64,8 +116,8 @@
 <p>画关系图，桌面上肯定是 visio，visio保存成 XML 后分析 XML 就可以了。不过 visio 本身也算笨重的了，如果可以在浏览器中完成这个工作，才算够 cool！</p>
 <p>网页上的 visio 已经有些产品，不过有名的几个都是有限免费试用的。好在找到一个叫做 <a href="http://diagramo.com">diagramo</a> 的项目，虽然提供的元素图表不多，但是也够用了。</p>
 <p>下载源码包，在 LAMP/LEMP 环境下就直接跑起来，首次访问会要求注册一个用户名。环境配置中有一点必须重点点出来的：</p>
-<p><em>Apache/Nginx 上配置的 <code>server_name</code> 必须跟你浏览器访问的完全一致</em></p>
-<p>我曾经因为测试，所以写了个 localhost 做 server_name，然后用服务器 IP 地址来访问页面，结果在绘图完成保存的时候会出错！<em>因为这是一个 HTML5 项目，保存这步是调用的 <code>canvas.toDataURL()</code> 函数，这个函数有强制性安全限定，以保证调用这个函数的页面，跟生成的图片路径必须是同一个域名！否则跨域抓图太方便了。</em></p>
+<p><strong>Apache/Nginx 上配置的 <code>server_name</code> 必须跟你浏览器访问的完全一致</strong></p>
+<p>我曾经因为测试，所以写了个 localhost 做 server_name，然后用服务器 IP 地址来访问页面，结果在绘图完成保存的时候会出错！<strong>因为这是一个 HTML5 项目，保存这步是调用的 <code>canvas.toDataURL()</code> 函数，这个函数有强制性安全限定，以保证调用这个函数的页面，跟生成的图片路径必须是同一个域名！否则跨域抓图太方便了。</strong></p>
 <p>(写到这里感慨一下，chrome的调试工具不会用，这问题最后还是在 IE开发者工具的帮助下发现的 ==！)</p>
 <p>然后就可以画关系图了，比如下图这样：</p>
 <p><img src="/images/uploads/dia.png" alt="sample of diagramo" /></p>
@@ -1878,68 +1930,6 @@ rexify-website/create_index.pl localhost 9200 html/templates
 </code></pre>
 <p>脚本本身超级简单，欢迎大家自行阅读。</p>
       <a href="/2013/09/14/elasticsearch-for-rexify-website" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2013/09/10/different-format-character-of-pack-between-python-and-perl" title="Perl 和 Python 的 pack 函数格式字符的区别" rel="bookmark">Perl 和 Python 的 pack 函数格式字符的区别</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2013-09-10 00:00:00 +0800">10 Sep 2013</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>MooseFS 是运用很广泛的一个分布式文件系统，其自带有一个 python 写的 CGI 页面，可以查看集群状态。不过对于运维来说，这就不太方便纳入 nagios 等其他现有的监控体系中。好在既然它的 CGI 是 python 写的，那么自己照样临摹出一个监控脚本也不是太复杂。</p>
-<p>其实整个数据是由 master 的 9421 端口进行 TCP 交互获取的，不过比较麻烦的是并不是普通文本流。CGI 中采用了 pack/unpack 函数来处理 TCP 包。根据数据的前 8 字节确定数据总长度和 MooseFS 的版本，然后依照不同版本的 pack 方式来 unpack 剩余内容。</p>
-<p>笔者熟悉 Perl，所以就准备将这个处理流程改用 Perl 完成。结果发现原来 pack/unpack 在 Perl 和 Python 中，写法是不一样的。以 MooseFS 的 info 信息读取代码为例，Python 版如下：</p>
-<div class="highlight"><pre><code class="python"><span class="n">s</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">()</span>
-<span class="n">s</span><span class="o">.</span><span class="n">connect</span><span class="p">((</span><span class="n">masterhost</span><span class="p">,</span> <span class="n">masterport</span><span class="p">))</span>
-<span class="n">mysend</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s">&quot;&gt;LL&quot;</span><span class="p">,</span> <span class="mi">510</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
-<span class="n">header</span> <span class="o">=</span> <span class="n">myrecv</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
-<span class="n">cmd</span><span class="p">,</span> <span class="n">length</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s">&quot;&gt;LL&quot;</span><span class="p">,</span> <span class="n">header</span><span class="p">)</span>
-<span class="k">if</span> <span class="n">cmd</span> <span class="o">==</span> <span class="mi">511</span> <span class="ow">and</span> <span class="n">length</span> <span class="o">==</span> <span class="mi">76</span><span class="p">:</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="n">myrecv</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
-    <span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">v3</span><span class="p">,</span> <span class="n">memusage</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">avail</span><span class="p">,</span> <span class="n">trspace</span><span class="p">,</span> <span class="n">trfiles</span><span class="p">,</span> <span class="n">respace</span><span class="p">,</span> <span class="n">refiles</span><span class="p">,</span> <span class="n">nodes</span><span class="p">,</span> <span class="n">dirs</span><span class="p">,</span> <span class="n">files</span><span class="p">,</span> <span class="n">chunks</span><span class="p">,</span> <span class="n">allcopies</span><span class="p">,</span> <span class="n">tdcopies</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s">&quot;&gt;HBBQQQQLQLLLLLLL&quot;</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
-    <span class="n">ver</span> <span class="o">=</span> <span class="s">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">v1</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">v2</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">v3</span><span class="p">)])</span>
-</code></pre></div>
-<p>而 Perl 版最终写完是这样的：</p>
-<div class="highlight"><pre><code class="perl"><span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="nn">IO::Socket::</span><span class="n">INET</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
-    <span class="n">PeerAddr</span> <span class="o">=&gt;</span> <span class="nv">$host</span><span class="p">,</span>
-    <span class="n">PeerPort</span> <span class="o">=&gt;</span> <span class="nv">$port</span><span class="p">,</span>
-    <span class="n">Proto</span>    <span class="o">=&gt;</span> <span class="s">&#39;tcp&#39;</span><span class="p">,</span>
-<span class="p">);</span>
-<span class="k">my</span> <span class="p">(</span><span class="nv">$header</span><span class="p">,</span> <span class="nv">$data</span><span class="p">);</span>
-<span class="k">print</span> <span class="nv">$s</span> <span class="nb">pack</span><span class="p">(</span><span class="s">&#39;(LL)&gt;&#39;</span><span class="p">,</span> <span class="mi">510</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
-<span class="nb">sysread</span> <span class="nv">$s</span><span class="p">,</span> <span class="nv">$header</span><span class="p">,</span> <span class="mi">8</span><span class="p">;</span>
-<span class="k">my</span> <span class="p">(</span><span class="nv">$cmd</span><span class="p">,</span> <span class="nv">$length</span><span class="p">)</span> <span class="o">=</span> <span class="nb">unpack</span><span class="p">(</span><span class="s">&#39;(LL)&gt;&#39;</span><span class="p">,</span> <span class="nv">$header</span><span class="p">);</span>
-<span class="k">if</span> <span class="p">(</span> <span class="nv">$cmd</span> <span class="o">==</span> <span class="mi">511</span> <span class="ow">and</span> <span class="nv">$length</span> <span class="o">==</span> <span class="mi">76</span> <span class="p">)</span> <span class="p">{</span>
-    <span class="nb">sysread</span> <span class="nv">$s</span><span class="p">,</span> <span class="nv">$data</span><span class="p">,</span> <span class="nv">$length</span><span class="p">;</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$v1</span><span class="p">,</span> <span class="nv">$v2</span><span class="p">,</span> <span class="nv">$v3</span><span class="p">,</span> <span class="nv">$memusage</span><span class="p">,</span> <span class="nv">$total</span><span class="p">,</span> <span class="nv">$avail</span><span class="p">,</span> <span class="nv">$trspace</span><span class="p">,</span> <span class="nv">$trfiles</span><span class="p">,</span> <span class="nv">$respace</span><span class="p">,</span> <span class="nv">$refiles</span><span class="p">,</span> <span class="nv">$nodes</span><span class="p">,</span> <span class="nv">$dirs</span><span class="p">,</span> <span class="nv">$files</span><span class="p">,</span> <span class="nv">$chunks</span><span class="p">,</span> <span class="nv">$allcopies</span><span class="p">,</span> <span class="nv">$tdcopies</span><span class="p">)</span> <span class="o">=</span> <span class="nb">unpack</span><span class="p">(</span><span class="s">&#39;(SCCQQQQLQLLLLLLL)&gt;&#39;</span><span class="p">,</span> <span class="nv">$data</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$ver</span> <span class="o">=</span> <span class="s">&quot;$v1.$v2.$v3&quot;</span><span class="p">;</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>不同处主要有两点：</p>
-<ol>
-  <li>关于 <code>big-endian</code> 定义的 <code>&gt;</code> 符号位置不同，Python 里写在起首一次性全部生效；Perl 里需要每个格式符单独定义，或者采用括号合起来总定义；</li>
-  <li>Python 里的 <code>H</code> 格式符表示 <code>unsigned short</code>，在 Perl 里应该是 <code>S</code>；Python 里的 <code>B</code> 格式符表示 <code>unsigned char</code>，在 Perl 里应该是 <code>C</code>。</li>
-</ol>
-<p>翻看了一下，在 PHP 和 Ruby 中，格式符定义和 Perl 是一样的，不清楚为什么 Python 这么特殊==!</p>
-<p>各语言关于 <code>pack</code> 格式符的文档链接如下：</p>
-<ol>
-  <li><a href="http://www.w3school.com.cn/php/func_misc_pack.asp">http://www.w3school.com.cn/php/func_misc_pack.asp</a></li>
-  <li><a href="http://www.kuqin.com/rubycndocument/man/pack_template_string.html">http://www.kuqin.com/rubycndocument/man/pack_template_string.html</a></li>
-  <li><a href="http://docs.python.org/2/library/struct.html">http://docs.python.org/2/library/struct.html</a></li>
-  <li><a href="http://perldoc.perl.org/functions/pack.html">http://perldoc.perl.org/functions/pack.html</a></li>
-</ol>
-      <a href="/2013/09/10/different-format-character-of-pack-between-python-and-perl" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

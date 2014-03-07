@@ -43,6 +43,61 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/04/30/ipcs-error-in-squid-start" title="系统消息队列（squid启动小故障）" rel="bookmark">系统消息队列（squid启动小故障）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-04-30 00:00:00 +0800">30 Apr 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>昨天公司一台服务器被机房动手动脚之后，上面的虚拟机变得极不正常。squid基本跑不了三四个小时就out of memory一次。虽然已经把cache_mem调低到free的1/4了。依然如此。
+更过分的事情刚才发生了，在又一次挂掉后，squid重启动彻底失败起不来了。
+赶紧查看cache.log，其中记载了失败的原因，如下：</p>
+<pre><code>storeDiskdInit: msgget: (28) No space left on device
+FATAL: msgget failed
+</code></pre>
+<p>一眼看起来像是磁盘空间满了，df一看，没问题呀，use才1%呢！
+然后注意到其具体失败处，是msgget函数。msgget是用来新建/获取信息队列的。也就是说，信息队列的某个方面满了。查看一下这方面的信息：</p>
+<pre><code>[root@sitesquid1 ~]# ipcs -l
+------ Shared Memory Limits --------
+max number of segments = 4096
+max seg size (kbytes) = 67108864
+max total shared memory (kbytes) = 17179869184
+min seg size (bytes) = 1
+------ Semaphore Limits --------
+max number of arrays = 128
+max semaphores per array = 250
+max semaphores system wide = 32000
+max ops per semop call = 32
+semaphore max value = 32767
+------ Messages: Limits --------
+max queues system wide = 16
+max size of message (bytes) = 65536
+default max size of queue (bytes) = 65536
+</code></pre>
+<p>看着有点晕，队列系统宽度的最大值，这个比较难理解（下面明明有最大大小了呀？）。只好求助百度，原来就是能打开的消息队列的最大个数，或者说消息队列标识符的最大值。
+看这个值挺小的，再看网上也有DB2和apache修改这个值的说法，那就修改一下试试：</p>
+<pre><code>sysctl -w kernel.msgmni=128
+</code></pre>
+<p>再启动squid，OK！！
+再重新看看消息队列标识符到底打开了多少：</p>
+<pre><code>[root@spshort5 ~]# ipcs|awk '/msqid/{a=NR}END{print NR-a}'
+19
+</code></pre>
+<p>果然是超过16。</p>
+      <a href="/2010/04/30/ipcs-error-in-squid-start" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/04/29/tech-to-get-int-in-awk" title="awk取数值小技巧" rel="bookmark">awk取数值小技巧</a>
     </h1>
     <p class="alt-font tight">
@@ -1433,54 +1488,6 @@ web是对url的监控，这个比nagios等要强大多了。因为使用libcurl�
 </code></pre></div>
 <p>即使是 DISK 上的 <code>TCP_HIT</code> 也有回源的。太奇怪了！！</p>
       <a href="/2010/03/17/problem-of-squid-access-log" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/03/16/implement-consistent_hash-by-perl" title="consistent_hash的perl脚本模拟" rel="bookmark">consistent_hash的perl脚本模拟</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-03-16 00:00:00 +0800">16 Mar 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="k">use</span> <span class="nn">String::</span><span class="n">CRC32</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$url</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">@peer</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;10.13.12.14:80&#39;</span><span class="p">,</span>
-<span class="s">&#39;10.13.12.15:80&#39;</span><span class="p">,</span>
-<span class="s">&#39;10.13.12.16:80&#39;</span><span class="p">,</span>
-<span class="s">&#39;10.13.12.17:80&#39;</span><span class="p">,</span>
-<span class="s">&#39;10.13.12.18:80&#39;</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">$new</span> <span class="o">=</span> <span class="mi">9999999999</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$sum</span> <span class="o">=</span> <span class="nv">$#peer</span><span class="o">+</span><span class="mi">1</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$uricrc</span> <span class="o">=</span> <span class="n">crc32</span><span class="p">(</span><span class="s">&quot;$url&quot;</span><span class="p">,</span><span class="nb">length</span><span class="p">(</span><span class="nv">$url</span><span class="p">));</span>
-<span class="k">for</span> <span class="p">(</span><span class="k">my</span> <span class="nv">$i</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span><span class="nv">$i</span><span class="o">&lt;</span><span class="nv">$sum</span><span class="p">;</span><span class="nv">$i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
-<span class="k">my</span> <span class="nv">$peercrc</span> <span class="o">=</span> <span class="n">crc32</span><span class="p">(</span><span class="nv">$peer</span><span class="p">[</span><span class="nv">$i</span><span class="p">],</span><span class="nb">length</span><span class="p">(</span><span class="nv">$peer</span><span class="p">[</span><span class="nv">$i</span><span class="p">]));</span>
-<span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="nv">$peercrc</span> <span class="o">-</span> <span class="nv">$uricrc</span><span class="p">;</span>
-<span class="k">if</span> <span class="p">(</span><span class="nv">$res</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="nv">$res</span> <span class="o">&lt;</span> <span class="nv">$new</span><span class="p">){</span>
-<span class="nv">$new</span> <span class="o">=</span> <span class="nv">$res</span><span class="p">;</span>
-<span class="nv">$haha</span> <span class="o">=</span> <span class="s">&quot;$i\t$new&quot;</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="p">}</span>
-<span class="k">my</span> <span class="nv">@num</span> <span class="o">=</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/\t/</span><span class="p">,</span><span class="nv">$haha</span><span class="p">);</span>
-<span class="nb">printf</span><span class="p">(</span><span class="s">&quot;%s cached at the %s peer by the key %010.0f.\n&quot;</span><span class="p">,</span><span class="nv">$url</span><span class="p">,</span><span class="nv">$peer</span><span class="p">[</span><span class="nv">$num</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span><span class="nv">$uricrc</span><span class="p">);</span>
-<span class="n">_END_</span>
-</code></pre></div>
-<p>测试如下：</p>
-<div class="highlight"><pre><code class="bash">./crc.pl http://www.hapi.com.cn/FLASH/age.swf
-http://www.hapi.com.cn/FLASH/age.swf cached at the 10.13.12.14:80 peer by the key   1007905459.
-</code></pre></div>
-<p>方法很拙劣，在比较运算和数组传递之间捣腾了很久，最后还是没能用%var{}和sort的办法搞定，而是采用了赋值单一变量然后切割获取序号的办法，反正只是做个小模拟，~~</p>
-      <a href="/2010/03/16/implement-consistent_hash-by-perl" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
