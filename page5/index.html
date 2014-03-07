@@ -43,6 +43,181 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2012/06/08/create-python-module-for-ganglia" title="用ganglia监控trafficserver" rel="bookmark">用ganglia监控trafficserver</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-06-08 00:00:00 +0800">08 Jun 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>trafficserver提供了几种很不错的性能监控方式。首先是一个模仿cisco的shell工具./bin/traffic_shell——这个工具可以set变量，也可以show变量，另一个是类似squidclient的./bin/traffic_line工具——这个工具同样可以set和show变量，不过这里变量更接近源代码函数名的样子，相当于调用API了。此外还有Perl和Web的其他方式……</p>
+<p>注：有些变量是可以动态修改的，有些比如内存大小之类的必须重启才生效。</p>
+<p>用shell工具最方便，因为你单写个show，会提示你所有可以show的参数。一般性能方面就是http-stats/http-trans-stats/proxy-stats/cache-stats这几个。淘宝ssd分支在这里增加了一个SSD吞吐量和RAM缓存命中率的显示。不过一开始，你会发现RAM Cache HITs一直是0.00%！！询问作者后才知道，为了尽量提高性能，默认配置下RAM命中后不统计数据直接pass了……需要在records.config里配置CONFIG proxy.config.http.record_tcp_mem_hit = 1 才行——这配置records.config.default里还没有，呵呵～～</p>
+<p>长期监控来说，用shell工具就不方便了，就要改用line工具，不过这里line读取的API，官方文档里是不全的，有一个简单的办法，就是进src/mgmt/cli/ShowCmd.cc里去把Cli_RecordGetInt里的字符串全grep出来，然后慢慢挑拣吧～～</p>
+<p>下面是一个python的脚本，用来在ganglia里监控几个我个人认为比较重要的trafficserver性能参数的。</p>
+<div class="highlight"><pre><code class="python"><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="n">ts_line</span> <span class="o">=</span> <span class="s">&#39;/usr/local/trafficserver-ssd/bin/traffic_line&#39;</span>
+<span class="k">def</span> <span class="nf">metric_read</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+    <span class="n">command</span> <span class="o">=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s"> -r </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ts_line</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">popen</span><span class="p">(</span><span class="n">command</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">&quot;ratio|percent&quot;</span><span class="p">,</span><span class="n">name</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="mi">100</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">descriptors</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">{</span>
+        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Cache Bytes used&#39;</span><span class="p">,</span>
+        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.process.cache.bytes_used&#39;</span><span class="p">,</span>
+        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
+        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
+        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
+        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;Bytes&#39;</span><span class="p">,</span>
+        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
+        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
+        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Cache size&#39;</span><span class="p">,</span>
+        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.process.cache.bytes_total&#39;</span><span class="p">,</span>
+        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
+        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
+        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
+        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;Bytes&#39;</span><span class="p">,</span>
+        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
+        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
+        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Transactions per second&#39;</span><span class="p">,</span>
+        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.node.user_agent_xacts_per_second&#39;</span><span class="p">,</span>
+        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
+        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
+        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
+        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;requests/sec&#39;</span><span class="p">,</span>
+        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
+        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
+        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Document hit rate&#39;</span><span class="p">,</span>
+        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.node.cache_hit_ratio_avg_10s&#39;</span><span class="p">,</span>
+        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
+        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
+        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
+        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;%&#39;</span><span class="p">,</span>
+        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
+        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
+        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Bandwidth savings&#39;</span><span class="p">,</span>
+        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.node.bandwidth_hit_ratio_avg_10s&#39;</span><span class="p">,</span>
+        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
+        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
+        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
+        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;%&#39;</span><span class="p">,</span>
+        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
+        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
+        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Cache percent free&#39;</span><span class="p">,</span>
+        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.node.cache.percent_free&#39;</span><span class="p">,</span>
+        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
+        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
+        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
+        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;%&#39;</span><span class="p">,</span>
+        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
+        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
+        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Total document bytes from client&#39;</span><span class="p">,</span>
+        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.process.http.user_agent_response_document_total_size&#39;</span><span class="p">,</span>
+        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
+        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
+        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
+        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;Bytes&#39;</span><span class="p">,</span>
+        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
+        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
+        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Total SSD Serve Bytes&#39;</span><span class="p">,</span>
+        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.process.http.ssd_serve_total_size&#39;</span><span class="p">,</span>
+        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
+        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
+        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
+        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;Bytes&#39;</span><span class="p">,</span>
+        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
+        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
+        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;RAM Cache Hits&#39;</span><span class="p">,</span>
+        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.node.cache_hit_mem_ratio&#39;</span><span class="p">,</span>
+        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
+        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
+        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
+        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;%&#39;</span><span class="p">,</span>
+        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
+        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
+        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;HTTP Transaction Fresh Speeds&#39;</span><span class="p">,</span>
+        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.node.http.transaction_msec_avg_10s.hit_fresh&#39;</span><span class="p">,</span>
+        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
+        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
+        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
+        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;ms&#39;</span><span class="p">,</span>
+        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
+        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
+        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;HTTP Transaction Now Cached Speeds&#39;</span><span class="p">,</span>
+        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.node.http.transaction_msec_avg_10s.miss_cold&#39;</span><span class="p">,</span>
+        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
+        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
+        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
+        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;ms&#39;</span><span class="p">,</span>
+        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
+        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
+        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
+    <span class="p">},</span>
+<span class="p">]</span>
+<span class="k">def</span> <span class="nf">metric_init</span><span class="p">(</span><span class="n">params</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">descriptors</span>
+<span class="k">def</span> <span class="nf">metric_cleanup</span><span class="p">():</span>
+    <span class="k">pass</span>
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">metric_init</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+    <span class="k">while</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">descriptors</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s">&#39;call_back&#39;</span><span class="p">](</span><span class="n">d</span><span class="p">[</span><span class="s">&#39;name&#39;</span><span class="p">])</span>
+            <span class="k">print</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> = </span><span class="si">%.2f</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s">&#39;name&#39;</span><span class="p">],</span> <span class="n">v</span><span class="p">)</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">print</span> <span class="s">&#39;-&#39;</span><span class="o">*</span><span class="mi">11</span>
+</code></pre></div>
+<p>个人之前从来没写过python，这个脚本完全照葫芦画瓢，万幸确实可以运行……</p>
+<p>不过不太明白的就是，如果把def metric_read定义在descriptors数组后面，运行会报错。很奇怪python为什么会这样？</p>
+      <a href="/2012/06/08/create-python-module-for-ganglia" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2012/06/01/dist-logstash-and-elasticsearch" title="【Logstash系列】用rabbitmq和elasticsearch搭建分布式日志收集存储系统" rel="bookmark">【Logstash系列】用rabbitmq和elasticsearch搭建分布式日志收集存储系统</a>
     </h1>
     <p class="alt-font tight">
@@ -2326,81 +2501,6 @@ bar和line都是grid的。Chart::OFC的pod里举例是pie的，我这里写的�
 <p>另外，CPAN上还有一个模块是给XML/SWF Chart生成数据的，不过那个东东也是要buy滴……
 再另，有木有仪表盘的charts可用呢……</p>
       <a href="/2011/12/19/intro_open_flash_chart" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/12/15/learning_dancer_plugin_simplecrud" title="Dancer::Plugin::SimpleCRUD模块学习" rel="bookmark">Dancer::Plugin::SimpleCRUD模块学习</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-12-15 00:00:00 +0800">15 Dec 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#dancer-ref" title="dancer" rel="category tag">dancer</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>Dancer圣临历中介绍了一个新插件Dancer::Plugin::SimpleCRUD。可以很快的生成对数据库表的create/read/update/delete。大概阅读了一下代码。主要就是使用HTML::FromDatabase模块生成read的页面，用CGI::FormBuilder模块生成create/update/delete的页面，用Dancer::Plugin::Database::Handle模块操作数据库。因为是Simple，所以html代码都是固定的，不甚美观。但是思路可以学习，通过这两个模块，可以自己结合Dancer的template系统做CRUD了。
-先来说HTML::FromDatabase模块，这个只涉及select，所以特别简单：</p>
-<div class="highlight"><pre><code class="perl"><span class="n">any</span> <span class="p">[</span><span class="s">&#39;get&#39;</span><span class="p">,</span> <span class="s">&#39;post&#39;</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="s">&#39;/add/:element&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$element</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;element&#39;</span><span class="p">};</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="n">request</span><span class="o">-&gt;</span><span class="n">method</span> <span class="ow">eq</span> <span class="s">&#39;GET&#39;</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="n">database</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span><span class="s">&quot;select * from $element&quot;</span><span class="p">);</span>
-        <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">();</span>
-        <span class="k">my</span> <span class="nv">$table</span> <span class="o">=</span> <span class="nn">HTML::Table::</span><span class="n">FromDatabase</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="o">-</span><span class="n">sth</span> <span class="o">=&gt;</span> <span class="nv">$sth</span> <span class="p">)</span><span class="o">-&gt;</span><span class="n">getTable</span><span class="p">;</span>
-        <span class="n">template</span> <span class="s">&#39;info&#39;</span><span class="p">,</span> <span class="p">{</span> <span class="n">table</span> <span class="o">=&gt;</span> <span class="nv">$table</span> <span class="p">};</span>
-    <span class="p">};</span>
-<span class="o">...</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>这样就可以了，getTable方法的返回是一个字符串(内容就是table/tr/td代码)，直接传递给tmpl就行了~~
-然后看CGI::FromBuilder模块：</p>
-<div class="highlight"><pre><code class="perl"><span class="n">any</span> <span class="p">[</span><span class="s">&#39;get&#39;</span><span class="p">,</span> <span class="s">&#39;post&#39;</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="s">&#39;/add/:element&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$element</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;element&#39;</span><span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$paramsobj</span> <span class="o">=</span> <span class="n">request</span><span class="o">-&gt;</span><span class="n">method</span> <span class="ow">eq</span> <span class="s">&#39;POST&#39;</span> <span class="p">?</span> <span class="p">{</span> <span class="n">params</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="n">params</span><span class="p">()</span> <span class="p">}</span> <span class="p">}</span> <span class="p">:</span> <span class="nb">undef</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">@fields</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nv">$element</span> <span class="ow">eq</span> <span class="s">&#39;food&#39;</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">@fields</span> <span class="o">=</span> <span class="sx">qw/fid name shelf/</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$element</span> <span class="ow">eq</span> <span class="s">&#39;market&#39;</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">@fields</span> <span class="o">=</span> <span class="sx">qw/mid name location/</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">elsif</span> <span class="nv">$element</span> <span class="ow">eq</span> <span class="s">&#39;price&#39;</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">@fields</span> <span class="o">=</span> <span class="sx">qw/fid mid price time/</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-        <span class="k">return</span> <span class="s">&quot;Error element&quot;</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$form</span> <span class="o">=</span> <span class="nn">CGI::</span><span class="n">FormBuilder</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
-        <span class="n">params</span> <span class="o">=&gt;</span> <span class="nv">$paramsobj</span><span class="p">,</span>
-        <span class="n">fields</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@fields</span><span class="p">,</span>
-    <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="n">database</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span><span class="s">&quot;select * from $element order by fid desc&quot;</span><span class="p">);</span>
-    <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$default_hashref</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">fetchrow_hashref</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$action</span> <span class="o">=</span> <span class="nv">$default_hashref</span> <span class="p">?</span> <span class="s">&#39;update&#39;</span> <span class="p">:</span> <span class="s">&#39;insert&#39;</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="n">request</span><span class="o">-&gt;</span><span class="n">method</span> <span class="ow">eq</span> <span class="s">&#39;POST&#39;</span> <span class="o">&amp;&amp;</span> <span class="nv">$form</span><span class="o">-&gt;</span><span class="n">submitted</span> <span class="o">&amp;&amp;</span> <span class="nv">$form</span><span class="o">-&gt;</span><span class="n">validate</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$success</span> <span class="o">=</span> <span class="n">database</span><span class="o">-&gt;</span><span class="n">quick_update</span><span class="p">(</span><span class="s">&quot;$element&quot;</span><span class="p">,</span> <span class="p">{</span><span class="n">name</span> <span class="o">=&gt;</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;name&#39;</span><span class="p">}},</span> <span class="p">{</span><span class="n">shelf</span> <span class="o">=&gt;</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;shelf&#39;</span><span class="p">}</span> <span class="p">});</span>
-        <span class="n">redirect</span> <span class="s">&quot;/add/$element&quot;</span> <span class="k">if</span> <span class="nv">$success</span><span class="p">;</span>
-        <span class="k">return</span> <span class="s">&quot;update error&quot;</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-<span class="c1">#        return $form-&gt;render(values =&gt; $default_hashref,</span>
-        <span class="k">my</span> <span class="nv">$hash</span> <span class="o">=</span> <span class="nv">$form</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span><span class="nb">values</span> <span class="o">=&gt;</span> <span class="nv">$default_hashref</span><span class="p">,</span>
-                             <span class="n">title</span>  <span class="o">=&gt;</span> <span class="nv">$element</span><span class="p">,</span>
-                             <span class="n">action</span> <span class="o">=&gt;</span> <span class="s">&quot;/add/$element&quot;</span><span class="p">,</span>
-                             <span class="n">method</span> <span class="o">=&gt;</span> <span class="s">&quot;post&quot;</span><span class="p">,</span>
-                            <span class="p">);</span>
-        <span class="n">template</span> <span class="s">&#39;crud&#39;</span><span class="p">,</span> <span class="p">{</span> <span class="n">hash</span> <span class="o">=&gt;</span> <span class="nv">$hash</span><span class="p">,</span> <span class="p">};</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>这里的关键，就是$paramsobj变量。否则无法区分GET和POST的。
-和HTML::FromDatabase一样，有个render()直接返回内容是组装好的html代码的字符串；另外，CGI::FormBuilder模块还提供一个prepare()方法，返回的是hash——因为render()返回的html代码是完整的html/head/body&hellip;（事实上CGI::FormBuilder模块的构造器还提供指定js函数和css格式的参数）；所以如果要加进template里，可以把prepare()返回的hash传递给tmpl去操作！
-然后还发现一个小问题，如果table里一条数据都没有，fields为undef，模块运行有问题的……
-最后，<em>quick_update()是Dancer::Plugin::Database::Handle模块里提供的，这个模块里提供了一系列_quick</em>*()方法，用来快速操作数据库。</p>
-      <a href="/2011/12/15/learning_dancer_plugin_simplecrud" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

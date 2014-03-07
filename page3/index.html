@@ -43,6 +43,61 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/03/14/JPush-example" title="极光推送demo" rel="bookmark">极光推送demo</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-03-14 00:00:00 +0800">14 Mar 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>之前已经陆续写过很多种告警的方式。今天再稍微试验一种更新潮一些的 —— 手机推送通知。原先我的想法是移植 HTML5 的 websocket + notification 页面到手机上。但是发现手机上的浏览器都还没有 notification 功能。即便是用 PhoneGap 包装 HTML5 应用，PhoneGap 的 notification API 也不是我想象中的状态栏通知，而是类似 js 的 alert 对话框。</p>
+<p>不过这个时候我发现了极光推送。嗯，本来蛮有挑战的事情顿时变成了十分钟内解决的小菜：</p>
+<p>整个过程如下：</p>
+<h3 id="section">注册帐号</h3>
+<p>官网地址: <a href="http://jpush.cn">http://jpush.cn</a></p>
+<h3 id="section-1">新建应用</h3>
+<p>都是纯页面操作，填写应用名称而已。</p>
+<h3 id="example-">下载 example 包</h3>
+<p>在应用详情里有下载链接。</p>
+<h3 id="adt-eclipse--example">用 adt eclipse 打开 example</h3>
+<p>adt eclipse 直接从 android 官网下载 adt-bundle-linux-x86-20130219.tar.gz 解压即可运行。更多配置见 android 官网说明。</p>
+<p>然后在 File 菜单栏选择 new -&gt; android application project 就可以新建自己的项目。然后创建自己的 workspace，把下好的 JPush example 包解压倒入workspace，然后就可以 run 了。</p>
+<p>不过这里 run 会启动一个 android 虚拟机，很可能是连不上网的，原因似乎是 android vm 默认是 10.0.0.0 网段。</p>
+<p>其实这时候我们会在 <code>workspace/push-example/bin/</code> 下发现一个 <code>push-example.apk</code> 文件。复制出来，通过豌豆荚或者别的什么工具直接装进自己手机就可以运行了。</p>
+<h3 id="section-2">测试页面发送通知</h3>
+<p>在极光的 portal 页面 <a href="http://www.jpush.cn/apps/${your app key}/notification">http://www.jpush.cn/apps/${your app key}/notification</a> 上可以直接提交通知内容。然后你就可以在手机状态栏通知上看到啦！</p>
+<h3 id="section-3">测试命令行发送通知</h3>
+<p>文档见<a href="http://docs.jpush.cn/pages/viewpage.action?pageId=2621796">http://docs.jpush.cn/pages/viewpage.action?pageId=2621796</a>。</p>
+<p>比如通过简易通知推送接口发送如下：</p>
+<div class="highlight"><pre><code class="bash">    <span class="c">#!/bin/sh</span>
+    <span class="c">#下面两个是你新建应用后就分配的</span>
+    <span class="nv">APP_KEY</span><span class="o">=</span><span class="nv">$1</span>
+    <span class="nv">API_MasterSecret</span><span class="o">=</span><span class="nv">$2</span>
+    <span class="c">#自赠序列号，这个最好是通过mysql的auto_increment管理</span>
+    <span class="nv">sendno</span><span class="o">=</span>2
+    <span class="c">#这里有1,2,3,4,分别对应对指定IMEI/tag/alias/all的用户推送</span>
+    <span class="nv">receiver_type</span><span class="o">=</span>4
+    <span class="nv">verification_code</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> -ne <span class="s2">&quot;$sendno$receiver_type$API_MasterSecret&quot;</span> | md5sum | awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
+    <span class="c">#platform包括android,ios等等，可以用逗号分开写多个</span>
+    curl http://api.jpush.cn:8800/sendmsg/v2/notification -d <span class="s2">&quot;sendno=${sendno}&amp;app_key=${APP_KEY}&amp;receiver_type=${receiver_type}&amp;platform=android&amp;txt=123&amp;verification_code=${verification_code}&quot;</span>
+</code></pre></div>
+<p>然后收到如下响应：</p>
+<div class="highlight"><pre><code class="bash">    <span class="o">{</span><span class="s2">&quot;sendno&quot;</span> :<span class="s2">&quot;2&quot;</span>, <span class="s2">&quot;errcode&quot;</span>:0,  <span class="s2">&quot;errmsg&quot;</span>:<span class="s2">&quot;Succeed&quot;</span><span class="o">}</span>
+</code></pre></div>
+<p>手机也同时响起~成功。</p>
+      <a href="/2013/03/14/JPush-example" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/02/25/nginx-testing-10Gibps" title="Nginx 万兆网络环境测试" rel="bookmark">Nginx 万兆网络环境测试</a>
     </h1>
     <p class="alt-font tight">
@@ -4318,76 +4373,6 @@ http://home.schmorp.de/</p>
 <p>以上。</p>
 <p>最后，如果完成了，在浏览器上直接选择打包即可。不过新版本的chrome已经不再允许直接安装非web store的crx了……</p>
       <a href="/2012/11/09/chrome-app-demo" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/10/30/faraday-select-rand-node-for-logstash-output-elasticsearch-http" title="【Logstash系列】Outputs::ElasticsearchHTTP自动获取随机node" rel="bookmark">【Logstash系列】Outputs::ElasticsearchHTTP自动获取随机node</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-10-30 00:00:00 +0800">30 Oct 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天在ES群中和medcl请教了一下index的性能问题。基本上在bulk的基础上，还有几点是可以做的。当然medcl说的是正常的全文索引的场景：</p>
-<ul>
-  <li>不用http协议，直接走tcp层，维护一个pool发bulk；</li>
-  <li>多台node的情况下，在bulk前先设置replica为0；bulk完成后再调整replica；</li>
-  <li>因为es会自动路由，所以index请求可以分散开直接发给多个node。</li>
-</ul>
-<p>总之，就是减少集群内部的网络传输。</p>
-<p>介于logstash的应用是一直持续往es写数据的，所以replica调整这招用不上，顶多加大refresh时间而已。所以可以动手的地方主要就是第三条了。</p>
-<p>正好去翻了一下perl的Elasticsearch.pm的POD。发现原来perl模块本色默认就是这么做的。new的时候定义的server，是用来发送请求获取集群所有alive的nodes。然后会从这个nodes列表里选择(随机)一个创建真正的链接返回。获取nodes的API如下：</p>
-<div class="highlight"><pre><code class="bash">curl http://192.168.1.33:9200/_cluster/nodes?pretty<span class="o">=</span>1
-<span class="o">{</span>
-  <span class="s2">&quot;ok&quot;</span> : <span class="nb">true</span>,
-  <span class="s2">&quot;cluster_name&quot;</span> : <span class="s2">&quot;logstash&quot;</span>,
-  <span class="s2">&quot;nodes&quot;</span> : <span class="o">{</span>
-    <span class="s2">&quot;he6ipuA3SDeNmOQYIr-bjg&quot;</span> : <span class="o">{</span>
-      <span class="s2">&quot;name&quot;</span> : <span class="s2">&quot;Afari, Jamal&quot;</span>,
-      <span class="s2">&quot;transport_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.33:9300]&quot;</span>,
-      <span class="s2">&quot;hostname&quot;</span> : <span class="s2">&quot;ES-33.domain.com&quot;</span>,
-      <span class="s2">&quot;http_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.33:9200]&quot;</span>
-    <span class="o">}</span>,
-    <span class="s2">&quot;WXK68VX0ThmNnozq0uioQw&quot;</span> : <span class="o">{</span>
-      <span class="s2">&quot;name&quot;</span> : <span class="s2">&quot;Harker, Quincy&quot;</span>,
-      <span class="s2">&quot;transport_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.68:9300]&quot;</span>,
-      <span class="s2">&quot;hostname&quot;</span> : <span class="s2">&quot;ES-68.domain.com&quot;</span>,
-      <span class="s2">&quot;http_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.68:9200]&quot;</span>
-    <span class="o">}</span>
-  <span class="o">}</span>
-<span class="o">}</span>
-</code></pre></div>
-<p>这样显然可以在cluster较大的时候分担index的压力(search的时候压力在集群本身的cpu上)。我打算给我的pure-ruby branch里的faraday版的Logstash::Outputs::ElasticsearchHTTP也加上这个功能。</p>
-<hr />
-<p>大致简单实现如下：</p>
-<div class="highlight"><pre><code class="ruby">  <span class="k">def</span> <span class="nf">select_rand_host</span>
-    <span class="nb">require</span> <span class="s2">&quot;json&quot;</span>
-    <span class="k">begin</span>
-      <span class="n">response</span> <span class="o">=</span> <span class="vi">@agent</span><span class="o">.</span><span class="n">get</span> <span class="s1">&#39;/_cluster/nodes&#39;</span>
-      <span class="n">nodelist</span> <span class="o">=</span> <span class="no">JSON</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">body</span><span class="p">)</span><span class="o">[</span><span class="s1">&#39;nodes&#39;</span><span class="o">].</span><span class="n">values</span>
-      <span class="n">livenode</span> <span class="o">=</span> <span class="n">nodelist</span><span class="o">[</span><span class="nb">rand</span><span class="p">(</span><span class="n">nodelist</span><span class="o">.</span><span class="n">length</span><span class="p">)</span><span class="o">][</span><span class="s2">&quot;http_address&quot;</span><span class="o">].</span><span class="n">split</span><span class="p">(</span><span class="sr">/\[|\]/</span><span class="p">)</span><span class="o">[</span><span class="mi">1</span><span class="o">]</span>
-      <span class="vi">@agent</span> <span class="o">=</span> <span class="no">Faraday</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">:url</span> <span class="o">=&gt;</span> <span class="s2">&quot;http:/</span><span class="si">#{</span><span class="n">livenode</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="k">do</span> <span class="o">|</span><span class="n">faraday</span><span class="o">|</span>
-        <span class="n">faraday</span><span class="o">.</span><span class="n">use</span> <span class="ss">Faraday</span><span class="p">:</span><span class="ss">:Adapter</span><span class="o">::</span><span class="no">EMHttp</span>
-      <span class="k">end</span>
-    <span class="k">end</span>
-  <span class="k">end</span>
-</code></pre></div>
-<p>然后在<code>def register</code>里和<code>def flush</code>的<code>retry</code>前面都加上<code>select_rand_host()</code>就好了。当然比起perl的ElasticSearch::Transport里各种检查各种排除，我这个还是简单多了……
-另，在Ruby1.9里从数组返回随机元素可以直接调用<code>.sample</code>，真赞。不过谁让我都是1.8.7的版本呢……</p>
-<p><strong>2012 年 12 月 30 日附注：</strong></p>
-<p>之后我在 maillist 里联系了 logstash 的作者。不过作者表示：第一，需要自选 node 功能的，建议使用 output/elasticsearch 因为这个是用的 java 客户端，直接会把自己作为一个 node 加入 ES 的 cluster。第二，ruby 的 http 模块他都不喜欢，所以全部项目里的相关部分他都只用自己写的 ftw 模块 ==!</p>
-<p><strong>2013 年 02 月 26 日附注：</strong></p>
-<p>最新版的 Logstash::Outputs::ElasticSearchHTTP 已经加入随机选择 node 功能。是其他网友在 ftw 模块基础上添加的。</p>
-      <a href="/2012/10/30/faraday-select-rand-node-for-logstash-output-elasticsearch-http" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

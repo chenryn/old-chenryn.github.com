@@ -43,6 +43,69 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2009/12/30/502-error-in-nginx" title="nginx502错误" rel="bookmark">nginx502错误</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-12-30 00:00:00 +0800">30 Dec 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#nginx-ref" title="nginx" rel="category tag">nginx</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>NGINX 502 Bad Gateway错误是FastCGI有问题，造成NGINX 502错误的可能性比较多。将网上找到的一些和502 Bad Gateway错误有关的问题和排查方法列一下，先从FastCGI配置入手：</p>
+<ol>
+  <li>查看FastCGI进程是否已经启动</li>
+</ol>
+<p>NGINX 502错误的含义是sock、端口没被监听造成的。我们先检查fastcgi是否在运行</p>
+<ol>
+  <li>检查系统Fastcgi进程运行情况</li>
+</ol>
+<p>除了第一种情况，fastcgi进程数不够用、php执行时间长、或者是php-cgi进程死掉也可能造成nginx的502错误
+运行以下命令判断是否接近FastCGI进程，如果fastcgi进程数接近配置文件中设置的数值，表明worker进程数设置太少
+netstat -anpo | grep &ldquo;php-cgi&rdquo; | wc -l</p>
+<ol>
+  <li>FastCGI执行时间过长</li>
+</ol>
+<p>根据实际情况调高以下参数值</p>
+<p>fastcgi_connect_timeout 300;  <br />
+fastcgi_send_timeout 300;  <br />
+fastcgi_read_timeout 300;    </p>
+<ol>
+  <li>头部太大</li>
+</ol>
+<p>nginx和apache一样，有前端缓冲限制，可以调整缓冲参数</p>
+<p>fastcgi_buffer_size 32k;
+fastcgi_buffers 8 32k;</p>
+<p>如果你使用的是nginx的负载均衡Proxying，调整</p>
+<p>proxy_buffer_size  16k;
+proxy_buffers 4 16k;</p>
+<ol>
+  <li>https转发配置错误</li>
+</ol>
+<p>正确的配置方法</p>
+<div class="highlight"><pre><code class="nginx"><span class="k">server_name</span> <span class="s">www.xok.la</span><span class="p">;</span>
+<span class="k">location</span> <span class="s">/myproj/repos</span> <span class="p">{</span>
+    <span class="kn">set</span> <span class="nv">$fixed_destination</span> <span class="nv">$http_destination</span><span class="p">;</span>
+    <span class="kn">if</span> <span class="s">(</span> <span class="nv">$http_destination</span> <span class="p">~</span><span class="sr">*</span> <span class="s">^https(.*)</span>$ <span class="s">)</span> <span class="p">{</span>
+        <span class="kn">set</span> <span class="nv">$fixed_destination</span> <span class="s">http</span><span class="nv">$1</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="nv">$host</span><span class="p">;</span>
+    <span class="kn">proxy_set_header</span> <span class="s">X-Real-IP</span> <span class="nv">$remote_addr</span><span class="p">;</span>
+    <span class="kn">proxy_set_header</span> <span class="s">Destination</span> <span class="nv">$fixed_destination</span><span class="p">;</span>
+    <span class="kn">proxy_pass</span> <span class="s">http://subversion_hosts</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+      <a href="/2009/12/30/502-error-in-nginx" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2009/12/27/zz-diff-cdn-between-china-and-usa" title="看上去很美——国内CDN现状与美国对比（转）" rel="bookmark">看上去很美——国内CDN现状与美国对比（转）</a>
     </h1>
     <p class="alt-font tight">
@@ -1510,35 +1573,6 @@ LAST_ACK 11
 <p>OPTARG是当getopts获取到其期望的参数后存入的位置。而如果不在其期望内，则$optname被设为?并将该意外值存入OPTARG；如果$optname需要拥有具体设置值而实际却没有，则$optname被设为:并将丢失设置值的optname存入OPTARG；</p>
 <p>对于$optname，可以用后标:来表示是否需要值；而前标:则表示是否开启静默模式。</p>
       <a href="/2009/11/04/intro-getopts" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/04/dist-shell" title="分布式shell程序" rel="bookmark">分布式shell程序</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-04 00:00:00 +0800">04 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>除了用expect+for循环以外，今天偶然看到分布式shell这个概念。随手百度一些资料，放到这里，等过段时间试试~~</p>
-<p><a href="http://www.netfort.gr.jp/~dancer/software/dsh.html.en">DSH——dancer&rsquo;s shell / distributed shell</a></p>
-<p>开发者是在debian/ubuntu上做的，依赖libdshconfig，如果要部署在其他linux发行版上，还得好好编译一番。
-<a href="http://www.theether.org/pssh/">pssh</a> ——这个系列很全，ssh/scp/rsync/nuke/slurp都有。
-这个默认下载是rpm包。
-<a href="http://sourceforge.net/apps/mediawiki/clusterssh/index.php?title=Main_Page">cssh</a>
-这个是用perl编写的，感觉普通使用的时候就像是SecureCRT、XShell这些windows平台上的ssh工具一样标签组管理登陆，但多了一个向组服务器同时发送命令的功能。
-还有更多工具，见下：
-<a href="http://www.gentoo.org/news/zh_cn/gmn/20080930-newsletter.xml">http://www.gentoo.org/news/zh_cn/gmn/20080930-newsletter.xml</a></p>
-      <a href="/2009/11/04/dist-shell" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
