@@ -43,6 +43,60 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/07/17/location-seo" title="域名切换导致的 SEO 问题" rel="bookmark">域名切换导致的 SEO 问题</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-07-17 00:00:00 +0800">17 Jul 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>网站某频道准备启用新域名，切换过程中，为了保证网民访问效果，对老域名下的所有请求设置了重定向到新域名下相同url。测试访问正常后上线使用。</p>
+<p>过几天，发现该频道在各搜索引擎的收录数和关键词排名中都消失了！</p>
+<h2 id="se0-">SE0 收录的问题</h2>
+<p>原来对于搜索引擎来讲，301永久重定向与302临时重定向属于不同情况。它们认可301永久重定向规则，并依此规则转移原请求的数据……</p>
+<p>照此修改nginx配置</p>
+<div class="highlight"><pre><code class="nginx"><span class="k">server</span> <span class="p">{</span>
+    <span class="kn">server_name</span> <span class="s">old.domain.com</span><span class="p">;</span>
+    <span class="c1">#rewrite ^/(.*)$ http://new.domain.com/$1 last;</span>
+    <span class="kn">rewrite</span> <span class="s">^/(.*)</span>$ <span class="s">http://new.domain.com/</span><span class="nv">$1</span> <span class="s">permanent</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">server</span> <span class="p">{</span>
+    <span class="c1">#server_name old.domain.com toold.domain.com;</span>
+    <span class="kn">server_name</span> <span class="s">new.domain.com</span> <span class="s">toold.domain.com</span><span class="p">;</span>
+    <span class="kn">root</span> <span class="s">/www/old.domain.com</span><span class="p">;</span>
+    <span class="kn">index</span> <span class="s">index.html</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>配置生效后，收录逐渐恢复。</p>
+<p>目前查询的结果，新老域名的google收录比为28600:46100，百度收录比为1200:97400。</p>
+<p>据网友经验，百度对301重定向大概也需要3个月左右的时间才能完全反应过来……汗死</p>
+<h2 id="google-pr">google PR的问题</h2>
+<p>收录解决后，PR的问题又报出来了。目前查询结果，old.domain.com的PR为6，new.domain.com的PR还是0，而且toolod.domain.com的PR也是6，并提示可能是劫持了old.domain.com的PR！</p>
+<p>只好再去看PR的资料……PR是google发明的对页面重要性等级的分析算法。从0到10非等比升高。主要是通过相互之间的链接来衡量得出的，外部链接的PR越高，网站得到的PR评分也越高（粗略的说）。对于google来说，google、yahoo等搜索引擎的收录，显然是PR衡量中极为重要的（google自定为10，yahoo、baidu等搜索是9，sina等门户是8…）显然，对于网站域名迁移切换来说，搜索引擎的收录数迁移是基础。    </p>
+<p>不过收录转移完了，PR也变不了——因为PR计算太复杂了，哪怕以google的实力也不可能做到实时更新，而是几乎2.5-3个月才更新一次！    </p>
+<p>同时，据google的Webspam团队老大Matt Cutts说：即使在域名迁移中使用301重定向，在PR统计时，也会有一定的损失！    </p>
+<p>总之，想看到new.domain.com的PR恢复成6，耐心等待吧……    </p>
+<p>然后研究toold的劫持PR报告是怎么来的……    </p>
+<p>一般大家的说法，劫持PR都是采用重定向或者别名的方式（上面提到了，这个方式也不会获得完全一样的PR）。显然我这里的情况不是。    </p>
+<p>也有人说，劫持PR直接A到IP更方便。也有人怀疑自己租机建站得到的是其他站的PR，难道相同IP的域名PR都会一样？查询一下和new.domian.com在同一台nginx上的另一个域名，PR是5。猜测不对。    </p>
+<p>或许，因为toold读取的网页文件和old是一致的，所以获得的外链也一致。但外面的反向链接，肯定指的都是old而不是toold，导致toold的反链数过少，所以被怀疑为PR劫持了。    </p>
+<p>不过，据编辑说，toold这个域名从来就没有上线发布使用过，搜索引擎从哪里抓到的页面呢？    </p>
+<p>nginx 的同一 server{} 段内的多个 <code>server_name</code> 配置，默认只会把第一个域名设定为 <code>$server_name</code>。    </p>
+<p>dns 上也没有配反向解析。    </p>
+<p>实在想不到还有哪里能泄露出这个toold了……    </p>
+      <a href="/2010/07/17/location-seo" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/07/17/intro-netapp" title="初识NetApp存储" rel="bookmark">初识NetApp存储</a>
     </h1>
     <p class="alt-font tight">
@@ -1100,101 +1154,6 @@ round-trip min/avg/max = 195.6/1869.6/2972.9 ms
 Transfer speed: min/avg/max = 15/59/400 KB
 </code></pre>
       <a href="/2010/05/06/intro-httping" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/05/05/intro-netperf" title="netperf网络测试" rel="bookmark">netperf网络测试</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-05-05 00:00:00 +0800">05 May 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>本文的主要参考是IBM工作室的一篇文章：<a href="http://www.ibm.com/developerworks/cn/linux/l-netperf/index.html" target="_blank">http://www.ibm.com/developerworks/cn/linux/l-netperf/index.html</a></p>
-<p>文中指出网络性能的五个衡量指标，前两个是可用性和响应时间，这也是最经常关注的，因为有最常见的ping命令；然后是利用率、可用带宽和剩余带宽。</p>
-<ul>
-  <li>安装：</li>
-</ul>
-<div class="highlight"><pre><code class="bash">wget ftp://ftp.netperf.org/netperf/netperf-2.4.5.tar.gz
-tar zxvf netperf-2.4.5.tar.gz -C /tmp
-<span class="nb">cd</span> /tmp/netperf-2.4.5
-./configure <span class="o">&amp;&amp;</span> make <span class="o">&amp;&amp;</span> make install
-</code></pre></div>
-<p>然后在服务器端运行/usr/local/bin/netserver启动服务，可以看到如下正确结果：</p>
-<pre><code>Starting netserver at port 12865
-Starting netserver at hostname 0.0.0.0 port 12865 and family AF_UNSPEC
-</code></pre>
-<p>同样在客户端（即网络另一头的服务器上）安装好，就可以用/usr/local/bin/netperf工具进行测试了。</p>
-<ul>
-  <li>我的测试环境是：</li>
-</ul>
-<p>S:121.14.225.197 汕头电信  <br />
-C:218.60.36.39 沈阳网通</p>
-<p>绝对的跨网测试了，呵呵~</p>
-<p>一、先测试默认的TCP_STREAM批量传输，结果如下：</p>
-<pre><code>/usr/local/bin/netperf -H 121.14.225.197 -l 60
-TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 121.14.225.197 (121.14.225.197) port 0 AF_INET
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-873800 163840 163840    60.46       6.52
-</code></pre>
-<p>即电信设备采用873800字节的socket接收缓存，网通设备采用163840字节的socket发送缓存，测试60.46秒后，网络吞吐量为6.52Mb/s。</p>
-<p>逐次采用-m修改发送包的大小后，发现在如下情况时，网络吞吐量是最好的（是默认发送分组的两倍半）：</p>
-<pre><code>/usr/local/bin/netperf -H 121.14.225.197 -l 60 -- -m 8192
-TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 121.14.225.197 (121.14.225.197) port 0 AF_INET
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-873800 163840   8192    61.46      17.60
-</code></pre>
-<p>可见在南北互联中间某环节的路由器，限定了socket缓冲区的大小。</p>
-<p>二、然后测试UDP的批量：</p>
-<pre><code>/usr/local/bin/netperf -t UDP_STREAM -H 121.14.225.197 -l 60 -- -m 8192
-UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 121.14.225.197 (121.14.225.197) port 0 AF_INET
-Socket  Message  Elapsed      Messages
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-6553600    8192   60.01     6973545      0    7615.92
-6553600           60.01      393669            429.93
-</code></pre>
-<p>可以看到，只有5.65%的UDP分组被接收了……</p>
-<p>三、小请求大应答模式的测试</p>
-<p>1、数据库请求（一次TCP连接，反复传输数据）：</p>
-<pre><code>/usr/local/bin/netperf -t TCP_RR -H 121.14.225.197  -- -r 32,1024
-TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 121.14.225.197 (121.14.225.197) port 0 AF_INET
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate
-bytes  Bytes  bytes    bytes   secs.    per sec
-163840 873800 32       1024    10.00      18.49
-163840 873800
-</code></pre>
-<p>在32字节请求和1024字节响应的情况下，平均交易率为18.49次/秒。</p>
-<p>2、HTTP请求（每次传输都新建连接）：</p>
-<pre><code>/usr/local/bin/netperf -t TCP_CRR -H 121.14.225.197  -- -r 32,1024
-TCP Connect/Request/Response TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 121.14.225.197 (121.14.225.197) port 0 AF_INET
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate
-bytes  Bytes  bytes    bytes   secs.    per sec
-163840 873800 32       1024    10.00       9.30
-163840 873800
-</code></pre>
-<p>RPS几乎下降一般，可见TCP建连是很耗时间的。</p>
-<p>3、还可以测试UDP_RR，理论上来说，去除掉TCP建连的耗时，UDP_RR的RPS应该有所提高。不过在我的跨网环境下，rps几乎低到0.1，考虑到之前测试得到的5%的收发率，这个测试基本只能在局域网内才有意义。</p>
-      <a href="/2010/05/05/intro-netperf" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

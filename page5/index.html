@@ -43,6 +43,103 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2012/06/10/install-mogilefs" title="MogileFS安装" rel="bookmark">MogileFS安装</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-06-10 00:00:00 +0800">10 Jun 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>纯属凑数的更新，写写安装过程而已。没有调优，没有测评，嗯……</p>
+<ul>
+  <li>storage Node</li>
+</ul>
+<div class="highlight"><pre><code class="bash">cpanm MogileFS::Utils MogileFS::Client
+<span class="c"># 因为MogileFS::Server的test里会测试mysql、sqlite、pgsql的支持，用不着，直接强制安装就好了</span>
+cpanm --force MogileFS::Server
+mkdir /etc/mogilefs
+cat &gt; /etc/mogilefs/mogstored.conf <span class="s">&lt;&lt;EOF</span>
+<span class="s">maxconns = 10000</span>
+<span class="s">httplisten = 0.0.0.0:7500</span>
+<span class="s">mgmtlisten = 0.0.0.0:7501</span>
+<span class="s">docroot=/data/mogstore</span>
+<span class="s">EOF</span>
+<span class="c"># 不在同一分区的磁盘采用软连接方式建立伪DEV设备</span>
+mkdir /data/mogstore/dev170
+mkdir /data1/mogstore
+ln -s /data1/mogstore /data/mogstore/dev171
+</code></pre></div>
+<ul>
+  <li>Tracker</li>
+</ul>
+<div class="highlight"><pre><code class="bash">yum install -y mysql-server mysql-devel
+cpanm DBI DBD::mysql MogileFS::Utils MogileFS::Client
+cpanm --force MogileFS::Server
+</code></pre></div>
+<div class="highlight"><pre><code class="sql"><span class="k">CREATE</span> <span class="k">DATABASE</span> <span class="n">MogileFS</span> <span class="k">DEFAULT</span> <span class="nb">CHARACTER</span> <span class="k">SET</span> <span class="n">utf8</span> <span class="k">COLLATE</span> <span class="n">utf8_bin</span><span class="p">;</span>
+<span class="k">grant</span> <span class="k">all</span> <span class="k">on</span> <span class="n">MogileFS</span><span class="p">.</span><span class="o">*</span> <span class="k">to</span> <span class="s1">&#39;mogile&#39;</span><span class="o">@</span><span class="s1">&#39;%&#39;</span> <span class="n">identified</span> <span class="k">by</span> <span class="s1">&#39;mogile&#39;</span><span class="p">;</span>
+<span class="k">UPDATE</span> <span class="n">mysql</span><span class="p">.</span><span class="k">user</span> <span class="k">SET</span> <span class="n">Password</span><span class="o">=</span><span class="n">PASSWORD</span><span class="p">(</span><span class="s1">&#39;newpass&#39;</span><span class="p">)</span> <span class="k">WHERE</span> <span class="k">User</span><span class="o">=</span><span class="s1">&#39;mogile&#39;</span><span class="p">;</span>
+<span class="n">FLUSH</span> <span class="k">PRIVILEGES</span><span class="p">;</span>
+</code></pre></div>
+<div class="highlight"><pre><code class="bash"><span class="c"># 初始化mysql数据库表</span>
+mogdbsetup --dbhost<span class="o">=</span>tracker.mogile.com --dbname<span class="o">=</span>MogileFS --dbuser<span class="o">=</span>mogile --dbpass<span class="o">=</span>newpass
+mkdir /etc/mogilefs
+cat &gt; /etc/mogilefs/mogilefsd.conf <span class="s">&lt;&lt;EOF</span>
+<span class="s">db_dsn = DBI:mysql:MogileFS:host=tracker.mogile.com</span>
+<span class="s">db_user = mogile</span>
+<span class="s">db_pass = mogile</span>
+<span class="s">listen = 0.0.0.0:7001</span>
+<span class="s">conf_port = 7001</span>
+<span class="s">query_jobs = 10</span>
+<span class="s">delete_jobs = 1</span>
+<span class="s">replicate_jobs = 5</span>
+<span class="s">reaper_jobs = 1</span>
+<span class="s">EOF</span>
+<span class="c"># mogilefsd不能用root启动</span>
+useradd mogile
+su - mogile -c <span class="s1">&#39;mogilefsd -c /etc/mogilefs/mogilefsd.conf --daemon&#39;</span>
+<span class="c"># 添加storage node和相关伪DEV设备信息</span>
+mogadm host add mognode17 --ip<span class="o">=</span>10.0.0.17 --port<span class="o">=</span>7500 --status<span class="o">=</span>alive
+mogadm device add mognode17 170
+mogadm device add mognode17 171
+<span class="c"># 添加域和类。文件的key在同一域内是唯一的。同一类可以指定自己的复制份数</span>
+mogadm domain add fmn
+mogadm class add fmn large --mindevcount<span class="o">=</span>3
+mogadm class add fmn small --mindevcount<span class="o">=</span>3
+<span class="c"># 检查状态，类似的有mogadm check命令</span>
+mogstats --db_dsn<span class="o">=</span><span class="s2">&quot;DBI:mysql:MogileFS:host=tracker.mogile.com&quot;</span> --db_user<span class="o">=</span><span class="s2">&quot;mogile&quot;</span> --db_pass<span class="o">=</span><span class="s2">&quot;mogile&quot;</span> --verbose --stats<span class="o">=</span><span class="s2">&quot;all&quot;</span>
+<span class="c"># 插入一个文件做测试</span>
+mogtool --debug --trackers<span class="o">=</span>127.0.0.1:7001 --domain<span class="o">=</span>fmn --class<span class="o">=</span>large inject index.html <span class="s2">&quot;index.html&quot;</span>
+</code></pre></div>
+<ul>
+  <li>Fuse</li>
+</ul>
+<p>这步没搞出来，因为search.cpan.org上的Fuse是0.14版本，cpanm安装居然说无法下载的是0.15版。而MogileFS::Client::Fuse里use的是0.11版……
+而且直接下载的Fuse0.14版源码编译还一直通不过make test。。。</p>
+<p>最后在github上找到两个资源：
+<a href="https://github.com/dpavlin/perl-fuse">Fuse-0.15</a>  <br />
+<a href="https://github.com/frett/MogileFS-Fuse">Mogile-Fuse-0.03</a>    </p>
+<p>先解决依赖：</p>
+<div class="highlight"><pre><code class="bash">yum install -y fuse fuse-devel fuse-libs
+cpanm FUSE::Client FUSE::Server Lchown Filesys::Statvfs Unix::Mknod
+</code></pre></div>
+<p>然后perl Makefile.PL &amp;&amp; make &amp;&amp; make test &amp;&amp; make install即可。
+挂载命令是：
+mount-mogilefs &ndash;daemon &ndash;tracker 10.0.0.16:7001 /mnt/mogilefs
+不过目前为止我挂载上去依然无法使用，输入输出有问题……</p>
+      <a href="/2012/06/10/install-mogilefs" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2012/06/08/intro-trafficserver-ssd-branch-in-taobao" title="淘宝TrafficServer的SSD分支测试与介绍" rel="bookmark">淘宝TrafficServer的SSD分支测试与介绍</a>
     </h1>
     <p class="alt-font tight">
@@ -2441,40 +2538,6 @@ lrwxrwxrwx 1 monitor monitor  23 Dec 19 18:15 thruk.conf -&gt; ../../thruk/apach
 注：/monitor/是因为我create的site名字是monitor
 另，修改config后，发现mod_gearman不可用。原因是omd的rpm发布里没有带gearmand的实现，必须自己另外搞定gearman的jobserver~~</p>
       <a href="/2011/12/20/omd_configurations_basic" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/12/19/omd_intro_install_on_centos5" title="OMD系列(一)简介与安装" rel="bookmark">OMD系列(一)简介与安装</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-12-19 00:00:00 +0800">19 Dec 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>OMD，全称Open Monitoring Distribution，是一个围绕Nagios core构建的分布式开源监控集。在nagios基础上融合了NRPE、NSCA、check_mk、mod_gearman、pnp4nagios、nagvis、rrdcached等插件，以完成高性能的、可视化的，分权限管理的监控系统。
-（我是在看mod_gearman的安装介绍时看到的，感觉这种一体式的安装很爽）
-项目主页是<a href="http://omdistro.org" target="_blank">http://omdistro.org</a>，提供了rh、debian、suse和src各种安装模式。
-比如在centos5上面，只需要简单的操作即可：</p>
-<div class="highlight"><pre><code class="bash">rpm -Uvh http://download.fedora.redhat.com/pub/epel/5/i386/epel-release-5-4.noarch.rpm
-<span class="c">#单独装graphviz是因为epel里的版本有冲突</span>
-yum install graphviz-gd.x86_64
-<span class="c">#已经有rhel6上的版本，而5.4提供最高只到0.45，mod_gearman从0.48才加入，所以试试5.5的，发现也没问题~~</span>
-yum install --nogpgcheck http://omdistro.org/attachments/download/121/omd-0.50-rh55-25.x86_64.rpm
-</code></pre></div>
-<p>然后运行omd create monitor即可。
-omd会自动在linux系统上添加一个monitor用户，然后其他操作可以在su - monitor后再继续，这样比较安全，而且可以看到的是，create的时候，还挂载了tmpfs到/omd/sites/monitor/tmp，以提供更高的性能。
-切换到monitor用户后，运行omd start，即可启动。
-先写到这里，慢慢看具体配置。</p>
-      <a href="/2011/12/19/omd_intro_install_on_centos5" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
