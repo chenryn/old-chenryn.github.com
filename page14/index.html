@@ -43,6 +43,40 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/02/04/performance-optimization-test-of-tcmalloc-loaded-by-squid-3" title="squid加载tcmalloc性能优化测试(编译)" rel="bookmark">squid加载tcmalloc性能优化测试(编译)</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-02-04 00:00:00 +0800">04 Feb 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>话接上文，同一组LVS下，昨天采用重编译方式部署了另一台squid服务器。同样跑上一天，再次对比一番。今天流量比上回稍微少些，未加载的服务器cacti监控截图如下：
+<img src="/images/uploads/62d80b5eh73140310b076690.jpg" alt="" title="cpu" width="573" height="259" class="alignnone size-full wp-image-2565" />
+CPU占用率
+=====================
+<img src="/images/uploads/62d80b5eh73140316c9a2690.jpg" alt="" title="loadavg" width="569" height="254" class="alignnone size-full wp-image-2567" />
+负载</p>
+<hr />
+<p>同时，重编译过后的squid服务器监控截图如下：
+<img src="/images/uploads/62d80b5eh7314031cd5b3690.jpg" alt="" title="cpu-new" width="572" height="261" class="alignnone size-full wp-image-2568" />
+CPU占用率（那个尖峰是我运行了一下lsof确认是否加载，lsof这个命令真是大杀器，少用……）
+=====================
+<img src="/images/uploads/62d80b5eh731403230ce5690.jpg" alt="" title="loadavg-new" width="570" height="258" class="alignnone size-full wp-image-2569" />
+负载</p>
+<p>这么一对比，效果马上就出来了。难怪官方建议要用编译加载的方式呢~~~</p>
+      <a href="/2010/02/04/performance-optimization-test-of-tcmalloc-loaded-by-squid-3" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/02/01/performance-optimization-test-of-tcmalloc-loaded-by-squid-2" title="squid加载tcmalloc性能优化测试(动态)" rel="bookmark">squid加载tcmalloc性能优化测试(动态)</a>
     </h1>
     <p class="alt-font tight">
@@ -2202,91 +2236,6 @@ cat &gt;&gt; etc/squid.conf <span class="s">&lt;&lt;EOF</span>
 <p>以上，3.1毕竟还是测试版，这个留待以后吧~~</p>
 <p>另，据《squid中文权威指南》作者潘勇华的blog说，这个“基于squid3.1的eCAP接口的流量压缩适配器”，对被自己压缩过的内容，简单的把Etag删除。</p>
       <a href="/2009/12/30/squid-gzip" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/12/30/a-reverse-example-of-url_rewrite_program" title="url_rewrite_program（squid游戏恶搞~）" rel="bookmark">url_rewrite_program（squid游戏恶搞~）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-12-30 00:00:00 +0800">30 Dec 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>标题很引人吧。其实是我在查找squid的rewrite资料时，看到的一篇文章。原作者突发奇想，准备让公司的同事们上网时，看到的所有图片全都倒过来180°。嘿嘿，小样，还不拧断你们脖子~~</p>
-<p>当然这么个大计划，单靠squid还是不行的，得后台配合一下web服务器才行。</p>
-<p>原理是这样的：squid每接到一个请求，首先判断后缀名是不是图片类型，如果是，下载到web服务器目录，然后调用程序颠倒图片，拷贝去另一个发布路径下。最后把新的路径返回给squid，交给浏览器去看。</p>
-<p>假设下载目录是/revimg，发布目录是/revimg/out，那么apache里配置如下vhost：</p>
-<div class="highlight"><pre><code class="apache"><span class="nb">ServerName</span> revimg.soulogic.com
-<span class="nb">DocumentRoot</span> <span class="sx">/revimg/out</span>
-</code></pre></div>
-<p>好了，其他准备完成。进入squid部分：</p>
-<p>squid官方并没有转向的设定，不过他允许甚至推荐了一些转向外挂（好吧，说好听些，第三方插件）。只需要很简单的在squid.conf里启用url_rewrite_program（也叫redirect_program）就可以了：</p>
-<p>url_rewrite_program /etc/squid/redirect.php（常见的是pl、py，当然也可以是squirm、squidGuard等软件，其实只要是squid属主可执行文件，parse都能通过）</p>
-<p>根据需要，还有相关的children、access、host配置。
-下面是原作者提供的php代码。很赞，可惜还没看懂，慢慢品味：</p>
-<div class="highlight"><pre><code class="php"><span class="x">#!/usr/bin/php</span>
-<span class="cp">&lt;?PHP</span>
-<span class="nb">chdir</span><span class="p">(</span><span class="s2">&quot;/revimg&quot;</span><span class="p">);</span>
-<span class="nv">$sServer</span> <span class="o">=</span> <span class="s2">&quot;revimg.soulogic.com&quot;</span><span class="p">;</span>
-<span class="k">while</span> <span class="p">(</span><span class="nv">$sContent</span> <span class="o">=</span> <span class="nb">fgets</span><span class="p">(</span><span class="nx">STDIN</span><span class="p">)</span> <span class="p">)</span> <span class="p">{</span>
-    <span class="nv">$sContent</span> <span class="o">=</span> <span class="nx">trim</span><span class="p">(</span><span class="nv">$sContent</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="k">empty</span><span class="p">(</span><span class="nv">$sContent</span><span class="p">))</span> <span class="p">{</span>
-        <span class="k">continue</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="nv">$aArg</span> <span class="o">=</span> <span class="nb">explode</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="nv">$sContent</span><span class="p">,</span> <span class="mi">5</span><span class="p">);</span>
-    <span class="nv">$sURL</span> <span class="o">=</span> <span class="nv">$aArg</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
-    <span class="k">if</span> <span class="p">(</span><span class="nv">$aArg</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;GET&quot;</span><span class="p">)</span> <span class="p">{</span>
-        <span class="nb">fwrite</span><span class="p">(</span><span class="nx">STDOUT</span><span class="p">,</span> <span class="nv">$sURL</span><span class="o">.</span><span class="s2">&quot;n&quot;</span><span class="p">);</span>
-        <span class="k">continue</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="nv">$aURL</span> <span class="o">=</span> <span class="nb">parse_url</span><span class="p">(</span><span class="nv">$sURL</span><span class="p">);</span>
-    <span class="nv">$aURL</span> <span class="o">+=</span> <span class="k">array</span><span class="p">(</span><span class="s2">&quot;scheme&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;host&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;&quot;</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="nv">$aURL</span><span class="p">[</span><span class="s2">&quot;scheme&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;http&quot;</span>
-        <span class="o">||</span> <span class="nv">$aURL</span><span class="p">[</span><span class="s2">&quot;host&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="nv">$sServer</span>
-        <span class="o">||</span> <span class="o">!</span><span class="nb">preg_match</span><span class="p">(</span><span class="s2">&quot;/^[0-9a-z\-]+(\.[0-9a-z\-]+)+(:[0-9]{2,5})?$/i&quot;</span><span class="p">,</span> <span class="nv">$aURL</span><span class="p">[</span><span class="s2">&quot;host&quot;</span><span class="p">])</span>
-        <span class="o">||</span> <span class="o">!</span><span class="nb">preg_match</span><span class="p">(</span><span class="s2">&quot;/\.(jpg|jpeg|png|gif)$/i&quot;</span><span class="p">,</span> <span class="nv">$aURL</span><span class="p">[</span><span class="s2">&quot;path&quot;</span><span class="p">])</span>
-    <span class="p">)</span> <span class="p">{</span>
-        <span class="nb">fwrite</span><span class="p">(</span><span class="nx">STDOUT</span><span class="p">,</span> <span class="nv">$sURL</span><span class="o">.</span><span class="s2">&quot;n&quot;</span><span class="p">);</span>
-        <span class="k">continue</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="c1">// 检测通过，处理图片</span>
-    <span class="nv">$sHash</span> <span class="o">=</span> <span class="nb">md5</span><span class="p">(</span><span class="nv">$sURL</span><span class="p">);</span>
-    <span class="nv">$sDir</span><span class="err"> </span> <span class="o">=</span> <span class="nx">substr</span><span class="p">(</span><span class="nv">$sHash</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="nx">substr</span><span class="p">(</span><span class="nv">$sHash</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">);</span>
-    <span class="nv">$sFile</span> <span class="o">=</span> <span class="nv">$sDir</span><span class="o">.</span><span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="nx">substr</span><span class="p">(</span><span class="nv">$sHash</span><span class="p">,</span> <span class="mi">4</span><span class="p">);</span>
-    <span class="nv">$sFileOut</span> <span class="o">=</span> <span class="s2">&quot;out/&quot;</span><span class="o">.</span><span class="nv">$sFile</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nb">file_exists</span><span class="p">(</span><span class="nv">$sDir</span><span class="p">))</span> <span class="p">{</span>
-        <span class="nb">mkdir</span><span class="p">(</span><span class="nv">$sDir</span><span class="p">,</span> <span class="mo">0777</span><span class="p">,</span> <span class="k">TRUE</span><span class="p">);</span>
-        <span class="nb">mkdir</span><span class="p">(</span><span class="s2">&quot;out/&quot;</span><span class="o">.</span><span class="nv">$sDir</span><span class="p">,</span> <span class="mo">0777</span><span class="p">,</span> <span class="k">TRUE</span><span class="p">);</span>
-        <span class="nb">chmod</span><span class="p">(</span><span class="s2">&quot;out&quot;</span><span class="p">,</span> <span class="mo">0777</span><span class="p">);</span>
-        <span class="nb">chmod</span><span class="p">(</span><span class="s2">&quot;out/&quot;</span><span class="o">.</span><span class="nx">substr</span><span class="p">(</span><span class="nv">$sHash</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="mo">0777</span><span class="p">);</span>
-        <span class="nb">chmod</span><span class="p">(</span><span class="s2">&quot;out/&quot;</span><span class="o">.</span><span class="nv">$sDir</span><span class="p">,</span> <span class="mo">0777</span><span class="p">);</span>
-    <span class="p">}</span>
-    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nb">file_exists</span><span class="p">(</span><span class="nv">$sFile</span><span class="p">))</span> <span class="p">{</span>
-        <span class="nv">$sCmd</span> <span class="o">=</span> <span class="s2">&quot;wget -qc &quot;</span><span class="o">.</span><span class="nb">escapeshellarg</span><span class="p">(</span><span class="nv">$sURL</span><span class="p">)</span><span class="o">.</span><span class="s2">&quot; -O &quot;</span><span class="o">.</span><span class="nv">$sFile</span><span class="p">;</span>
-        <span class="nb">exec</span><span class="p">(</span><span class="nv">$sCmd</span><span class="p">);</span>
-    <span class="p">}</span>
-    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nb">file_exists</span><span class="p">(</span><span class="nv">$sFileOut</span><span class="p">))</span> <span class="p">{</span>
-        <span class="nv">$sCmd</span> <span class="o">=</span> <span class="s2">&quot;convert &quot;</span><span class="o">.</span><span class="nv">$sFile</span><span class="o">.</span><span class="s2">&quot; -flip -quality 80 &quot;</span><span class="o">.</span><span class="nv">$sFileOut</span><span class="p">;</span>
-        <span class="nb">exec</span><span class="p">(</span><span class="nv">$sCmd</span><span class="p">);</span>
-        <span class="nb">chmod</span><span class="p">(</span><span class="nv">$sFileOut</span><span class="p">,</span> <span class="mo">0666</span><span class="p">);</span>
-    <span class="p">}</span>
-    <span class="nv">$sURL</span> <span class="o">=</span> <span class="s2">&quot;&lt;a href=&quot;</span><span class="nx">http</span><span class="o">://&amp;</span><span class="nx">quot</span><span class="p">;</span><span class="o">/</span><span class="s2">&quot;&gt;http://&quot;</span><span class="o">&lt;/</span><span class="nx">a</span><span class="o">&gt;.</span><span class="nv">$sServer</span><span class="o">.</span><span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="nv">$sFile</span><span class="p">;</span>
-    <span class="nb">fwrite</span><span class="p">(</span><span class="nx">STDOUT</span><span class="p">,</span> <span class="nv">$sURL</span><span class="o">.</span><span class="s2">&quot;n&quot;</span><span class="p">);</span>
-<span class="p">}</span>
-<span class="cp">?&gt;</span><span class="x"></span>
-</code></pre></div>
-<p>原作者说：squid在重定向处理是采用的标准输入输出方式，所以测试的时候只需要cat test.txt|/etc/squid/redirector.php就可以了。
-这个东东还能进一步优化。因为图片在浏览器本地也有缓存的，如果之前同事们已经上过，怎么办？还得改写Expires。</p>
-      <a href="/2009/12/30/a-reverse-example-of-url_rewrite_program" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
