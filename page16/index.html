@@ -43,6 +43,53 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2009/11/14/anti-hotlinking-in-squid" title="squid防盗链配置" rel="bookmark">squid防盗链配置</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-11-14 00:00:00 +0800">14 Nov 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>做网站的，谁愿意自己辛辛苦苦的成果就被别人轻松转载，如果是文字的，一般也就禁鼠标右键，再没什么好办法（当然，名人好打官司另说），但如果是图片，影音的文件，大可以利用http协议的header信息进行控制，这就是大多数web服务器日志要记录的referer。
+公司新进一测试客户，就要求CDN方配合做防盗链。</p>
+<p>公司自然有规范，直接ctrl+c、ctrl+v就搞定。但这些句子，还是值得细细研究一下的。
+相关语句如下：</p>
+<div class="highlight"><pre><code class="squid"><span class="k">acl</span><span class="w"> </span>test_domain<span class="w"> </span><span class="k">dstdomain</span><span class="w"> </span>.test.com<span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>null_referer<span class="w"> </span><span class="k">referer_regex</span><span class="w"> </span>.<span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>right_referer<span class="w"> </span><span class="k">referer_regex</span><span class="w"> </span>-i<span class="w"></span>
+^http://test.com<span class="w"> </span>^http://.*.test.com<span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>test_domain<span class="w"> </span>!null_referer<span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span>test_domain<span class="w"> </span>!right_referer<span class="w"></span>
+</code></pre></div>
+<p>第一关键点，是第一行的那个“.”，“.”匹配的是除了“n”以外的任何一个字符。那么!null_referer也就是“n”，也就是说第一条access定义的，是允许referer为空行；</p>
+<p>第二关键点，是access的“!”，“!”就是非，那么!right_referer定义的就是一切除了test.com以外的域名，也就是说第二条access定义的，是不允许所有其他网站。</p>
+<p>这样的结果，也就是只有从test自己的网站，或者直接在浏览器地址栏里输入完整url，才能看到文件（linux上常用的wget、curl，默认的referer也是空，所以也可以。我又试试迅雷，其referer也是空，那么估计下载工具也都是这样）</p>
+<p>（比较奇怪的一点是：squid的日志里，空不显示为“ ”，而是“-”，很能迷惑人呀！）</p>
+<p>于是我想到新浪和百度呀这些博客之间转来转去的图片，一般都显示一个空图，但点开来（或许还要再刷一次）也一样能看。可见防盗链都是这么做的。</p>
+<p>如果真就狠到了连直接url查看也不让，那就把null_referer的定义删除掉，自然也就可以了……</p>
+<p>试到这里，发现另一个问题：nagios的监控，一般也是空referer的，如果真这么狠的要求，这个监控也得改了。
+因为不管是curl还是wget，都可以伪装referer。
+两个的伪装语法分别是：
+curl -e &ldquo;http://www.test.com&rdquo; -x $squidip:80 http://www.test.com/test.gif
+wget http://www.test.com/test.gif &ndash;refer=&rdquo;http://www.test.com&rdquo; -e &ldquo;http_proxy=$squidip&rdquo;</p>
+<p>我对nagios不熟，不知道里面具体是用什么去check的，大概也差不离吧？
+最后，像新浪百度这样的盗链显示图片怎么做的？也就是一句话的事，如下：</p>
+<div class="highlight"><pre><code class="squid"><span class="k">deny_info</span><span class="w"> </span>http://www.test.com/你盗链啦.gif<span class="w"></span>
+right_referer<span class="w"></span>
+</code></pre></div>
+      <a href="/2009/11/14/anti-hotlinking-in-squid" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2009/11/12/awk-variable-3" title="awk变量（三续）" rel="bookmark">awk变量（三续）</a>
     </h1>
     <p class="alt-font tight">

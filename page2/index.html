@@ -43,6 +43,56 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/10/16/perl-overload" title="Perl 的 overload 妙用" rel="bookmark">Perl 的 overload 妙用</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-10-16 00:00:00 +0800">16 Oct 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>在使用 Mojolicious 的时候，通常我们会发现一个很有趣的现象。</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="n">ojo</span><span class="p">;</span>
+<span class="n">say</span> <span class="n">g</span><span class="p">(</span><span class="s">&#39;http://www.baidu.com&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">dom</span><span class="o">-&gt;</span><span class="n">at</span><span class="p">(</span><span class="s">&#39;script&#39;</span><span class="p">);</span>
+<span class="n">say</span> <span class="n">g</span><span class="p">(</span><span class="s">&#39;http://www.baidu.com&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">dom</span><span class="o">-&gt;</span><span class="n">at</span><span class="p">(</span><span class="s">&#39;script&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">text</span><span class="p">;</span>
+</code></pre></div>
+<p>这里可以看到，在用 <code>at()</code> 方法之后得到的结果，如果从上一行解读，似乎应该是一个字符串；但是从下一行解读，又还是一个对象，可以继续调用 <code>-&gt;text</code> 属性。</p>
+<p>Perl 本身不是一个纯对象式的语言，字符串本身是没有对象属性的。而直接打印对象的话，应该输出的是类似 <code>Mojo::DOM-&gt;HASH(0x1234567)</code> 的效果。那这个效果是怎么实现的呢？</p>
+<p>翻了 Mojo 的代码之后，发现原来 Mojo 里是把字符串、数组等都实现成了对象，分别是 <code>Mojo::ByteStream</code> 和 <code>Mojo::Collection</code> 两个类。然后再实现中，运用了 <code>overload</code> 来实现这个效果。代码很简单，<code>Mojo::ByteStream</code> 里是这样的：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="n">overload</span> <span class="s">&#39;&quot;&quot;&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nb">shift</span><span class="o">-&gt;</span><span class="n">to_string</span> <span class="p">},</span> <span class="n">fallback</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">;</span>
+<span class="k">sub </span><span class="nf">to_string</span> <span class="p">{</span> <span class="nv">$</span><span class="p">{</span><span class="nv">$_</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span> <span class="p">}</span>
+</code></pre></div>
+<p>此外， <code>Mojo::DOM</code>，<code>Mojo::URL</code>，<code>Mojo::JSON</code> 等十多个类中都用了这个方法。</p>
+<p>看起来似乎还不是很明了，再贴两段 <a href="http://perldoc.perl.org/overload.html">overload 的 POD</a> 就清楚了：</p>
+<pre><code>It also defines an anonymous subroutine to implement stringification: this is called whenever an object blessed into the package Number is used in a string context...
+For example, the subroutine for '""' (stringify) may be used where the overloaded object is passed as an argument to print,...
+</code></pre>
+<p>这下清楚了吧。一旦在某个类里 <code>overload</code> 了双引号，那么这个类的对象在标量环境下调用的时候就会先调用这个函数。最典型的例子就是用在 <code>print</code> 的时候。</p>
+<p>下面我们可以自己也试试：</p>
+<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="n">Test</span> <span class="mf">0.01</span> <span class="p">{</span>
+    <span class="k">use</span> <span class="n">overload</span> <span class="s">&#39;&quot;&quot;&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nb">join</span> <span class="s">&quot; overloaded.\n&quot;</span><span class="p">,</span> <span class="nv">@</span><span class="p">{</span><span class="o">+</span><span class="nb">shift</span><span class="p">}</span> <span class="p">};</span>
+    <span class="k">sub </span><span class="nf">new</span> <span class="p">{</span> <span class="nb">bless</span> <span class="p">[</span><span class="nv">@_</span><span class="p">[</span><span class="mi">1</span> <span class="o">..</span> <span class="nv">$#_</span><span class="p">]],</span> <span class="nb">shift</span> <span class="p">};</span>
+<span class="p">}</span>
+<span class="k">my</span> <span class="nv">$obj</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Test</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">);</span>
+<span class="k">print</span> <span class="nv">$obj</span><span class="p">;</span>
+</code></pre></div>
+<p>输出结果：</p>
+<pre><code>1 overloaded.
+3 overloaded.
+2
+</code></pre>
+      <a href="/2013/10/16/perl-overload" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/10/09/using-elasticsearch-and-logstash-to-serve-billions-of-searchable-events-for-customers" title="【翻译】用 elasticsearch 和 logstash 为数十亿次客户搜索提供服务" rel="bookmark">【翻译】用 elasticsearch 和 logstash 为数十亿次客户搜索提供服务</a>
     </h1>
     <p class="alt-font tight">
@@ -2070,108 +2120,6 @@ tar zxvf %<span class="o">{[</span>% Module.0 FILTER upper %<span class="o">]}</
 ...;
 </code></pre></div>
       <a href="/2013/04/01/use-mojo-commandline-for-rpmbuild" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2013/03/28/intro-haml" title="Haml 简介" rel="bookmark">Haml 简介</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2013-03-28 00:00:00 +0800">28 Mar 2013</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>Haml 是 Ruby 社区的一种 HTML 标记语言，它利用强制缩进和类似 jQuery 属性标签的风格，简化书写 HTML 的工作。文档见：<a href="http://haml.info/docs.html">http://haml.info/docs.html</a>。</p>
-<p>下面是一段官网上的快速入门，从标准的 erb 模板转变成 haml 模板：</p>
-<div class="highlight"><pre><code class="ruby"><span class="o">&lt;</span><span class="n">div</span> <span class="nb">id</span><span class="o">=</span><span class="s1">&#39;content&#39;</span><span class="o">&gt;</span>
-  <span class="o">&lt;</span><span class="n">div</span> <span class="n">class</span><span class="o">=</span><span class="s1">&#39;left column&#39;</span><span class="o">&gt;</span>
-    <span class="o">&lt;</span><span class="n">h2</span><span class="o">&gt;</span><span class="no">Welcome</span> <span class="n">to</span> <span class="n">our</span> <span class="n">site!</span><span class="o">&lt;</span><span class="sr">/h2&gt;</span>
-<span class="sr">    &lt;p&gt;&lt;%= print_infomation %&gt;&lt;/</span><span class="nb">p</span><span class="o">&gt;</span>
-  <span class="o">&lt;</span><span class="sr">/div&gt;</span>
-<span class="sr">  &lt;div class=&#39;right&#39; id=&#39;item&lt;%= item.id %&gt;&#39;&gt;</span>
-<span class="sr">    &lt;%= render :partial =&gt; &quot;item&quot; %&gt;</span>
-<span class="sr">  &lt;/</span><span class="n">div</span><span class="o">&gt;</span>
-<span class="o">&lt;</span><span class="sr">/div&gt;</span>
-</code></pre></div>
-<p>用 haml 只用这么写：</p>
-<div class="highlight"><pre><code class="ruby"><span class="c1">#content</span>
-  <span class="o">.</span><span class="n">left</span><span class="o">.</span><span class="n">column</span>
-    <span class="o">%</span><span class="n">h2</span> <span class="no">Welcome</span> <span class="n">to</span> <span class="n">our</span> <span class="n">site!</span>
-    <span class="o">%</span><span class="nb">p</span><span class="o">=</span> <span class="n">print_information</span>
-  <span class="o">.</span><span class="n">right</span><span class="p">{</span><span class="ss">:id</span> <span class="o">=&gt;</span> <span class="s2">&quot;item</span><span class="si">#{</span><span class="n">item</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">}</span>
-    <span class="o">=</span> <span class="n">render</span> <span class="ss">:partial</span> <span class="o">=&gt;</span> <span class="s2">&quot;sidebar&quot;</span>
-</code></pre></div>
-<p>看起来相当 cool，回头在 CPAN 上一翻，原来 perl 社区也有 port 过来的 <a href="https://metacpan.org/module/Text::Haml">Text::Haml</a> 了。根据 perl 的特点有所改变，但是省键盘的特点依然在。</p>
-<p>下面是一个例子：</p>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Text::</span><span class="n">Haml</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$haml</span> <span class="o">=</span> <span class="nn">Text::</span><span class="n">Haml</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">();</span>
-<span class="k">my</span> <span class="nv">$hash</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">title</span> <span class="o">=&gt;</span> <span class="s">&#39;my title&#39;</span><span class="p">,</span>
-    <span class="n">content</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="n">line1</span> <span class="o">=&gt;</span> <span class="s">&quot;test&quot;</span><span class="p">,</span> <span class="n">line2</span> <span class="o">=&gt;</span> <span class="s">&quot;test2&quot;</span> <span class="p">}</span>
-<span class="p">};</span>
-<span class="k">print</span> <span class="nv">$haml</span><span class="o">-&gt;</span><span class="n">render_file</span><span class="p">(</span><span class="s">&#39;test.haml&#39;</span><span class="p">,</span> <span class="nv">%$hash</span><span class="p">);</span>
-</code></pre></div>
-<p><code>test.haml</code> 如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="nv">%html</span><span class="p">{</span> <span class="p">:</span><span class="n">xmlns</span> <span class="o">=&gt;</span> <span class="s">&quot;http://www.w3.org/1999/xhtml&quot;</span><span class="p">,</span> <span class="p">:</span><span class="n">lang</span> <span class="o">=&gt;</span> <span class="s">&quot;zh&quot;</span><span class="p">}</span>
-  <span class="nv">%head</span>
-    <span class="nv">%title</span><span class="o">=</span> <span class="nv">$title</span>
-  <span class="nv">%body</span>
-    <span class="c1">#content</span>
-      <span class="o">.</span><span class="n">container</span>
-        <span class="nv">%strong</span><span class="o">=</span> <span class="nv">$title</span>
-        <span class="o">-</span> <span class="k">for</span> <span class="k">my</span> <span class="nv">$line</span> <span class="p">(</span> <span class="nb">keys</span> <span class="nv">%$content</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="o">.</span><span class="n">row</span><span class="o">-</span><span class="n">fluid</span><span class="o">=</span> <span class="nv">$content</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$line</span><span class="p">}</span>
-        <span class="o">-</span> <span class="p">}</span>
-</code></pre></div>
-<p>生成的 HTML 内容如下：</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;html</span> <span class="na">xmlns=</span><span class="s">&#39;http://www.w3.org/1999/xhtml&#39;</span> <span class="na">lang=</span><span class="s">&#39;zh&#39;</span><span class="nt">&gt;</span>
-  <span class="nt">&lt;head&gt;</span>
-    <span class="nt">&lt;title&gt;</span>my title<span class="nt">&lt;/title&gt;</span>
-  <span class="nt">&lt;/head&gt;</span>
-  <span class="nt">&lt;body&gt;</span>
-    <span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">&#39;content&#39;</span><span class="nt">&gt;</span>
-      <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&#39;container&#39;</span><span class="nt">&gt;</span>
-        <span class="nt">&lt;strong&gt;</span>my title<span class="nt">&lt;/strong&gt;</span>
-          <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&#39;row-fluid&#39;</span><span class="nt">&gt;</span>test<span class="nt">&lt;/div&gt;</span>
-          <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&#39;row-fluid&#39;</span><span class="nt">&gt;</span>test2<span class="nt">&lt;/div&gt;</span>
-      <span class="nt">&lt;/div&gt;</span>
-    <span class="nt">&lt;/div&gt;</span>
-  <span class="nt">&lt;/body&gt;</span>
-<span class="nt">&lt;/html&gt;</span>
-</code></pre></div>
-<p>Text::Haml 还提供了一个初始化参数 <code>vars_as_subs</code>，可以把变量变成同名函数，这样写起来就更像 ruby 了。不过目前只能是纯变量，复杂语句还是不行，所以好看不中用……</p>
-<p>Text::Haml 向 Text::Xslate 学习，也提供了  <code>cache_dir</code>, <code>filter</code> 等等功能，所以性能和功能方面应该也不差。</p>
-<p><a href="https://metacpan.org/module/Template::Tookit">Template::Tookit</a> 也有插件 <a href="https://metacpan.org/module/Template::Plugin::Haml">Template::Plugin::Haml</a> 可以参看。</p>
-<h3 id="wrappertt">wrapper.tt</h3>
-<div class="highlight"><pre><code class="perl"><span class="o">!!!</span> <span class="mi">5</span>
-<span class="nv">%html</span>
-<span class="p">[</span><span class="nv">%</span> <span class="nv">content</span> <span class="nv">%</span><span class="err">]</span>
-</code></pre></div>
-<h3 id="hellott">hello.tt</h3>
-<div class="highlight"><pre><code class="perl"><span class="p">[</span><span class="nv">%</span><span class="err">-</span> <span class="nv">message</span><span class="o">=</span><span class="s">&#39;Hello World&#39;</span> <span class="nv">%</span><span class="err">]</span>
-<span class="err">[%-</span> <span class="nv">USE</span> <span class="n">Haml</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
-<span class="err">[%-</span> <span class="nv">WRAPPER</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">tt</span> <span class="o">|</span> <span class="n">haml</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
-<span class="err">[%-</span> <span class="nv">FILTER</span> <span class="n">haml</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
- <span class="err">%</span><span class="nv">head</span>
-  <span class="nv">%meta</span><span class="p">{:</span><span class="n">charset</span> <span class="o">=&gt;</span> <span class="s">&quot;utf-8&quot;</span><span class="p">}</span>
-  <span class="nv">%title</span> <span class="n">hello</span>
- <span class="nv">%body</span>
-  <span class="nv">%p</span> <span class="p">[</span><span class="nv">%</span> <span class="nv">message</span> <span class="nv">%</span><span class="err">]</span>
-  <span class="err">%</span><span class="nv">ul</span>
-  <span class="p">[</span><span class="nv">%</span><span class="err">-</span> <span class="nv">total</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span> <span class="n">WHILE</span> <span class="n">total</span> <span class="o">&lt;</span> <span class="mi">5</span> <span class="nv">%</span><span class="err">]</span>
-   <span class="err">%</span><span class="nv">li</span> <span class="p">[</span><span class="nv">%</span> <span class="nv">total</span><span class="o">=</span><span class="n">total</span><span class="o">+</span><span class="mi">1</span> <span class="nv">%</span><span class="err">][%</span> <span class="nv">total</span> <span class="nv">%</span><span class="err">]</span>
-  <span class="err">[%-</span> <span class="nv">END</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
-<span class="err">[%-</span> <span class="nv">END</span> <span class="o">-</span><span class="nv">%</span><span class="err">]</span>
-</code></pre></div>
-<p>perl 三大 web 框架 Catalyst/Mojo/Dancer也都有对应的模板插件。</p>
-      <a href="/2013/03/28/intro-haml" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

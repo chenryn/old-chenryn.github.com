@@ -43,6 +43,54 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/05/07/performance-optimization-of-perl-script-by-devel-nytprof" title="用Devel::NYTProf模块排查优化perl脚本性能" rel="bookmark">用Devel::NYTProf模块排查优化perl脚本性能</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-05-07 00:00:00 +0800">07 May 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>缓存服务器上有一个perl写的日志分析脚本，记录所有不重复的url。之后对squid进行目录刷新时，从记录下来的文件中查找匹配的url即可。</p>
+<p>不过这些天服务器老是出现负载报警，用top观察，这个 <code>url_parser.pl</code> 脚本一旦执行时，就占用了高达90%的CPU和40%的MEM。wc看存储的url.list文件，有大概4,000,000行；<code>url.$(date).list</code> 当前有140,000行。</p>
+<p>于是上CU去请教perl执行效率的查找思路。</p>
+<p>回复有：1、正则精准度；2、文件读取效率；3、全局变量数；4、频繁打开句柄；5、流程优化</p>
+<p>比如读取文件不要用 <code>@line=FILE</code> 用 <code>while(&lt;FILE&gt;)</code> ；正则<code>^</code> 句首，带上 <code>/oi</code> ；注意哈希表与内存交换区等等；最后推荐给我 <code>Devel::NYTProf</code> ，进行测试。</p>
+<div class="highlight"><pre><code class="perl"><span class="n">perl</span> <span class="o">-</span><span class="n">MCPAN</span> <span class="o">-</span><span class="n">e</span> <span class="n">shell</span>
+<span class="o">&gt;</span><span class="n">install</span> <span class="nn">JSON::</span><span class="n">Any</span><span class="err">（不安这个东东，在</span><span class="n">nyt</span><span class="err">生成</span><span class="n">html</span><span class="err">的时候会报</span><span class="n">warning</span><span class="err">，不过不安也可以）</span>
+<span class="o">&gt;</span><span class="n">install</span> <span class="nn">Devel::</span><span class="n">NYTProf</span>
+</code></pre></div>
+<p>然后采用 <code>perl -d:NYTProf /home/purge/url_parser.pl</code> 运行脚本，会在当前路径下生成nytprof.out。</p>
+<p>再用 <code>nytprofhtml nytprof.out</code> 生成web页面。</p>
+<p>另开一个apache，将生成的nytprof目录发布出来。用ie打开即可看到了，如下：</p>
+<p><img src="/images/uploads/nytprof-index.jpg" alt="nytprof" /></p>
+<p>下面还有载入模块的时间。之前我用strace跟踪了一下脚本的运行，发现在载入pm的时候，perl会搜索好多乱七八糟的目录，最后才正确，还一度担心是因为这个原因浪费了时间和资源呢。不过根据测试结果来看，载入模块总共花了不到30ms，不是什么可怕的事情。</p>
+<p>然后点击 <code>/home/purge/url_parser.pl</code> 的 <code>reports（line·block·sub）</code>，可以看到具体每个语句的执行情况：</p>
+<p><img src="/images/uploads/devel-nytprof-time.jpg" alt="nytprof-0" /></p>
+<p>打开十四万行的url文件花了2.14s，然后再用2.09s将它们载入哈希表中；</p>
+<p><img src="/images/uploads/devel-nytprof-time1.jpg" alt="nytprof-1" /></p>
+<p>打开正在运行的access.log（5分钟截取一次，squidclient mgr:5min里rps为17.65，即大概该有5000行以下；结果显示是3306 calls）并截取其中的url，花了141ms，然后再用42.6ms载入哈希表中；</p>
+<p><img src="/images/uploads/devel-nytprof-time2.jpg" alt="nytprof-2" /></p>
+<p>最后，用919ms对哈希表排序，用1.58s重记录整个url文件。</p>
+<p>(143677-143579=98，即3306条日志中有98条是新增url)</p>
+<p>注意到第二张图中，对access.log分析时，match那步，<strong>每行花了30us</strong>！而在对urllist和tmplog分析时，每行只花3-4us的样子。看来是这一步的正则写的不好了，如下:</p>
+<div class="highlight"><pre><code class="perl">    <span class="k">my</span> <span class="nv">$log_pattern</span><span class="err">  </span> <span class="o">=</span> <span class="n">qr</span> <span class="s">&#39;^.*?d+s+w+s+(http://.+?)s+.+&#39;</span><span class="p">;</span>
+</code></pre></div>
+<p>根据日志的格式和需求，改成这样 <code>my $log_pattern   = qr 's(http://.+?)s';</code> 其他不变，再次测试，该部分的测试结果如下：</p>
+<p><img src="/images/uploads/devel-nytprof-time3.jpg" alt="nytprof-3" /></p>
+<p>__降低成7us每行__啦！效果明显呀~~</p>
+      <a href="/2010/05/07/performance-optimization-of-perl-script-by-devel-nytprof" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/05/06/intro-httping" title="web服务监控小工具httping" rel="bookmark">web服务监控小工具httping</a>
     </h1>
     <p class="alt-font tight">
@@ -1073,7 +1121,7 @@ net.ipv4.netfilter.ip_conntrack_udp_timeout <span class="o">=</span> 30
 <div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
 <span class="k">use</span> <span class="nn">IO::</span><span class="n">Socket</span><span class="p">;</span>
 <span class="c1">#检测脚本参数个数</span>
-<span class="k">unless</span> <span class="p">(</span><span class="nv">@ARGV</span> <span class="o">&amp;</span><span class="ow">gt</span><span class="p">;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span> <span class="nb">die</span> <span class="s">&quot;usage: $0 url&quot;</span> <span class="p">}</span>
+<span class="k">unless</span> <span class="p">(</span><span class="nv">@ARGV</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span> <span class="nb">die</span> <span class="s">&quot;usage: $0 url&quot;</span> <span class="p">}</span>
 <span class="c1">#打开ip列表文件，定义文件句柄HOST</span>
 <span class="nb">open</span><span class="p">(</span><span class="n">HOST</span><span class="p">,</span><span class="s">&quot;./ip&quot;</span><span class="p">);</span>
 <span class="c1">#定义连接结束符，然后翻倍（汗这个方式~）</span>
@@ -1088,10 +1136,10 @@ net.ipv4.netfilter.ip_conntrack_udp_timeout <span class="o">=</span> 30
     <span class="c1">#从参数中默认读取url变量</span>
     <span class="k">foreach</span> <span class="nv">$document</span> <span class="p">(</span> <span class="nv">@ARGV</span> <span class="p">)</span> <span class="p">{</span>
         <span class="c1">#利用IO::Socket::INET模块定义TCP80连接，port可以读取/etc/services文件里的定义</span>
-        <span class="nv">$remote</span> <span class="o">=</span> <span class="nn">IO::Socket::</span><span class="n">INET</span><span class="o">-&amp;</span><span class="ow">gt</span><span class="p">;</span><span class="k">new</span><span class="p">(</span> <span class="n">Proto</span>     <span class="o">=&gt;</span> <span class="s">&quot;tcp&quot;</span><span class="p">,</span>
-                                            <span class="n">PeerAddr</span><span class="err"> </span> <span class="o">=&gt;</span> <span class="nv">$ip</span><span class="p">,</span>
-                                            <span class="n">PeerPort</span><span class="err"> </span> <span class="o">=&gt;</span> <span class="s">&quot;http(80)&quot;</span><span class="p">,</span>
-                                          <span class="p">);</span>
+        <span class="nv">$remote</span> <span class="o">=</span> <span class="nn">IO::Socket::</span><span class="n">INET</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">Proto</span>     <span class="o">=&gt;</span> <span class="s">&quot;tcp&quot;</span><span class="p">,</span>
+                                         <span class="n">PeerAddr</span><span class="err"> </span> <span class="o">=&gt;</span> <span class="nv">$ip</span><span class="p">,</span>
+                                         <span class="n">PeerPort</span><span class="err"> </span> <span class="o">=&gt;</span> <span class="s">&quot;http(80)&quot;</span><span class="p">,</span>
+                                       <span class="p">);</span>
         <span class="k">unless</span> <span class="p">(</span><span class="nv">$remote</span><span class="p">)</span> <span class="p">{</span> <span class="nb">die</span> <span class="s">&quot;cannot connect to http daemon on $ip&quot;</span> <span class="p">}</span>
         <span class="c1">#立即输出</span>
         <span class="nv">$remote</span><span class="o">-&gt;</span><span class="n">autoflush</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
@@ -1464,49 +1512,6 @@ UCD-SNMP-MIB::ucdavis.18.103.1 = ""
 <p>至于这个error.htm，有没有都一样，反正有就是301，没有就是404~~</p>
 <p>后面的web服务器为什么不检查Host直接给出内容，也是让人很郁闷的一点。或许IIS就是如此？</p>
       <a href="/2010/03/24/default-vhost-in-nginx" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/03/21/fms3-5" title="fms3.5试用" rel="bookmark">fms3.5试用</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-03-21 00:00:00 +0800">21 Mar 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>flash和flex应该是现在网络上红到发紫的技术了，要flv不要tv，要sns不要bbs，连春晚节目都满嘴偷菜~~~我也试着用用fms3.5，一些基本搭建，过过瘾，免得自己太过OUT了。  <br />
-fms是adobe的付费产品，不过不花钱买序列号，也可以用免费的开发版，限制是10个链接而已。上www.adobe.com注册一个帐号，就可以下载了。下载下来的zip中包含了win版的exe和linux版的tar.gz。网上教程大多是win的，不过不要紧，除了字符和图形，真正使用上没啥区别。  <br />
-上传FlashMediaServer3.5.tar.gz到linux服务器上，解压开，./installFMS -platformWarnOnly，然后按提示，设定安装目录、管理员帐号密码、监听端口、是否安装自带的apache2.2.9，是否设为守护进程等，最后完成。  <br />
-ps看看，已经有几个fms的进程了吧；netstat看看，也有1935/19350/1111端口的监听吧（前提是你没改），OK了。  <br />
-注：这里有几个问题。如果install的时候，端口选择了默认的1935,80，而本身服务器上又开着httpd的80，就会有冲突；这时候关掉FMSHttpd是不够的，因为fmsedge也监听这80端口，需要在conf/fms.ini中，把SERVER.HTTPD_ENABLED设为false，再删除ADAPTOR.HOSTPORT里的80，然后/etc/init.d/fms restart，这样就可以了。    </p>
-<ul>
-  <li>VOD点播：    </li>
-</ul>
-<p>上传一个flv/mp4/avi/f4v到服务器上，放进applications/vod/media/目录里。然后用播放器播放rtmp://testip/vod/sample就可以播放flv格式的视频了，如果是mp4/avi/f4v等H.264的视频，uri地址为rtmp://testip/vod/mp4:sample.f4v，也就是申明一下它是mp4的，然后写全文件名就行。  <br />
-fms自带一个测试的页面，可以用来试验。在apache里建一个virtualhost，发布/opt/adobe/fms/samples/videoPlayer，就可以用http://testip/videoPlayer/videoplayer.html访问这个测试页面，把上面说到的url贴进STREAM URL:里，选择VOD，点击PLAY STREAM，看到上面出现loading、buffering，然后就开始播放上传的那个视频了。OK~  <br />
-rtmp流方式和nginx/lighttpd的flv_module不同的是，rtmp的拖动，你拖到哪它就从哪开始播放；而flv_module的拖动，只是在你拖到的地点附件找一个最接近的关键帧，向服务器发送start=***的query_strings，然后从该关键帧开始播放。这也就意味着在拖动之前，你至少得等到flv的meta信息（主要是全部的关键帧位置）下载完才行。    </p>
-<ul>
-  <li>LIVE直播：    </li>
-</ul>
-<p>上面的小实验完成了，可能惊喜不是很大，唉，谁让web发布flv的拖动功能一样ok呢。嗯，下面开始用live功能，把web给ko掉~~  <br />
-要完成直播，还得用另外一样东东：FME，全称flash media live encoder，同样上adobe官网，登陆帐号下载即可。两个消息，一好一坏，好消息是这个东东免费，不收钱；坏消息是这个东东只有windows版，口年那些用ubuntu、mac、fc的童鞋们了~~  <br />
-下载安装运行，可以看到一个很一目了然的界面，IO画面，视频编码和分辨率选择、音频码率大小选择、保存地址、流服务器地址，日志。主要就是这些。  <br />
-先试试最基本的保存视频，取消stream to flash media server的勾选，点击start，稍后再点stop，去我的文档里看我的视频文件夹，里面是不是就有个sample.flv了？那就成功了。（不行？看log排查，不会是你压根没接摄像头吧？）  <br />
-然后就是给fms服务器传直播流了。把刚才取消的勾重新打上。修改FMS url地址为服务器的正确地址，也就是把localhost改成testip，然后修改stream为一个别的名字（比如otherlivestream），因为livestream这个名字服务器上默认已经存在了。点connect，嗯，连不上……  <br />
-这是因为fme和fms之间还差了个桥梁。返回刚才下载fme的页面（没关吧~），看到下面还有个auth-addin下载吧，赶紧下下来传服务器上。解压出来，./installSAA，同样是字符界面，一顿y就可以了，不过如果你前面修改过安装路径什么的，也得一样修改这里~  <br />
-然后进入conf路径，里面除了fms.ini、Loggerxml、Server.xml、Users.xml外，多了users、users.dat两个文件。./users add -u username -p password，添加用户即可。然后你就可以看到users.dat中多了一行username:<em>**</em>  <br />
-返回本机的fme，再重点connect，很快弹出验证框，输入username和password，连接成功了，点start，直播流就此建立。  <br />
-继续使用刚才看vod的页面，在stream url里填rtmp:/live/otherlivestream，选择live，点play stream，缓冲完成后，看是不是就是摄像头前的自己在动在说话？OK啦~    </p>
-      <a href="/2010/03/21/fms3-5" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

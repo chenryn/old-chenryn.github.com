@@ -43,6 +43,73 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2011/04/13/test-inode-support-of-reiserfs-xfs" title="reiserfs和xfs的inode测试" rel="bookmark">reiserfs和xfs的inode测试</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-04-13 00:00:00 +0800">13 Apr 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#testing-ref" title="testing" rel="category tag">testing</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>某应用的碎文件生成太多，大量消耗inode，不得不做迁移调整。
+原先的使用的NetApp存储，虽然可以调节inode，但是有一个上限，最高就是40000000——说实话真的挺小的啊~~
+一个同样大小的普通服务器ext3文件系统，在没有强行指定的情况下，inode都有将近3个亿，是netapp的7倍。
+了解了一下ext3文件系统在分区时指定inode最大可用数的情况，大致可以理解为小于可用空间大小/256。详细分析测试情况见：http://blog.wgzhao.com/2008/04/13/how-much-inodes-do-you-need.html，大意是inode个数由block大小和单个inode的字节决定。理论上最小block是1024，实际（采用-N强行指定的话）可能是256左右。</p>
+<p>之前在做sersync的时候，发现开启xfs支持就可以对netapp使用inotify功能。因此可以认为netapp使用是（至少在inode上）类似xfs的文件系统。最终决定测试一个reiserfs和xfs在inode方面的情况——这两个文件系统都是非分布式的动态inode的文件系统。
+RHEL5默认是不支持这两个fs的。需要plus一下。方法见http://www.gnutoolbox.com/reiserfs-centos/和http://wiki.centos.org/AdditionalResources/Repositories/CentOSPlus的说明。一步一步照做即可。
+随后在vmware上添加一块10G的硬盘sdb，fdisk分区成sdb1和sdb2，分别mkfs.reiser和mkfs.xfs两个分区，挂载在/mnt1和/mnt2上。
+这个时候df -h和df -i查看如下：
+[root@localhost ~]# df -i
+Filesystem            Inodes   IUsed   IFree IUse% Mounted on
+/dev/sda3            1240320  144694 1095626   12% /
+/dev/sda1              26104      40   26064    1% /boot
+/tmpfs                 64314       1   64313    1% /dev/shm
+/dev/sdb1                  0       0       0    -  /mnt1
+/dev/sdb2             562240    2368  559872    1% /mnt2
+[root@localhost ~]# df -h
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/sda3              19G  4.8G   14G  27% /
+/dev/sda1              99M   17M   77M  18% /boot
+/tmpfs                252M     0  252M   0% /dev/shm
+/dev/sdb1             471M  33M  438M   7% /mnt1
+/dev/sdb2             545M   28M  517M   6% /mnt2
+另开窗口，分别运行for((i=1;i&lt;562240;i++));do touch /mnt1/a<em>$i;done和for((i=1;i&lt;562240;i++));do touch /mnt2/b</em>$i;done——为了加速，实际开了四个窗口，每个命令都是同时运行两个。
+一段时间后，mnt2的终端显示No space。于是中止。
+此时df -i和df -h的结果如下：
+[root@localhost ~]# df -i
+Filesystem            Inodes   IUsed   IFree IUse% Mounted on
+/dev/sda3            1240320  144694 1095626   12% /
+/dev/sda1              26104      40   26064    1% /boot
+/tmpfs                 64314       1   64313    1% /dev/shm
+/dev/sdb1                  0       0       0    -  /mnt1
+/dev/sdb2             124032  123397     635  100% /mnt2
+[root@localhost ~]# df -h
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/sda3              19G  4.8G   14G  27% /
+/dev/sda1              99M   17M   77M  18% /boot
+/tmpfs                252M     0  252M   0% /dev/shm
+/dev/sdb1             471M   60M  411M  13% /mnt1
+/dev/sdb2             545M  545M  144K 100% /mnt2
+可以发现，xfs的空间没有变化（说这句是因为ext3在强制inode数变大的时候，可用空间会变小），但inode总数“神奇”的缩水了4倍！！
+继续等待，直到mnt1的for循环执行完成，这时候df -h结果如下：[root@localhost ~]# df -h
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/sda3              19G  4.8G   14G  27% /
+/dev/sda1              99M   17M   77M  18% /boot
+/tmpfs                252M     0  252M   0% /dev/shm
+/dev/sdb1             471M  134M  338M  29% /mnt
+根据最后的结果算471<em>1024/562240/2=0.43K， 545</em>1024/124032=4.5K。看来对于空文件，reiserfs很压缩，而xfs则老老实实的做block了。</p>
+      <a href="/2011/04/13/test-inode-support-of-reiserfs-xfs" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2011/04/05/learning-suse-linux-enterprise-desktop-system-analysis-and-tuning-guide" title="《SUSE Linux Enterprise Desktop System Analysis and Tuning Guide》读书笔记" rel="bookmark">《SUSE Linux Enterprise Desktop System Analysis and Tuning Guide》读书笔记</a>
     </h1>
     <p class="alt-font tight">
@@ -1694,36 +1761,6 @@ Content-Type: text/html
 </code></pre></div>
 <p>不过简单的运行发现只比前一种快不到10秒钟。而前一种还能输出峰值的时间，可读性更好一些~</p>
       <a href="/2011/01/07/compute-flow-from-access_log-by-awk-2" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/12/30/resin-ipv6" title="resin与ipv6" rel="bookmark">resin与ipv6</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-12-30 00:00:00 +0800">30 Dec 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>一台nginx+resin的应用服务器出现大量的ipv6下的CLOSE_WAIT。重启后十五分钟就累积到了1500+。</p>
-<p>调整resin的keepalive-timeout和nginx的proxy_read_timeout，没有丝毫改变。决定先关掉ipv6。</p>
-<p>如果要关掉整个linux的ipv6，需要修改/etc/modprobe.conf然后reboot，显然没法在生产环境上直接操作，只能寻求应用监听上的办法。</p>
-<p>修改sysctl -w net.ipv6.bindv6only=1，然后重启应用，赫然发现resin重启失败，只有perl进程，没有java进程了。改回0，java立刻启动成功。</p>
-<p>google了一下，在<a href="http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=560044">http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=560044</a>中看到了答案——原来java默认就是用ipv6。</p>
-<p>增加resin/bin/wrapper.pl相关行如下：</p>
-<p>$EXTRA_JAVA_ARGS=&rdquo;-Djava.util.logging.manager=com.caucho.log.LogManagerImpl&rdquo;;
-$EXTRA_JAVA_ARGS.=&rdquo; -Djavax.management.builder.initial=com.caucho.jmx.MBeanServerBuilderImpl&rdquo;;
-$EXTRA_JAVA_ARGS.=&rdquo; -Djava.net.preferIPv4Stack=true&rdquo;;#新增参数</p>
-<p>重启，就只在ipv4上了。</p>
-      <a href="/2010/12/30/resin-ipv6" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

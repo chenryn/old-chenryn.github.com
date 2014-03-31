@@ -43,6 +43,41 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/10/27/problem-about-vrrp-and-intro-flood-ping" title="集群故障检查记录" rel="bookmark">集群故障检查记录</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-10-27 00:00:00 +0800">27 Oct 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>某服务器集群，是双lvs_keepalived+多nginx结构。最近突然发现流量监控出现较大波动，nginx的access.log时常出现持续几十秒的无外来访问情况（即只有LVS的ip过来的400探测）。</p>
+<p>在两台lvs设备上的/var/log/messages上都看到大量的VIP切换记录：</p>
+<p>Oct 22 09:47:12 localhost Keepalived_vrrp: VRRP_Instance(VI<em>10) Transition to MASTER STATE
+Oct 22 09:47:13 localhost Keepalived_vrrp: VRRP_Instance(VI</em>10) Entering MASTER STATE
+Oct 22 09:47:13 localhost Keepalived_vrrp: VRRP_Instance(VI_10) setting protocol VIPs.</p>
+<p>Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI<em>10) Received higher prio advert
+Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI</em>10) Entering BACKUP STATE
+Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI_10) removing protocol VIPs.</p>
+<p>相互之间ping丢包相当严重，而ping同一网段其他ip都没问题。</p>
+<p>学来一个比较直观而且细腻的ping用法：ping -f $IP -c 5000</p>
+<p>man上对-f的解释如下：</p>
+<p>-f     Flood  ping.  For  every  ECHO_REQUEST  sent  a  period &ldquo;.&rdquo; is printed, while for ever ECHO_REPLY received a backspace is printed.  This provides a rapid display of how many packets are being dropped.  If interval is not given, it sets  interval to zero and outputs packets as fast as they come back or one hundred times per second, whichever is more.  Only the superuser may use this option with zero interval.</p>
+<p>-f    洪水ping，每当发送一个ECHO_REQUEST请求时，都在屏幕上打印一个点&rdquo;.&rdquo;，而收到ECHO_REPLY时就退格一次。以此简洁明了的显示出丢了多少个包。如果不明确指定发包间隔，默认间隔时间为0，即收包有多快，发包就有多快，可能每秒100次，或许更快~注意：只有超级用户root才能不设间隔的使用洪水ping参数-f</p>
+<p>我们把这个丢包.叫做贪吃蛇，哈哈~~</p>
+<p>采用更换服务器网线、强制指定网卡速率等办法，丢包率从近30%下降到了5%，问题依然没有全部解决。最后重启机器，就OK了……真实问题是否和ipvs有关，待查ing</p>
+      <a href="/2010/10/27/problem-about-vrrp-and-intro-flood-ping" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/10/27/intro-myisamchk" title="Myisamchk小工具使用手册(转)" rel="bookmark">Myisamchk小工具使用手册(转)</a>
     </h1>
     <p class="alt-font tight">
@@ -1539,105 +1574,6 @@ Ctrl+F5刷新：
 <p>最后作为尝试，再打开SSI的last-modified同时加载etag编译了一次，试验结果，发现和没etag时一模一样，只见IMS不见INM。可是squid明明在2.6.1开始就支持etag了，怪哉~~</p>
 <p>下次有时间，再试试lighttpd的etag吧~</p>
       <a href="/2010/08/01/test-last_modified-etag-of-nginx" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/07/28/monitor-netflow-by-proc_net_tcp" title="网络监控与/proc/net/tcp文件" rel="bookmark">网络监控与/proc/net/tcp文件</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-07-28 00:00:00 +0800">28 Jul 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>nagios自带的check_antp太过简约，除了状态统计输出外，什么参数都不提供。在面对不同应用服务器时，报警就成了很大问题。于是决定自己写一个check脚本。作脚本运行，与命令操作时一个不同，就是要考虑一下效率问题。在高并发的机器上定期运行netstat -ant命令去统计，显然不太合适，可以直接从proc系统中取数据，这就快多了。</p>
-<p>先介绍/proc/net/tcp文件，这里记录的是ipv4下所有tcp连接的情况，包括下列数值：</p>
-<pre><code>sl  local_address rem_address   st tx_queue rx_queue tr tm-&gt;when retrnsmt   uid  timeout inode
-0: 00000000:3241 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 22714864 1 ffff88004f918740 750 0 0 2 -1
-</code></pre>
-<p>最主要的，就是local_address本地地址:端口、rem_address远程地址:端口、st连接状态。</p>
-<p>注1：文件中都是用的16进制，所以HTTP的80端口记录为0050。  <br />
-注2：状态码对应如下</p>
-<pre><code>00  "ERROR_STATUS",
-01  "TCP_ESTABLISHED",
-02  "TCP_SYN_SENT",
-03  "TCP_SYN_RECV",
-04  "TCP_FIN_WAIT1",
-05  "TCP_FIN_WAIT2",
-06  "TCP_TIME_WAIT",
-07  "TCP_CLOSE",
-08  "TCP_CLOSE_WAIT",
-09  "TCP_LAST_ACK",
-0A  "TCP_LISTEN",
-0B  "TCP_CLOSING",
-</code></pre>
-<p>然后介绍nrpe的check脚本。脚本不管怎么写都行，对于nagios服务器端来说，它除了接受脚本的输出结果外，只认脚本运行的退出值（测试时可以运行后用echo $?看），包括OK的exit 0、WARNING的exit 1、CRITICAL的exit 2、未知的exit 3。</p>
-<p>最后一个简单的检查http端口连接数的脚本如下：</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
-<span class="c">#Written by Gemmy.Rao</span>
-<span class="c">#Email to: &lt;a href=&quot;mailto:chenlin.rao@bj.china.com&quot;&gt;chenlin.rao@bj.china.com&lt;/a&gt;</span>
-<span class="c">#Version 0.2</span>
-<span class="c">#CHANGES</span>
-<span class="c">#Add -p option for checking other service&#39;s port</span>
-<span class="c">#Init</span>
-<span class="nv">PORT</span><span class="o">=</span>80
-<span class="nv">WARNING</span><span class="o">=</span>5000
-<span class="nv">CRITICAL</span><span class="o">=</span>20000
-<span class="c">#get options</span>
-<span class="k">while </span><span class="nb">getopts</span> <span class="s2">&quot;w:c:p:hs&quot;</span> OPT;do
-    <span class="k">case</span> <span class="nv">$OPT</span> in
-    w<span class="o">)</span>
-        <span class="nv">WARNING</span><span class="o">=</span><span class="k">${</span><span class="nv">OPTARG</span><span class="k">}</span>
-        ;;
-    c<span class="o">)</span>
-        <span class="nv">CRITICAL</span><span class="o">=</span><span class="k">${</span><span class="nv">OPTARG</span><span class="k">}</span>
-        ;;
-    p<span class="o">)</span>
-        <span class="nv">PORT</span><span class="o">=</span><span class="k">${</span><span class="nv">OPTARG</span><span class="k">}</span>
-        <span class="c">#转换各端口的十进制成十六进制</span>
-        <span class="nv">PORT_16</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="k">${</span><span class="nv">PORT</span><span class="k">}</span>|awk -F, <span class="s1">&#39;{for(i=1;i&lt;=NF;i++)printf &quot;|%.4X&quot;,$i}&#39;</span>|sed <span class="s1">&#39;s/|//&#39;</span><span class="sb">`</span>
-        ;;
-    h<span class="o">)</span>
-        <span class="nb">echo</span> <span class="s2">&quot;Usage: $0 -w 500 -c 2000 -p 80,8081 -s&quot;</span>
-        <span class="nb">exit </span>0
-        ;;
-    s<span class="o">)</span>
-        <span class="nv">SILENT</span><span class="o">=</span>1
-        ;;
-    *<span class="o">)</span>
-        <span class="nb">echo</span> <span class="s2">&quot;Usage: $0 -w 500 -c 2000 -p 80,8081&quot;</span>
-        <span class="nb">exit </span>0
-        ;;
-    <span class="k">esac</span>
-<span class="k">done</span>
-<span class="c">#经过time测试，取值速度netstat &gt; awk &#39;//{a++}END{print a}&#39; &gt; cat|grep|wc &gt; cat|awk|wc，在2w连接下，netstat要20s，最快的方式不到5s（一般nagios到10s就该直接报timeout了）</span>
-<span class="nv">PORT_CONN</span><span class="o">=</span><span class="sb">`</span>cat /proc/net/tcp*|awk <span class="s1">&#39;$2~/:(&#39;</span><span class="nv">$PORT_16</span><span class="s1">&#39;)$/&#39;</span>|wc -l<span class="sb">`</span>
-<span class="k">if</span> <span class="o">[[</span> <span class="s2">&quot;$SILENT&quot;</span> <span class="o">==</span> 1 <span class="o">]]</span>;<span class="k">then</span>
-    <span class="o">[[</span> -d /usr/local/nagios <span class="o">]]</span> <span class="o">||</span> mkdir -p /usr/local/nagios
-    <span class="nb">echo</span> <span class="s2">&quot;Silent log write OK | Port ${PORT}=${PORT_CONN};${WARNING};${CRITICAL};0;0&quot;</span>
-    <span class="nb">echo</span> -en <span class="s2">&quot;`date`t$PORT_CONNn&quot;</span> &gt;&gt; /usr/local/nagios/conn.log
-    <span class="nb">exit </span>0
-<span class="k">elif</span> <span class="o">[[</span> <span class="s2">&quot;$PORT_CONN&quot;</span> -lt <span class="s2">&quot;$WARNING&quot;</span> <span class="o">]]</span>;<span class="k">then</span>
-<span class="k">    </span><span class="nb">echo</span> <span class="s2">&quot;Port $PORT connection OK for $PORT_CONN. | Port ${PORT}=${PORT_CONN};${WARNING};${CRITICAL};0;0&quot;</span>
-    <span class="nb">exit </span>0
-<span class="k">elif</span> <span class="o">[[</span> <span class="s2">&quot;$PORT_CONN&quot;</span> -gt <span class="s2">&quot;$CRITICAL&quot;</span> <span class="o">]]</span>;<span class="k">then</span>
-<span class="k">    </span><span class="nb">echo</span> <span class="s2">&quot;Port $PORT connection critical for $PORT_CONN!! | Port ${PORT}=${PORT_CONN};${WARNING};${CRITICAL};0;0&quot;</span>
-    <span class="nb">exit </span>2
-<span class="k">else</span>
-<span class="k">    </span><span class="nb">echo</span> <span class="s2">&quot;Port $PORT connection warning for $PORT_CONN! | Port ${PORT}=${PORT_CONN};${WARNING};${CRITICAL};0;0&quot;</span>
-    <span class="nb">exit </span>1
-<span class="k">fi</span>
-</code></pre></div>
-<p>之后有必要的话，可以再取$4去统计st。</p>
-      <a href="/2010/07/28/monitor-netflow-by-proc_net_tcp" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
