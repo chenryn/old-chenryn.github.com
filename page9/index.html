@@ -43,6 +43,75 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2011/01/07/compute-flow-from-access_log-by-awk-2" title="日志计算(awk进阶)" rel="bookmark">日志计算(awk进阶)</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-01-07 00:00:00 +0800">07 Jan 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <table>
+  <tbody>
+    <tr>
+      <td>曾经用awk写过一个日志流量计算的单行命令。因为awk中没有sort函数，所以在中途采用了</td>
+      <td>sort</td>
+      <td>的方式，导致效率很低。在计算50GB+的日志时，运算时间慢的不可忍受。</td>
+    </tr>
+  </tbody>
+</table>
+<p>设想了很多方法来加快运算，比如舍弃awk改用perl来完成，如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl</span>
+<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$access_log</span> <span class="o">=</span> <span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+<span class="k">my</span> <span class="nv">$log_pattern</span> <span class="o">=</span> <span class="sx">qr&#39;^.*?:(\d\d:\d\d):(\S+\s){5}\d+\s(\d+).+&#39;</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">%flow</span><span class="p">;</span>
+<span class="k">my</span> <span class="p">(</span><span class="nv">$traffic</span><span class="p">,</span> <span class="nv">$result</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+<span class="nb">open</span> <span class="n">FH</span><span class="p">,</span><span class="s">&quot;&lt; $access_log&quot;</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;Cannot open access_log&quot;</span><span class="p">;</span>
+<span class="k">while</span> <span class="p">(</span><span class="nb">defined</span><span class="p">(</span><span class="k">my</span> <span class="nv">$log</span> <span class="o">=</span> <span class="sr">&lt;FH&gt;</span><span class="p">))</span> <span class="p">{</span>
+<span class="err">  </span> <span class="err"> </span><span class="nv">$flow</span><span class="p">{</span><span class="nv">$1</span><span class="p">}</span> <span class="o">+=</span> <span class="nv">$3</span> <span class="k">if</span> <span class="nv">$log</span> <span class="o">=~</span><span class="sr"> /$log_pattern/</span><span class="p">;</span>
+ <span class="err"> </span> <span class="err"> </span><span class="c1">#print $1.&quot; &quot;.$3.&quot; &quot;.$flow{$1} * 8 / 300 / 1024 / 1024,&quot;\n&quot;;</span>
+<span class="p">}</span>
+<span class="nb">close</span> <span class="n">FH</span><span class="p">;</span>
+<span class="k">foreach</span> <span class="k">my</span> <span class="nv">$key</span> <span class="p">(</span> <span class="nb">sort</span> <span class="nb">keys</span> <span class="nv">%flow</span> <span class="p">)</span> <span class="p">{</span>
+<span class="err">  </span> <span class="err"> </span><span class="k">my</span> <span class="nv">$minute</span> <span class="o">=</span> <span class="nv">$1</span> <span class="k">if</span> <span class="nv">$key</span> <span class="o">=~</span><span class="sr"> /\d\d:\d(\d)/</span><span class="p">;</span>
+<span class="err">  </span> <span class="err"> </span><span class="nv">$traffic</span> <span class="o">+=</span> <span class="nv">$flow</span><span class="p">{</span><span class="nv">$key</span><span class="p">};</span>
+<span class="err">  </span> <span class="err"> </span><span class="k">if</span> <span class="p">(</span> <span class="nv">$minute</span> <span class="o">==</span> <span class="s">&#39;0&#39;</span> <span class="ow">or</span> <span class="nv">$minute</span> <span class="o">==</span> <span class="s">&#39;5&#39;</span> <span class="p">)</span> <span class="p">{</span>
+<span class="err">  </span> <span class="err"> </span> <span class="err"> </span> <span class="err"> </span><span class="nv">$result</span> <span class="o">=</span> <span class="nv">$traffic</span> <span class="k">if</span> <span class="nv">$traffic</span> <span class="o">&gt;</span> <span class="nv">$result</span><span class="p">;</span>
+<span class="err">  </span> <span class="err"> </span> <span class="err"> </span> <span class="err"> </span><span class="nv">$traffic</span> <span class="o">=</span> <span class="s">&#39;0&#39;</span><span class="p">;</span>
+<span class="err">  </span> <span class="err"> </span><span class="p">}</span>
+<span class="p">}</span>
+<span class="k">print</span> <span class="nv">$result</span> <span class="o">*</span> <span class="mi">8</span> <span class="sr">/ 300 /</span> <span class="mi">1024</span> <span class="o">/</span> <span class="mi">1024</span><span class="p">;</span>
+</code></pre></div>
+<p>好吧，这个正则太过垃圾，请无视，但至少在管道和系统sort上浪费的时间还是大大的节省了的。</p>
+<p>然后在CU上翻到一个老帖子，提供一个比较不错的awk思路，命令如下：</p>
+<div class="highlight"><pre><code class="bash">awk <span class="s1">&#39;!b[substr($4,14,5)]++{print v,a[v]}{v=substr($4,14,5);a[v]+=$10}END{print v,a[v]}&#39;</span>
+</code></pre></div>
+<p>这里用substr()跟指定FS相比那个效率高未知，不过采用!b++的方式来判断某时间刻度结束，输出该时刻总和，在顺序输入日志的前提下，运算速度极快（就剩下一个加法和赋值了）。</p>
+<p>注意：此处b[]内不能偷懒写v，!b[v]++永远只会输出时刻的第一行数值。</p>
+<p>不过真实使用时不尽如人意。逻辑上推导了很久没发现问题，结果在重新运行前面的perl时看了看while中的print，发现这个日志因为是从各节点合并出来的日志，其时间并不是顺序排列的！！</p>
+<p>另，刚知道gawk3.1以上提供了asort()和asorti()函数，可以研究一下~</p>
+<p>采用time命令测试一下</p>
+<div class="highlight"><pre><code class="bash">gawk <span class="s1">&#39;{a[substr($4,14,5)]+=$10}END{n=asorti(a,b);for(i=1;i&lt;=n;i++){print b[i],a[b[i]]*8/60/1024/1024}}&#39;</span> example.com_log | awk <span class="s1">&#39;{if($2&gt;a){a=$2;b=$1}}END{print b,a}&#39;</span>
+</code></pre></div>
+<p>一个35G的日志文件只用了6分钟。</p>
+<p>然后更简单的</p>
+<div class="highlight"><pre><code class="bash">gawk <span class="s1">&#39;{a[substr($4,14,5)]+=$10}END{n=asort(a);print a[n]*8/60/1024/1024}&#39;</span> example.com_log
+</code></pre></div>
+<p>不过简单的运行发现只比前一种快不到10秒钟。而前一种还能输出峰值的时间，可读性更好一些~</p>
+      <a href="/2011/01/07/compute-flow-from-access_log-by-awk-2" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/12/30/resin-ipv6" title="resin与ipv6" rel="bookmark">resin与ipv6</a>
     </h1>
     <p class="alt-font tight">
@@ -2518,32 +2587,6 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/11/04/intro-inotify" title="inotify使用一例" rel="bookmark">inotify使用一例</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-11-04 00:00:00 +0800">04 Nov 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>在对一个大磁盘进行inotify监听时，爆出如下错误：</p>
-<p>Failed to watch /mnt/;
-upper limit on inotify watches reached!
-Please increase the amount of inotify watches allowed per user via `/proc/sys/fs/inotify/max_user_watches&rsquo;.</p>
-<p>cat一下这个文件，默认值是8192；df -i看看inode数量，远远大过这个值~</p>
-<p>echo 8192000 &gt; /proc/sys/fs/inotify/max_user_watches即可~</p>
-      <a href="/2010/11/04/intro-inotify" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -2643,6 +2686,7 @@ Please increase the amount of inotify watches allowed per user via `/proc/sys/fs
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+              <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
           </ul>
         </div>
         <div class="well sidebar-nav">
