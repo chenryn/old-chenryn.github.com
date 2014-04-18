@@ -128,7 +128,7 @@ tcpdump: listening on p5p1, link-type EN10MB (Ethernet), capture size 65535 byte
 <p>一个终端运行如下命令：</p>
 <pre><code>stap -e 'probe kernel.function("tcp_sendmsg") {printf("%d %x\n",$msg-&gt;msg_namelen,$msg-&gt;msg_flags)}'
 </code></pre>
-<p>另一个终端运行最开始提到的 <code>httping -F</code> 命令，看到前一个终端输出结果为 <code>16 20000040</code>，查 <code>tcp.h</code> 可以看到 <code>MSG_FASTOPEN</code> 是 <code>0x20000000</code>，<code>MSG_DONTWAIT</code> 是 <code>0x40</code>，也就是说 httping 也没问题。</p>
+<p>另一个终端运行最开始提到的 <code>httping -F</code> 命令，看到前一个终端输出结果为 <code>16 20000040</code>，查 <code>socket.h</code> 可以看到 <code>MSG_FASTOPEN</code> 是 <code>0x20000000</code>，<code>MSG_DONTWAIT</code> 是 <code>0x40</code>，也就是说 httping 也没问题。</p>
 <p>现在比较郁闷的一点是：在 <code>net/ipv4/tcp.c</code> 里，<code>tcp_sendmsg()</code> 函数会判断 <code>if ((flags &amp; MSG_FASTOPEN))</code>，就调用 <code>tcp_sendmsg_fastopen()</code> 函数来处理。但是试图用 systemtap 来调查这个函数的时候，会报一个错：</p>
 <pre><code>WARNING: probe kernel.function("tcp_sendmsg_fastopen@net/ipv4/tcp.c:1005") (address 0xffffffff815cca08) registration error (rc -22)
 </code></pre>
