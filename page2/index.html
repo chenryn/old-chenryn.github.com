@@ -43,6 +43,50 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/10/26/selinux-affect-to-apache-documentroot" title="selinux 对 webserver 文件发布的影响" rel="bookmark">selinux 对 webserver 文件发布的影响</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-10-26 00:00:00 +0800">26 Oct 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>SELinux 在国内是一个很少有人用的东西，一般来说，服务器上手第一件事情就是把 SELinux 关掉，以至于有问题的时候排查思路里都压根没检查 SELinux 这步。</p>
+<p>昨天在个人电脑的 Fedora 上搭建一个 webserver 发布几个文件，本来想着简单任务越快越好，几行命令完成：</p>
+<div class="highlight"><pre><code class="bash">sudo yum install httpd
+sudo mv ~/src /var/www/html/
+sudo service httpd start
+</code></pre></div>
+<p>结果居然一直返回 <code>403 Denied</code>！</p>
+<p>看 httpd 的 error.log ，一直报这么一行错误：</p>
+<pre><code>[core:error] [pid 3806] (13)Permission denied: [client 127.0.0.1:59180] AH00035: access to /src/master.zip denied (filesystem path '/var/www/html/src') because search permissions are missing on a component of the path
+</code></pre>
+<p>很奇怪吧，于是我先去确认了 httpd.conf 里关于 <code>&lt;Directory "/var/www/html"&gt;</code> 的配置(因为 Fedora19 的 httpd 版本是 2.4.6，我以为新版本有变化了)，然后去确认了 <code>/var/www/html/src</code> 的权限是不是 755，其他用户可读的。都没问题！</p>
+<p>最后还是在 apache 的 httpd 官方文档上找到了关于这个错误码的详细解释，原来还有一种可能性，就是 SELinux 的安全控制！这个可以通过下面这个命令看到：</p>
+<div class="highlight"><pre><code class="bash"><span class="nv">$ </span>ls -lZ /var/www /var/www/html
+/var/www:
+drwxr-xr-x. root   root   system_u:object_r:httpd_sys_script_exec_t:s0 cgi-bin
+drwxr-xr-x. apache apache system_u:object_r:httpd_sys_content_t:s0 html
+/var/www/html:
+drwxr-xr-x. chenlin.rao chenlin.rao unconfined_u:object_r:user_home_t:s0 src
+</code></pre></div>
+<p>看到没有，这里这些文件的 SELinux 类型是不一样的，默认的 <code>/var/www/html</code> 是 <code>httpd_sys_content_t</code>，<code>/var/www/cgi-bin</code> 是 <code>httpd_sys_script_exec_t</code>，而从我家目录移过去的 <code>/var/www/html/src</code> 是 <code>user_home_t</code>！</p>
+<p>解决办法也很简单，把这个类型也改过来就好了：</p>
+<div class="highlight"><pre><code class="bash"><span class="nv">$ </span>chcon -R -t httpd_sys_content_t /var/www/html/src
+</code></pre></div>
+<p>这是第一次接触 SELinux 的安全管理，真的是好细致！</p>
+      <a href="/2013/10/26/selinux-affect-to-apache-documentroot" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/10/25/intro-plenv" title="用 plenv 代替 perlbrew 管理 Perl5" rel="bookmark">用 plenv 代替 perlbrew 管理 Perl5</a>
     </h1>
     <p class="alt-font tight">
@@ -2002,49 +2046,6 @@ python /opt/graphite/examples/example-client.py
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2013/04/02/parse-puppet-dsl-using-perl6" title="用 Perl6 解析 puppet 的配置语法" rel="bookmark">用 Perl6 解析 puppet 的配置语法</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2013-04-02 00:00:00 +0800">02 Apr 2013</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>前段时间看到报道说，puppet 的作者本来是用 perl 完成的原型设计，后来改用的 ruby。所以我想，目前这个 puppet 的 DSL 设计，用 perl 来完成的话，应该如何做。</p>
-<p>这里碰到一个问题，就是 puppet 中 <code>resource_type</code> 的 <code>title</code> 后面有个冒号，这事儿比较麻烦，不过这时候我突然想到了 Perl6 ，稍微翻了一下文档，发现这事用 Perl6 来实现很容易：</p>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="n">v6</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">infix</span><span class="p">:&lt;:&gt;($a, %b){</span>
-    <span class="k">return</span> <span class="nv">$a</span><span class="p">,</span> <span class="nv">%b</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">service</span><span class="p">(&amp;service) {</span>
-    <span class="k">my</span> <span class="nv">@res</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">service</span><span class="o">.</span><span class="p">();</span>
-    <span class="n">say</span> <span class="nv">@res</span><span class="o">.</span><span class="nb">shift</span> <span class="o">=&gt;</span> <span class="nv">@res</span><span class="o">.</span><span class="n">hash</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="n">class</span> <span class="nn">nginx::</span><span class="n">install</span> <span class="p">{</span>
-	<span class="k">my</span> <span class="nv">$nginxparams</span> <span class="o">=</span> <span class="s">&quot;nginx&quot;</span><span class="p">;</span>
-	<span class="n">service</span> <span class="p">{</span> <span class="s">&quot;$nginxparams&quot;</span><span class="p">:</span>
-        <span class="n">conf</span> <span class="o">=&gt;</span> <span class="s">&quot;#&quot;</span><span class="p">,</span>
-        <span class="n">source</span> <span class="o">=&gt;</span> <span class="s">&quot;http&quot;</span> 
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>运行结果如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="n">perl6</span> <span class="sr">/data/</span><span class="n">perl6</span><span class="sr">/script/</span><span class="n">puppet</span><span class="o">-</span><span class="n">style</span><span class="o">.</span><span class="n">pl</span>
-<span class="s">&quot;nginx&quot;</span> <span class="o">=&gt;</span> <span class="p">{</span><span class="s">&quot;conf&quot;</span> <span class="o">=&gt;</span> <span class="s">&quot;#&quot;</span><span class="p">,</span> <span class="s">&quot;source&quot;</span> <span class="o">=&gt;</span> <span class="s">&quot;http&quot;</span><span class="p">}</span>
-</code></pre></div>
-<p>当然实际上 puppet 要复杂很多，这里其实更多是为了说明 Perl6 如何自定义操作符~</p>
-      <a href="/2013/04/02/parse-puppet-dsl-using-perl6" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -2097,6 +2098,9 @@ python /opt/graphite/examples/example-client.py
     </li>
     <li class="page">
       <a href="/page16">16</a>
+    </li>
+    <li class="page">
+      <a href="/page17">17</a>
     </li>
     <li>
       <a href="/page3">Next</a>

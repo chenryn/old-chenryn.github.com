@@ -43,6 +43,38 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/05/11/performance-optimization-of-perl-script-2" title="perl脚本性能优化（续）" rel="bookmark">perl脚本性能优化（续）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-05-11 00:00:00 +0800">11 May 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>上回提到，性能优化的四个回答，今天在扶凯的博客里看到一篇文章，刚好是同样情况下的流程优化。按照其中的说法，修改测试，果然改进很大：</p>
+<p>优化的地方在这里：</p>
+<p>-:foreach (sort keys %url_table) {
++:if(exists $url_table{$1}) {
+print LIST_FH &ldquo;$_n&rdquo;;}</p>
+<p>在将所有的url写入散列后，一般的处理办法是用keys检索哈希表，而其实只需要判定存在，直接输出即可。
+然后分别用time测试四个脚本，结果如下：</p>
+<pre><code>长正则，检索哈希——1.882s
+短正则，检索哈希——1.543s
+长正则，判定输出——0.804s
+短正则，判定输出——0.651s
+</code></pre>
+      <a href="/2010/05/11/performance-optimization-of-perl-script-2" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/05/07/purge-cache-by-perl-script-2" title="perl边学边练（purge脚本进阶）" rel="bookmark">perl边学边练（purge脚本进阶）</a>
     </h1>
     <p class="alt-font tight">
@@ -1473,53 +1505,6 @@ UCD-SNMP-MIB::ucdavis.18.103.1 = ""
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/03/24/diff-of-error_page-between-squid-nginx" title="squid和nginx的error_page差别" rel="bookmark">squid和nginx的error_page差别</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-03-24 00:00:00 +0800">24 Mar 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>nginx的error_page，有两个种办法。</p>
-<p>一是直接error_page 502 503 504 = http://xyfunds.cdn.21vokglb.cn/index.htm;</p>
-<p>二是error_page 502 503 504 =200 @fetch;然后location ~* @fetch {……}。</p>
-<p>网上看到很多自定义error_page的方式，比如error_page 404 /404.php;把变量都传给php去分析处理；也可以在location里用if(){}做rewrite等等。</p>
-<p>squid的error_page，可以有error_directory、error_map、deny_info三种方式。其中deny_info仅适用于ERR_ACCESS_DENIED一种情况；目前对于源站故障跳转，采用的是修改error_directory里html的meta；今天由nginx的方式想到采用error_map试试，于是写了如下php页面：</p>
-<div class="highlight"><pre><code class="php"><span class="cp">&lt;?php</span>
-<span class="k">switch</span> <span class="p">(</span><span class="nv">$_SERVER</span><span class="p">[</span><span class="s1">&#39;SERVER_NAME&#39;</span><span class="p">])</span>
-<span class="p">{</span>
-<span class="k">case</span> <span class="s1">&#39;www.xyfunds.com.cn&#39;</span><span class="o">:</span>
-<span class="nx">header</span><span class="p">(</span><span class="s2">&quot;Location: http://xyfunds.cdn.21vokglb.cn/index.htm&quot;</span><span class="p">);</span>
-<span class="k">break</span><span class="p">;</span>
-<span class="k">default</span><span class="o">:</span>
-<span class="k">echo</span> <span class="nv">$_SERVER</span><span class="p">[</span><span class="s1">&#39;SERVER_NAME&#39;</span><span class="p">];</span>
-<span class="p">}</span>
-<span class="cp">?&gt;</span><span class="x"></span>
-</code></pre></div>
-<p>但测试结果，ERR的页面却是一片空白……在squid.conf,default中看到，原来<span style="color:#ff0000;">error_map只是返回定义页面的内容，header还是原先的。</span>
-于是又想针对squid返回的%U，进行strtr()，然后再进行meta，如下：</p>
-<div class="highlight"><pre><code class="php"><span class="cp">&lt;?php</span>
-<span class="nv">$urlarray</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;com.cn&#39;</span><span class="o">=&gt;</span><span class="s1">&#39;21vokglb.cn&#39;</span><span class="p">);</span>
-<span class="nv">$urlrewrite</span> <span class="o">=</span> <span class="nx">strtr</span><span class="p">(</span><span class="s2">&quot;%U&quot;</span><span class="p">,</span><span class="nv">$urlarray</span><span class="p">);</span>
-<span class="k">echo</span> <span class="o">&lt;</span><span class="nx">META</span> <span class="nx">HTTP</span><span class="o">-</span><span class="nx">EQUIV</span><span class="o">=</span><span class="s2">&quot;refresh&quot;</span> <span class="nx">CONTENT</span><span class="o">=</span><span class="s2">&quot;0; </span><span class="si">$urlrewrite</span><span class="s2">&quot;</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="cp">?&gt;</span><span class="x"></span>
-</code></pre></div>
-<p>很可惜，测试结果是把这串字符直接显示在了页面上。
-这两个结果让我很无语。如果说squid不支持php，那为什么它能识别出来上一个是修改header而不是页面内容所以不显示文本；如果说squid支持php，那为什么下一个又无法执行呢？</p>
-<p>想对%U进行操作，难道非得到squid/src/errorpage.c里去修改么？C语言的字符串处理没有封装好的函数，真的好麻烦的说……</p>
-      <a href="/2010/03/24/diff-of-error_page-between-squid-nginx" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -1572,6 +1557,9 @@ UCD-SNMP-MIB::ucdavis.18.103.1 = ""
     </li>
     <li class="page">
       <a href="/page16">16</a>
+    </li>
+    <li class="page">
+      <a href="/page17">17</a>
     </li>
     <li>
       <a href="/page13">Next</a>

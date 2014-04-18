@@ -43,6 +43,1332 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/11/09/intro-squid-debug_log" title="squid的debug日志" rel="bookmark">squid的debug日志</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-11-09 00:00:00 +0800">09 Nov 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>今天为了检查防盗链配置，打开了squid的debug日志(squid.conf: debug_options ALL,9)。tailf观察，很是学习了一番squid的工作模式。</p>
+<p>1、空闲时日志也一直在滚动，诸如“do_comm_select: 0 fds ready”、“storeDirClean: Cleaning directory /tmpfs/cache/03/2D”这样，第一个很显然就是表示TCPsocket可以accept请求；第二个是定期清除过期目录；</p>
+<p>2、发送请求之后，accept部分如下：</p>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>fd_open FD 15 HTTP Request</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>httpAccept: FD 15: accepted port 80 client 124.238.250.28:39168</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataLock: 0x7589c8</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>comm_add_close_handler: FD 15, handler=0x4218f0, data=0x9a14f8</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataLock: 0x9a14f8</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>commSetTimeout: FD 15 timeout 300</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>commSetSelect: FD 15 type 1</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>commSetEvents(fd=15)</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>comm_call_handlers(): got fd=15 read_event=1 write_event=0 F-&gt;read_handler=0x423370 F-&gt;write_handler=(nil)</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>comm_call_handlers(): Calling read handler on fd=15</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientReadRequest: FD 15: reading request&hellip;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataLock: 0x9a14f82010/11/09 19:18:18</td>
+      <td>cbdataValid: 0x9a14f8</td>
+    </tr>
+  </tbody>
+</table>
+<p>3、读取请求信息，创建entry空间，如下：</p>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>Parser: retval 1: from 0-&gt;68: method 0-&gt;2; url 4-&gt;57; version 59-&gt;67 (1/0)</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>parseHttpRequest: Method is &lsquo;GET&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>parseHttpRequest: URI is &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>parseHttpRequest: req_hdr = {Referer: http://w.china.com</td>
+    </tr>
+  </tbody>
+</table>
+<p>User-Agent: Wget/1.10.2 (Red Hat modified)</p>
+<p>Accept: <em>/</em></p>
+<p>Host: shanzhai.china.com</p>
+<p>}</p>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>parseHttpRequest: prefix_sz = 183, req_line_sz = 69</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>parseHttpRequest: Request Header is</td>
+    </tr>
+  </tbody>
+</table>
+<p>&nbsp;</p>
+<p>Referer: http://w.china.com</p>
+<p>User-Agent: Wget/1.10.2 (Red Hat modified)</p>
+<p>Accept: <em>/</em></p>
+<p>Host: shanzhai.china.com</p>
+<p>&nbsp;</p>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>parseHttpRequest: Complete request received</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>commSetTimeout: FD 15 timeout 86400</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>init-ing hdr: 0x9604f8 owner: 1</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>parsing hdr: (0x9604f8)</td>
+    </tr>
+  </tbody>
+</table>
+<p>Referer: http://w.china.com</p>
+<p>User-Agent: Wget/1.10.2 (Red Hat modified)</p>
+<p>Accept: <em>/</em></p>
+<p>Host: shanzhai.china.com</p>
+<p>&nbsp;</p>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>creating entry 0x9a5610: near &lsquo;Referer: http://w.china.com&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>created entry 0x9a5610: &lsquo;Referer: http://w.china.com&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>0x9604f8 adding entry: 45 at 0</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>creating entry 0x847c10: near &lsquo;User-Agent: Wget/1.10.2 (Red Hat modified)&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>created entry 0x847c10: &lsquo;User-Agent: Wget/1.10.2 (Red Hat modified)&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>0x9604f8 adding entry: 50 at 1</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>creating entry 0x9a4d20: near &lsquo;Accept: <em>/</em>&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>created entry 0x9a4d20: &lsquo;Accept: <em>/</em>&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>0x9604f8 adding entry: 0 at 2</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>creating entry 0x9a1cb0: near &lsquo;Host: shanzhai.china.com&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>created entry 0x9a1cb0: &lsquo;Host: shanzhai.china.com&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>0x9604f8 adding entry: 27 at 3</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>removing 183 bytes; conn-&gt;in.offset = 0</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>0x9604f8 lookup for 20</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientSetKeepaliveFlag: http_ver = 1.0</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientSetKeepaliveFlag: method = GET</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>0x9604f8 lookup for 41</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>0x9604f8 lookup for 9</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>0x9604f8 lookup for 52</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>0x9604f8 lookup for 41</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>0x9604f8 lookup for 9</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>0x9604f8 lookup for 59</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataLock: 0x734ed8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataLock: 0x9a14f8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataLock: 0x9a17a8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataValid: 0x734ed8</td>
+    </tr>
+  </tbody>
+</table>
+<p>&nbsp;</p>
+<p>至此完成了请求信息的存取，并保持HTTP/1.0下的keepalive。</p>
+<p>&nbsp;</p>
+<p>4、请求acl检查部分</p>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclCheck: checking &lsquo;http_access allow swfs !notnull_refer&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAclList: checking swfs</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAcl: checking &lsquo;acl swfs url_regex -i ^http://flash.shanzhai.china.com/swfsimple/com/china/ceuf/map/.*.swf&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchRegex: checking &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchRegex: looking for &lsquo;^http://flash.shanzhai.china.com/swfsimple/com/china/ceuf/map/.*.swf&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAclList: no match, returning 0</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataLock: 0x734b68</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataUnlock: 0x734ed8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataValid: 0x734b68</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclCheck: checking &lsquo;http_access deny pics !notnull_refer&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAclList: checking pics</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAcl: checking &lsquo;acl pics url_regex -i .(jpg</td>
+      <td>gif</td>
+      <td>jpeg</td>
+      <td>png</td>
+      <td>mp3</td>
+      <td>smi</td>
+      <td>wma</td>
+      <td>swf)$&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchRegex: checking &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchRegex: looking for &lsquo;.(jpg</td>
+      <td>gif</td>
+      <td>jpeg</td>
+      <td>png</td>
+      <td>mp3</td>
+      <td>smi</td>
+      <td>wma</td>
+      <td>swf)$&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchRegex: match &lsquo;.(jpg</td>
+      <td>gif</td>
+      <td>jpeg</td>
+      <td>png</td>
+      <td>mp3</td>
+      <td>smi</td>
+      <td>wma</td>
+      <td>swf)$&rsquo; found in &lsquo;http://shanzhai.china.com/images/simple/siteGuid</td>
+    </tr>
+  </tbody>
+</table>
+<p>eR.gif&rsquo;</p>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAclList: checking !notnull_refer</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAcl: checking &lsquo;acl notnull_refer referer_regex .&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchRegex: checking &lsquo;http://w.china.com&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchRegex: looking for &lsquo;.&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchRegex: match &lsquo;.&rsquo; found in &lsquo;http://w.china.com&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAclList: no match, returning 0</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataLock: 0x735308</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataUnlock: 0x734b68</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataValid: 0x735308</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclCheck: checking &lsquo;http_access deny pics !domain_refer&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAclList: checking pics</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAcl: checking &lsquo;acl pics url_regex -i .(jpg</td>
+      <td>gif</td>
+      <td>jpeg</td>
+      <td>png</td>
+      <td>mp3</td>
+      <td>smi</td>
+      <td>wma</td>
+      <td>swf)$&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchRegex: checking &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchRegex: looking for &lsquo;.(jpg</td>
+      <td>gif</td>
+      <td>jpeg</td>
+      <td>png</td>
+      <td>mp3</td>
+      <td>smi</td>
+      <td>wma</td>
+      <td>swf)$&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchRegex: match &lsquo;.(jpg</td>
+      <td>gif</td>
+      <td>jpeg</td>
+      <td>png</td>
+      <td>mp3</td>
+      <td>smi</td>
+      <td>wma</td>
+      <td>swf)$&rsquo; found in &lsquo;http://shanzhai.china.com/images/simple/siteGuid</td>
+    </tr>
+  </tbody>
+</table>
+<p>eR.gif&rsquo;</p>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAclList: checking !domain_refer</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAcl: checking &lsquo;acl domain_refer referer_regex -i ^http://[^/]<em>china.com ^http://124.238.253.</em>&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchRegex: checking &lsquo;http://w.china.com&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchRegex: looking for &lsquo;^http://[^/]*china.com&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchRegex: match &lsquo;^http://[^/]*china.com&rsquo; found in &lsquo;http://w.china.com&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAclList: no match, returning 0</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataLock: 0x7355a8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataUnlock: 0x735308</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataValid: 0x7355a8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclCheck: checking &lsquo;http_access allow Safe_ports Domain&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAclList: checking Safe_ports</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAcl: checking &lsquo;acl Safe_ports port 80&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAclList: checking Domain</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAcl: checking &lsquo;acl Domain dstdomain .china.com&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchDomainList: checking &lsquo;shanzhai.china.com&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchDomainList: &lsquo;shanzhai.china.com&rsquo; found</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAclList: returning 1</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclCheck: match found, returning 1</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataUnlock: 0x7355a8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclCheckCallback: answer=1</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataValid: 0x9a17a8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>The request GET http://shanzhai.china.com/images/simple/siteGuideR.gif is ALLOWED, because it matched &lsquo;Domain&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<p>对照squid.conf，发现acl检测是从上到下依次进行（一般acl都这样），且http_access后最多只能有2个aclname</p>
+<p>&nbsp;</p>
+<p>5、rewrite部分</p>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientRedirectStart: &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientRedirectDone: &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo; result=NULL</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientStoreURLRewriteStart: &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientStoreURLRewriteDone: &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo; result=NULL</td>
+    </tr>
+  </tbody>
+</table>
+<p>&nbsp;</p>
+<p>6、cache配置</p>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientInterpretRequestHeaders: REQ_NOCACHE = NOT SET</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientInterpretRequestHeaders: REQ_CACHABLE = SET</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientInterpretRequestHeaders: REQ_HIERARCHICAL = SET</td>
+    </tr>
+  </tbody>
+</table>
+<p>7、cache_store检查</p>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientProcessRequest: GET &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>0x9604f8 lookup for 53</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>storeGet: looking up 15EBB8A96296D7407EA1D03F075666BC</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientProcessRequest2: default HIT</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientProcessRequest: TCP_HIT for &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>storeLockObject: (client_side.c:3544): key &lsquo;15EBB8A96296D7407EA1D03F075666BC&rsquo; count=1</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>storeAufsDirRefObj: referencing 0x753680 0/272</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>storeLockObject: (store_client.c:122): key &lsquo;15EBB8A96296D7407EA1D03F075666BC&rsquo; count=2</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>storeAufsDirRefObj: referencing 0x753680 0/272</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>storeClientCopy: 15EBB8A96296D7407EA1D03F075666BC, seen 0, want 0, size 4096, cb 0x41dd90, cbdata 0x9a17a8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataLock: 0x9a17a8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataLock: 0x9a2178</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>storeClientCopy2: 15EBB8A96296D7407EA1D03F075666BC</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>storeClientCopy3: Copying from memory</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>stmemCopy: offset 0: size 4096</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataValid: 0x9a17a8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientCacheHit: http://shanzhai.china.com/images/simple/siteGuideR.gif = 200</td>
+    </tr>
+  </tbody>
+</table>
+<p>&nbsp;</p>
+<p>8、过期时间</p>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>refreshCheck: &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>FRESH: expires 1320836796 &gt;= check_time 1289301498</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>Staleness = -1</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>refreshCheck: Matched &lsquo;<none> 0 20% 259200'</none></td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>refreshCheck: age = 702</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>   check_time:    Tue, 09 Nov 2010 11:18:18 GMT</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>   entry-&gt;timestamp:  Tue, 09 Nov 2010 11:06:36 GMT</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientCacheHit: refreshCheckHTTPStale returned 0</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>clientCacheHit: HIT</td>
+    </tr>
+  </tbody>
+</table>
+<p>&nbsp;</p>
+<p>9、继续完成entry</p>
+<table>
+  <tbody>
+    <tr>
+      <td>……2010/11/09 19:18:18</td>
+      <td>destroying entry 0x9a4cc0: &lsquo;Connection: keep-alive&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>……2010/11/09 19:18:18</td>
+      <td>created entry 0x9a4c60: &lsquo;Connection: close&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<p>&nbsp;</p>
+<p>10、响应acl检查部分</p>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclCheck: checking &lsquo;http_reply_access allow all&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAclList: checking all</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAcl: checking &lsquo;acl all src 0.0.0.0/0.0.0.0&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchIp: &lsquo;124.238.250.28&rsquo; found</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclMatchAclList: returning 1</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclCheck: match found, returning 1</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataUnlock: 0x731988</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>aclCheckCallback: answer=1</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataValid: 0x9a17a8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>The reply for GET http://shanzhai.china.com/images/simple/siteGuideR.gif is ALLOWED, because it matched &lsquo;all&rsquo;</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>packing sline 0x9a5010 using 0x7fffdb895d10:</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>HTTP/1.1 200 OK</td>
+    </tr>
+  </tbody>
+</table>
+<p>&nbsp;</p>
+<p>11、传输文件</p>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>packing hdr: (0x9a5028)</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>comm_write: FD 15: sz 362: hndl 0x424d60: data 0x9a17a8.</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataLock: 0x9a17a8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>commSetSelect: FD 15 type 2</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>commSetEvents(fd=15)</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataUnlock: 0x9a17a8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataUnlock: 0x9a14f8</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataFree: 0x846f18</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataFree: Freeing 0x846f18</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>2010/11/09 19:18:18</td>
+      <td>cbdataUnlock: 0x9a17a8</td>
+    </tr>
+  </tbody>
+</table>
+<p>&nbsp;</p>
+      <a href="/2010/11/09/intro-squid-debug_log" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/11/04/intro-inotify" title="inotify使用一例" rel="bookmark">inotify使用一例</a>
     </h1>
     <p class="alt-font tight">
@@ -1507,58 +2833,6 @@ bc支持+-*/%^=!&gt;&lt;各种运算，还能通过scale指定小数点后几位
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/08/03/squid2-6-bug-about-if_none_match" title="squid2.6的bug（if-none-match）" rel="bookmark">squid2.6的bug（if-none-match）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-08-03 00:00:00 +0800">03 Aug 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>话接上篇。
-在发现经过squid的刷新请求头不带If-None-Match后，向squid-user发邮件询问。Amos回复如下：</p>
-<p>On Mon, 02 Aug 2010 07:56:09 +0800, Gemmy <a href="mailto:chenryn@163.com"><span style="text-decoration:underline;"><span style="color:#0000ff;"><a href="&#109;&#097;&#105;&#108;&#116;&#111;:&#099;&#104;&#101;&#110;&#114;&#121;&#110;&#064;&#049;&#054;&#051;&#046;&#099;&#111;&#109;">&#099;&#104;&#101;&#110;&#114;&#121;&#110;&#064;&#049;&#054;&#051;&#046;&#099;&#111;&#109;</a></span></span></a> wrote:
-&lt;blockquote style="color:#000000;"&gt;
- Hi~
-&gt; I have a nginx webserver adding the static-etags module and a
-&gt; squid2.6.23 before the nginx. When I access to the nginx directly, I can
-&gt; see the ETag in response header and If-None-Match in the request header
-&gt; after refresh. But when I access to the squid, ETag header still
-&gt; exist,If-None-Match header disappeared!
-&gt; The squid.conf have most basic configuration items, nothing about cache.
-&gt; Why does this happen?
-&lt;/blockquote&gt;
-Squid-2 has problems with If-None-Match.
-<a href="http://bugs.squid-cache.org/show_bug.cgi?id=2112"><span style="text-decoration:underline;"><span style="color:#0000ff;">http://bugs.squid-cache.org/show_bug.cgi?id=2112</span></span></a></p>
-<p>Please upgrade to Squid-2.7. It will behave a lot better regarding ETags
-in general and <a href="http://bugs.squid-cache.org/show_bug.cgi?id=2112"><span style="text-decoration:underline;"><span style="color:#0000ff;">http://bugs.squid-cache.org/show_bug.cgi?id=2112</span></span></a> has some
-patches on 2.7 that you may want to try.</p>
-<p>Amos</p>
-<p>赶紧看看bug2112报告《Squid does not send If-None-Match tag for cache revalidation》，原来是http.c里，虽然
-httpBuildRequestHeader定义了if-none-match，但却忘了定义接下来向源站发送的request-etags！
-重新下载squid2.7.9，编译完成后开始测试。访问动作和相应的日志记录如下：
-第一次访问：
-1280803634.566     65 59.108.42.242 TCP_MISS/200 19127 GET <a href="http://club.china.com/data/thread/1011/2716/16/81/5_1.html">http://club.china.com/data/thread/1011/2716/16/81/5_1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;<a href="http://club.china.com/">http://club.china.com/</a>&rdquo; &ldquo;Mozilla/5.0 (Windows; Windows NT 5.1; rv:2.0b2) Gecko/20100720 Firefox/4.0b2&rdquo;
-F5刷新有新内容：
-1280803714.220    488 59.108.42.242 TCP_REFRESH_MISS/200 19127 GET <a href="http://club.china.com/data/thread/1011/2716/16/81/5_1.html">http://club.china.com/data/thread/1011/2716/16/81/5_1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;<a href="http://club.china.com/">http://club.china.com/</a>&rdquo; &ldquo;Mozilla/5.0 (Windows; Windows NT 5.1; rv:2.0b2) Gecko/20100720 Firefox/4.0b2&rdquo;
-F5刷新没新内容：
-1280805207.149      3 59.108.42.242 TCP_REFRESH_HIT/304 309 GET <a href="http://club.china.com/data/threads/1011/1.html">http://club.china.com/data/threads/1011/1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;-&ldquo; &ldquo;Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)&rdquo;
-回复后返回新内容：
-1280803803.696     20 59.108.42.242 TCP_REFRESH_HIT/200 19126 GET <a href="http://club.china.com/data/thread/1011/2716/16/81/5_1.html">http://club.china.com/data/thread/1011/2716/16/81/5_1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;<a href="http://r.club.china.com/jsp/pub/replyAutoJump.jsp?url=http://club.china.com/data/thread/1011/2716/16/81/5_1.html&amp;forumid=1011&amp;message=&amp;picmessage">http://r.club.china.com/jsp/pub/replyAutoJump.jsp?url=http%3A%2F%2Fclub.china.com%2Fdata%2Fthread%2F1011%2F2716%2F16%2F81%2F5_1.html&amp;forumid=1011&amp;message=&amp;picmessage</a>=&rdquo; &ldquo;Mozilla/5.0 (Windows; Windows NT 5.1; rv:2.0b2) Gecko/20100720 Firefox/4.0b2&rdquo;
-Ctrl+F5刷新：
-1280803821.731     12 59.108.42.242 TCP_CLIENT_REFRESH_MISS/200 19127 GET <a href="http://club.china.com/data/thread/1011/2716/16/81/5_1.html">http://club.china.com/data/thread/1011/2716/16/81/5_1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;<a href="http://r.club.china.com/jsp/pub/replyAutoJump.jsp?url=http://club.china.com/data/thread/1011/2716/16/81/5_1.html&amp;forumid=1011&amp;message=&amp;picmessage">http://r.club.china.com/jsp/pub/replyAutoJump.jsp?url=http%3A%2F%2Fclub.china.com%2Fdata%2Fthread%2F1011%2F2716%2F16%2F81%2F5_1.html&amp;forumid=1011&amp;message=&amp;picmessage</a>=&rdquo; &ldquo;Mozilla/5.0 (Windows; Windows NT 5.1; rv:2.0b2) Gecko/20100720 Firefox/4.0b2&rdquo;</p>
-      <a href="/2010/08/03/squid2-6-bug-about-if_none_match" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -1611,6 +2885,9 @@ Ctrl+F5刷新：
     </li>
     <li class="page">
       <a href="/page16">16</a>
+    </li>
+    <li class="page">
+      <a href="/page17">17</a>
     </li>
     <li>
       <a href="/page11">Next</a>

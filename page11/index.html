@@ -43,6 +43,58 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/08/03/squid2-6-bug-about-if_none_match" title="squid2.6的bug（if-none-match）" rel="bookmark">squid2.6的bug（if-none-match）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-08-03 00:00:00 +0800">03 Aug 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>话接上篇。
+在发现经过squid的刷新请求头不带If-None-Match后，向squid-user发邮件询问。Amos回复如下：</p>
+<p>On Mon, 02 Aug 2010 07:56:09 +0800, Gemmy <a href="mailto:chenryn@163.com"><span style="text-decoration:underline;"><span style="color:#0000ff;"><a href="&#109;&#097;&#105;&#108;&#116;&#111;:&#099;&#104;&#101;&#110;&#114;&#121;&#110;&#064;&#049;&#054;&#051;&#046;&#099;&#111;&#109;">&#099;&#104;&#101;&#110;&#114;&#121;&#110;&#064;&#049;&#054;&#051;&#046;&#099;&#111;&#109;</a></span></span></a> wrote:
+&lt;blockquote style="color:#000000;"&gt;
+ Hi~
+&gt; I have a nginx webserver adding the static-etags module and a
+&gt; squid2.6.23 before the nginx. When I access to the nginx directly, I can
+&gt; see the ETag in response header and If-None-Match in the request header
+&gt; after refresh. But when I access to the squid, ETag header still
+&gt; exist,If-None-Match header disappeared!
+&gt; The squid.conf have most basic configuration items, nothing about cache.
+&gt; Why does this happen?
+&lt;/blockquote&gt;
+Squid-2 has problems with If-None-Match.
+<a href="http://bugs.squid-cache.org/show_bug.cgi?id=2112"><span style="text-decoration:underline;"><span style="color:#0000ff;">http://bugs.squid-cache.org/show_bug.cgi?id=2112</span></span></a></p>
+<p>Please upgrade to Squid-2.7. It will behave a lot better regarding ETags
+in general and <a href="http://bugs.squid-cache.org/show_bug.cgi?id=2112"><span style="text-decoration:underline;"><span style="color:#0000ff;">http://bugs.squid-cache.org/show_bug.cgi?id=2112</span></span></a> has some
+patches on 2.7 that you may want to try.</p>
+<p>Amos</p>
+<p>赶紧看看bug2112报告《Squid does not send If-None-Match tag for cache revalidation》，原来是http.c里，虽然
+httpBuildRequestHeader定义了if-none-match，但却忘了定义接下来向源站发送的request-etags！
+重新下载squid2.7.9，编译完成后开始测试。访问动作和相应的日志记录如下：
+第一次访问：
+1280803634.566     65 59.108.42.242 TCP_MISS/200 19127 GET <a href="http://club.china.com/data/thread/1011/2716/16/81/5_1.html">http://club.china.com/data/thread/1011/2716/16/81/5_1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;<a href="http://club.china.com/">http://club.china.com/</a>&rdquo; &ldquo;Mozilla/5.0 (Windows; Windows NT 5.1; rv:2.0b2) Gecko/20100720 Firefox/4.0b2&rdquo;
+F5刷新有新内容：
+1280803714.220    488 59.108.42.242 TCP_REFRESH_MISS/200 19127 GET <a href="http://club.china.com/data/thread/1011/2716/16/81/5_1.html">http://club.china.com/data/thread/1011/2716/16/81/5_1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;<a href="http://club.china.com/">http://club.china.com/</a>&rdquo; &ldquo;Mozilla/5.0 (Windows; Windows NT 5.1; rv:2.0b2) Gecko/20100720 Firefox/4.0b2&rdquo;
+F5刷新没新内容：
+1280805207.149      3 59.108.42.242 TCP_REFRESH_HIT/304 309 GET <a href="http://club.china.com/data/threads/1011/1.html">http://club.china.com/data/threads/1011/1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;-&ldquo; &ldquo;Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)&rdquo;
+回复后返回新内容：
+1280803803.696     20 59.108.42.242 TCP_REFRESH_HIT/200 19126 GET <a href="http://club.china.com/data/thread/1011/2716/16/81/5_1.html">http://club.china.com/data/thread/1011/2716/16/81/5_1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;<a href="http://r.club.china.com/jsp/pub/replyAutoJump.jsp?url=http://club.china.com/data/thread/1011/2716/16/81/5_1.html&amp;forumid=1011&amp;message=&amp;picmessage">http://r.club.china.com/jsp/pub/replyAutoJump.jsp?url=http%3A%2F%2Fclub.china.com%2Fdata%2Fthread%2F1011%2F2716%2F16%2F81%2F5_1.html&amp;forumid=1011&amp;message=&amp;picmessage</a>=&rdquo; &ldquo;Mozilla/5.0 (Windows; Windows NT 5.1; rv:2.0b2) Gecko/20100720 Firefox/4.0b2&rdquo;
+Ctrl+F5刷新：
+1280803821.731     12 59.108.42.242 TCP_CLIENT_REFRESH_MISS/200 19127 GET <a href="http://club.china.com/data/thread/1011/2716/16/81/5_1.html">http://club.china.com/data/thread/1011/2716/16/81/5_1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;<a href="http://r.club.china.com/jsp/pub/replyAutoJump.jsp?url=http://club.china.com/data/thread/1011/2716/16/81/5_1.html&amp;forumid=1011&amp;message=&amp;picmessage">http://r.club.china.com/jsp/pub/replyAutoJump.jsp?url=http%3A%2F%2Fclub.china.com%2Fdata%2Fthread%2F1011%2F2716%2F16%2F81%2F5_1.html&amp;forumid=1011&amp;message=&amp;picmessage</a>=&rdquo; &ldquo;Mozilla/5.0 (Windows; Windows NT 5.1; rv:2.0b2) Gecko/20100720 Firefox/4.0b2&rdquo;</p>
+      <a href="/2010/08/03/squid2-6-bug-about-if_none_match" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/08/01/test-last_modified-etag-of-nginx" title="郁闷的last-modified和etag试验" rel="bookmark">郁闷的last-modified和etag试验</a>
     </h1>
     <p class="alt-font tight">
@@ -1129,38 +1181,6 @@ pushd 路径1  <br />
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/05/11/performance-optimization-of-perl-script-2" title="perl脚本性能优化（续）" rel="bookmark">perl脚本性能优化（续）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-05-11 00:00:00 +0800">11 May 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>上回提到，性能优化的四个回答，今天在扶凯的博客里看到一篇文章，刚好是同样情况下的流程优化。按照其中的说法，修改测试，果然改进很大：</p>
-<p>优化的地方在这里：</p>
-<p>-:foreach (sort keys %url_table) {
-+:if(exists $url_table{$1}) {
-print LIST_FH &ldquo;$_n&rdquo;;}</p>
-<p>在将所有的url写入散列后，一般的处理办法是用keys检索哈希表，而其实只需要判定存在，直接输出即可。
-然后分别用time测试四个脚本，结果如下：</p>
-<pre><code>长正则，检索哈希——1.882s
-短正则，检索哈希——1.543s
-长正则，判定输出——0.804s
-短正则，判定输出——0.651s
-</code></pre>
-      <a href="/2010/05/11/performance-optimization-of-perl-script-2" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -1213,6 +1233,9 @@ print LIST_FH &ldquo;$_n&rdquo;;}</p>
     </li>
     <li class="page">
       <a href="/page16">16</a>
+    </li>
+    <li class="page">
+      <a href="/page17">17</a>
     </li>
     <li>
       <a href="/page12">Next</a>
