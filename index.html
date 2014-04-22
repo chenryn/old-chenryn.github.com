@@ -44,7 +44,85 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
-      <a href="/2014/04/16/tcp-fastopen" title="TCP Fast Open 测试(1)" rel="bookmark">TCP Fast Open 测试(1)</a>
+      <a href="/2014/04/21/tcp-fastopen-2" title="TCP Fast Open 测试(2)" rel="bookmark">TCP Fast Open 测试(2)</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2014-04-21 00:00:00 +0800">21 Apr 2014</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>接上篇。</p>
+<p>18 日提到采用 wireshark 而不是 tcpdump 来抓取数据。wireshark 会自动把一些数据解释成可读的内容，于是看到其实在每次 httping 发出请求的时候，第一个 SYN 包后面都有附加了 TCP FASTOPEN COOKIE 请求：</p>
+<p><img src="/images/uploads/foc-req.png" alt="" /></p>
+<p>于是回头重新好好读了一下 TFO 的原理，发现自己对 TFO 的理解是有问题的 - 原先我以为在 SYN 里是可以直接带上请求数据的 - 而这很容易被攻击。实际上的流程应该是：</p>
+<ol>
+  <li>客户端发送 SYN 包，包尾加的是一个 FOC 请求，只有 4 字节。</li>
+  <li>服务器端收到 FOC 请求，验证后根据来源 IP 地址生成 COOKIE(8 字节)，将这个 COOKIE 加载 SYN+ACK 包的末尾发送回去。</li>
+  <li>客户端缓存住获取到的 COOKIE 可以给下一次使用。</li>
+  <li>下一次请求开始，客户端发送 SYN 包，这时候包后面带上缓存的 COOKIE，然后就是要正式发送的数据。</li>
+  <li>服务器端验证 COOKIE 正确，将数据交给上层应用处理得到响应结果，然后在发送 SYN+ACK 时，不再等待客户端的 ACK 确认，即开始发送响应数据。</li>
+</ol>
+<p>示图如下：</p>
+<p><img src="/images/uploads/tfo.jpg" alt="" /></p>
+<p>所以可以总结两点：</p>
+<ol>
+  <li>第一次请求是不会有时间节约的效果的，测试至少要 <code>httping -F -c 2</code>。</li>
+  <li>从第二次开始节约的时间可以认为是第一个来回，httping 本身是个 HEAD 请求，可以认为是 50% 的节约。</li>
+</ol>
+<p>但是用 <code>-c 2</code> 运行依然没有看到 RTT 变化。这时候用<code>stap 'probe kernel.function("tcp_fastopen_cookie_gen") {printf("%d\n", $foc-&gt;len)}'</code> 命令发现这个最重要的生成 COOKIE 的函数(net/ipv4/tcp_fastopen.c里)居然一直没有被触发！</p>
+<p>认真阅读了一下调用这个函数的 <code>tcp_fastopen_check</code> 函数(net/ipv4/tcp_ipv4.c里)，原来前面首先有一步检查 sysctl 的逻辑：</p>
+<div class="highlight"><pre><code class="c">    <span class="k">if</span> <span class="p">((</span><span class="n">sysctl_tcp_fastopen</span> <span class="o">&amp;</span> <span class="n">TFO_SERVER_ENABLE</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">||</span>
+        <span class="n">fastopenq</span> <span class="o">==</span> <span class="nb">NULL</span> <span class="o">||</span> <span class="n">fastopenq</span><span class="o">-&gt;</span><span class="n">max_qlen</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</code></pre></div>
+<p>这个 <code>TFO_SERVER_ENABLE</code> 常量是 2。而我电脑默认的 <code>net.ipv4.tcp_fastopen</code> 值是 1。1 只开启客户端支持 TFO，所以这里要改成 2(或者 3，如果你不打算把客户端搬到别的主机上测试的话)。</p>
+<p>重新开始 httping 测试，RTT 依然没有缩短。这时候的 stap 命令发现 <code>tcp_fastopen_cookie_gen</code> 函数虽然触发了，但是函数里真正干活的这段逻辑依然没有触发(即 <code>crypto_cipher_encrypt_one</code>)：</p>
+<div class="highlight"><pre><code class="c"><span class="kt">void</span> <span class="nf">tcp_fastopen_cookie_gen</span><span class="p">(</span><span class="n">__be32</span> <span class="n">addr</span><span class="p">,</span> <span class="k">struct</span> <span class="n">tcp_fastopen_cookie</span> <span class="o">*</span><span class="n">foc</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">__be32</span> <span class="n">peer_addr</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span> <span class="n">addr</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span> <span class="p">};</span>
+    <span class="k">struct</span> <span class="n">tcp_fastopen_context</span> <span class="o">*</span><span class="n">ctx</span><span class="p">;</span>
+    <span class="n">rcu_read_lock</span><span class="p">();</span>
+    <span class="n">ctx</span> <span class="o">=</span> <span class="n">rcu_dereference</span><span class="p">(</span><span class="n">tcp_fastopen_ctx</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">ctx</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">crypto_cipher_encrypt_one</span><span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">tfm</span><span class="p">,</span>
+                      <span class="n">foc</span><span class="o">-&gt;</span><span class="n">val</span><span class="p">,</span>
+                      <span class="p">(</span><span class="n">__u8</span> <span class="o">*</span><span class="p">)</span><span class="n">peer_addr</span><span class="p">);</span>
+        <span class="n">foc</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">=</span> <span class="n">TCP_FASTOPEN_COOKIE_SIZE</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="n">rcu_read_unlock</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>我试图通过 <code>stap 'probe kernel.function("tcp_fastopen_cookie_gen"){printf("%s\n", $$locals$$)}'</code> 来查看这个 <code>ctx</code> 是什么内容。输出显示 ctx 结构里的元素值都是问号。</p>
+<p>目前就卡在这里。</p>
+<p>为了验证除了这步没有其他问题，我&rdquo;野蛮&rdquo;的通过 systemtap 修改了一下 <code>tcp_fastopen_cookie_gen</code> 里的变量。命令如下：</p>
+<p><code>
+stap 'probe kernel.function("tcp_fastopen_cookie_gen") { $foc-&gt;len = 8 }'
+</code></p>
+<p>赋值为 8，就是 <code>TCP_FASTOPEN_COOKIE_SIZE</code> 常量的值。</p>
+<p>然后再运行测试，就发现 httping 的第二次运行的 RTT 时间减半了(最后那个 F 应该就是标记为 Fastopen 的意思吧)！可见目前问题就出在这里。</p>
+<pre><code>$ httping -F -g http://192.168.0.100 -c 2
+PING 192.168.0.100:80 (/url):
+connected to 192.168.0.100:80 (154 bytes), seq=0 time= 45.60 ms 
+connected to 192.168.0.100:80 (154 bytes), seq=1 time= 23.43 ms  F
+--- http://192.168.0.100/url ping statistics ---
+2 connects, 2 ok, 0.00% failed, time 2069ms
+round-trip min/avg/max = 23.4/34.5/45.6 ms
+</code></pre>
+<p><strong>注：上面这个强制赋值 <code>foc-&gt;len</code> 没有改变其实 <code>foc-&gt;val</code> 是空的事实，所以只能是测试验证一下想法，真用的话多客户端之间会乱套的。</strong></p>
+      <a href="/2014/04/21/tcp-fastopen-2" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
+      <a href="/2014/04/16/tcp-fastopen-1" title="TCP Fast Open 测试(1)" rel="bookmark">TCP Fast Open 测试(1)</a>
     </h1>
     <p class="alt-font tight">
       <span class="date full-date">
@@ -147,7 +225,7 @@ tcpdump: listening on p5p1, link-type EN10MB (Ethernet), capture size 65535 byte
 <p><strong>2014 年 04 月 18 日更新：</strong></p>
 <p>今天改用 wireshark 看了一下数据包，在第一个 SYN 包没有带请求数据的时候，其实最末尾可选项里是有 fastopen 的，截图如下。看来还是服务器端的问题。下一步研究 <code>tcp_recvmsg()</code> 函数去。</p>
 <p><img src="/images/uploads/wireshark-fastopen.png" alt="" /></p>
-      <a href="/2014/04/16/tcp-fastopen" class="read_more span2 pull-right">继续阅读……</a>
+      <a href="/2014/04/16/tcp-fastopen-1" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
@@ -1998,38 +2076,6 @@ CONTAINER ID ...
 </ol>
 <p>修改中出现了一个很搞笑的错误，因为是在 vim 里批量转换，结果子类名字后面多了一个空格，成了<code>class { "nginx::${::role} ":</code>这样。结果 puppet 一直返回报错说 &ldquo;Invalid Parameter&rdquo;。这时候一个习惯性的思维造成了误会：我们一般会认为<code>:</code>后面的那一行行键值对才是 parameter，但其实这里子类名也是 <code>class</code> 这个资源调用的 parameter。当然，如果可以在这里报一个 <code>Class Not Found</code> 就更好了。</p>
       <a href="/2013/11/04/puppet-class-parameter" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2013/11/04/perl-unpack-tongdaxin" title="用 Perl 读取通达信日线数据" rel="bookmark">用 Perl 读取通达信日线数据</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2013-11-04 00:00:00 +0800">04 Nov 2013</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>之前看 skyline 的报警机制的时候，为了寻找测试数据，曾经想到是不是可以用股价走势。其实股价走势分析也是一个很深的编程领域，有些选股软件一份就好几千的卖。当然我这里没兴趣和时间搞那么复杂了。简单的说一下如何从通达信的存档里读取日线数据，说到底还是 <code>pack/unpack</code> 的运用：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!perl</span>
-<span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;&lt;&#39;</span><span class="p">,</span> <span class="s">&#39;C:\new_sxzq_v6\vipdoc\sh\lday\sh000001.day&#39;</span><span class="p">;</span>
-<span class="k">while</span> <span class="p">(</span> <span class="nb">sysread</span> <span class="nv">$fh</span><span class="p">,</span> <span class="k">my</span> <span class="nv">$buf</span><span class="p">,</span> <span class="mi">32</span> <span class="p">)</span> <span class="p">{</span>
-<span class="c1"># 日期，开盘，最高，最低，收盘，成交金额，成交量，预留位</span>
-    <span class="k">my</span> <span class="p">(</span> <span class="nv">$date</span><span class="p">,</span> <span class="nv">$open</span><span class="p">,</span> <span class="nv">$high</span><span class="p">,</span> <span class="nv">$low</span><span class="p">,</span> <span class="nv">$close</span><span class="p">,</span> <span class="nv">$amount</span><span class="p">,</span> <span class="nv">$vol</span><span class="p">,</span> <span class="nv">$reserved</span> <span class="p">)</span> <span class="o">=</span>
-      <span class="nb">unpack</span><span class="p">(</span> <span class="s">&#39;Ii4fi2&#39;</span><span class="p">,</span> <span class="nv">$buf</span> <span class="p">);</span>
-    <span class="nb">printf</span> <span class="s">&quot;%s %.2f %.2f %.2f %.2f %d %d\n&quot;</span><span class="p">,</span> <span class="nv">$date</span><span class="p">,</span> <span class="nv">$open</span> <span class="sr">/ 100, $high /</span> <span class="mi">100</span><span class="p">,</span>
-      <span class="nv">$low</span> <span class="sr">/ 100, $close /</span> <span class="mi">100</span><span class="p">,</span> <span class="nv">$amount</span><span class="p">,</span> <span class="nv">$vol</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>注意这里一定要一边 <code>sysread</code> 一边 <code>while</code>，否则一只股票的历史(上例中是上证指数)都没读完就会内存溢出的。</p>
-      <a href="/2013/11/04/perl-unpack-tongdaxin" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

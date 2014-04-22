@@ -44,6 +44,123 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2012/02/14/move-wordpress-to-github" title="从wordpress博客迁移到github记录" rel="bookmark">从wordpress博客迁移到github记录</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-02-14 00:00:00 +0800">14 Feb 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>因为原先托管wordpress博客的阿里云主机被通管局要求备案，加上通管局早令夕改的浪费我来回的快递费，于是决定搬迁到国外，github page的免费托管就此进入我的视界。</p>
+<h2 id="github">第一步，申请github账号</h2>
+<p>这步大同小异，想个好名字就是了。</p>
+<h2 id="section">第二步，创建新项目</h2>
+<p>也就是注册完毕后在页面上看到的<a href="https://github.com/repositories/new">&ldquo;New repository&rdquo;</a></p>
+<p>在页面上填上项目名字。注意如果是要做博客的话，命名是有规范的，必须是yourusername.github.com这样子。</p>
+<h2 id="git">第三步，设置本地git环境</h2>
+<p>这步参见[&ldquo;help页面&rdquo;]:(http://help.github.com/win-set-up-git/)</p>
+<h2 id="rubyjekyll">第四步，配置ruby和jekyll环境</h2>
+<p>一般来说，linux设备上肯定都已经有了ruby，不过版本比较低，所以升级ruby再使用：</p>
+<div class="highlight"><pre><code class="bash">    <span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># wget https://raw.github.com/wayneeseguin/rvm/master/binscripts/rvm-installer</span>
+    <span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># bash rvm-installer</span>
+    <span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># rvm install 1.9.3</span>
+    <span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># rvm --default 1.9.3</span>
+    <span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># gem install jekyll</span>
+</code></pre></div>
+<p>这样就可以在本地运行jekyll查看博客效果了。</p>
+<div class="highlight"><pre><code class="bash">    <span class="o">[</span>root@localhost youusername.github.com<span class="o">]</span><span class="c"># jekyll --server</span>
+</code></pre></div>
+<h2 id="section-1">第五步，创建本地博客目录</h2>
+<p>这步，可以直接fork已有的github博客代码来用，比如：</p>
+<div class="highlight"><pre><code class="bash">    <span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># git clone https://github.com/plusjade/jekyll-bootstrap.git yourusername.github.com</span>
+    <span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># cd yourusername.github.com</span>
+    <span class="o">[</span>root@localhost yourusername.github.com<span class="o">]</span><span class="c"># git remote set-url origin git@github.com:yourusername/yourusername.github.com.git</span>
+    <span class="o">[</span>root@localhost yourusername.github.com<span class="o">]</span><span class="c"># git add .</span>
+    <span class="o">[</span>root@localhost yourusername.github.com<span class="o">]</span><span class="c"># git commit -m &#39;first commit&#39;</span>
+    <span class="o">[</span>root@localhost yourusername.github.com<span class="o">]</span><span class="c"># git push origin master</span>
+</code></pre></div>
+<h2 id="section-2">第六步，修改必要信息</h2>
+<p>最重要的一步，创建目录下的CNAME信息，如果是fork的其他人的项目，那么修改CNAME的内容为自己的域名，比如blog.yourdomain.me。不然只能通过github的二级域名yourusername.github.com来访问了。
+然后跟github无关的重要一步，上godaddy或者dnspod之类的地方，修改NS记录。注意这里，虽然上面文件叫CNAME，dns上却是要配置一个A记录，把A记录指向207.97.227.245即可。</p>
+<h2 id="section-3">第七步，添加评论功能</h2>
+<p>因为github提供的是一个静态页面托管，所以评论功能是需要用其他地方提供的。大家都用的是disqus的插件。所以上<a href="http://disqus.com/">disqus主页</a> 去申请一个账号吧。然后按照提示，将提供的插件代码键入_includes/post.html中&mdash;-不过一般来说，fork出来的都已经有了。</p>
+<p>2012-03-16 补充：
+最近也有其他的社会化第三方评论系统出现，可以使用微博、QQ来登录评论，免去上disqus注册之苦。大家可以上<a href="http://uyan.cc/getcode?index">友言</a>看看。</p>
+<p>2012-04-29 补充：
+今天收到友言的提示邮件，上去看了一下，其实友言是支持<a href="http://uyan.cc/setting/backup">xml导入评论</a>的。那么我们就可以把wp里的评论也一块导出来玩了：</p>
+<div class="highlight"><pre><code class="perl">    <span class="c1">#!/usr/bin/perl</span>
+    <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+    <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+    <span class="k">use</span> <span class="n">DBI</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">DBD::</span><span class="n">mysql</span><span class="p">;</span>
+    <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;&gt;&#39;</span><span class="p">,</span> <span class="s">&#39;comments.xml&#39;</span> <span class="ow">or</span> <span class="nb">die</span> <span class="vg">$!</span><span class="p">;</span>
+    <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;&#39;</span><span class="p">;</span> 
+    <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;uyan xmlns=&quot;http://uyan.cc&quot; xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;&gt;&#39;</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$dbh</span> <span class="o">=</span> <span class="n">DBI</span><span class="o">-&gt;</span><span class="nb">connect</span><span class="p">(</span><span class="s">&quot;DBI:mysql:database=blog;host=localhost;port=3306&quot;</span><span class="p">,</span> <span class="s">&quot;user&quot;</span><span class="p">,</span> <span class="s">&quot;passwd&quot;</span><span class="p">,</span> <span class="p">{</span><span class="n">RaiseError</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">});</span>
+    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="k">do</span><span class="p">(</span><span class="s">&#39;set names utf8&#39;</span><span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span><span class="s">&#39;select p.post_title title, c.comment_author author, c.comment_author_url url, c.comment_date date, c</span>
+<span class="s">    .comment_content content from wp_comments c, wp_posts p where c.comment_approved=&#39;</span><span class="mi">1</span><span class="s">&#39; and c.comment_post_ID = p.ID&#39;</span><span class="p">);</span>
+    <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">();</span>
+    <span class="k">while</span> <span class="p">(</span><span class="k">my</span> <span class="nv">$ref</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">fetchrow_hashref</span><span class="p">())</span> <span class="p">{</span>
+        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;post&gt;&lt;content&gt;&#39;</span><span class="o">.</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;content&#39;</span><span class="p">}</span><span class="o">.</span><span class="s">&#39;&lt;/content&gt;&#39;</span><span class="p">;</span>
+        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;page_title&gt;&#39;</span><span class="o">.</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;title&#39;</span><span class="p">}</span><span class="o">.</span><span class="s">&#39;&lt;/page_title&gt;&#39;</span><span class="p">;</span>
+        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;user_id&gt;0&lt;/user_id&gt;&#39;</span><span class="p">;</span>
+        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;comment_author&gt;&#39;</span><span class="o">.</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;author&#39;</span><span class="p">}</span><span class="o">.</span><span class="s">&#39;&lt;/comment_author&gt;&#39;</span><span class="p">;</span>
+        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;time&gt;&#39;</span><span class="o">.</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;date&#39;</span><span class="p">}</span><span class="o">.</span><span class="s">&#39;&lt;/time&gt;&#39;</span><span class="p">;</span>
+        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;from_type&gt;wordpress&lt;/from_type&gt;&#39;</span><span class="p">;</span>
+        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;page&gt;&#39;</span><span class="o">.</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;url&#39;</span><span class="p">}</span><span class="o">.</span><span class="s">&#39;&lt;page&gt;&#39;</span><span class="p">;</span>
+        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;page_url&gt;&#39;</span><span class="o">.</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;url&#39;</span><span class="p">}</span><span class="o">.</span><span class="s">&#39;&lt;/page_url&gt;&#39;</span><span class="p">;</span>
+        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;domain&gt;youdomain.com&lt;/domain&gt;&lt;/post&gt;&#39;</span><span class="p">;</span>
+    <span class="p">};</span>
+    <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;/uyan&gt;&#39;</span><span class="p">;</span>
+</code></pre></div>
+<h2 id="wordpress">第八步，导出wordpress博客文章</h2>
+<p>jekyll提供了ruby脚本/usr/local/rvm/gems/ruby-1.9.3-p0/gems/jekyll-0.11.2/lib/jekyll/migrators/wordpress.rb来专门做这件事情，只需要运行如下命令即可：</p>
+<div class="highlight"><pre><code class="bash">    <span class="o">[</span>root@localhost yourusername.github.com<span class="o">]</span><span class="c"># gem install sequel</span>
+    <span class="o">[</span>root@localhost yourusername.github.com<span class="o">]</span><span class="c"># gem install mysql -- --with-mysql-config=/usr/bin/mysql_config</span>
+    <span class="o">[</span>root@localhost yourusername.github.com<span class="o">]</span><span class="c"># ruby -rubygems -e &#39;require &quot;jekyll/migrators/wordpress&quot;; Jekyll::WordPress.process(&quot;database&quot;, &quot;user&quot;, &quot;pass&quot;)&#39;</span>
+</code></pre></div>
+<p>不过我这里运行有点问题，ruby又不太懂，再看完上面这个脚本的意思后，干脆放弃排错，直接用perl完成了如下这个脚本：</p>
+<div class="highlight"><pre><code class="perl">    <span class="c1">#!env perl</span>
+    <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+    <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+    <span class="k">use</span> <span class="n">DBI</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">DBD::</span><span class="n">mysql</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$dbh</span> <span class="o">=</span> <span class="n">DBI</span><span class="o">-&gt;</span><span class="nb">connect</span><span class="p">(</span><span class="s">&quot;DBI:mysql:database=blog;host=localhost;port=3306&quot;</span><span class="p">,</span> <span class="s">&quot;user&quot;</span><span class="p">,</span> <span class="s">&quot;passwd&quot;</span><span class="p">,</span> <span class="p">{</span><span class="n">RaiseError</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">});</span>
+    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="k">do</span><span class="p">(</span><span class="s">&#39;set names utf8&#39;</span><span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span><span class="s">&quot;select post_title, post_name, post_date, post_content FROM wp_posts WHERE post_status = &#39;publish&#39; AND post_type = &#39;post&#39; order by id desc &quot;</span><span class="p">);</span>
+    <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">();</span>
+    <span class="k">while</span> <span class="p">(</span><span class="k">my</span> <span class="nv">$ref</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">fetchrow_hashref</span><span class="p">())</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="nv">$slug</span> <span class="o">=</span> <span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;post_name&#39;</span><span class="p">};</span>
+        <span class="k">next</span> <span class="k">unless</span> <span class="nv">$slug</span> <span class="o">=~</span> <span class="sr">m/^\w/</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">$title</span> <span class="o">=</span> <span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;post_title&#39;</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$date</span> <span class="o">=</span> <span class="nb">substr</span><span class="p">(</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;post_date&#39;</span><span class="p">},</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">);</span>
+        <span class="k">my</span> <span class="nv">$content</span> <span class="o">=</span> <span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;post_content&#39;</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$filename</span> <span class="o">=</span> <span class="nv">$date</span> <span class="o">.</span> <span class="s">&#39;-&#39;</span> <span class="o">.</span> <span class="nv">$slug</span> <span class="o">.</span> <span class="s">&#39;.textile&#39;</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">$header</span> <span class="o">=</span> <span class="s">&quot;---\nlayout: post\ntitle: &quot;</span> <span class="o">.</span> <span class="nv">$title</span> <span class="o">.</span> <span class="s">&quot;\ndate: &quot;</span> <span class="o">.</span> <span class="nv">$date</span> <span class="o">.</span> <span class="s">&quot;\n---\n\n&quot;</span><span class="p">;</span>
+        <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;&gt;&#39;</span><span class="p">,</span> <span class="s">&quot;$filename&quot;</span> <span class="ow">or</span> <span class="nb">die</span> <span class="vg">$!</span><span class="p">;</span>
+        <span class="k">print</span> <span class="nv">$fh</span> <span class="nv">$header</span><span class="p">;</span>
+        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&quot;$content\n&quot;</span><span class="p">;</span>
+        <span class="nv">$fh</span><span class="o">-&gt;</span><span class="nb">close</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">finish</span><span class="p">();</span>
+    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">disconnect</span><span class="p">();</span>
+</code></pre></div>
+<p>注意到中文url的不可读性，需要提前把wordpress的博客静态化url改成英文的。好在我一年前已经这么做了。
+比较郁闷的一点是：wordpress的tag和category存放的表结构太恶心了，犹豫很久，最后放弃了导出博文对应category和tags的想法&hellip;</p>
+      <a href="/2012/02/14/move-wordpress-to-github" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2012/02/13/using-perl-on-dotcloud" title="dotcloud试用" rel="bookmark">dotcloud试用</a>
     </h1>
     <p class="alt-font tight">
@@ -2336,72 +2453,6 @@ function post_node() {
 <p>接下来看run_host()函数，其实就是new了一个CloudForecast::Host对象，并调用其run()函数。
 这个run()函数，就是根据config里的resource调用相应的CloudForecast::Data::*，最后到CloudForecast::Data里的call_fetch()函数。ok，这个函数上一篇已经看过了。</p>
       <a href="/2011/08/18/learning-cloudfarecast-2" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/08/17/learning-cloudfarecast-1" title="CloudForecast学习笔记(一)" rel="bookmark">CloudForecast学习笔记(一)</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-08-17 00:00:00 +0800">17 Aug 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>近三天学习cloudforecast，这是一个日本SA写的分布式监控的perl项目。日本的运维水平和perl水平，都让人羡慕啊……
-项目介绍：
-http://blog.riywo.com/2011/02/27/043646
-demo网址:
-http://editnuki.info:5000/
-下载地址：
-https://github.com/kazeburo/cloudforecast
-粗略的看了主要文件，主要是用Class::<em>完成的OO，Plack::MiddleWare::</em>完成的web，Gearman::Worker调用Data::*里的具体模块完成对服务器的监控抓取，然后调用RRDs完成监控数据图像的更新，在启动分布式的情况下，则用Gearman::Client传输监控数据给调用RRDs的worker。</p>
-<p>第一篇主要记录一下监控数据在服务器上流程，cloudforecast是怎么去抓取数据，怎么传递给rrd的。
-不过，先看看Class::*的用法：
-在CloudForecast::Data中，有如下一段代码：</p>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="n">base</span> <span class="sx">qw/Class::Data::Inheritable Class::Accessor::Fast/</span><span class="p">;</span>
-<span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">mk_accessors</span><span class="p">(</span><span class="sx">qw/hostname address details args</span>
-<span class="sx">                             component_config _component_instance</span>
-<span class="sx">                             global_config/</span><span class="p">);</span>
-<span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">mk_classdata</span><span class="p">(</span><span class="s">&#39;rrd_schema&#39;</span><span class="p">);</span>
-<span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">mk_classdata</span><span class="p">(</span><span class="s">&#39;fetcher_func&#39;</span><span class="p">);</span>
-<span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">mk_classdata</span><span class="p">(</span><span class="s">&#39;graph_key_list&#39;</span><span class="p">);</span>
-<span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">mk_classdata</span><span class="p">(</span><span class="s">&#39;graph_defs&#39;</span><span class="p">);</span>
-<span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">mk_classdata</span><span class="p">(</span><span class="s">&#39;title_func&#39;</span><span class="p">);</span>
-<span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">mk_classdata</span><span class="p">(</span><span class="s">&#39;sysinfo_func&#39;</span><span class="p">);</span>
-</code></pre></div>
-<p>这里，先用use base()加载两个父类继承关系。然后用Class::Accessor::Fast的mk_accessors方法创建了一堆可读写的变量，这里有另一种写法，看起来更舒服一些：</p>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Class::</span><span class="n">Accessor</span> <span class="s">&quot;moose-like&quot;</span><span class="p">;</span>
-<span class="n">has</span> <span class="n">hostname</span> <span class="o">=&gt;</span> <span class="p">(</span> <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;rw&#39;</span><span class="p">,</span> <span class="n">isa</span> <span class="o">=&gt;</span> <span class="s">&#39;Str&#39;</span> <span class="p">);</span>
-</code></pre></div>
-<p>然后是Class::Data::Inheritable的mk_classdata方法创建了一堆可继承的方法。
-在CPAN上看到另外有一个模块叫Class::Data::Accessor的，是上面这两个模块的合集，不过作者声明说已经废弃，推荐大家使用Moose了……</p>
-<p>现在来跟踪一下fetch_worker的流程：
-先看cf_fetcher_worker脚本里new一个worker出来后，执行的是fetcher_worker()；</p>
-<p>然后看lib/CloudForecast/Gearman/Worker.pm里的fetcher_worker()，在连接上gearmand上的fetcher任务后，执行的是$self-&gt;load_resource();</p>
-<p>然后看lib/CloudForecast/Gearman/Worker.pm里的load_resource()，其实就是根据具体监控项require并且new一个CloudFarecast::Data::*（这个new方法是通过use base和SUPER::new最终到的CloudFarecast.pm上的）。</p>
-<p>然后看fetcher_worker()的下一句&rdquo;$resource-&gt;exec_fetch;&rdquo;，先去找CloudFarecast::Data::*，发现没有exec_fetch()，那往base的CloudFarecast::Data上看，果然有了。其中的主要两行&rdquo;$ret = $self-&gt;do_fetch();&rdquo;和&rdquo;$self-&gt;call_updater($ret);&rdquo;。</p>
-<p>然后看do_fetch()。其中主要两行&rdquo;my $ret = $self-&gt;fetcher_func-&gt;($self);&rdquo;和&rdquo;my $schema = $self-&gt;rrd_schema;&rdquo;。这两个fetcher_func和rrd_schema都是前面mk_classdata出来的方法。而这里的$self，则一直追溯到最前面Worker.pm里的$resource，即CloudForecast::Data::*。</p>
-<p>选一个CloudForecast::Data::Basic看，其中分别调用了Data.pm里的rrds/graph/title/fetcher函数。</p>
-<p>返回Data.pm看fetcher()函数如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="k">sub </span><span class="nf">fetcher</span><span class="p">(&amp;) {</span>
-    <span class="k">my</span> <span class="nv">$class</span> <span class="o">=</span> <span class="nb">caller</span><span class="p">;</span>
-    <span class="nn">Carp::</span><span class="n">croak</span><span class="p">(</span><span class="s">&quot;already seted fetcher_func&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="nv">$class</span><span class="o">-&gt;</span><span class="n">fetcher_func</span><span class="p">;</span>
-    <span class="nv">$class</span><span class="o">-&gt;</span><span class="n">fetcher_func</span><span class="p">(</span><span class="nb">shift</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>学习一下，这里新出现的一个caller函数，这是perl自带的函数，可以使用perldoc -f caller查看详细说明。默认返回三个值，分别是调用的package/file/linenumber。显然这里就是获取package，也就是$class = &lsquo;CloudFarecast::Data::Basic&rsquo;了。然后返回的&rdquo;$class-&gt;fetcher_func(shift);&rdquo;，这个shift也就是(&amp;)里的内容，即Basic.pm里的{my $c = shift;my @map = &hellip;;my $ret = $c-&gt;component(&lsquo;SNMP&rsquo;)-&gt;get(@map);return $ret;}这个匿名函数。
-这样前面Worker里的$resource就有了自己的fetcher_func函数了，就此执行并且返回$ret。完成！</p>
-<p>然后把$ret传递给call_updater()函数。这个函数中先对配置文件做一次判断，是否enable了gearmand。如果没有，直接调用exec_updater()完成本地rrd图像的初始化init_rrd()或更新update_rrd()。如果有，则连接上gearmand，new一个CloudForecast::Gearman对象，使用updater方法提交数据。</p>
-<p>然后看Gearman.pm中的updater()，其实就是Gearman::Client的dispatch_background()连接上updater任务，发送数据。</p>
-      <a href="/2011/08/17/learning-cloudfarecast-1" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

@@ -44,6 +44,168 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2012/07/07/intro-ipc-locker" title="IPC::Locker模块介绍" rel="bookmark">IPC::Locker模块介绍</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-07-07 00:00:00 +0800">07 Jul 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>当你需要给一个集群的某项服务做简单的排他性管理的时候，强力推荐Veripool公司的一系列模块：IPC::Locker、Schedule::Load。</p>
+<p>今天先说IPC::Locker模块。部署很简单，直接在集群所有节点上运行cpanm IPC::Locker即可。该模块依赖几个都是perl的核心模块比如IO::Socket::INET、IO::Poll和POSIX。所以理论上你也可以把代码打个包分发。</p>
+<p>随包分发的还有几个现成的脚本程序lockerd、lockersh、pidstat、pidstatd和pidwatch。</p>
+<p>后面三个关注的remote设备上的pid是否存在等，但是相信一般情况下，我们不会自己来通过pid管理集群，所以在使用上只要理解lockerd和lockersh其实也是用pidstatd来解决pid问题的就够了。</p>
+<p>其实代码很简单，看看就明白，无非就是lockerd用的IPC::Locker::Server是启动了一个IO::Socket::INET做tcp server，主要维护几个东西，一个是@{$self-&gt;{lock}}列表，一个是@{$self-&gt;{host}}列表，一个是$self-&gt;{locked}的Bool值。</p>
+<p>而lockersh用的IPC::Locker则是连接上lockerd的端口，检查$self-&gt;{locked}状态，如果没locked就发送LOCK请求，然后fork一个进行exec你定义的shell命令，执行完成后，unlock发送UNLOCK请求给lockerd。</p>
+<p>做个简单实验：</p>
+<ol>
+  <li>在serverA上运行lockerd &amp;     </li>
+  <li>在serverB上运行lockersh &ndash;dhost serverA &ndash;lock test_task &lsquo;while true;do echo &ldquo;OK&rdquo;;done&rsquo;</li>
+  <li>在serverC上运行lockersh &ndash;dhost serverA &ndash;lock test_task &lsquo;while true;do echo &ldquo;OK&rdquo;;done&rsquo;</li>
+  <li>在serverD上运行lockersh &ndash;dhost serverA &ndash;lock other_task &lsquo;while true;do echo &ldquo;OK&rdquo;;done&rsquo;</li>
+</ol>
+<p>观察一下，结果是在serverB和serverD上同时在执行echo &ldquo;OK&rdquo;。而serverC被lock住了。继续：</p>
+<ol>
+  <li>在serverB的session上按下Ctrl+C终止程序，然后再次运行上述命令</li>
+  <li>在serverC的session上按下Ctrl+C终止程序</li>
+</ol>
+<p>观察一下，结果是停止B时C的即开始，停止C的后B的继续。这些都不影响serverD的运行。</p>
+<ol>
+  <li>终止serverD的程序，改为运行lockersh &ndash;dhost serverA &ndash;lock test_task &lsquo;while true;do echo &ldquo;OK&rdquo;;done&rsquo;</li>
+</ol>
+<p>观察一下，发现B、C、D是按照lockersh的执行次序解锁的。因为hostlist是一个列表，在server上是用for循环的。</p>
+<p>注意：必须要先运行lockerd并且保证不中途退出。经过测试，如果lockerd中途退出再重新运行的话，因为locklist是保存在内存里会丢失的。结果就会出现之前的lockersh还在执行(他已经获得了lock，在unlock之前不会再和server通信的)，之后再启动的新lockersh会在新lockerd上又获得一次lock的情况……</p>
+<p>后一个Schedule::Load则可以根据集群设备的loadavg，top等，决定在哪台设备上运行job。还没测试。之后再记录。</p>
+<p>补充：贴一个脚本，仿照lockersh改写的squid集群重启及报警控制：</p>
+<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">use</span> <span class="n">FindBin</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">lib</span> <span class="s">&quot;$FindBin::Bin/../lib&quot;</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">autodie</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">vars</span> <span class="sx">qw ($Debug);</span>
+<span class="sx">use </span><span class="n">Furl</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">IO::</span><span class="n">File</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Getopt::</span><span class="n">Long</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">IPC::</span><span class="n">Locker</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">IPC::</span><span class="n">PidStat</span><span class="p">;</span>
+<span class="c1">#======================================================================</span>
+<span class="k">my</span> <span class="nv">$pscount</span> <span class="o">=</span> <span class="sb">`ps aux|grep -v grep|grep $0|wc -l`</span><span class="p">;</span>
+<span class="k">print</span> <span class="s">&quot;Already run, waiting for lock now&quot;</span> <span class="ow">and</span> <span class="nb">exit</span> <span class="k">unless</span> <span class="nv">$pscount</span> <span class="o">==</span> <span class="mi">1</span><span class="p">;</span>
+<span class="c1">#======================================================================</span>
+<span class="k">my</span> <span class="nv">%server_params</span> <span class="o">=</span> <span class="p">(</span><span class="n">lock</span><span class="o">=&gt;[]</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$cluserv</span><span class="p">;</span>
+<span class="nv">$Debug</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="nn">Getopt::Long::</span><span class="n">config</span> <span class="p">(</span><span class="s">&quot;require_order&quot;</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">(</span><span class="o">!</span> <span class="n">GetOptions</span> <span class="p">(</span>
+                  <span class="s">&quot;dhost=s&quot;</span>     <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span><span class="nb">shift</span><span class="p">;</span> <span class="nv">$server_params</span><span class="p">{</span><span class="n">host</span><span class="p">}</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;},</span>
+                  <span class="s">&quot;cluster=s&quot;</span>   <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span><span class="nb">shift</span><span class="p">;</span> <span class="nb">push</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$server_params</span><span class="p">{</span><span class="n">lock</span><span class="p">}},</span> <span class="nb">split</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">,</span><span class="nb">shift</span><span class="p">);},</span>
+                  <span class="s">&quot;port=i&quot;</span>      <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span><span class="nb">shift</span><span class="p">;</span> <span class="nv">$server_params</span><span class="p">{</span><span class="n">port</span><span class="p">}</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;},</span>
+                  <span class="s">&quot;timeout=i&quot;</span>   <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span><span class="nb">shift</span><span class="p">;</span> <span class="nv">$server_params</span><span class="p">{</span><span class="n">timeout</span><span class="p">}</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;},</span>
+                  <span class="s">&quot;verbose!&quot;</span>    <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span><span class="nb">shift</span><span class="p">;</span> <span class="nv">$server_params</span><span class="p">{</span><span class="n">verbose</span><span class="p">}</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;},</span>
+                  <span class="s">&quot;debug&quot;</span>       <span class="o">=&gt;</span> <span class="o">\&amp;</span><span class="n">debug</span><span class="p">,</span>
+                  <span class="s">&quot;service=s&quot;</span>   <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">$cluserv</span><span class="p">,</span>
+                  <span class="p">))</span> <span class="p">{</span>
+    <span class="nb">die</span> <span class="s">&quot;%Error: Bad usage, see lockersh --help\n&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="nv">$#</span><span class="p">{</span><span class="nv">$server_params</span><span class="p">{</span><span class="n">lock</span><span class="p">}}</span><span class="o">&gt;=</span><span class="mi">0</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;%Error: --cluster not specified; see lockersh --help\n&quot;</span><span class="p">;</span>
+<span class="c1"># Fork once to start parent process</span>
+<span class="k">my</span> <span class="nv">$foreground_pid</span> <span class="o">=</span> <span class="vg">$$</span><span class="p">;</span>  <span class="c1"># Unlike most forks, the job goes in the parent</span>
+<span class="c1"># Do this while we still have STDERR.</span>
+<span class="k">my</span> <span class="nv">$lock</span>  <span class="o">=</span> <span class="k">new</span> <span class="nn">IPC::</span><span class="n">Locker</span> <span class="p">(</span><span class="n">verbose</span><span class="o">=&gt;</span><span class="mi">0</span><span class="p">,</span>
+                             <span class="n">timeout</span><span class="o">=&gt;</span><span class="mi">0</span><span class="p">,</span>
+                             <span class="n">autounlock</span><span class="o">=&gt;</span><span class="mi">1</span><span class="p">,</span>
+                             <span class="n">destroy_unlock</span><span class="o">=&gt;</span><span class="mi">0</span><span class="p">,</span>
+                             <span class="nv">%server_params</span><span class="p">,</span>
+                             <span class="p">);</span>
+<span class="nv">$lock</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;%Error: Did not connect to lockerd,&quot;</span><span class="p">;</span>
+<span class="nv">$lock</span><span class="o">-&gt;</span><span class="n">lock</span><span class="p">;</span>
+<span class="k">if</span> <span class="p">(</span><span class="k">my</span> <span class="nv">$pid</span> <span class="o">=</span> <span class="nb">fork</span><span class="p">())</span> <span class="p">{</span>  <span class="c1"># Parent process, foreground job</span>
+    <span class="k">print</span> <span class="s">&quot;\tForeground: $cluserv\n&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
+    <span class="c1"># The child forks again quickly.  Sometimes, SIG_CHLD leaks to us and</span>
+    <span class="c1"># wrecks the exec&#39;d command, so wait for it now.</span>
+    <span class="k">my</span> <span class="nv">$rv</span> <span class="o">=</span> <span class="nb">waitpid</span><span class="p">(</span><span class="nv">$pid</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$rv</span> <span class="o">!=</span> <span class="nv">$pid</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nb">die</span> <span class="s">&quot;%Error: waitpid() returned $rv: $!&quot;</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="vg">$?</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nb">die</span> <span class="s">&quot;%Error: Child process died with status $?,&quot;</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">print</span> <span class="s">&quot;Exec in $$\n&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
+    <span class="o">&amp;</span><span class="n">service</span><span class="p">(</span><span class="nv">$cluserv</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="c1">#else, rest is for child process.</span>
+<span class="c1"># Disassociate from controlling terminal</span>
+<span class="nn">POSIX::</span><span class="n">setsid</span><span class="p">()</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;%Error: Can&#39;t start a new session: $!&quot;</span><span class="p">;</span>
+<span class="c1"># Change working directory</span>
+<span class="nb">chdir</span> <span class="s">&quot;/&quot;</span><span class="p">;</span>
+<span class="nb">open</span><span class="p">(</span><span class="bp">STDIN</span><span class="p">,</span>  <span class="s">&quot;+&gt;/dev/null&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;%Error: Can&#39;t re-open STDIN: $!&quot;</span><span class="p">;</span>
+<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nv">$Debug</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nb">open</span><span class="p">(</span><span class="bp">STDOUT</span><span class="p">,</span> <span class="s">&quot;+&gt;&amp;STDIN&quot;</span><span class="p">);</span>
+    <span class="nb">open</span><span class="p">(</span><span class="bp">STDERR</span><span class="p">,</span> <span class="s">&quot;+&gt;&amp;STDIN&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="c1"># Prevent possibility of acquiring a controlling terminal</span>
+<span class="nb">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="nb">fork</span><span class="p">();</span>
+<span class="c1"># Wait for child to complete.  We can&#39;t waitpid, as we&#39;re not the parent</span>
+<span class="k">while</span> <span class="p">(</span><span class="nn">IPC::PidStat::</span><span class="n">local_pid_exists</span><span class="p">(</span><span class="nv">$foreground_pid</span><span class="p">))</span> <span class="p">{</span> <span class="nb">sleep</span> <span class="mi">1</span><span class="p">;</span> <span class="p">}</span>
+<span class="k">print</span> <span class="s">&quot;Parent $foreground_pid completed\n&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
+<span class="c1"># Unlock</span>
+<span class="nv">$lock</span><span class="o">-&gt;</span><span class="n">unlock</span><span class="p">;</span> <span class="nv">$lock</span><span class="o">=</span><span class="nb">undef</span><span class="p">;</span>
+<span class="k">print</span> <span class="s">&quot;Child exiting\n&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
+<span class="k">sub </span><span class="nf">debug</span> <span class="p">{</span>
+    <span class="nv">$Debug</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="nv">$</span><span class="nn">IPC::Locker::</span><span class="nv">Debug</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">service</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$cluserv</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="nb">die</span> <span class="s">&quot;Only support squid now!&quot;</span> <span class="k">unless</span> <span class="nv">$cluserv</span> <span class="ow">eq</span> <span class="s">&quot;squid&quot;</span><span class="p">;</span>
+    <span class="nb">die</span> <span class="s">&quot;Reload failed. Check squid.conf!&quot;</span> <span class="k">if</span> <span class="nb">eval</span> <span class="s">&quot;${cluserv}_reload&quot;</span><span class="p">;</span>
+    <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="nv">$hit_rate</span> <span class="o">=</span> <span class="nb">eval</span> <span class="s">&quot;${cluserv}_check&quot;</span><span class="p">;</span>
+        <span class="n">notify</span> <span class="s">&quot;HIT Ratio: ${hit_rate}% now.\n&quot;</span><span class="p">;</span>
+        <span class="nb">exit</span> <span class="k">if</span> <span class="nv">$hit_rate</span> <span class="o">&gt;</span> <span class="mi">50</span><span class="p">;</span>
+        <span class="nb">sleep</span> <span class="mi">300</span><span class="p">;</span>
+    <span class="p">};</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">squid_check</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$hit_rate</span><span class="p">;</span>
+    <span class="k">print</span> <span class="s">&quot;Run squid_check&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$squid_port</span> <span class="o">=</span> <span class="sb">`awk &#39;/^http_port/{print $2}&#39; /etc/squid/squid.conf`</span><span class="p">;</span>
+    <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&quot;squidclient -p ${squid_port} mgr:info |&quot;</span><span class="p">;</span>
+    <span class="k">while</span> <span class="p">(</span><span class="sr">&lt;$fh&gt;</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">next</span> <span class="k">unless</span> <span class="sr">/^\s+Request Hit Ratios:\s+5min:\s*(-?\d+\.\d)%,/</span><span class="p">;</span>
+        <span class="k">print</span> <span class="s">&quot;regex $1&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
+        <span class="nv">$hit_rate</span> <span class="o">=</span> <span class="nv">$1</span><span class="p">;</span>
+        <span class="k">last</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="nb">close</span> <span class="nv">$fh</span><span class="p">;</span>
+    <span class="k">return</span> <span class="nv">$hit_rate</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">squid_reload</span> <span class="p">{</span>
+    <span class="k">print</span> <span class="s">&quot;Reload squid daemon. Do not reload within 10 mins of squid start&quot;</span> <span class="k">if</span> <span class="nv">$Debug</span><span class="p">;</span>
+    <span class="nb">system</span><span class="p">(</span><span class="s">&quot;squid&quot;</span><span class="p">,</span> <span class="s">&quot;-k&quot;</span><span class="p">,</span> <span class="s">&quot;reconfigure&quot;</span><span class="p">);</span>
+    <span class="k">return</span> <span class="vg">$?</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">notify</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$furl</span> <span class="o">=</span> <span class="n">Furl</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="n">agent</span> <span class="o">=&gt;</span> <span class="s">&quot;Clustrol/0.1&quot;</span><span class="p">);</span>
+    <span class="nv">$furl</span><span class="o">-&gt;</span><span class="n">post</span><span class="p">(</span><span class="s">&quot;http://monitor.domain.com/eml/&quot;</span><span class="p">,</span>
+        <span class="p">[</span> <span class="n">data</span> <span class="o">=&gt;</span> <span class="s">&quot;$_&quot;</span> <span class="p">],</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+<span class="cp">__END__</span>
+</code></pre></div>
+      <a href="/2012/07/07/intro-ipc-locker" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2012/07/02/anyevent-httpd-demo" title="AnyEvent::HTTPD和AnyEvent::HTTP使用实例" rel="bookmark">AnyEvent::HTTPD和AnyEvent::HTTP使用实例</a>
     </h1>
     <p class="alt-font tight">
@@ -2624,123 +2786,6 @@ fs.inotify.max_user_instances <span class="o">=</span> 128
 <p>页面上，还有一个和cluster VIP并列的选项是Vlan IP添加。但是在官网的指南上没看到相关内容，我点击后也没出现什么有意思的结果，怀疑会不会是未完成的功能。</p>
 <p>基本上就是这样。手头没有机器给我折腾，只能笔记本电脑上解解眼馋了&hellip;</p>
       <a href="/2012/02/29/intro-zen-load-balancer" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/02/14/move-wordpress-to-github" title="从wordpress博客迁移到github记录" rel="bookmark">从wordpress博客迁移到github记录</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-02-14 00:00:00 +0800">14 Feb 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>因为原先托管wordpress博客的阿里云主机被通管局要求备案，加上通管局早令夕改的浪费我来回的快递费，于是决定搬迁到国外，github page的免费托管就此进入我的视界。</p>
-<h2 id="github">第一步，申请github账号</h2>
-<p>这步大同小异，想个好名字就是了。</p>
-<h2 id="section">第二步，创建新项目</h2>
-<p>也就是注册完毕后在页面上看到的<a href="https://github.com/repositories/new">&ldquo;New repository&rdquo;</a></p>
-<p>在页面上填上项目名字。注意如果是要做博客的话，命名是有规范的，必须是yourusername.github.com这样子。</p>
-<h2 id="git">第三步，设置本地git环境</h2>
-<p>这步参见[&ldquo;help页面&rdquo;]:(http://help.github.com/win-set-up-git/)</p>
-<h2 id="rubyjekyll">第四步，配置ruby和jekyll环境</h2>
-<p>一般来说，linux设备上肯定都已经有了ruby，不过版本比较低，所以升级ruby再使用：</p>
-<div class="highlight"><pre><code class="bash">    <span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># wget https://raw.github.com/wayneeseguin/rvm/master/binscripts/rvm-installer</span>
-    <span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># bash rvm-installer</span>
-    <span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># rvm install 1.9.3</span>
-    <span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># rvm --default 1.9.3</span>
-    <span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># gem install jekyll</span>
-</code></pre></div>
-<p>这样就可以在本地运行jekyll查看博客效果了。</p>
-<div class="highlight"><pre><code class="bash">    <span class="o">[</span>root@localhost youusername.github.com<span class="o">]</span><span class="c"># jekyll --server</span>
-</code></pre></div>
-<h2 id="section-1">第五步，创建本地博客目录</h2>
-<p>这步，可以直接fork已有的github博客代码来用，比如：</p>
-<div class="highlight"><pre><code class="bash">    <span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># git clone https://github.com/plusjade/jekyll-bootstrap.git yourusername.github.com</span>
-    <span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># cd yourusername.github.com</span>
-    <span class="o">[</span>root@localhost yourusername.github.com<span class="o">]</span><span class="c"># git remote set-url origin git@github.com:yourusername/yourusername.github.com.git</span>
-    <span class="o">[</span>root@localhost yourusername.github.com<span class="o">]</span><span class="c"># git add .</span>
-    <span class="o">[</span>root@localhost yourusername.github.com<span class="o">]</span><span class="c"># git commit -m &#39;first commit&#39;</span>
-    <span class="o">[</span>root@localhost yourusername.github.com<span class="o">]</span><span class="c"># git push origin master</span>
-</code></pre></div>
-<h2 id="section-2">第六步，修改必要信息</h2>
-<p>最重要的一步，创建目录下的CNAME信息，如果是fork的其他人的项目，那么修改CNAME的内容为自己的域名，比如blog.yourdomain.me。不然只能通过github的二级域名yourusername.github.com来访问了。
-然后跟github无关的重要一步，上godaddy或者dnspod之类的地方，修改NS记录。注意这里，虽然上面文件叫CNAME，dns上却是要配置一个A记录，把A记录指向207.97.227.245即可。</p>
-<h2 id="section-3">第七步，添加评论功能</h2>
-<p>因为github提供的是一个静态页面托管，所以评论功能是需要用其他地方提供的。大家都用的是disqus的插件。所以上<a href="http://disqus.com/">disqus主页</a> 去申请一个账号吧。然后按照提示，将提供的插件代码键入_includes/post.html中&mdash;-不过一般来说，fork出来的都已经有了。</p>
-<p>2012-03-16 补充：
-最近也有其他的社会化第三方评论系统出现，可以使用微博、QQ来登录评论，免去上disqus注册之苦。大家可以上<a href="http://uyan.cc/getcode?index">友言</a>看看。</p>
-<p>2012-04-29 补充：
-今天收到友言的提示邮件，上去看了一下，其实友言是支持<a href="http://uyan.cc/setting/backup">xml导入评论</a>的。那么我们就可以把wp里的评论也一块导出来玩了：</p>
-<div class="highlight"><pre><code class="perl">    <span class="c1">#!/usr/bin/perl</span>
-    <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">DBI</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">DBD::</span><span class="n">mysql</span><span class="p">;</span>
-    <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;&gt;&#39;</span><span class="p">,</span> <span class="s">&#39;comments.xml&#39;</span> <span class="ow">or</span> <span class="nb">die</span> <span class="vg">$!</span><span class="p">;</span>
-    <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;&#39;</span><span class="p">;</span> 
-    <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;uyan xmlns=&quot;http://uyan.cc&quot; xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;&gt;&#39;</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$dbh</span> <span class="o">=</span> <span class="n">DBI</span><span class="o">-&gt;</span><span class="nb">connect</span><span class="p">(</span><span class="s">&quot;DBI:mysql:database=blog;host=localhost;port=3306&quot;</span><span class="p">,</span> <span class="s">&quot;user&quot;</span><span class="p">,</span> <span class="s">&quot;passwd&quot;</span><span class="p">,</span> <span class="p">{</span><span class="n">RaiseError</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">});</span>
-    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="k">do</span><span class="p">(</span><span class="s">&#39;set names utf8&#39;</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span><span class="s">&#39;select p.post_title title, c.comment_author author, c.comment_author_url url, c.comment_date date, c</span>
-<span class="s">    .comment_content content from wp_comments c, wp_posts p where c.comment_approved=&#39;</span><span class="mi">1</span><span class="s">&#39; and c.comment_post_ID = p.ID&#39;</span><span class="p">);</span>
-    <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">();</span>
-    <span class="k">while</span> <span class="p">(</span><span class="k">my</span> <span class="nv">$ref</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">fetchrow_hashref</span><span class="p">())</span> <span class="p">{</span>
-        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;post&gt;&lt;content&gt;&#39;</span><span class="o">.</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;content&#39;</span><span class="p">}</span><span class="o">.</span><span class="s">&#39;&lt;/content&gt;&#39;</span><span class="p">;</span>
-        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;page_title&gt;&#39;</span><span class="o">.</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;title&#39;</span><span class="p">}</span><span class="o">.</span><span class="s">&#39;&lt;/page_title&gt;&#39;</span><span class="p">;</span>
-        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;user_id&gt;0&lt;/user_id&gt;&#39;</span><span class="p">;</span>
-        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;comment_author&gt;&#39;</span><span class="o">.</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;author&#39;</span><span class="p">}</span><span class="o">.</span><span class="s">&#39;&lt;/comment_author&gt;&#39;</span><span class="p">;</span>
-        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;time&gt;&#39;</span><span class="o">.</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;date&#39;</span><span class="p">}</span><span class="o">.</span><span class="s">&#39;&lt;/time&gt;&#39;</span><span class="p">;</span>
-        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;from_type&gt;wordpress&lt;/from_type&gt;&#39;</span><span class="p">;</span>
-        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;page&gt;&#39;</span><span class="o">.</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;url&#39;</span><span class="p">}</span><span class="o">.</span><span class="s">&#39;&lt;page&gt;&#39;</span><span class="p">;</span>
-        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;page_url&gt;&#39;</span><span class="o">.</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;url&#39;</span><span class="p">}</span><span class="o">.</span><span class="s">&#39;&lt;/page_url&gt;&#39;</span><span class="p">;</span>
-        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;domain&gt;youdomain.com&lt;/domain&gt;&lt;/post&gt;&#39;</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&#39;&lt;/uyan&gt;&#39;</span><span class="p">;</span>
-</code></pre></div>
-<h2 id="wordpress">第八步，导出wordpress博客文章</h2>
-<p>jekyll提供了ruby脚本/usr/local/rvm/gems/ruby-1.9.3-p0/gems/jekyll-0.11.2/lib/jekyll/migrators/wordpress.rb来专门做这件事情，只需要运行如下命令即可：</p>
-<div class="highlight"><pre><code class="bash">    <span class="o">[</span>root@localhost yourusername.github.com<span class="o">]</span><span class="c"># gem install sequel</span>
-    <span class="o">[</span>root@localhost yourusername.github.com<span class="o">]</span><span class="c"># gem install mysql -- --with-mysql-config=/usr/bin/mysql_config</span>
-    <span class="o">[</span>root@localhost yourusername.github.com<span class="o">]</span><span class="c"># ruby -rubygems -e &#39;require &quot;jekyll/migrators/wordpress&quot;; Jekyll::WordPress.process(&quot;database&quot;, &quot;user&quot;, &quot;pass&quot;)&#39;</span>
-</code></pre></div>
-<p>不过我这里运行有点问题，ruby又不太懂，再看完上面这个脚本的意思后，干脆放弃排错，直接用perl完成了如下这个脚本：</p>
-<div class="highlight"><pre><code class="perl">    <span class="c1">#!env perl</span>
-    <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">DBI</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">DBD::</span><span class="n">mysql</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$dbh</span> <span class="o">=</span> <span class="n">DBI</span><span class="o">-&gt;</span><span class="nb">connect</span><span class="p">(</span><span class="s">&quot;DBI:mysql:database=blog;host=localhost;port=3306&quot;</span><span class="p">,</span> <span class="s">&quot;user&quot;</span><span class="p">,</span> <span class="s">&quot;passwd&quot;</span><span class="p">,</span> <span class="p">{</span><span class="n">RaiseError</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">});</span>
-    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="k">do</span><span class="p">(</span><span class="s">&#39;set names utf8&#39;</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span><span class="s">&quot;select post_title, post_name, post_date, post_content FROM wp_posts WHERE post_status = &#39;publish&#39; AND post_type = &#39;post&#39; order by id desc &quot;</span><span class="p">);</span>
-    <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">();</span>
-    <span class="k">while</span> <span class="p">(</span><span class="k">my</span> <span class="nv">$ref</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">fetchrow_hashref</span><span class="p">())</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$slug</span> <span class="o">=</span> <span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;post_name&#39;</span><span class="p">};</span>
-        <span class="k">next</span> <span class="k">unless</span> <span class="nv">$slug</span> <span class="o">=~</span> <span class="sr">m/^\w/</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$title</span> <span class="o">=</span> <span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;post_title&#39;</span><span class="p">};</span>
-        <span class="k">my</span> <span class="nv">$date</span> <span class="o">=</span> <span class="nb">substr</span><span class="p">(</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;post_date&#39;</span><span class="p">},</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">);</span>
-        <span class="k">my</span> <span class="nv">$content</span> <span class="o">=</span> <span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;post_content&#39;</span><span class="p">};</span>
-        <span class="k">my</span> <span class="nv">$filename</span> <span class="o">=</span> <span class="nv">$date</span> <span class="o">.</span> <span class="s">&#39;-&#39;</span> <span class="o">.</span> <span class="nv">$slug</span> <span class="o">.</span> <span class="s">&#39;.textile&#39;</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$header</span> <span class="o">=</span> <span class="s">&quot;---\nlayout: post\ntitle: &quot;</span> <span class="o">.</span> <span class="nv">$title</span> <span class="o">.</span> <span class="s">&quot;\ndate: &quot;</span> <span class="o">.</span> <span class="nv">$date</span> <span class="o">.</span> <span class="s">&quot;\n---\n\n&quot;</span><span class="p">;</span>
-        <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;&gt;&#39;</span><span class="p">,</span> <span class="s">&quot;$filename&quot;</span> <span class="ow">or</span> <span class="nb">die</span> <span class="vg">$!</span><span class="p">;</span>
-        <span class="k">print</span> <span class="nv">$fh</span> <span class="nv">$header</span><span class="p">;</span>
-        <span class="k">print</span> <span class="nv">$fh</span> <span class="s">&quot;$content\n&quot;</span><span class="p">;</span>
-        <span class="nv">$fh</span><span class="o">-&gt;</span><span class="nb">close</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">finish</span><span class="p">();</span>
-    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">disconnect</span><span class="p">();</span>
-</code></pre></div>
-<p>注意到中文url的不可读性，需要提前把wordpress的博客静态化url改成英文的。好在我一年前已经这么做了。
-比较郁闷的一点是：wordpress的tag和category存放的表结构太恶心了，犹豫很久，最后放弃了导出博文对应category和tags的想法&hellip;</p>
-      <a href="/2012/02/14/move-wordpress-to-github" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
