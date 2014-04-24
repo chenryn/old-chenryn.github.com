@@ -44,6 +44,125 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/02/22/esi-cache" title="ESI 语言介绍" rel="bookmark">ESI 语言介绍</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-02-22 00:00:00 +0800">22 Feb 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>今天看到一个叫做 ESI 的东东，以此为线索，一路链接下去，颇为有趣，摘抄些新闻/博客段落来，算作长眼了：</p>
+<p>首先是《CSDN09大会见闻》，其中提到康神的讲演《网站的那些事儿》，介绍了大规模网站架构上的种种工具和技术“比如做数据切分的 Mysql Proxy，分布式缓存的 MemoryCached，Web 服务器缓存的 Squid，页面优化的 Y!Slow，页面切分方面的 js 拼接和 iframe 拼接（呵呵，怪不得搜狐的页面都是 js 加载，对搜索引擎很不友好），前端服务器 Lighttpd, Squid3, ESI 等。也提到了架构设计中扩展性，可用性和一致性三者的关系，优化时应让让一致性延迟。提到目前网站系统一般都是三层结构 DB 层，逻辑层和前端层，而可扩展度方面DB &lt; 逻辑 &lt; 前端，原因就是有状态的最难扩展，无状态的最容易扩展，所以主张优化时尽量减少DB中存储的状态，将逻辑前移，最后总结优化的大方向就是：逻辑前移，善用缓存（无处不在的缓存）和数据冗余（方便查询）。”</p>
+<p>从中得到几个信息——</p>
+<ol>
+  <li>搜狐的架构康神插手了；</li>
+  <li>squid对ESI的支持限于3.0版本以上（这点很重要，因为其他任何地方都没写明）；</li>
+  <li>缓存无处不在~~</li>
+</ol>
+<p>然后是ESI的概念原理。</p>
+<p><strong>“ESI（Edge Side Include）通过使用简单的标记语言来对那些可以加速和不能加速的网页中的内容片断进行描述，每个网页都被划分成不同的小部分分别赋予不同的缓存控制策略，使Cache服务器可以根据这些策略在将完整的网页发送给用户之前将不同的小部分动态地组合在一起。通过这种控制，可以有效地减少从服务器抓取整个页面的次数，而只用从原服务器中提取少量的不能缓存的片断，因此可以有效降低原服务器的负载，同时提高用户访问的响应时间”</strong></p>
+<p>从中得到几个信息——</p>
+<ol>
+  <li>ESI不是一门新语言，而只是嵌入在html里的一种标记，首先要求对网页进行模板式的规划，然后由支持ESI的cache服务器根据“HTTP请求标题或用户的cookie信息”自行组装返回给browser；</li>
+  <li>我想到lighttpd和nginx的流媒体支持，也是根据cookie信息，获取拖拽的指定帧定位。不过没找到这两个对esi的cache处理文章，毕竟他们的主业还是webserver……</li>
+</ol>
+<p>然后是计算机世界网中关于ESI的介绍。内容较长，不贴了，要点如下：</p>
+<ol>
+  <li>ESI最多支持三级递归，可以在包含文档中再嵌套进一步ESI标记；</li>
+  <li>ESI支持基于布尔比较或者环境变量的条件处理；</li>
+  <li>ESI支持cgi环境变量，比如cookie；</li>
+  <li>ESI支持开发者定制失败动作（这不就是我梦寐以求的东东？呵呵，夸张鸟~）</li>
+  <li>ESI提供内容无效规范进行内容管理（cache的purge不再头疼？）；</li>
+  <li>ESI是基于XML语言的，现有一个java的定制标签库JESI帮助生成jsp代码，这个东东我想是ESI标准被诸多寡头接受的重要原因，不然去哪找来一大批专门写ESI的设计员呢；</li>
+  <li>ESI的主要开发和推动者，是CDN老大akaimai和DB老大oracle！！再次验证康神的话，Optimization=Cache+Data。</li>
+</ol>
+<p>最后，说一下squid3如何支持ESI。</p>
+<p>./configure参数如下：</p>
+<pre><code>--enable-esi           
+Enable ESI for accelerators. Requires libexpat.
+Enabling ESI will cause squid to follow the Edge
+Acceleration Specification (www.esi.org). This
+causes squid to IGNORE client Cache-Control headers.
+DO NOT use this in a squid configured as a web
+proxy, ONLY use it in a squid configured for
+webserver acceleration.
+</code></pre>
+<p>squid.conf参数如下：</p>
+<div class="highlight"><pre><code class="squid"><span class="w">    </span>httpd_accel_surrogate_id<span class="w"> </span>unset-id<span class="w"></span>
+<span class="w">    </span>http_accel_surrogate_remote<span class="w"> </span><span class="no">on</span><span class="w"></span>
+<span class="w">    </span>esi_parser<span class="w"> </span>custom<span class="w"></span>
+</code></pre></div>
+<p>写到最后郁闷了一下，这个东东，为了cache而发明出来了，却是得写在web上的。那我这篇博文，该归哪个类别呢？——或者这也验证了工作中的一点郁闷吧，cache的问题，经常出在web上，我们做CDN的，能怎么办呢？</p>
+<p>ESI网站:</p>
+<p><a href="http://www.akamai.com/html/support/esi.html">http://www.akamai.com/html/support/esi.html</a>
+<a href="http://www.w3.org/TR/esi-lang">http://www.w3.org/TR/esi-lang</a></p>
+<p><strong>2010年8月1日：</strong></p>
+<h1 id="esi">ESI指令集</h1>
+<h3 id="include-">include 标签</h3>
+<p>首先尝试 include 页面 <code>1.html</code>，如果不存在就显示 <code>2.html</code>，如果还不存在，就忽略这条 esi</p>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://example.com/1.html&quot;</span> <span class="na">alt=</span><span class="s">&quot;http://bak.example.com/2.html&quot;</span> <span class="na">onerror=</span><span class="s">&quot;continue&quot;</span><span class="nt">/&gt;</span>
+</code></pre></div>
+<h3 id="case-when-">case when 标签</h3>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:choose&gt;</span> 
+    <span class="nt">&lt;esi:when</span> <span class="na">test=</span><span class="s">&quot;$(HTTP_COOKIE{group})==&#39;Advanced&#39;&quot;</span><span class="nt">&gt;</span> 
+        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/advanced.html&quot;</span><span class="nt">/&gt;</span> 
+    <span class="nt">&lt;/esi:when&gt;</span> 
+    <span class="nt">&lt;esi:when</span> <span class="na">test=</span><span class="s">&quot;$(HTTP_COOKIE{group})==&#39;Basic User&#39;&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/basic.html&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;/esi:when&gt;</span> 
+    <span class="nt">&lt;esi:otherwise&gt;</span> 
+        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/new_user.html&quot;</span><span class="nt">/&gt;</span> 
+    <span class="nt">&lt;/esi:otherwise&gt;</span>
+<span class="nt">&lt;/esi:choose&gt;</span>
+</code></pre></div>
+<h3 id="try-catch-">try catch 标签</h3>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:try&gt;</span> 
+    <span class="nt">&lt;esi:attempt&gt;</span>
+        <span class="nt">&lt;esi:comment</span> <span class="na">text=</span><span class="s">&quot;Include an ad&quot;</span><span class="nt">/&gt;</span> 
+        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/ad1.html&quot;</span><span class="nt">/&gt;</span> 
+    <span class="nt">&lt;/esi:attempt&gt;</span>
+    <span class="nt">&lt;esi:except&gt;</span> 
+        <span class="nt">&lt;esi:comment</span> <span class="na">text=</span><span class="s">&quot;Just write some HTML instead&quot;</span><span class="nt">/&gt;</span> 
+        <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">www.akamai.com</span><span class="nt">&gt;</span>www.example.com<span class="nt">&lt;/a&gt;</span>
+    <span class="nt">&lt;/esi:except&gt;</span> 
+<span class="nt">&lt;/esi:try&gt;</span>
+</code></pre></div>
+<h3 id="remove-">remove 标签</h3>
+<p>如果服务器可执行 ESI，就只执行 include；如果不可，只好识别标准的HTML</p>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/ad.html&quot;</span><span class="nt">/&gt;</span> 
+<span class="nt">&lt;esi:remove&gt;</span> 
+  <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://www.example.com&quot;</span><span class="nt">&gt;</span>www.example.com<span class="nt">&lt;/a&gt;</span>
+<span class="nt">&lt;/esi:remove&gt;</span>
+</code></pre></div>
+<h3 id="esi-1">esi变量</h3>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:vars&gt;</span>
+  <span class="nt">&lt;img</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/$(HTTP_COOKIE{type})/hello.gif&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/esi:vars&gt;</span>
+</code></pre></div>
+<p>变量都是从request-header中获得的，squid只支持标准的esi协议，即只识别下列header。</p>
+<div class="highlight"><pre><code class="c"><span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_ACCEPT_LANGUAGE&quot;</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableLanguage</span><span class="p">);</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_COOKIE&quot;</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableCookie</span><span class="p">);</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_HOST&quot;</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableHost</span><span class="p">);</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_REFERER&quot;</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableReferer</span><span class="p">);</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_USER_AGENT&quot;</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableUserAgent</span><span class="p">(</span><span class="o">*</span><span class="n">this</span><span class="p">));</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;QUERY_STRING&quot;</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableQuery</span><span class="p">(</span><span class="n">uri</span><span class="p">));</span> 
+</code></pre></div>
+<h3 id="section">逻辑表达式</h3>
+<p><code>==</code>,<code>!=</code>,<code>&lt;</code>,<code>&gt;</code>,<code>&lt;=</code>,<code>&gt;=</code>,<code>!</code>,<code>&amp;</code>,<code>|</code>都只能用于表达式之间的关系，本身不具有真义，所以类似shell的(1 &amp; 2)是不成立的。</p>
+<p>ESI必须由web端在response-header中声明Surrogate-Control: content=&rdquo;ESI/1.0&rdquo;。启用ESI后，Set-Cookie、Cache-Control、Last-Modified无效。</p>
+      <a href="/2010/02/22/esi-cache" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/02/09/qhttpd" title="qhttpd" rel="bookmark">qhttpd</a>
     </h1>
     <p class="alt-font tight">
@@ -2101,51 +2220,6 @@ url_rewrite_access deny !err</p>
 <p>不起作用，所有的请求都不经过rewrite直接输出了……
 郁闷，这个新acl的用法还得慢慢找资料~~</p>
       <a href="/2010/01/09/intro-http_status" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/01/05/principle-and-solution-of-the-vm-date-problem" title="虚拟机时间问题的机制原理及解决办法" rel="bookmark">虚拟机时间问题的机制原理及解决办法</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-01-05 00:00:00 +0800">05 Jan 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cloud-ref" title="cloud" rel="category tag">cloud</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>对于CDN来说，时间是个非常重要的概念，squid的缓存刷新控制，全都是以服务器时间为基准。在我博客的前不知道几篇的某文中，就提到过因为时间的原因引起的刷新事故。而最新的一次，是公司在日志流量统计时，因为相差太大导致截取失败——这可都是钱呢。
-实际工作中，大多会搭建一个NTP服务器，给应用服务器提供时间同步服务。但虚拟机在这方面有个问题。虚拟机的时间是读取的宿主机的硬件时钟，随便你date
--s 1234怎么改，下一次date查看，都会恢复成原样。
-这样看起来是个好事，因为这样可以省略掉大批机器的NTP服务器同步时间的压力。但糟糕的事情在后头：一大批重要客户的虚拟机，在运行上半年以上时间后，date都比真实时间超前了（偶然我也看到过一次滞后的）。或许是几分钟，或许是几小时！！
-这一度让我很无奈，因为即使我重启虚拟机，这个诡异的date也依然倔强的按照它自己的时钟前进。看起来办法只有一个：把虚拟平台整个的重启——好在这种试验的结果是有效的，不然真不知道怎么办了。
-从这个无奈的办法中，也应该可以推测出一个结论，虚拟机的时钟，应该是另有文件存储在虚拟平台的某个临时文件里。所以关闭虚拟机，该文件还存在并继续计时；重启动虚拟平台，该文件才会重计。至于这个文件叫什么，存放在哪里，一时半会我就找不到了，或许这个问题不算什么特别大的问题，至少我在linuxsir.org的《xen初学指南》中，没有找到关于时钟的配置说明。
-不过再小的问题也顶不住人的研究。于是我找到了另一篇很对口的文章：《虚拟机中GUEST OS时钟(TIMEKEEP)问题的探讨》。
-文章告诉我们：虚拟机的时钟，与真实机的时钟区别，其一在于其处理不是抢占中断而是延迟处理；其二在于其中断模拟软件可能因资源占用问题被推迟。
-这两点区别，导致的结果却是一个，就是一旦服务器负载变高，时钟中断就被排到后头去了……
-文章也提出了解决办法，一个是编程，让系统补上中断的时间，这个俺就不说了；一个是修改内核，让系统不断修正date；
-进一步问题：不管哪个办法，第一，加重了虚拟机负载；第二，这又依赖与系统去更新date的进程的精准度，而这个进程的中断时钟如果有偏差的话，……
-再进一步方法……有兴趣的还是自己点文章看吧。
-看起来这个问题就要永远终结在此了。
-不过变通的主意及时的出现了——既然虚拟机跟虚拟平台之间的异步时钟同步没法解决，我们就干脆不要虚拟机跟虚拟平台同步了。这样虽然对NTP的压力大了，但毕竟保证了CDN的正常。而且从上头的原理可以知道，能够导致date偏差到这个程度的原因，大概也是因为虚拟机的负载压力太大。事实上，我们为了保证冗余，也是尽量避免这种压力出现的。那么date偏差的服务器，其实也就是少数了。
-顺着这个思路一查，原来办法其实很简单——修改虚拟机的independent_wallclock值即可：
-echo 1 &gt; /proc/sys/xen/independent_wallclock
-或sysctl xen.independent_wallclock=1
-启用虚拟机独立系统时间；
-/etc/init.d/ntpd stop
-ntpdate 192.168.0.1
-就能完成NTP时间同步了；
-再date看看，时间果然就更正了~~
-/proc下的文件都是进程使用中的文件，如果要让虚拟机开机自动读取配置，把这个修改写进/etc/sysctl.conf才行哦：
-echo &ldquo;xen.independent_wallclock = 1&rdquo;&nbsp;&raquo; /etc/sysctl.conf
-就这么简单~~~</p>
-      <a href="/2010/01/05/principle-and-solution-of-the-vm-date-problem" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

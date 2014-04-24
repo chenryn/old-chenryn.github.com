@@ -44,6 +44,84 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/11/04/puppet-class-parameter" title="Puppet 的类参数传递" rel="bookmark">Puppet 的类参数传递</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-11-04 00:00:00 +0800">04 Nov 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#puppet-ref" title="puppet" rel="category tag">puppet</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>之前使用 ENC 管理 puppet，尽量保持了输出 yaml 内容的简单，只提供了一个统一的全局参数定义 node 的 role。(题外话，puppetlabs 推荐了另一个通过继承关系实现 role 的示例，见：<a href="http://www.craigdunn.org/2012/05/239/">Designing Puppet - Roles and Profiles</a>。)</p>
+<p>但是 puppet 中有些配置确实修改比较频繁，文件操作不得不说是一件不甚方便的事情，于是重新考虑通过类参数的方式来灵活化某些配置的操作。</p>
+<h1 id="section">修改前</h1>
+<h3 id="nginxmanifestsinitpp">nginx/manifests/init.pp</h3>
+<div class="highlight"><pre><code class="ruby"><span class="k">class</span> <span class="n">nginx</span> <span class="p">{</span>
+    <span class="kp">include</span> <span class="s2">&quot;nginx::${::role}&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="nginxmanifestsloadbalancerpp">nginx/manifests/loadbalancer.pp</h3>
+<div class="highlight"><pre><code class="ruby"><span class="k">class</span> <span class="ss">nginx</span><span class="p">:</span><span class="ss">:loadbalancer</span> <span class="p">{</span>
+    <span class="vg">$iplist</span> <span class="o">=</span> <span class="o">[</span><span class="s1">&#39;192.168.0.2:80&#39;</span><span class="o">]</span>
+    <span class="n">file</span> <span class="p">{</span> <span class="s1">&#39;nginx.conf&#39;</span><span class="p">:</span>
+        <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s1">&#39;nginx/nginx.conf.erb&#39;</span><span class="p">),</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="enc-nginxhostname">enc nginxhostname</h3>
+<div class="highlight"><pre><code class="yaml"><span class="nn">---</span>
+<span class="l-Scalar-Plain">classes</span><span class="p-Indicator">:</span>
+  <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">nginx</span>
+  <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">base</span>
+<span class="l-Scalar-Plain">environment</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">production</span>
+<span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">role</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">loadbalancer</span>
+</code></pre></div>
+<h1 id="section-1">修改后</h1>
+<h3 id="nginxmanifestsinitpp-1">nginx/manifests/init.pp</h3>
+<div class="highlight"><pre><code class="ruby"><span class="k">class</span> <span class="n">nginx</span> <span class="p">(</span><span class="vg">$iplist</span> <span class="o">=</span> <span class="o">[]</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">class</span> <span class="p">{</span> <span class="s2">&quot;nginx::${::role}&quot;</span><span class="p">:</span>
+        <span class="n">iplist</span> <span class="o">=&gt;</span> <span class="vg">$iplist</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="nginxmanifestsloadbalancerpp-1">nginx/manifests/loadbalancer.pp</h3>
+<div class="highlight"><pre><code class="ruby"><span class="k">class</span> <span class="ss">nginx</span><span class="p">:</span><span class="ss">:loadbalancer</span> <span class="p">(</span><span class="vg">$iplist</span> <span class="o">=</span> <span class="o">[]</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">file</span> <span class="p">{</span> <span class="s1">&#39;nginx.conf&#39;</span><span class="p">:</span>
+        <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s1">&#39;nginx/nginx.conf.erb&#39;</span><span class="p">),</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="enc-nginxhostname-1">enc nginxhostname</h3>
+<div class="highlight"><pre><code class="yaml"><span class="nn">---</span>
+<span class="l-Scalar-Plain">classes</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">nginx</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">iplist</span><span class="p-Indicator">:</span>
+      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">192.168.0.2:80</span>
+  <span class="l-Scalar-Plain">base</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">~</span>
+<span class="l-Scalar-Plain">environment</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">production</span>
+<span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">role</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">loadbalancer</span>
+</code></pre></div>
+<h1 id="section-2">要点</h1>
+<ol>
+  <li>虽然真正需要 $iplist 的是下面的一个子类，但是 ENC 传值是给的父类，所以需要一层层传递下去；</li>
+  <li>ENC 中给类传参，类就要写成哈希形式，否则是数组形式；</li>
+  <li>有参数的类，在调用的时候无法使用 <code>include</code> 形式的写法，只能用资源调用形式的写法。</li>
+</ol>
+<p>修改中出现了一个很搞笑的错误，因为是在 vim 里批量转换，结果子类名字后面多了一个空格，成了<code>class { "nginx::${::role} ":</code>这样。结果 puppet 一直返回报错说 &ldquo;Invalid Parameter&rdquo;。这时候一个习惯性的思维造成了误会：我们一般会认为<code>:</code>后面的那一行行键值对才是 parameter，但其实这里子类名也是 <code>class</code> 这个资源调用的 parameter。当然，如果可以在这里报一个 <code>Class Not Found</code> 就更好了。</p>
+      <a href="/2013/11/04/puppet-class-parameter" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/11/04/perl-unpack-tongdaxin" title="用 Perl 读取通达信日线数据" rel="bookmark">用 Perl 读取通达信日线数据</a>
     </h1>
     <p class="alt-font tight">
@@ -1956,50 +2034,6 @@ rex init --name<span class="o">=</span><span class="nv">$vm</span>-name --url<sp
 </code></pre></div>
 <p>lvalue 的说明见 <code>perldoc perlsub</code> 文档。在这里还是个比较有趣的用法的，这个用法来自 <code>Newbie::Gift</code> 项目另一位参与者 <a href="https://github.com/fmpdceudy">fmpdceudy</a>。</p>
       <a href="/2013/04/19/something-dive-to-perl" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2013/04/16/install-foreman" title="使用 Foreman 来监控统计 puppet 的 reports 信息" rel="bookmark">使用 Foreman 来监控统计 puppet 的 reports 信息</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2013-04-16 00:00:00 +0800">16 Apr 2013</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#devops-ref" title="devops" rel="category tag">devops</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>foreman 是社区比较推荐的一款 puppet 辅助工具。可以用来实现 ENC 控制，class 编写，Facts 变量统计和 reports 分析查询等等。</p>
-<p>鉴于我一直以来都是用 gem 安装 puppet，所以这里也就没法通过 yum/apt 来安装 foreman，只能源码操作了：</p>
-<div class="highlight"><pre><code class="bash">    git clone https://github.com/theforeman/foreman.git -b develop
-    <span class="nb">cd </span>foreman
-    bundle install --without postgresql mysql mysql2 
-    cp config/settings.yaml.example config/settings.yaml
-    cp config/database.yml.example config/database.yml
-    <span class="nv">RAILS_ENV</span><span class="o">=</span>production bundle <span class="nb">exec </span>rake db:migrate
-    rake puppet:import:hosts_and_facts <span class="nv">RAILS_ENV</span><span class="o">=</span>production
-    ./script/rails server -p 3333 -e production -d
-</code></pre></div>
-<p>然后就可以通过3333端口访问并查看刚才导入的 Facts 变量了，默认的用户名密码是 admin/changeme。</p>
-<p>新版本的 foreman，必须使用 smart-proxy 才能接收 reports。所以还要继续安装：</p>
-<div class="highlight"><pre><code class="bash">    git clone git://github.com/theforeman/smart-proxy.git
-    <span class="nb">cd </span>smart-proxy
-    sed -i <span class="s1">&#39;s/^#:puppet:.*/:puppet: true/&#39;</span> config/settings.yml
-    ./bin/smart-proxy.rb
-</code></pre></div>
-<p>foreman 提供了一个 <a href="https://raw.github.com/theforeman/puppet-foreman/master/templates/foreman-report.rb.erb">ruby 脚本</a>，用来扩充 puppet 的 reports 功能。下载放到对应的 <code>${GEM_PATH}/gems/puppet-${version}/lib/puppet/reports/</code> 下，然后修改其中的 <code>$foreman_url</code> 变量即可。</p>
-<p>我们也可以在 puppet 自带的 http.rb 基础上稍微修改得到相同效果，总的来说，就是通过 POST 方法，提交 <code>report =&gt; self.to_yaml</code> 到 <code>$foreman_url/reports/create?format=yml</code> 就可以了。</p>
-<p>然后在 foreman 页面上配置 smart-proxy 地址。注意这里有个小坑：__如果你填写的是域名，那么解析出来的 ip 还要被反解验证一次。__我当初为了 puppet master 迁移方便，给 master 配置了一个单独的域名，包括 <code>puppet cert</code> 生成证书时也特意指定用这个域名，但是默认的 hostname 其实是另一个域名的。于是在此悲剧了很久。。。</p>
-<p>错误的现象是：采用 <code>puppet master</code> 启动时，功能一切正常；采用 <code>rackup</code> + Nginx 代理的方式启动时，默认的 store 功能正常，而采用 foreman 接收 reports 的话，可以在 <code>rackup</code> 的访问日志中看到 POST 200 的记录，<code>foreman</code> 里却没有接到请求。</p>
-<p>目前还不清楚为什么两种不同方式启动 puppet 的 master 会对 smart-proxy 造成什么区别影响，但是修改 foreman 里配置的 smart-proxy 地址为默认 hostname 而不是单独的域名后，就成功了。</p>
-<p>另外一个使用上的小问题。foreman 页面上的 Reports 标签的 <code>&lt;a href=""&gt;</code> 属性默认是带搜索参数 eventful 的。也就是说优先展示的是有事件发生的日志，比如 failed，restart 等等；而不是直接以日期排序。</p>
-      <a href="/2013/04/16/install-foreman" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

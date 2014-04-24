@@ -44,6 +44,56 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2011/01/12/resin-status" title="resin-status" rel="bookmark">resin-status</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-01-12 00:00:00 +0800">12 Jan 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>和apache、nginx一样，resin也自带了一个比较简易的status模块，只需要在resin.conf里配置就行了。在里添加如下一段：</p>
+<div class="highlight"><pre><code class="xml">    <span class="nt">&lt;servlet-mapping</span> <span class="na">servlet-class=</span><span class="s">&#39;com.caucho.servlets.ResinStatusServlet&#39;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;url-pattern&gt;</span>/resin-status<span class="nt">&lt;/url-pattern&gt;</span>
+      <span class="nt">&lt;init</span> <span class="na">enable=</span><span class="s">&quot;read&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;/servlet-mapping&gt;</span>
+</code></pre></div>
+<p>重启resin即可。</p>
+<p>然后curl访问http://127.0.0.1:8080/resin-status就可以看到输出了。</p>
+<p>用浏览器的话，大致如下图：
+<img src="/images/uploads/resin.jpg" alt="resin" /></p>
+<p>可以关注线程数、连接数、内存使用大小和请求处理数。</p>
+<p>如果要做监控的话，直接从html里获取相应数值即可。</p>
+<p>唯一需要稍微注意的是请求处理数。因为其他的都是AVERAGE，只有这个是COUNTER型的。要是想很方便的看到rps。可以采用如下方法查看：</p>
+<div class="highlight"><pre><code class="bash"><span class="c"># a=`curl -s http://127.0.0.1:8081/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 1;curl -s http://10.168.168.56:8081/resin-status|awk -F/ &#39;/Invocation/{print($NF-&#39;$a&#39;}&#39;</span>
+718
+</code></pre></div>
+<p>这里比较有趣的是因为这行的数据本身是有个括号的，所以就有了各种各样的写法和报错了。一并贴上来，可以体会一下awk的系统变量/内部函数/字符类型的用法：</p>
+<div class="highlight"><pre><code class="bash"><span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&#39;$a&#39;}&#39;</span>
+awk: cmd. line:1: /Invocation/<span class="o">{</span>print <span class="nv">$NF</span>-3949612<span class="o">)}</span>
+awk: cmd. line:1:                               ^ syntax error
+<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&#39;&quot;$a&quot;&#39;}&#39;</span>
+awk: cmd. line:1: /Invocation/<span class="o">{</span>print <span class="nv">$NF</span>-4025373<span class="o">)}</span>
+awk: cmd. line:1:                               ^ syntax error
+<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&quot;&#39;$a&#39;&quot;}&#39;</span>
+7607
+<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print substr($NF,0,length($NF)-1)}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&#39;$a&#39;}&#39;</span>
+7927
+<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print($NF-&#39;$a&#39;}&#39;</span>
+7212
+</code></pre></div>
+      <a href="/2011/01/12/resin-status" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2011/01/11/construct-http-auth-header" title="HTTP的auth请求模拟" rel="bookmark">HTTP的auth请求模拟</a>
     </h1>
     <p class="alt-font tight">
@@ -1503,52 +1553,6 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
       <p><a href="http://www.networkbench.com/trade-rank/index.html">http://www.networkbench.com/trade-rank/index.html</a></p>
 <p>不是做广告，不过说实话还是觉得基调很有头脑，搞出这么个东西来~~~</p>
       <a href="/2010/11/16/china-internet-sites-performance-industry-reference-data-publiced-by-networkbech" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/11/12/intro-mysqlreport" title="mysql状态报表工具" rel="bookmark">mysql状态报表工具</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-11-12 00:00:00 +0800">12 Nov 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#database-ref" title="database" rel="category tag">database</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>最近学习mysql，从监控的角度出发，然后发现了一个很不错的个人网站<a href="http://hackmysql.com">http://hackmysql.com</a>，啧啧，看这名字就NB烘烘滴~</p>
-<p>网站的tools列表提供了一系列站长认为很不错的mysql工具，其中有他自己早年写的四个perl，也有他目前所在公司出品的工具（大名鼎鼎的Maatkit，据说80%的国外mysqlDBA使用它，国内有大头刚曾经写过14篇介绍文章，以后有时间再看，地址如下：<a href="http://search.chinaunix.net/bbs.php?q=Maatkit&amp;username=&amp;st=title&amp;bbs=1&amp;forums=136&amp;page=1">http://search.chinaunix.net/bbs.php?q=Maatkit&amp;username=&amp;st=title&amp;bbs=1&amp;forums=136&amp;page=1</a>）。</p>
-<p>在国内目前的技术文章来看（即百度可见范围内），比较常见的两个工具正是该站提供的，一个是状态报告工具mysqlreport，一个是日志分析工具mysqlsla。</p>
-<p>今天先说mysqlreport，安装很简单：wget <a href="http://hackmysql.com/scripts/mysqlreport">http://hackmysql.com/scripts/mysqlreport</a></p>
-<p>要使用它，首先需要有几个perl模块：DBI和DBD::mysql。CPAN安装即可。需要注意的是，因为DBD::mysql的安装过程中需要调用mysql_config，如果机器上没有mysql或者mysql的bin不在PATH里，都会报错。这时候退出安装mysql，然后到.cpan/里去手动perl Makefile.PL &ndash;with-mysql_config=/path/to/mysql_config安装吧~~</p>
-<p>使用方法也有&ndash;help的详尽说明，大抵是&ndash;host/&ndash;user/&ndash;password，比较好玩的是还提供了&ndash;relative/&ndash;report-count用来短时间段内的定时报告。</p>
-<p>报告包括：</p>
-<ul>
-  <li>key buffer的使用率和命中率；</li>
-  <li>请求的分类比例（QC Hits和DMS越多越好，Com_最好不要超过3%）及具体情况；</li>
-  <li>慢查询情况（最好一个没有）；</li>
-  <li>全表查询和排序情况（这个越少越好）；</li>
-  <li>表锁等待情况（最好没有）；</li>
-  <li>表使用和命中率情况（尽量命中的好）；</li>
-  <li>连接情况（适中即可）；</li>
-  <li>线程复用情况；</li>
-</ul>
-<p>然后是InnoDB引擎的一些</p>
-<ul>
-  <li>锁等待；</li>
-  <li>读写速度；</li>
-  <li>行操作情况</li>
-</ul>
-<p>mysqlreport2008年之后就停止了更新，一部分人则开始采用tuning-primer.sh收集报表。这个shell脚本直接利用mysql客户端登陆服务器后show status然后进行运算，除了和mysqlreport极为类似的报表外，还采用不同颜色显示提供了作者的优化建议，边看边学习，很不错，下载地址如下：<a href="http://www.day32.com/MySQL/tuning-primer.sh">http://www.day32.com/MySQL/tuning-primer.sh</a></p>
-<p>这个网站同样提供了对mysql主从同步的脚本和监控脚本，都是shell脚本~~</p>
-<p>最后，还要表扬一下ifeng的运维童鞋，他们用php完成一个功能介乎mysqlreport和tuning-primer之间的mysql状态报表网页，目前版本是mysqlmonitor1.0.0（不过下载链接坏了……）。其中很多推荐配置中文说明，不过在“具体情况具体分析”方面还不够智能，所有建议都是统一在4G内存mysql服务器的假设条件下给出的，也没有对报表数据进行阀值触发。</p>
-      <a href="/2010/11/12/intro-mysqlreport" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

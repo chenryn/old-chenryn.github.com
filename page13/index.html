@@ -44,6 +44,70 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/03/25/cacti-optimization" title="cacti优化" rel="bookmark">cacti优化</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-03-25 00:00:00 +0800">25 Mar 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>首先，采用spine代替cmd.php来采集数据。
+下载与cacti相应版本的spine和补丁：</p>
+<div class="highlight"><pre><code class="bash">wget http://www.cacti.net/downloads/spine/cacti-spine-0.8.7e.tar.gz
+tar zxvf cacti-spine-0.8.7e.tar.gz -C /tmp
+<span class="nb">cd</span> /tmp/cacti-spine-0.8.7e
+wget http://www.cacti.net/downloads/spine/patches/snmp_v3_fix.patch
+wget http://www.cacti.net/downloads/spine/patches/mysql_client_reconnect.patch
+wget http://www.cacti.net/downloads/spine/patches/ping_reliability.patch
+patch -p1 -N &lt; snmp_v3_fix.patch
+patch -p1 -N &lt; mysql_client_reconnect.patch
+patch -p1 -N &lt; ping_reliability.patch
+./configure –prefix<span class="o">=</span>/cache/data/cacti --with-mysql<span class="o">=</span>/home/mysql
+make
+<span class="c"># 这个时候发现报错了，spine0.8.7e编译安装要求最新版本的automake1.11，于是去下automake：</span>
+wget http://ftp.gnu.org/gnu/automake/automake-1.11.tar.gz
+tar zxvf automake-1.11.tar.gz -C /tmp/
+<span class="nb">cd</span> /tmp/automake-1.11/
+./configure --prefix<span class="o">=</span>/usr
+<span class="c"># 又报错，automake1.11要求新版本的autoconf2.64，于是去下autoconf：</span>
+wget http://ftp.gnu.org/gnu/autoconf/autoconf-2.65.tar.gz
+tar zxvf autoconf-2.65.tar.gz -C /tmp/
+<span class="nb">cd</span> /tmp/autoconf-2.65/
+./configure --prefix<span class="o">=</span>/usr <span class="o">&amp;&amp;</span> make <span class="o">&amp;&amp;</span> make install
+</code></pre></div>
+<p>返回安装automake，即可成功；安装spine，也成功了。  <br />
+修改/cache/data/cacti/etc/spine.conf里的db信息，和cacti的global.php里一致。  <br />
+登陆web界面，settings中修改poller type为spine，修改Spine Specific Execution Parameters里的Maximum Threads per Process为cpu数的2倍。save~  <br />
+第二、给cacti-tables建index。默认的cacti.sql里一个index索引都没有~    </p>
+<div class="highlight"><pre><code class="sql"><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">data_template_data_id</span><span class="o">`</span> <span class="k">ON</span> <span class="o">`</span><span class="n">data_input_data</span><span class="o">`</span> <span class="p">(</span><span class="o">`</span><span class="n">data_template_data_id</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">host_id_snmp_query_id_snmp_index</span><span class="o">`</span> <span class="k">ON</span> <span class="n">data_local</span> <span class="p">(</span><span class="o">`</span><span class="n">host_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">snmp_query_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">snmp_index</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">local_data_id_data_source_name</span><span class="o">`</span> <span class="k">ON</span> <span class="n">data_template_rrd</span> <span class="p">(</span><span class="o">`</span><span class="n">local_data_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">data_source_name</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">graph_template_id_local_graph_id</span><span class="o">`</span> <span class="k">ON</span> <span class="n">graph_templates_item</span> <span class="p">(</span><span class="o">`</span><span class="n">graph_template_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">local_graph_id</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">local_graph_template_item_id</span><span class="o">`</span> <span class="k">ON</span> <span class="n">graph_templates_item</span> <span class="p">(</span><span class="o">`</span><span class="n">local_graph_template_item_id</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">host_id_snmp_query_id_snmp_index</span><span class="o">`</span> <span class="k">ON</span> <span class="n">host_snmp_cache</span> <span class="p">(</span><span class="o">`</span><span class="n">host_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">snmp_query_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">snmp_index</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">local_data_id_rrd_path</span><span class="o">`</span> <span class="k">ON</span> <span class="n">poller_item</span> <span class="p">(</span><span class="o">`</span><span class="n">local_data_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">rrd_path</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="o">`</span><span class="n">host_id_rrd_next_step</span><span class="o">`</span> <span class="k">ON</span> <span class="n">poller_item</span> <span class="p">(</span><span class="o">`</span><span class="n">host_id</span><span class="o">`</span><span class="p">,</span><span class="o">`</span><span class="n">rrd_next_step</span><span class="o">`</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">host_id_snmp_query_id</span> <span class="k">ON</span> <span class="n">host_snmp_cache</span> <span class="p">(</span><span class="n">host_id</span><span class="p">,</span><span class="n">snmp_query_id</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">host_id_snmp_port</span> <span class="k">ON</span> <span class="n">poller_item</span> <span class="p">(</span><span class="n">host_id</span><span class="p">,</span><span class="n">snmp_port</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">data_source_path</span> <span class="k">ON</span> <span class="n">data_template_data</span> <span class="p">(</span><span class="n">data_source_path</span><span class="p">);</span>
+</code></pre></div>
+<p>第三、重构rra目录结构。按照device分结构。  <br />
+/home/php/bin/php /cache/data/cacti/cli/structure_rra_paths.php &ndash;proceed即可。  <br />
+web界面中settings里的Paths可以勾选Structured RRA Path(/host_id/local_data_id.rrd)即可。    </p>
+<p>最后，据这个优化的<a target="_blank" href="http://zys.8800.org/index.php/archives/391/comment-page-1#comment-22">原作者</a>说，按此步骤，710台服务器，24000个RRD文件，完成一次poller.php的时间，缩短到50 seconds。</p>
+      <a href="/2010/03/25/cacti-optimization" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/03/24/monitor-tcp-conns-by-cacti" title="cacti自建tcp80连接数监控" rel="bookmark">cacti自建tcp80连接数监控</a>
     </h1>
     <p class="alt-font tight">
@@ -1877,125 +1941,6 @@ cat se.txt
 //&rsquo;XYZ&rsquo;//abc def/</p>
 <p>说明：-返回默认值，但不更改变量本身；=返回默认值同时更改变量为默认值；?返回默认值到标准错误；+与-相反。</p>
       <a href="/2010/02/23/extend-shell-variables" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/02/22/esi-cache" title="ESI 语言介绍" rel="bookmark">ESI 语言介绍</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-02-22 00:00:00 +0800">22 Feb 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天看到一个叫做 ESI 的东东，以此为线索，一路链接下去，颇为有趣，摘抄些新闻/博客段落来，算作长眼了：</p>
-<p>首先是《CSDN09大会见闻》，其中提到康神的讲演《网站的那些事儿》，介绍了大规模网站架构上的种种工具和技术“比如做数据切分的 Mysql Proxy，分布式缓存的 MemoryCached，Web 服务器缓存的 Squid，页面优化的 Y!Slow，页面切分方面的 js 拼接和 iframe 拼接（呵呵，怪不得搜狐的页面都是 js 加载，对搜索引擎很不友好），前端服务器 Lighttpd, Squid3, ESI 等。也提到了架构设计中扩展性，可用性和一致性三者的关系，优化时应让让一致性延迟。提到目前网站系统一般都是三层结构 DB 层，逻辑层和前端层，而可扩展度方面DB &lt; 逻辑 &lt; 前端，原因就是有状态的最难扩展，无状态的最容易扩展，所以主张优化时尽量减少DB中存储的状态，将逻辑前移，最后总结优化的大方向就是：逻辑前移，善用缓存（无处不在的缓存）和数据冗余（方便查询）。”</p>
-<p>从中得到几个信息——</p>
-<ol>
-  <li>搜狐的架构康神插手了；</li>
-  <li>squid对ESI的支持限于3.0版本以上（这点很重要，因为其他任何地方都没写明）；</li>
-  <li>缓存无处不在~~</li>
-</ol>
-<p>然后是ESI的概念原理。</p>
-<p><strong>“ESI（Edge Side Include）通过使用简单的标记语言来对那些可以加速和不能加速的网页中的内容片断进行描述，每个网页都被划分成不同的小部分分别赋予不同的缓存控制策略，使Cache服务器可以根据这些策略在将完整的网页发送给用户之前将不同的小部分动态地组合在一起。通过这种控制，可以有效地减少从服务器抓取整个页面的次数，而只用从原服务器中提取少量的不能缓存的片断，因此可以有效降低原服务器的负载，同时提高用户访问的响应时间”</strong></p>
-<p>从中得到几个信息——</p>
-<ol>
-  <li>ESI不是一门新语言，而只是嵌入在html里的一种标记，首先要求对网页进行模板式的规划，然后由支持ESI的cache服务器根据“HTTP请求标题或用户的cookie信息”自行组装返回给browser；</li>
-  <li>我想到lighttpd和nginx的流媒体支持，也是根据cookie信息，获取拖拽的指定帧定位。不过没找到这两个对esi的cache处理文章，毕竟他们的主业还是webserver……</li>
-</ol>
-<p>然后是计算机世界网中关于ESI的介绍。内容较长，不贴了，要点如下：</p>
-<ol>
-  <li>ESI最多支持三级递归，可以在包含文档中再嵌套进一步ESI标记；</li>
-  <li>ESI支持基于布尔比较或者环境变量的条件处理；</li>
-  <li>ESI支持cgi环境变量，比如cookie；</li>
-  <li>ESI支持开发者定制失败动作（这不就是我梦寐以求的东东？呵呵，夸张鸟~）</li>
-  <li>ESI提供内容无效规范进行内容管理（cache的purge不再头疼？）；</li>
-  <li>ESI是基于XML语言的，现有一个java的定制标签库JESI帮助生成jsp代码，这个东东我想是ESI标准被诸多寡头接受的重要原因，不然去哪找来一大批专门写ESI的设计员呢；</li>
-  <li>ESI的主要开发和推动者，是CDN老大akaimai和DB老大oracle！！再次验证康神的话，Optimization=Cache+Data。</li>
-</ol>
-<p>最后，说一下squid3如何支持ESI。</p>
-<p>./configure参数如下：</p>
-<pre><code>--enable-esi           
-Enable ESI for accelerators. Requires libexpat.
-Enabling ESI will cause squid to follow the Edge
-Acceleration Specification (www.esi.org). This
-causes squid to IGNORE client Cache-Control headers.
-DO NOT use this in a squid configured as a web
-proxy, ONLY use it in a squid configured for
-webserver acceleration.
-</code></pre>
-<p>squid.conf参数如下：</p>
-<div class="highlight"><pre><code class="squid"><span class="w">    </span>httpd_accel_surrogate_id<span class="w"> </span>unset-id<span class="w"></span>
-<span class="w">    </span>http_accel_surrogate_remote<span class="w"> </span><span class="no">on</span><span class="w"></span>
-<span class="w">    </span>esi_parser<span class="w"> </span>custom<span class="w"></span>
-</code></pre></div>
-<p>写到最后郁闷了一下，这个东东，为了cache而发明出来了，却是得写在web上的。那我这篇博文，该归哪个类别呢？——或者这也验证了工作中的一点郁闷吧，cache的问题，经常出在web上，我们做CDN的，能怎么办呢？</p>
-<p>ESI网站:</p>
-<p><a href="http://www.akamai.com/html/support/esi.html">http://www.akamai.com/html/support/esi.html</a>
-<a href="http://www.w3.org/TR/esi-lang">http://www.w3.org/TR/esi-lang</a></p>
-<p><strong>2010年8月1日：</strong></p>
-<h1 id="esi">ESI指令集</h1>
-<h3 id="include-">include 标签</h3>
-<p>首先尝试 include 页面 <code>1.html</code>，如果不存在就显示 <code>2.html</code>，如果还不存在，就忽略这条 esi</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://example.com/1.html&quot;</span> <span class="na">alt=</span><span class="s">&quot;http://bak.example.com/2.html&quot;</span> <span class="na">onerror=</span><span class="s">&quot;continue&quot;</span><span class="nt">/&gt;</span>
-</code></pre></div>
-<h3 id="case-when-">case when 标签</h3>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:choose&gt;</span> 
-    <span class="nt">&lt;esi:when</span> <span class="na">test=</span><span class="s">&quot;$(HTTP_COOKIE{group})==&#39;Advanced&#39;&quot;</span><span class="nt">&gt;</span> 
-        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/advanced.html&quot;</span><span class="nt">/&gt;</span> 
-    <span class="nt">&lt;/esi:when&gt;</span> 
-    <span class="nt">&lt;esi:when</span> <span class="na">test=</span><span class="s">&quot;$(HTTP_COOKIE{group})==&#39;Basic User&#39;&quot;</span><span class="nt">&gt;</span>
-        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/basic.html&quot;</span><span class="nt">/&gt;</span>
-    <span class="nt">&lt;/esi:when&gt;</span> 
-    <span class="nt">&lt;esi:otherwise&gt;</span> 
-        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/new_user.html&quot;</span><span class="nt">/&gt;</span> 
-    <span class="nt">&lt;/esi:otherwise&gt;</span>
-<span class="nt">&lt;/esi:choose&gt;</span>
-</code></pre></div>
-<h3 id="try-catch-">try catch 标签</h3>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:try&gt;</span> 
-    <span class="nt">&lt;esi:attempt&gt;</span>
-        <span class="nt">&lt;esi:comment</span> <span class="na">text=</span><span class="s">&quot;Include an ad&quot;</span><span class="nt">/&gt;</span> 
-        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/ad1.html&quot;</span><span class="nt">/&gt;</span> 
-    <span class="nt">&lt;/esi:attempt&gt;</span>
-    <span class="nt">&lt;esi:except&gt;</span> 
-        <span class="nt">&lt;esi:comment</span> <span class="na">text=</span><span class="s">&quot;Just write some HTML instead&quot;</span><span class="nt">/&gt;</span> 
-        <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">www.akamai.com</span><span class="nt">&gt;</span>www.example.com<span class="nt">&lt;/a&gt;</span>
-    <span class="nt">&lt;/esi:except&gt;</span> 
-<span class="nt">&lt;/esi:try&gt;</span>
-</code></pre></div>
-<h3 id="remove-">remove 标签</h3>
-<p>如果服务器可执行 ESI，就只执行 include；如果不可，只好识别标准的HTML</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/ad.html&quot;</span><span class="nt">/&gt;</span> 
-<span class="nt">&lt;esi:remove&gt;</span> 
-  <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://www.example.com&quot;</span><span class="nt">&gt;</span>www.example.com<span class="nt">&lt;/a&gt;</span>
-<span class="nt">&lt;/esi:remove&gt;</span>
-</code></pre></div>
-<h3 id="esi-1">esi变量</h3>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;esi:vars&gt;</span>
-  <span class="nt">&lt;img</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/$(HTTP_COOKIE{type})/hello.gif&quot;</span> <span class="nt">/&gt;</span>
-<span class="nt">&lt;/esi:vars&gt;</span>
-</code></pre></div>
-<p>变量都是从request-header中获得的，squid只支持标准的esi协议，即只识别下列header。</p>
-<div class="highlight"><pre><code class="c"><span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_ACCEPT_LANGUAGE&quot;</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableLanguage</span><span class="p">);</span> 
-<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_COOKIE&quot;</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableCookie</span><span class="p">);</span> 
-<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_HOST&quot;</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableHost</span><span class="p">);</span> 
-<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_REFERER&quot;</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableReferer</span><span class="p">);</span> 
-<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_USER_AGENT&quot;</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableUserAgent</span><span class="p">(</span><span class="o">*</span><span class="n">this</span><span class="p">));</span> 
-<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;QUERY_STRING&quot;</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableQuery</span><span class="p">(</span><span class="n">uri</span><span class="p">));</span> 
-</code></pre></div>
-<h3 id="section">逻辑表达式</h3>
-<p><code>==</code>,<code>!=</code>,<code>&lt;</code>,<code>&gt;</code>,<code>&lt;=</code>,<code>&gt;=</code>,<code>!</code>,<code>&amp;</code>,<code>|</code>都只能用于表达式之间的关系，本身不具有真义，所以类似shell的(1 &amp; 2)是不成立的。</p>
-<p>ESI必须由web端在response-header中声明Surrogate-Control: content=&rdquo;ESI/1.0&rdquo;。启用ESI后，Set-Cookie、Cache-Control、Last-Modified无效。</p>
-      <a href="/2010/02/22/esi-cache" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
