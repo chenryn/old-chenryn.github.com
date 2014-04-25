@@ -63,12 +63,14 @@
 <span class="k">use</span> <span class="n">DBIish</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">YAML</span><span class="p">;</span>
 <span class="k">my</span> <span class="nv">$base_dir</span> <span class="o">=</span> <span class="s">&quot;/etc/puppet/webui&quot;</span><span class="p">;</span>
+<span class="c1"># 函数在 Perl6 中依然使用 sub 关键字定义，不过有个超酷的特性是 multi sub</span>
+<span class="c1"># 脚本中没有用到，但是在 YAML::Dumper 中遍地都是，这里也提一句。</span>
 <span class="c1"># MAIN 函数在 Perl6 里可以直接用 :$opt 命令参数起 getopt 的作用</span>
 <span class="c1"># 不过 ENC 脚本就是直接传一个主机名，用不上这个超酷的特性</span>
 <span class="k">sub </span><span class="nf">MAIN</span><span class="p">($node) {</span>
 <span class="c1"># connect 方法接收参数选项是 |%opts，所以可以把哈希直接平铺写</span>
 <span class="c1"># 这个 | 的用法一个月前在《Using Perl6》里看到过</span>
-    <span class="k">my</span> <span class="nv">$dbh</span> <span class="o">=</span> <span class="n">DBIish</span><span class="o">.</span><span class="nb">connect</span><span class="p">(</span> <span class="s">&#39;SQLite&#39;</span><span class="p">,</span> <span class="n">database</span> <span class="o">=&gt;</span> <span class="s">&quot;{$base_dir}/node_info_backup.db&quot;</span> <span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$dbh</span> <span class="o">=</span> <span class="n">DBIish</span><span class="o">.</span><span class="nb">connect</span><span class="p">(</span> <span class="s">&#39;SQLite&#39;</span><span class="p">,</span> <span class="n">database</span> <span class="o">=&gt;</span> <span class="s">&quot;{$base_dir}/node_info.db&quot;</span> <span class="p">);</span>
     <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="nv">$dbh</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="s">&quot;select * from node_info where node_fqdn = ?&quot;</span><span class="p">);</span>
     <span class="nv">$sth</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&quot;$node&quot;</span><span class="p">);</span>
     <span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">.</span><span class="n">fetchrow_hashref</span><span class="p">;</span>
@@ -105,6 +107,7 @@
                 <span class="nv">$res</span><span class="p">{</span><span class="s">&#39;classes&#39;</span><span class="p">}{</span><span class="s">&#39;nginx&#39;</span><span class="p">}{</span><span class="s">&#39;iplist&#39;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">@needs</span><span class="p">;</span>
             <span class="p">}</span>
             <span class="k">else</span> <span class="p">{</span>
+<span class="c1"># Perl5 的 undef 不再使用，可以使用 Nil 或者 Any 对象</span>
                 <span class="nv">$res</span><span class="p">{</span><span class="s">&#39;classes&#39;</span><span class="p">}{</span><span class="nv">$class</span><span class="p">}</span> <span class="o">=</span> <span class="n">Nil</span><span class="p">;</span>
             <span class="p">}</span>
         <span class="p">}</span>
@@ -181,6 +184,7 @@ index d7a7981..ec47341 100644
 <hr />
 <p>最后提一句，目前 ENC 脚本在 perl5、perl6-m、perl6-p、perl6-j 上的运行时间大概分别是 0.13、1.5、2.8、12s。MoarVM 还差 Perl5 十倍，领先 parrot 一倍。不过 JVM 本身启动时间很长，这里不好因为一个短时间脚本说它太慢。</p>
 <p>另外还试了一下如果把我修改过的 YAML::Dumper 类直接写在脚本里运行，也就是不编译成 moarvm 模块，时间大概是 2.5s，比 parrot 模块还快点点。</p>
+<p>不过如何把 perl6 脚本本身编译成 moarvm 的 bytecode 格式运行还没有研究出来，直接 <code>perl6-m --target=mbc --output=name.moarvm name.pl6</code> 得到的文件运行 <code>moar name.moarvm</code> 的结果运行会内存报错。</p>
     <hr>
     <div class="pagination">
       <ul>
