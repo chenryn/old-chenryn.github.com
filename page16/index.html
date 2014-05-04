@@ -44,6 +44,45 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2009/11/18/intro-refresh_pattern" title="cache驻留时间（一、refresh_pattern）" rel="bookmark">cache驻留时间（一、refresh_pattern）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-11-18 00:00:00 +0800">18 Nov 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>上一篇举了个缓存时间的事故，现在说说普通情况下影响这个的配置：</p>
+<p>首先，refresh_pattern规则仅仅应用到没有明确过时期限的响应。原始服务器能使用Expires头部，或者Cache-Control:max-age指令来指定过时期限。</p>
+<p>然后，介绍一下LM-factor算法：</p>
+<p>LM-factor=(response age)/(resource age)</p>
+<pre><code>响应年龄（即response age）=当前时间-对象进入cache的时间
+源年龄（即resource age）=对象进入cache的时间-对象的last_modified
+</code></pre>
+<p>就好比上篇，因为Last-Modified错误，源年龄变成了三年，而响应年龄相对三年来说太短了，所以LM-factor也就很小很小，永远达不到警戒线……</p>
+<p>最后常用刷新选项：</p>
+<p>** ignore-reload
+该选项导致squid忽略请求里的任何no-cache指令。如果希望内容一进入cache就不删除，直到被主动purge掉为止，可以加上ignore-reload选项,这个我们常用在mp3,wma,wmv,gif之类。</p>
+<p>** override-expire
+该选项导致squid在检查Expires头部之前，先检查min值。这样，一个非零的min时间让squid返回一个未确认的cache命中，即使该响应准备过期。</p>
+<p>** override-lastmod
+该选项导致squid在检查LM-factor百分比之前先检查min值。</p>
+<p>** reload-into-ims
+该选项导致squid以no-cache指令传送确认请求。换句话说，squid在转发请求之前，对该请求增加一个If-Modified-Since头部。注意这点仅仅在目标有Last-Modified时间戳时才能工作。外面进来的请求保留no-cache指令，以便它到达原始服务器。
+一般情况可以使用reload-into-ims。它其实是强行控制对象的超时时间，这违反了http协议的精神，但是在带宽较窄的场合，可以提高明显系统相应时间。
+以上这段是网上百度的，其实最后一段是废话，squid缓存选项，各个都是有违http协议精神的……</p>
+      <a href="/2009/11/18/intro-refresh_pattern" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2009/11/18/guess-the-cdn-accel-for-games" title="游戏CDN加速猜想" rel="bookmark">游戏CDN加速猜想</a>
     </h1>
     <p class="alt-font tight">
@@ -1960,62 +1999,6 @@ grep &ldquo;abc&rdquo; * -R | awk -F: &lsquo;{print $1}&rsquo; | sort | uniq | x
   </tbody>
 </table>
       <a href="/2009/11/03/learning-sed" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/03/expect-script-to-modify-ssh-configurations-of-cluster" title="expect脚本——批量修改ssh配置" rel="bookmark">expect脚本——批量修改ssh配置</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>公司服务器一般通过ssh进行远程管理。以前大家登录的时候，都是随意选内外网IP进入。王总接手后，说这事隐患太大了，必须禁了外网ssh。第一思路，用iptables把外网ssh的包DROP掉；第二思路，用tcpwrapper把sshd的allow写死；第三思路，修改sshd_config，只监听内网请求。</p>
-<p>由于一些说不清楚的原因，iptables的办法没法用；而tcpwrapper占用CPU资源较多；所以最后决定用第三种办法。</p>
-<p>公司服务器比较多，而且根据随机登录查看的结果，sshd_config内容居然还太不一样～～手工干了一天，改了两组服务器后，终于下定决心要整个全自动脚本出来干活……
-目前的办法是这样的：</p>
-<p>cat ssh.exp</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/usr/bin/expect -f</span>
-log_file exp.log
-<span class="nb">set </span>timeout -1
-<span class="nb">set </span>ipaddr <span class="o">[</span>lrange <span class="nv">$argv</span> 0 0<span class="o">]</span>
-<span class="k">for</span> <span class="o">{</span><span class="nb">set </span>i 1<span class="o">}</span> <span class="o">{</span><span class="nv">$i</span>&lt;4<span class="o">}</span> <span class="o">{</span>incr i<span class="o">}</span> <span class="o">{</span>
-    spawn ssh <span class="nv">$ipaddr</span>
-    expect <span class="o">{</span>
-        <span class="s2">&quot;*password:&quot;</span> <span class="nb">break</span>
-        <span class="s2">&quot;to host&quot;</span> <span class="o">{</span>sleep 2<span class="o">}</span>;
-        sleep 3
-    <span class="o">}</span>
-<span class="o">}</span>
-send <span class="s2">&quot;123456r&quot;</span>
-expect <span class="s2">&quot;]#&quot;</span>
-send <span class="s2">&quot;cd /etc/sshr&quot;</span>
-send <span class="s2">&quot;cp sshd_config sshd_config.`date +%F-%T`.bakr&quot;</span>
-send <span class="s2">&quot;sed -i /^ListenAddress.*$/d sshd_configr&quot;</span>
-send <span class="s2">&quot;echo ListenAddress `/sbin/ifconfig eth0|awk &#39;/inet /{print $2}&#39;|awk -F: &#39;{print $2}&#39;` &gt;&gt; sshd_configr&quot;</span>
-send <span class="s2">&quot;service sshd restartr&quot;</span>
-send <span class="s2">&quot;exitr&quot;</span>
-interact
-</code></pre></div>
-<p>cat do.sh</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/sh</span>
-<span class="k">for </span>ip in <span class="sb">`</span>cat ip.lst<span class="sb">`</span>
-<span class="k">do</span>
-    ./ssh.exp <span class="nv">$ip</span> &gt; /dev/null 2&gt;&amp;1
-<span class="k">done</span>
-cat exp.log | grep host | awk <span class="s1">&#39;{print $5}&#39;</span>|sort|uniq &gt;&gt; errorip
-<span class="nb">echo</span> <span class="s2">&quot;以下IP无法修改&quot;</span>;cat errorip
-</code></pre></div>
-      <a href="/2009/11/03/expect-script-to-modify-ssh-configurations-of-cluster" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
