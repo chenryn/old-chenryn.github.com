@@ -108,8 +108,29 @@ output {
 </ol>
 <p>页面右上角选择 <code>Save</code> 小图标保存即可。之后再上界面后，就可以点击右上角的 <code>Load</code> 小图标自动加载。</p>
 <p><img src="/images/uploads/logstash-ngx-accounting.png" alt="" /></p>
-<p>==================================</p>
 <p>上面这个 grok 写的很难看，不过似乎也没有更好的办法～下一步会研究在这个基础上合并 skyline 预警。</p>
+<hr />
+<p>2014 年 5 月 10 日更新：</p>
+<p>在 <a href="http://logstash.net/docs/1.4.1/">logstash/docs</a> 上发现一个 filter 叫 kv，很适合这个场景，可以大大简化 grok 工作，新的 filter 配置如下：</p>
+<pre><code>filter {
+    grok {
+        match =&gt; [ "message", "^%{SYSLOGTIMESTAMP:timestamp}\|\| pid:\d+\|from:\d{10}\|to:\d{10}\|accounting_id:%{WORD:accounting}\|requests:%{NUMBER:req:int}\|bytes_out:%{NUMBER:size:int}\|%{DATA:status}"
+    }
+    kv {
+        target =&gt; "code"
+        source =&gt; "status"
+        field_split =&gt; "|"
+        value_split =&gt; ":"
+    }
+    ruby {
+        code =&gt; "n={};event['code'].each_pair{|x,y|n[x]=y.to_i};event['code']=n"
+    }
+    date {
+        match =&gt; [ "timestamp", "MMM dd YYY HH:mm:ss", "MMM  d YYY HH:mm:ss", "ISO8601" ]
+    }
+}
+</code></pre>
+<p>不晓得为什么 filter/mutate 不提供转换 Hash 的功能，所以只能把这行写在 filter/ruby 里面。kv 截出来的 value 默认都是字符串类型。</p>
     <hr>
     <div class="pagination">
       <ul>
