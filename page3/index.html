@@ -44,6 +44,44 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/05/14/mojo-and-gocr-for-buildhr-telephone" title="用mojo抓取数据并gocr替换图片内容" rel="bookmark">用mojo抓取数据并gocr替换图片内容</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-05-14 00:00:00 +0800">14 May 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>现在的网站越来越狡猾，连招聘网站的信息都懂的把公司的联系方式动态图片化了。还好为了观看方便，没加什么干扰。所以写个脚本来识别还是可以的。虽然到目前为止没发现比较好的 OCR 工具——我指的是可以直接apt-get安装的，有朋友知道哪个比较好的话，欢迎告诉我~</p>
+<p>尝试了一下 tesseract-ocr 和 gocr ，还是 gocr 靠谱一点点。所以 <code>apt-get install gocr</code> 安装然后运行下面这个 Perl 脚本：</p>
+<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="n">ojo</span><span class="p">;</span>
+<span class="k">use</span> <span class="mf">5.010</span><span class="p">;</span>
+<span class="n">g</span><span class="p">(</span><span class="s">&quot;http://search.buildhr.com/job/581968.html&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">dom</span><span class="o">-&gt;</span><span class="n">charset</span><span class="p">(</span><span class="s">&quot;UTF-8&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">find</span><span class="p">(</span><span class="s">&quot;div .postjob .padding&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">find</span><span class="p">(</span><span class="s">&quot;p&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="nb">each</span><span class="p">(</span><span class="n">sub</span><span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$line</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$img_element</span> <span class="o">=</span> <span class="nv">$line</span><span class="o">-&gt;</span><span class="n">at</span><span class="p">(</span><span class="s">&#39;img&#39;</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">defined</span> <span class="nv">$img_element</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">my</span> <span class="nv">$img_url</span> <span class="o">=</span> <span class="nv">$img_element</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">src</span><span class="p">};</span>
+        <span class="n">g</span><span class="p">(</span><span class="nv">$img_url</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">content</span><span class="o">-&gt;</span><span class="n">asset</span><span class="o">-&gt;</span><span class="n">move_to</span><span class="p">(</span><span class="s">&quot;test.jpg&quot;</span><span class="p">);</span>
+        <span class="k">my</span> <span class="nv">$seem_str</span> <span class="o">=</span> <span class="sb">`gocr test.jpg`</span><span class="p">;</span>
+        <span class="nb">chomp</span><span class="p">(</span><span class="nv">$seem_str</span><span class="p">);</span>
+        <span class="n">say</span> <span class="nb">join</span><span class="p">(</span><span class="nv">$seem_str</span><span class="p">,</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/ /</span><span class="p">,</span> <span class="nv">$line</span><span class="o">-&gt;</span><span class="n">text</span><span class="p">));</span>
+    <span class="p">}</span>
+<span class="p">});</span>
+</code></pre></div>
+<p>不过老是把 <code>7</code> 识别成 <code>_</code>。</p>
+<p>真是越来越觉得 ojo 好用啊~</p>
+      <a href="/2013/05/14/mojo-and-gocr-for-buildhr-telephone" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/04/19/something-dive-to-perl" title="Newbie::Gift 所用知识总结" rel="bookmark">Newbie::Gift 所用知识总结</a>
     </h1>
     <p class="alt-font tight">
@@ -3181,62 +3219,6 @@ idle都在85%以上。平均响应时间长达40ms。限于环境，压力测试
 <p><strong>20 日增</strong></p>
 <p>最后最后的最后，在 github 上搜到两个用 dancer 和 xslate 写的 repo。他们都采用了在应用 app 里自定义 <code>hook before_template</code> ，把 <code>session('username')</code> 和 <code>flash('message')</code> 两个变量传递给 <code>$token</code> 哈希的办法。</p>
       <a href="/2012/12/19/dancer-and-text-xslate" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2012/12/16/how-to-set-host-header-in-perl" title="perl发起HTTP请求时如何设置Host头" rel="bookmark">perl发起HTTP请求时如何设置Host头</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-12-16 00:00:00 +0800">16 Dec 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>之所以写这么个内容，是今天突然发现之前有个脚本的效果完全不对。这个脚本是用 Furl 模块发 HTTP 请求。看 POD 的说明，以为这样写是生效的：</p>
-<div class="highlight"><pre><code class="perl">    <span class="k">use</span> <span class="nn">HTTP::</span><span class="n">Request</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">Furl</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nn">HTTP::</span><span class="n">Request</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">GET</span> <span class="o">=&gt;</span> <span class="s">&quot;http://192.168.0.2/path/to/file&quot;</span> <span class="p">);</span>
-    <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">header</span><span class="p">(</span> <span class="n">Host</span> <span class="o">=&gt;</span> <span class="s">&quot;www.example.com&quot;</span> <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$furl</span> <span class="o">=</span> <span class="n">Furl</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">();</span>
-    <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="nv">$furl</span><span class="o">-&gt;</span><span class="n">request</span><span class="p">(</span><span class="nv">$r</span><span class="p">);</span>
-    <span class="n">say</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="n">code</span><span class="p">();</span>
-</code></pre></div>
-<p>但是随后在 192.168.0.2 上发现日志记录中，Host 并没有修改成 www.example.com 。</p>
-<p>然后尝试了各种 POD 上介绍的 header 写法，包括在 new HTTP::Request 的时候使用 <code>[Host =&gt; "www.example.com"]</code> 参数，在 <code>$furl-&gt;request</code> 的时候使用 <code>headers =&gt; [Host =&gt; "www.example.com"]</code> 参数。结果都一样。</p>
-<p>然后只能改思路，用设置 proxy 的办法。结果发现 Furl 模块的 proxy 不可用……</p>
-<p>POD 上是说直接在 new 的时候传递 %args 或者 \%args 就行。但是我使用的时候发现直接会报错：</p>
-<pre><code>Passed malformed URL: 192.168.0.2
-</code></pre>
-<p>最后只能放弃使用 Furl 模块，改回古老的 LWP 模块。LWP 与 Coro 配合如下：</p>
-<div class="highlight"><pre><code class="perl">    <span class="k">use</span> <span class="n">Coro</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">LWP::Protocol::Coro::</span><span class="n">http</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">LWP::</span><span class="n">UserAgent</span><span class="p">;</span>
-    <span class="k">sub </span><span class="nf">co_http_get</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="p">(</span> <span class="nv">$domain</span><span class="p">,</span> <span class="nv">$urlpath</span><span class="p">,</span> <span class="nv">$iplist</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">@coros</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$msg</span> <span class="o">=</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$ua</span> <span class="o">=</span> <span class="nn">LWP::</span><span class="n">UserAgent</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">();</span>
-        <span class="k">foreach</span> <span class="k">my</span> <span class="nv">$ip</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$iplist</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nb">push</span> <span class="nv">@coros</span><span class="p">,</span> <span class="n">async</span> <span class="p">{</span>
-                <span class="nv">$ua</span><span class="o">-&gt;</span><span class="n">proxy</span><span class="p">(</span><span class="s">&#39;http&#39;</span><span class="p">,</span> <span class="s">&quot;http://$ip:3128/&quot;</span><span class="p">);</span>
-                <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="nv">$ua</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;http://$domain$urlpath&quot;</span><span class="p">);</span>
-                <span class="nv">$msg</span> <span class="o">.=</span> <span class="s">&quot;$ip: &quot;</span> <span class="o">.</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="n">code</span><span class="p">()</span> <span class="o">.</span> <span class="s">&quot;\n&quot;</span><span class="p">;</span>
-            <span class="p">}</span>
-        <span class="p">}</span>
-        <span class="nv">$_</span><span class="o">-&gt;</span><span class="nb">join</span> <span class="k">for</span> <span class="nv">@coros</span><span class="p">;</span>
-        <span class="k">return</span> <span class="nv">$msg</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="k">print</span> <span class="n">co_http_get</span><span class="p">(</span><span class="s">&quot;www.example.com&quot;</span><span class="p">,</span> <span class="s">&quot;/path/to/file&quot;</span><span class="p">,</span> <span class="p">[</span><span class="sx">qw(192.168.0.1 192.168.0.2)</span><span class="p">]);</span>
-</code></pre></div>
-      <a href="/2012/12/16/how-to-set-host-header-in-perl" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

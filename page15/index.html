@@ -44,6 +44,61 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/01/09/keep-sessions-between-client-cache-origin" title="client-cache-origin之间的session问题" rel="bookmark">client-cache-origin之间的session问题</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-01-09 00:00:00 +0800">09 Jan 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>昨天，突然接到某客户的邮件，表示他们质疑我们cache对其多originserver的轮询不均等，以至于影响到网站的访问。
+听起来不是什么难题，把服务器上的DNSCache进程中止掉，不就能平均轮询了么？可是操作完成后，客户依然不认可……于是开始细细探讨具体的错误问题所在。
+原来实际情况是这样：点击其网站的回复、收藏等动态页面时，时常会弹出错误页面。对这个错误页面，客户的解释是“session状态CDN加速未保留”。
+由此解释，我觉得cache上的问题恰恰相反，正是因为均等轮询了导致的。而客户其他一些单源的域名服务正常，也证明了这点。
+上cache服务器查看配置，使用的默认keep-alive设置，也就是对client和origin都开启了keep-alive，默认时间为2min。但实际上并没有起作用。在测试中，可以看到这样的日志：</p>
+<pre><code>[rao@localhost ~]$ tail access.log|awk '{print $4,$6,$7,$9,$10}'
+TCP_IMS_HIT/304 GET http://a.b.com/wentiyongpin/11106917.html NONE/- "http://a.b.com/wentiyongpin/"
+TCP_MISS/200 GET http://a.b.com/RelatedUserInfo.aspx?nickname=shunfataiqiu DIRECT/1.2.3.4 "http://a.b.com/wentiyongpin/11106917.html"
+TCP_MISS/200 GET http://a.b.com/postcomment/Reply.aspx?info_id=11106917 DIRECT/1.2.3.5 "http://a.b.com/wentiyongpin/11106917.html"
+TCP_MISS/302 POST http://a.b.com/postcomment/Reply.aspx?info_id=11106917 DIRECT/1.2.3.4 "http://a.b.com/postcomment/Reply.aspx?info_id=11106917"
+TCP_MISS/404 GET http://a.b.com/nf3.aspx?aspxerrorpath=/postcomment/Reply.aspx DIRECT/1.2.3.4 "http://a.b.com/postcomment/Reply.aspx?info_id=11106917"
+</code></pre>
+<p>由日志可见，在进入post页面（此时方式还是GET）时，session的origin从1.2.3.4轮询到了1.2.3.5，而填完了回复内容，点击提交（此时方式改成POST）时，origin又轮询回了1.2.3.4——而此时1.2.3.4上并没有相应ID的session存在——于是页面被302重定向去了错误提示页面，也就是下面的404。</p>
+<p>这种情况，主要来说，还是客户网站本身的架构问题。简单点，只用一个origin；复杂点，在多台webserver与后台数据库之间建共享连接池。保证session调用正常。</p>
+<p>但在客户修改origin之前，cache本身能不能作出一定的改变呢？能。放弃使用dns查询，而采用squid本身的peer功能，就能搞定它，配置如下：</p>
+<div class="highlight"><pre><code class="squid"><span class="c">#Parent</span><span class="w"></span>
+<span class="k">acl</span><span class="w"> </span>ParentDomain<span class="w"> </span><span class="k">dstdomain</span><span class="w"> </span>a.b.com<span class="w"></span>
+<span class="k">cache_peer</span><span class="w"> </span><span class="mf">1.2.3.4</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="no">no-query</span><span class="w"> </span>no-netdb-exchange<span class="w"> </span>originserver<span class="w"> </span>sourcehash<span class="w"></span>
+<span class="k">cache_peer</span><span class="w"> </span><span class="mf">1.2.3.5</span><span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="no">no-query</span><span class="w"> </span>no-netdb-exchange<span class="w"> </span>originserver<span class="w"> </span>sourcehash<span class="w"></span>
+<span class="k">cache_peer_access</span><span class="w"> </span><span class="mf">1.2.3.4</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>ParentDomain<span class="w"></span>
+<span class="k">cache_peer_access</span><span class="w"> </span><span class="mf">1.2.3.5</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>ParentDomain<span class="w"></span>
+<span class="k">always_direct</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>!ParentDomain<span class="w"></span>
+<span class="c">#Parent end</span><span class="w"></span>
+</code></pre></div>
+<p>用的sourcehash参数，相同的clientIP，使用相同的originIP，多好的loadbalance呀，更巧的是这个option，正好是squid2.6.STABLE21能用的，连2.7都没有，哈哈~~reconfigure后的正常日志如下：</p>
+<pre><code>[rao@localhost ~]$ tail access.log|awk '{print $4,$6,$7,$9,$10}'
+TCP_IMS_HIT/304 GET http://a.b.com/wentiyongpin/11106917.html NONE/- "http://a.b.com/wentiyongpin/"
+TCP_MISS/200 GET http://a.b.com/postcomment/Reply.aspx?info_id=11106917 SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/wentiyongpin/11106917.html"
+TCP_MISS/200 GET http://a.b.com/RelatedUserInfo.aspx?nickname=shunfataiqiu SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/wentiyongpin/11106917.html"
+TCP_MISS/200 POST http://a.b.com/postcomment/Reply.aspx?info_id=11106917 SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/postcomment/Reply.aspx?info_id=11106917"
+TCP_MISS/200 GET http://a.b.com/ SOURCEHASH_PARENT/1.2.3.4 "-"
+TCP_MISS/200 GET http://a.b.com/zufang/ SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/"
+TCP_MISS/200 GET http://a.b.com/ad.ashx?ad=ad&amp;url=http://a.b.com/zufang/&amp;alias=zufang&amp;childalias=zufang SOURCEHASH_PARENT/1.2.3.4 "http://a.b.com/zufang/"
+</code></pre>
+<p>整个访问中，回源IP一直都是1.2.3.4，而且POST不再是302转404，而是200了~~</p>
+      <a href="/2010/01/09/keep-sessions-between-client-cache-origin" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/01/09/intro-http_status" title="squid3新acl类型http_status试用（源站故障转向研究）" rel="bookmark">squid3新acl类型http_status试用（源站故障转向研究）</a>
     </h1>
     <p class="alt-font tight">
@@ -1873,48 +1928,6 @@ $0。随后发现这个想法问题多多——最主要的一点是：直接pri
     “+”匹配前一字符非0次；【可能要用转义一下】
     “{ }”匹配次数；</p>
       <a href="/2009/11/19/regular-expression" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/19/intro-lm-factor-algorithm" title="cache驻留时间（二、LM-factor算法）" rel="bookmark">cache驻留时间（二、LM-factor算法）</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-19 00:00:00 +0800">19 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>好吧，满足某人的好奇，花开两朵，各表一枝了。
-今天又看到关于LM-factor的另一种说法，特摘录如下：
-<img src="/images/uploads/lm-factor.gif" alt="" />
-上面这张图来自于《Squid.Definitive.Guide》第七章，对squid的LM-factor算法作出了一个很直观的描述。
-请注意这张图的起始时间坐标：Last-Modified，这个是由squid读取的原始web数据所规定的。
-然后就是Date，这个是原始数据进入squid的缓冲的时间。
-最后就是Expires，这个就是原始数据在squid中的缓冲过期时间。
-可以很容易的得出结论，对于LM-factor算法来说，原始数据在squid中的缓冲时间为
-(原始数据进入squid的缓冲的时间-原始web数据所规定的Last-Modified时间)<em>percent
-所以，我们可以郑重得出结论，在squid的refresh_pattern设置中，percent与Min、Max两个值是完全没有关系！
-最后总结一下，对于squid来说，缓冲的数据在cache中的存活时间是这样决定的：
-如果有定义refresh_pattern：只要满足以下两个条件之一，缓冲对象过期
-缓冲对象在squid的cache缓冲的时间大于refresh_pattern定义的max
-缓冲对象在squid的cache缓冲的时间大于(原始数据进入squid的缓冲的时间-原始web数据所规定的Last-Modified时间)</em>percent
-用编程语言来描述，就是
-if
-((CURRENT_DATE-DATE)
-elif
-((CURRENT_DATE-DATE)/(DATE-LM_DATE)
-elif
-((CURRENT_DATE-DATE)&gt;max){STABLE}
-else{STABLE}</p>
-      <a href="/2009/11/19/intro-lm-factor-algorithm" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

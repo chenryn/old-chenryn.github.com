@@ -44,6 +44,57 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/03/28/modify-error_page-src-for-location" title="squid源站故障转向（终结篇）" rel="bookmark">squid源站故障转向（终结篇）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-03-28 00:00:00 +0800">28 Mar 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>因为这么一个想法，我陆陆续续的把squid很多功能都理了一遍，今天终于打算写个不完美的终结篇。而就在写这个终结篇的同时，公司里也已经开始把这批别扭的客户改往nginx平台加速了。</p>
+<p>总结这批客户的跳转要求，其实格式都比较统一，大抵就是*.abc.com(.cn)坏了就转到abc.cdn.21vokglb.cn。在3月24日的博文最后，已经有了一个思路——既然无法执行php的header(Location)和strstr(%U)，那么就干脆在squid的src里对%U进行操作好了。</p>
+<p>squid-src/errorpage.c中关于%U的注释是：</p>
+<pre><code>U - URL without password
+</code></pre>
+<p>相关语句是：</p>
+<div class="highlight"><pre><code class="c"><span class="n">p</span> <span class="o">=</span> <span class="n">r</span> <span class="o">?</span> <span class="n">urlCanonicalClean</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">:</span> <span class="n">err</span><span class="o">-&gt;</span><span class="n">url</span> <span class="o">?</span> <span class="n">err</span><span class="o">-&gt;</span><span class="n">url</span> <span class="o">:</span> <span class="s">&quot;[no URL]&quot;</span><span class="p">;</span>
+</code></pre></div>
+<p>只要把url按&rdquo;.&rdquo;分割，然后取出第二个域abc，就可以在html代码中给它加上跳转后的url了——这一步也能在src里完成，不过以后不好修改了，虽然现在这样子的定制性也强不到哪去~
+从大二到现在无数年了，c已经属于忘到冥王星外的东东，于是一个一个的翻c的字符串函数，从strstr、strchr、strcat、strtok、strsep到最后终于发现sscanf。只要在src/errorpage.c的588行下加这么一句话就可以了：</p>
+<div class="highlight"><pre><code class="c"><span class="mi">587</span><span class="err">    </span> <span class="k">case</span> <span class="sc">&#39;U&#39;</span>:
+<span class="mi">588</span><span class="err">        </span> <span class="n">p</span> <span class="o">=</span> <span class="n">r</span> <span class="o">?</span> <span class="n">urlCanonicalClean</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">:</span> <span class="n">err</span><span class="o">-&gt;</span><span class="n">url</span> <span class="o">?</span> <span class="n">err</span><span class="o">-&gt;</span><span class="n">url</span> <span class="o">:</span> <span class="s">&quot;[no URL]&quot;</span><span class="p">;</span>
+<span class="mi">589</span><span class="o">+</span><span class="err">     </span> <span class="n">sscanf</span><span class="p">(</span><span class="n">p</span><span class="p">,</span><span class="s">&quot;%*[^.].%[^.]&quot;</span><span class="p">,</span><span class="n">p</span><span class="p">);</span>
+<span class="mi">590</span><span class="err">        </span> <span class="k">break</span><span class="p">;</span>
+</code></pre></div>
+<p>然后编译安装，一路通过没有问题~~启动squid服务，测试一下%U吧~
+先把ERR_ACCESS_DENIED内容修改如下：</p>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;HTML&gt;</span>
+<span class="nt">&lt;BODY&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+<span class="nt">&lt;META</span> <span class="na">HTTP-EQUIV=</span><span class="s">&quot;refresh&quot;</span><span class="err">  </span> <span class="na">Content=</span><span class="s">&quot;0;URL=http://%U.cdn.21vokglb.cn/index.htm&quot;</span><span class="nt">&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;/HTML&gt;</span>
+</code></pre></div>
+<p>然后在squid.conf中增加对自己本机的访问控制如下：</p>
+<div class="highlight"><pre><code class="squid"><span class="k">acl</span><span class="w"> </span>test<span class="w"> </span><span class="k">src</span><span class="w"> </span><span class="mf">222.62.104.189/255.255.255.255</span><span class="w"></span>
+<span class="k">http_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span>rao<span class="w"></span>
+</code></pre></div>
+<p>squid -k reconfigure生效，访问一下www.xyfunds.com.cn，果然跳转到xyfunds.cdn.21vokglb.cn/index.htm啦~~
+完毕。
+虽然最终还是没能达到任意定义跳转url的目标，不过就本身的出发点来说，还是完成了需求。这也是我N年来第一次重新看C，也是第一次修改squid代码，虽然只加了一句~~~不过意义还是有滴，晚上吃个鸡蛋自我犒劳一下咯。</p>
+      <a href="/2010/03/28/modify-error_page-src-for-location" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/03/25/zabbix_proxy-install" title="zabbix_proxy部署" rel="bookmark">zabbix_proxy部署</a>
     </h1>
     <p class="alt-font tight">
@@ -1779,154 +1830,6 @@ END
 </code></pre>
 <p>完成~~~以上仅为试验，如果只是一个小web单机环境的话，只需要php+eaccelerator（或者apc/xcache等）就足够了。用php+memcached+mysql-proxy+mysql是大型网站架构的事情~~</p>
       <a href="/2010/02/25/memcached-install" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/02/24/cacti-install" title="cacti安装记录" rel="bookmark">cacti安装记录</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-02-24 00:00:00 +0800">24 Feb 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>cacti运行在lamp环境下，采用net-snmp获得监控数据，由rrdtool绘图。所以cacti的安装，主要就是apache、mysql、php、rrdtool、net-snmp这几个的安装。其中apache2是我们服务器上早就有的，可以利用；而原有的php5因为不支持mysql，所以要重新编译。</p>
-<ol>
-  <li>mysql安装：</li>
-</ol>
-<div class="highlight"><pre><code class="bash">wget http://mysql.cs.pu.edu.tw/Downloads/MySQL-5.1/mysql-5.1.44.tar.gz
-tar zxvf mysql-5.1.44.tar.gz
-<span class="nb">cd </span>mysql-5.1.44
-groupadd mysql
-useradd mysql -g mysql
-./configure --prefix<span class="o">=</span>/home/mysql --with-unix-socket-path<span class="o">=</span>/tmp/mysql.sock --localstatedir<span class="o">=</span>/cache/mysql --enable-assembler --with-mysqld-ldflags<span class="o">=</span>-all-static --with-client-ldflags<span class="o">=</span>-all-static --with-extra-charsets<span class="o">=</span>gbk,gb2312,utf8 --enable-thread-safe-client --with-big-tables --enable-local-infile --with-ssl --with-mysqld-user<span class="o">=</span>mysql
-make
-make install
-<span class="nb">cd </span>support-files/
-cp my-medium.cnf /etc/my.cnf
-cp mysql.server /etc/rc.d/init.d/mysqld
-<span class="nb">cd</span> ../scripts/
-./mysql_install_db --user<span class="o">=</span>mysql
-mkdir –p /cache/mysql
-chown -R mysql.mysql /cache/mysql/
-chgrp -R mysql /home/mysql/
-chmod 700 /etc/rc.d/init.d/mysqld
-ln -s /etc/rc.d/init.d/mysqld /etc/rc.d/rc3.d/S97mysqld
-chmod 777 /tmp/
-/home/mysql/bin/mysqld_safe --user<span class="o">=</span>mysql &amp;amp;
-ln –s /home/mysql/bin/* /usr/bin/
-sed -i /^myisam/aset-variable<span class="o">=</span><span class="nv">wait_timeout</span><span class="o">=</span>200 /etc/my.cnf
-sed -i /^myisam/aset-variable<span class="o">=</span><span class="nv">max_user_connections</span><span class="o">=</span>500 /etc/my.cnf
-sed -i /^myisam/aset-variable<span class="o">=</span><span class="nv">max_connections</span><span class="o">=</span>1000 /etc/my.cnf
-/etc/init.d/mysqld restart
-</code></pre></div>
-<ol>
-  <li>php安装</li>
-</ol>
-<div class="highlight"><pre><code class="bash">wget http://cn.php.net/distributions/php-5.2.12.tar.gz
-tar zxvf php-5.2.12.tar.gz
-<span class="nb">cd </span>php-5.2.12
-./configure --prefix<span class="o">=</span>/home/php --with-apxs2<span class="o">=</span>/home/apache2/bin/apxs --with-mysql<span class="o">=</span>/home/mysql --enable-sockets --with-zlib-dir<span class="o">=</span>/usr/include --with-gd --with-snmp --enable-ucd-snmp-hack --with-ttf --enable-mbstring --enable-xml --with-mysql-sock<span class="o">=</span>/tmp/mysql.sock
-<span class="c"># (注：apache版本不同，--with-apxs2可能要写成--with-apxs)</span>
-make
-make install
-cp php.ini-dist /home/php/lib/php.ini
-ln -s /home/php/bin/* /usr/local/bin/
-</code></pre></div>
-<p>3、apache检测</p>
-<div class="highlight"><pre><code class="bash"><span class="c"># grep php /home/apache2/conf/httpd.conf</span>
-DirectoryIndex index.php index.html index.htm
-AddType application/x-httpd-php .php
-LoadModule php5_module        modules/libphp5.so
-<span class="c"># /home/apache2/bin/apachectl configtest</span>
-Syntax OK
-<span class="c"># cat &gt;&gt; /cache/data/index.php &lt;&lt;EOF</span>
-&lt;?php
-phpinfo<span class="o">()</span>;
-?&gt;
-EOF
-<span class="c"># curl http://localhost | grep module_mysql</span>
-&lt;h2&gt;&lt;a <span class="nv">name</span><span class="o">=</span><span class="s2">&quot;module_mysql&quot;</span>&gt;mysql&lt;/a&gt;&lt;/h2&gt;
-</code></pre></div>
-<p>4、rrdtool安装
-麻烦东西来了，网上很多cacti部署教程，都在rrdtool上大费周章，因为这个东东依赖的库文件很多，而且自己本身的版本不同，库文件的种类和版本要求也不一样。首先，尽可能的把这些东西都安装吧：</p>
-<pre><code>rpm -qa|grep lm_sensors
-rpm -qa|grep beecrypt
-rpm -qa|grep libpng
-rpm -qa|grep elfutils
-rpm -qa|grep sensors
-rpm -qa|grep pixman
-rpm -qa|grep freetype
-rpm -qa|grep fontconfig
-rpm -qa|grep net-snmp
-rpm -qa|grep libart_lgpl
-rpm -qa|grep zlib
-rpm -qa|grep glib
-rpm -qa|grep libxml2
-rpm -qa|grep intltool
-rpm -qa|grep cairo
-rpm -qa|grep pango
-</code></pre>
-<h1 id="find--name-pangocairopccairopangocairopango">find / –name pangocairo.pc，如果没有，就要把cairo和pango重装了，务必先cairo后pango。</h1>
-<p>如果以上齐全，可以去http://oss.oetiker.ch/rrdtool/pub/libs下载rrdtool的源码编译，然后按照make的warning信息慢慢调整库文件的相应版本号去了……</p>
-<p>如果不要求自己成为编译达人，只求搞定的，那么按照如下办法，轻松搞定吧：</p>
-<div class="highlight"><pre><code class="bash"><span class="c"># cat &gt; /etc/yum.repos.d/ct5_64.repo &lt;&lt;EOF</span>
-<span class="o">[</span>base<span class="o">]</span>
-<span class="nv">name</span><span class="o">=</span>CentOS-5.4 - Base
-<span class="nv">baseurl</span><span class="o">=</span>http://mirrors.163.com/centos/5.4/os/x86_64/
-<span class="nv">gpgcheck</span><span class="o">=</span>1
-<span class="nv">gpgkey</span><span class="o">=</span>file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-5
-EOF
-<span class="c"># yum install ruby xorg-x11-fonts-Type1</span>
-<span class="c"># cat &gt; /etc/yum.repos.d/ct5_64.repo &lt;&lt;EOF</span>
-<span class="o">[</span>base<span class="o">]</span>
-<span class="nv">name</span><span class="o">=</span>CentOS-5.4 – Base
-<span class="nv">baseurl</span><span class="o">=</span>http://apt.sw.be/redhat/el<span class="nv">$releasever</span>/en/<span class="nv">$basearch</span>/dag
-<span class="nv">gpgcheck</span><span class="o">=</span>1
-<span class="nv">gpgkey</span><span class="o">=</span>http://dag.wieers.com/rpm/packages/RPM-GPG-KEY.dag.txt
-<span class="nv">enabled</span><span class="o">=</span>1
-EOF
-<span class="c"># rpm --import &lt;a href=&quot;http://dag.wieers.com/rpm/packages/RPM-GPG-KEY.dag.txt&quot;&gt;http://dag.wieers.com/rpm/packages/RPM-GPG-KEY.dag.txt&lt;/a&gt;</span>
-<span class="c"># yum install rrdtool</span>
-</code></pre></div>
-<p>（还嫌不够简单？那还有更简单的：
-wget http://dag.wieers.com/rpm/packages/rpmforge-release/rpmforge-release-0.3.6-1.el5.rf.x86<em>64.rpm;rpm -Uvh rpmforge-release-0.3.6-1.el5.rf.x86</em>64.rpm;yum install rrdtool rrdtool-php即可）</p>
-<p>5、cacti安装</p>
-<div class="highlight"><pre><code class="bash"><span class="c"># wget http://www.cacti.net/downloads/cacti-0.8.7e.tar.gz</span>
-<span class="c"># tar zxvf cacti-0.8.7e.tar.gz –C /cache/data/</span>
-<span class="c"># mv /cache/data/cacti-0.8.7e /cache/data/cacti</span>
-<span class="c"># cd /cache/data/cacti</span>
-<span class="c"># mysql -uroot –p</span>
-mysql&gt; create database cacti;
-mysql&gt; grant all privileges on cacti.* to &lt;a <span class="nv">href</span><span class="o">=</span><span class="s2">&quot;mailto:cacti@&amp;quot;localhost&quot;</span>&gt;cacti@<span class="s2">&quot;localhost&lt;/a&gt;&quot;</span> identified by <span class="s1">&#39;123456&#39;</span>;
-mysql&gt; flush privileges;
-<span class="c"># /home/mysql/bin/mysql -ucacti -p cacti &lt; cacti.sql</span>
-<span class="c"># useradd cacti -d /cache/data/cacti -s /bin/false</span>
-<span class="c"># chown -R cacti rra</span>
-<span class="c"># chown -R cacti log</span>
-<span class="c"># sed –i &#39;s/username = &quot;cactiuser/username = &quot;cacti/&#39; include/config.php</span>
-<span class="c"># sed –i &#39;s/password = &quot;cactiuser/password = &quot;123456/&#39; include/config.php</span>
-<span class="c"># echo &#39;*/5 * * * * /home/php/bin/php /cache/data/cacti/poller.php &amp;amp;&gt; /dev/null&#39; &gt;&gt;/var/spool/cron/root</span>
-</code></pre></div>
-<p>6、web页面发布
-在httpd.conf中发布</p>
-<div class="highlight"><pre><code class="apache"><span class="nt">&lt;Directory</span> <span class="s">/cache/data</span><span class="nt">&gt;</span>
-    <span class="nb">Options</span> Indexes FollowSymLinks
-    <span class="nb">AllowOverride</span> <span class="k">None</span>
-    <span class="nb">Order</span> Allow,Deny
-    <span class="nb">Allow</span> from <span class="k">all</span>
-<span class="nt">&lt;/Directory&gt;</span>
-</code></pre></div>
-<p>大功告成，接下来都是鼠标的事了，在browser中登陆http://yourdomian/cacti，按实际情况修改php/mysql/net-snmp的which和version信息，一路next即可，最后，cacti的初始用户名密码都是admin。</p>
-      <a href="/2010/02/24/cacti-install" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

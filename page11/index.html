@@ -44,6 +44,60 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2010/08/13/intro-gnuplot" title="gnuplot画图" rel="bookmark">gnuplot画图</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-08-13 00:00:00 +0800">13 Aug 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>之前提高日志流量统计的问题。并给出了分时流量的计算方法。当是想的是用perl调用rrd或者gd画图，甚至有把日志统计也写成perl的打算。
+不过今天发现了一个小工具gnuplot，画图功能相当强大（在找资料的时候看到台湾有人用这个画台湾的三维地形图！），上手相当简单，尤其适合日志统计分析，相比来说，rrd还是比较适合实时监控画图的情况。
+比如当初的脚本输出如下：
+[root@Zabbix cache]# tail test.log
+23:14 506.877
+23:19 501.068
+23:24 493.254
+23:29 469.184
+23:34 460.161
+23:39 426.065
+23:44 429.734
+23:49 409.255
+23:54 423.512
+23:59 390.676
+然后编写gnuplot的配置文件如下：</p>
+<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@Zabbix cache<span class="o">]</span><span class="c"># cat log.conf</span>
+<span class="nb">set </span>terminal png truecolor size 550,250    <span class="c">#指定输出成png图片，且图片大小为550×250，需要ligpng支持，采用默认颜色设定</span>
+<span class="nb">set </span>output <span class="s2">&quot;log.png&quot;</span>    <span class="c">#指定输出png图片的文件名</span>
+<span class="nb">set </span>autoscale    <span class="c">#轴向标记自动控制</span>
+<span class="nb">set </span>xdata <span class="nb">time</span>    <span class="c">#X轴数据格式为时间</span>
+<span class="nb">set </span>timefmt <span class="s2">&quot;%H:%M&quot;</span>    <span class="c">#时间输入格式为&quot;小时:分钟&quot;</span>
+<span class="nb">set </span>style data lines    <span class="c">#数据显示方式为连线</span>
+<span class="nb">set </span>xlabel <span class="s2">&quot;time per day&quot;</span>    <span class="c">#X轴标题</span>
+<span class="nb">set </span>ylabel <span class="s2">&quot;Mbps&quot;</span>    <span class="c">#Y轴标题</span>
+<span class="nb">set </span>title <span class="s2">&quot;image.tuku.china.com flow&quot;</span>    <span class="c">#图片标题</span>
+<span class="nb">set </span>grid    <span class="c">#显示网格</span>
+plot <span class="s2">&quot;test.log&quot;</span> using 1:2 title <span class="s2">&quot;access_flow&quot;</span>    <span class="c">#从test.log文件中读取第一列和第二列作为X轴和Y轴数据，示例名&quot;log_flow&quot;</span>
+</code></pre></div>
+<p>最后运行cat log.conf | gnuplot命令，就生成了log.png文件，如下：
+<img src="/images/uploads/gnuplot.png" alt="" />
+就是不知道X轴上这个01/01怎么消除掉……
+对比帝联提供的flash图片如下：
+<img src="/images/uploads/dilian.jpg" alt="" />
+可以看出基本是一致的。</p>
+      <a href="/2010/08/13/intro-gnuplot" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2010/08/13/intro-bc-command" title="bc命令及其他" rel="bookmark">bc命令及其他</a>
     </h1>
     <p class="alt-font tight">
@@ -1306,28 +1360,6 @@ select(18, [4 6], [6], NULL, NULL)      = 1 (out [6])  <br />
   </tbody>
 </table>
       <a href="/2010/05/21/intro-strace" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/05/20/little-diff-in-url_rewrite" title="url_rewrite配置的小区别" rel="bookmark">url_rewrite配置的小区别</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-05-20 00:00:00 +0800">20 May 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>一直以为squid的url_rewrite就是改写url后，传给squid分析是否缓存，然后返回缓存或者回源。在浏览器地址栏上的url是不变的。
-今天才知道在print $uri的时候，可以给他加上http_code。变成print 302:$uri的格式，然后就可以由浏览器发起302跳转到新页面了。</p>
-      <a href="/2010/05/20/little-diff-in-url_rewrite" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

@@ -44,6 +44,50 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2011/01/20/awk-efficiency" title="awk的效率" rel="bookmark">awk的效率</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-01-20 00:00:00 +0800">20 Jan 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>偶然和某人谈到日志处理。最简单常见的需求，日志中访问量最大的前十个IP及其访问次数。</p>
+<table>
+  <tbody>
+    <tr>
+      <td>最常见的shell命令：cat access.log</td>
+      <td> cut -d &lsquo; &lsquo; -f 4 </td>
+      <td>sort</td>
+      <td>uniq -c</td>
+      <td>sort -nr</td>
+      <td>head</td>
+    </tr>
+  </tbody>
+</table>
+<table>
+  <tbody>
+    <tr>
+      <td>我最常用的awk命令：awk &lsquo;{a[$4]++}END{for(i in a){print a[i],i}}&rsquo; access.log</td>
+      <td>sort -nr</td>
+      <td>head</td>
+    </tr>
+  </tbody>
+</table>
+<p>对方表示上一种速度最快，而我说是下一种。</p>
+<p>最后找到一个13G大小的access.log，用time命令分别检测命令用时。结果处理一个13GB的日志，shell花了13分钟，awk花了1分半钟……</p>
+      <a href="/2011/01/20/awk-efficiency" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2011/01/13/learning-accel-dynamic-data" title="读《基于动态内容的缓存加速技术》笔记" rel="bookmark">读《基于动态内容的缓存加速技术》笔记</a>
     </h1>
     <p class="alt-font tight">
@@ -1520,70 +1564,6 @@ USE_MIN_ON_CREATE = 0    #绘图数据最小值为0，用来排除某些错�
 <p><img src="/images/uploads/conn.jpg" alt="conn" /></p>
 <p><img src="/images/uploads/flow.jpg" alt="flow" /></p>
       <a href="/2010/11/18/template-problem-of-pnp4nagios-2" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2010/11/17/template-problem-of-pnp4nagios-1" title="pnp4nagios的模板问题(1)" rel="bookmark">pnp4nagios的模板问题(1)</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-11-17 00:00:00 +0800">17 Nov 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>实在是看不下去pnp4nagios的丑陋的rrd效果，想着自己修改一下模板。</p>
-<p>很容易找到了目前使用的模板：nagios/share/pnp/templates.dist/default.php，不过看到目录下已经有不少其他的模板文件，为啥一个都没用上呢？</p>
-<p>从nagios/share/pnp/include/function.inc.php里看到了doFindTemplate()，定义如下：</p>
-<div class="highlight"><pre><code class="php"><span class="x">if (is_readable($conf[&#39;template_dir&#39;].&#39;/templates/&#39; . $template . &#39;.php&#39;)) {</span>
-<span class="x">$template_file = $conf[&#39;template_dir&#39;].&#39;/templates/&#39; . $template . &#39;.php&#39;;</span>
-<span class="x">}elseif (is_readable($conf[&#39;template_dir&#39;].&#39;/templates.dist/&#39; . $template . &#39;.php&#39;)) {</span>
-<span class="x">$template_file = $conf[&#39;template_dir&#39;].&#39;/templates.dist/&#39; . $template . &#39;.php&#39;;</span>
-<span class="x">}elseif (is_readable($conf[&#39;template_dir&#39;].&#39;/templates/default.php&#39;)) {</span>
-<span class="x">$template_file = $conf[&#39;template_dir&#39;].&#39;/templates/default.php&#39;;</span>
-<span class="x">}else {</span>
-<span class="x">$template_file = $conf[&#39;template_dir&#39;].&#39;/templates.dist/default.php&#39;;</span>
-<span class="x">}</span>
-</code></pre></div>
-<p>也就是说其实pnp是找不到对应check_command的模板，才使用了最后的default.php！</p>
-<p>正巧，default.php里输出了check_command到rra上，可以看到，几乎所有的命令输出都是&rdquo;Check Command check_nrpe&rdquo;。</p>
-<p>也就是说，pnp设计者很贴心的设计了自动查找命令模板的功能，却没有考虑到nagios最广泛的应用插件nrpe……</p>
-<p>在pnp官网文档<a href="http://docs.pnp4nagios.org/pnp-0.4/tpl?s[]=template">http://docs.pnp4nagios.org/pnp-0.4/tpl?s[]=template</a>上指出，rrd使用模板是读取了perfdata中相应的xml文件，xml内容类似如下几行：</p>
-<div class="highlight"><pre><code class="xml"><span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; standalone=&quot;yes&quot;?&gt;</span>
-<span class="nt">&lt;NAGIOS&gt;</span>
-<span class="nt">&lt;DATASOURCE&gt;</span>
-<span class="nt">&lt;TEMPLATE&gt;</span>check_nrpe<span class="nt">&lt;/TEMPLATE&gt;</span>
-<span class="nt">&lt;IS_MULTI&gt;</span>0<span class="nt">&lt;/IS_MULTI&gt;</span>
-<span class="nt">&lt;DS&gt;</span>1<span class="nt">&lt;/DS&gt;</span>
-<span class="nt">&lt;NAME&gt;</span>eth0_in<span class="nt">&lt;/NAME&gt;</span>
-<span class="nt">&lt;UNIT&gt;</span>Mbps<span class="nt">&lt;/UNIT&gt;</span>
-<span class="nt">&lt;ACT&gt;</span>2.96<span class="nt">&lt;/ACT&gt;</span>
-<span class="nt">&lt;WARN&gt;</span>976.56<span class="nt">&lt;/WARN&gt;</span>
-<span class="nt">&lt;WARN_MIN&gt;&lt;/WARN_MIN&gt;</span>
-<span class="nt">&lt;WARN_MAX&gt;&lt;/WARN_MAX&gt;</span>
-<span class="nt">&lt;WARN_RANGE_TYPE&gt;&lt;/WARN_RANGE_TYPE&gt;</span>
-<span class="nt">&lt;CRIT&gt;</span>976.56<span class="nt">&lt;/CRIT&gt;</span>
-<span class="nt">&lt;CRIT_MIN&gt;&lt;/CRIT_MIN&gt;</span>
-<span class="nt">&lt;CRIT_MAX&gt;&lt;/CRIT_MAX&gt;</span>
-<span class="nt">&lt;CRIT_RANGE_TYPE&gt;&lt;/CRIT_RANGE_TYPE&gt;</span>
-<span class="nt">&lt;MIN&gt;</span>0<span class="nt">&lt;/MIN&gt;</span>
-<span class="nt">&lt;MAX&gt;</span>0<span class="nt">&lt;/MAX&gt;</span>
-<span class="nt">&lt;/DATASOURCE&gt;</span>
-</code></pre></div>
-<p>这些标签都是给模板使用的，比如default.php中输出命令的那行就是：
-$def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo;\r&rdquo; &lsquo;;</p>
-<p>如果直接修改xml中的<template>标签内容，确实可以调用成新的模板显示。但间隔时间一过，xml就自动更新成默认配置输出的结果……</template></p>
-<p>解决在大规模环境下nrpe监控数据绘图模板的问题~或许还得继续查找xml的定义，待续ing~</p>
-<p>补充：看到官网如下网页，似乎是针对这个问题的，英文慢慢啃~
-<a href="http://docs.pnp4nagios.org/pnp-0.4/tpl_custom">http://docs.pnp4nagios.org/pnp-0.4/tpl_custom</a></p>
-      <a href="/2010/11/17/template-problem-of-pnp4nagios-1" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

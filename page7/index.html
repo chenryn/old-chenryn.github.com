@@ -44,6 +44,64 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2011/08/25/nginx-diff-response-via-filesize" title="用nginx区分文件大小做出不同响应" rel="bookmark">用nginx区分文件大小做出不同响应</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-08-25 00:00:00 +0800">25 Aug 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#nginx-ref" title="nginx" rel="category tag">nginx</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>昨晚和前21v的同事聊天，说到我离职后一些技术上的更新。其中有个给某大客户(游戏下载类)的特殊需求设计，因为文件大小差距很大——估计是大版本和补丁的区别——又走的是同一个域名，而squid在响应比较大的文件时，尤其是初次下载的时候，性能比较差，所以拆成两组服务器，squid服务于较小的文件，通过pull方式从peer层获取，nginx服务于较大的文件，通过push方式由peer层分发同步。外部发布域名一律解析到squid服务器组上，请求透传到peer层的nginx，nginx分析这个url的content-length，如果大于阈值，则不返回文件，而是302到nginx服务器组的独立域名下的相应url去。</p>
+<p>这里要注意的是，nginx的内部变量里有一个$content-length，是不能用在这里的，官方wiki是这么解释这个变量的：&rdquo;This variable is equal to line Content-Length in the header of request&rdquo;。可见，这个变量是请求头的内容，一般见于POST请求用来限定POST信息的长度；而不是我们需要的响应头的内容。</p>
+<p>老东家最后是修改了nginx的src完成的功能。不过我想，这里其实可以使用http_perl_module完成的。而且还可以扩展302跳转的功能，把独立域名改成直接通过remote_addr定向到最近IP上。</p>
+<p>因为手头没有服务器，以下内容都是凭空想象，看官们注意……
+首先是nginx.conf里的配置：</p>
+<div class="highlight"><pre><code class="nginx"><span class="k">http</span> <span class="p">{</span>
+    <span class="kn">perl_modules</span> <span class="s">perl</span><span class="p">;</span>
+    <span class="kn">perl_require</span> <span class="s">SizeDiff.pm</span><span class="p">;</span>
+    <span class="kn">server</span> <span class="p">{</span>
+       <span class="kn">listen</span>       <span class="mi">80</span><span class="p">;</span>
+       <span class="kn">server_name</span>  <span class="s">dl.gamedomain.com</span><span class="p">;</span>
+       <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
+          <span class="kn">perl</span> <span class="s">SizeDiff::handler</span><span class="p">;</span>
+       <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>然后是perl/SizeDiff.pm，如下：</p>
+<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="n">SizeDiff</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Nginx::</span><span class="n">Simple</span><span class="p">;</span>
+<span class="k">sub </span><span class="nf">main</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$webroot</span> <span class="o">=</span> <span class="s">&#39;/www/dl.gamedomain.com/&#39;</span>
+    <span class="k">return</span> <span class="n">HTTP_NOT_ALLOWED</span> <span class="k">unless</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">uri</span> <span class="o">=~</span> <span class="sr">m!^(/.+/)[^/]+$!</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$file</span> <span class="o">=</span> <span class="nv">$webroot</span> <span class="o">.</span> <span class="nv">$1</span> <span class="o">.</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">filename</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">@filestat</span> <span class="o">=</span> <span class="nb">stat</span><span class="p">(</span><span class="nv">$file</span><span class="p">)</span> <span class="ow">or</span> <span class="k">return</span> <span class="n">HTTP_NOT_FOUND</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$filesize</span> <span class="o">=</span> <span class="nv">$filestat</span><span class="p">[</span><span class="mi">7</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="nv">$filesize</span> <span class="o">&lt;</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">OK</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">location</span><span class="p">(</span><span class="s">&#39;http://bigfile.cdndomain.com&#39;</span><span class="o">.</span><span class="nv">$self</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">};</span>
+<span class="mi">1</span>
+</code></pre></div>
+<p>大体应该就是上面这样。
+之前还考虑过如果不是push方式，可以在perl里考虑使用LWP获取header，不过仔细想想：第一，万一源站开启了chunked获取不到content-length呢？第二，就算可以，如果一个文件是1个G，那再去下载这1个G的文件下来，这个perl进程肯定挂了——官方wiki里可是连DNS解析时间都认为太长……也就是说，这个设想不适合在peer层，而是在loadbalance的角色，通过lwp的header结果，小文件upstream到后端的squid，大文件location到另外的nginx。
+另一个可改进的地方，就是self-&gt;location前面，可以结合Net::IP::Match::Regexp模块或者自己完成的类似功能，来针对self-&gt;remote_addr选择最近的服务器组IP，最后返回location(&ldquo;http://$ip$uri&rdquo;)这样。</p>
+      <a href="/2011/08/25/nginx-diff-response-via-filesize" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2011/08/18/learning-cloudfarecast-3" title="CloudForecast学习笔记(三)" rel="bookmark">CloudForecast学习笔记(三)</a>
     </h1>
     <p class="alt-font tight">
@@ -2190,73 +2248,6 @@ cgi脚本如下：</p>
 </code></pre></div>
 <p>小脚本一个，扫描内网网段内存活的机器，获取其MAC地址，以及nrpe端口情况。后期再配合myhost里的system，如果是linux（其实用nmap -O也可以获取system，但是结果不准，耗时还特别长，200台机器花10分钟），但monitorstatus还是closed的，就expect上去安装nrpe，嗯~~</p>
       <a href="/2011/05/27/analyze-the-xml-which-nmap-output" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/05/20/merge-iplist-of-qqwry" title="续上：合并纯真ip段" rel="bookmark">续上：合并纯真ip段</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-05-20 00:00:00 +0800">20 May 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>上篇提到纯真ip库有很多行是浪费的，比如下面这种：
-&lt;div class="highlight"&gt;&lt;pre&gt;<code class="yaml"><span class="l-Scalar-Plain">223.214.0.0     223.215.255.255 安徽省 电信</span>
-<span class="l-Scalar-Plain">223.216.0.0     223.219.255.255 日本</span>
-<span class="l-Scalar-Plain">223.220.0.0     223.220.162.1   青海省 电信</span>
-<span class="l-Scalar-Plain">223.220.162.2   223.220.162.2   青海省海东地区 平安县九歌网吧</span>
-<span class="l-Scalar-Plain">223.220.162.3   223.221.255.255 青海省 电信</span>
-</code>&lt;/pre&gt;&lt;/div&gt;</p>
-<p>很简单的223.220.0.0-223.221.255.255段，却被拆成了三行。于是在通过起始ip结束ip计算子网之前，还需要合并一下这些ip段。
-因为涉及ip比对，所以第一反应想到了mysql里有的inet_aton函数，去CPAN上搜了一下，发现有NetAddr::IP::Util模块有inet_aton函数，结果一用，发现居然生成的不是数字……于是从网上找到了pack的办法，如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="k">while</span><span class="p">(</span><span class="o">&lt;&gt;</span><span class="p">){</span>
-    <span class="k">next</span> <span class="k">unless</span> <span class="nv">$_</span> <span class="o">=~</span><span class="sr"> /^(\S+)\s+(\S+)\s+(\S+)/</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$low</span> <span class="o">=</span> <span class="nb">unpack</span><span class="p">(</span><span class="s">&#39;N&#39;</span><span class="p">,(</span><span class="nb">pack</span><span class="p">(</span><span class="s">&#39;C4&#39;</span><span class="p">,(</span><span class="nb">split</span><span class="p">(</span><span class="sr"> /\./</span><span class="p">,</span><span class="nv">$1</span><span class="p">)))));</span>
-<span class="c1">#下面这行是IP::QQWry模块里的写法</span>
-<span class="c1">#    print $1 * 256**3 + $2 * 256**2 + $3 * 256 + $4 if $1 =~ /(\d+)\.(\d+)\.(\d+)\.(\d+)/;;</span>
-    <span class="k">my</span> <span class="nv">$high</span> <span class="o">=</span> <span class="nb">unpack</span><span class="p">(</span><span class="s">&#39;N&#39;</span><span class="p">,(</span><span class="nb">pack</span><span class="p">(</span><span class="s">&#39;C4&#39;</span><span class="p">,(</span><span class="nb">split</span><span class="p">(</span><span class="sr"> /\./</span><span class="p">,</span><span class="nv">$2</span><span class="p">)))));</span>
-    <span class="k">next</span> <span class="k">if</span> <span class="nv">$low</span> <span class="o">==</span> <span class="nv">$high</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$addr</span> <span class="o">=</span> <span class="nv">$3</span><span class="p">;</span>
-    <span class="k">unless</span> <span class="p">(</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">high</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">low</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$low</span><span class="p">;</span>
-        <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">high</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$high</span><span class="p">;</span>
-        <span class="k">next</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="c1">#如果中间就隔几个ip的，可以无视之，合并就是了……</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nv">$low</span> <span class="o">-</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">high</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">16</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">high</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$high</span><span class="p">;</span>
-        <span class="k">next</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="nb">unshift</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">low</span><span class="p">}},</span> <span class="nv">$low</span><span class="p">;</span>
-    <span class="nb">unshift</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">high</span><span class="p">}},</span> <span class="nv">$high</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="k">foreach</span> <span class="nv">$addr</span> <span class="p">(</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$hash</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="k">while</span> <span class="p">(</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">low</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="k">print</span> <span class="nv">$addr</span> <span class="o">.</span> <span class="s">&quot;\t&quot;</span> <span class="o">.</span> <span class="o">&amp;</span><span class="n">nota</span><span class="p">(</span><span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">low</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">])</span> <span class="o">.</span> <span class="s">&quot;\t&quot;</span> <span class="o">.</span> <span class="o">&amp;</span><span class="n">nota</span><span class="p">(</span><span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">high</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">])</span> <span class="p">,</span> <span class="s">&quot;\n&quot;</span><span class="p">;</span>
-        <span class="nv">$i</span><span class="o">++</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">nota</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$aton</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="nv">@a</span> <span class="o">=</span> <span class="nb">unpack</span><span class="p">(</span><span class="s">&#39;C4&#39;</span><span class="p">,(</span><span class="nb">pack</span><span class="p">(</span><span class="s">&#39;N&#39;</span><span class="p">,</span><span class="nv">$aton</span><span class="p">)));</span>
-    <span class="k">return</span> <span class="p">(</span><span class="nb">join</span> <span class="s">&quot;\.&quot;</span><span class="p">,</span><span class="nv">@a</span><span class="p">);</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>pack真复杂，基本看不懂perldoc，唉……</p>
-<p>最后汇报一下运行结果：
-合并前一共428452行，合并后103008行。</p>
-      <a href="/2011/05/20/merge-iplist-of-qqwry" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

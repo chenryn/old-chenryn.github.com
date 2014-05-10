@@ -44,6 +44,48 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2009/11/19/intro-lm-factor-algorithm" title="cache驻留时间（二、LM-factor算法）" rel="bookmark">cache驻留时间（二、LM-factor算法）</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-11-19 00:00:00 +0800">19 Nov 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>好吧，满足某人的好奇，花开两朵，各表一枝了。
+今天又看到关于LM-factor的另一种说法，特摘录如下：
+<img src="/images/uploads/lm-factor.gif" alt="" />
+上面这张图来自于《Squid.Definitive.Guide》第七章，对squid的LM-factor算法作出了一个很直观的描述。
+请注意这张图的起始时间坐标：Last-Modified，这个是由squid读取的原始web数据所规定的。
+然后就是Date，这个是原始数据进入squid的缓冲的时间。
+最后就是Expires，这个就是原始数据在squid中的缓冲过期时间。
+可以很容易的得出结论，对于LM-factor算法来说，原始数据在squid中的缓冲时间为
+(原始数据进入squid的缓冲的时间-原始web数据所规定的Last-Modified时间)<em>percent
+所以，我们可以郑重得出结论，在squid的refresh_pattern设置中，percent与Min、Max两个值是完全没有关系！
+最后总结一下，对于squid来说，缓冲的数据在cache中的存活时间是这样决定的：
+如果有定义refresh_pattern：只要满足以下两个条件之一，缓冲对象过期
+缓冲对象在squid的cache缓冲的时间大于refresh_pattern定义的max
+缓冲对象在squid的cache缓冲的时间大于(原始数据进入squid的缓冲的时间-原始web数据所规定的Last-Modified时间)</em>percent
+用编程语言来描述，就是
+if
+((CURRENT_DATE-DATE)
+elif
+((CURRENT_DATE-DATE)/(DATE-LM_DATE)
+elif
+((CURRENT_DATE-DATE)&gt;max){STABLE}
+else{STABLE}</p>
+      <a href="/2009/11/19/intro-lm-factor-algorithm" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2009/11/18/intro-refresh_pattern" title="cache驻留时间（一、refresh_pattern）" rel="bookmark">cache驻留时间（一、refresh_pattern）</a>
     </h1>
     <p class="alt-font tight">
@@ -1958,47 +2000,6 @@ messages                NO 其动作描述用“=”表示。
     DBNEWID - Completed succesfully.
 至于引起这个错误的深层次原因，从之前有过的其他操作猜测，会不会是scn不一致的原因？？如果是这个原因，那或许只要很简单的CKPT就可以了。找时间试验一下。</p>
       <a href="/2009/11/03/nid-00135-of-dbname" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2009/11/03/learning-sed" title="sed使用" rel="bookmark">sed使用</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>shell这东西，只有活逼到手头上了，才知道应该去学什么。
-比如有客户要求修改/home/squid/share/errors/Simplify_Chinese/里所有的错误页面转向到他们自己专用的界面去，七八个节点，几十台服务器，几百个文件，一个一个vi编辑，多可怕。只好现学现卖sed，目前发现两种办法：</p>
-<p>1、find+sed
-比如这样：
-find . -name &ldquo;*.html&rdquo; -exec sed -i &ldquo;s/eht/the/g&rdquo; {} ;
-用exec传输find的结果给sed，{}是集合的意思；</p>
-<p>2、sed+grep
-比如这样：
-sed -i &ldquo;s/eht/the/g&rdquo; <code>grep eht -rl /test</code>
-这个-rl参数，有时间研究一下。</p>
-<p>或者这样：
-grep &ldquo;abc&rdquo; * -R | awk -F: &lsquo;{print $1}&rsquo; | sort | uniq | xargs sed -i &lsquo;s/abc/abcde/g&rsquo;</p>
-<p>awk -F:的意思是指定:为列的分隔符，sort排序，uniq删除重复行，最后用xargs传输大量数据给sed。</p>
-<table>
-  <tbody>
-    <tr>
-      <td>说到xargs，比如曾经有一次/var/spool/clientmqueue目录占用了大量磁盘空间，但其中的文件都是4.0K，数量及其多，单纯用rm，无法达到目的，就得用ls</td>
-      <td>xargs rm -f才行。</td>
-    </tr>
-  </tbody>
-</table>
-      <a href="/2009/11/03/learning-sed" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

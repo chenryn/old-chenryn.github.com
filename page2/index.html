@@ -44,6 +44,539 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2013/12/09/draw-charts-of-bitcoin" title="为比特币绘制 MACD、BOLL、KDJ 指标图" rel="bookmark">为比特币绘制 MACD、BOLL、KDJ 指标图</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2013-12-09 00:00:00 +0800">09 Dec 2013</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#python-ref" title="python" rel="category tag">python</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>比特币是最近相当火爆的一个金融衍生品(瞧咱这口径)。比特币中国提供了一系列 API 来获取和操纵其市场内的比特币。我的小伙伴们基于其 API，完成了一套交易程序。为了提高操作的有效性和技术性，同时作为 python 学习需要，我也参与进来，仿造股票交易软件，为比特币中国绘制了一系列指标图，包括 MACD、BOLL、KDJ 等。截止上周，btc123 也开始提供了 MACD 指标图，所以把自己的实现贴到博客。</p>
+<p>首先是获取数据，比特币中国的 API 是个很鬼怪的东西，实时交易数据的接口，返回的数据中最高最低和成交量都是基于过去24小时的，要知道比特币交易是没有休市的啊。所以获取数据过程中需要自己计算这些。这里考虑到股市一般一天实际交易4小时，所以整个设计也是默认4小时的图形展示。</p>
+<div class="highlight"><pre><code class="python"><span class="c">#!/usr/bin/env python3</span>
+<span class="c"># -*- coding: utf-8 -*-</span>
+<span class="c"># query price data from BTCChina.</span>
+<span class="kn">from</span> <span class="nn">urllib</span> <span class="kn">import</span> <span class="n">urlopen</span>
+<span class="kn">from</span> <span class="nn">ast</span> <span class="kn">import</span> <span class="n">literal_eval</span>
+<span class="kn">import</span> <span class="nn">MySQLdb</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">yaml</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="s">&#39;config.yaml&#39;</span><span class="p">))</span>
+<span class="n">conn</span> <span class="o">=</span> <span class="n">MySQLdb</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;host&#39;</span><span class="p">],</span><span class="n">user</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;username&#39;</span><span class="p">],</span><span class="n">passwd</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;password&#39;</span><span class="p">],</span><span class="n">db</span> <span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;databasename&#39;</span><span class="p">],</span><span class="n">charset</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;encoding&#39;</span><span class="p">]</span> <span class="p">)</span>
+<span class="k">def</span> <span class="nf">write_db</span><span class="p">(</span><span class="n">datas</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">cur_write</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+        <span class="n">sql</span> <span class="o">=</span>  <span class="s">&quot;insert into ticker(sell, buy, last, vol, high, low) values( </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">,</span><span class="si">%s</span><span class="s">,</span><span class="si">%s</span><span class="s">,</span><span class="si">%s</span><span class="s">)&quot;</span>
+        <span class="n">cur_write</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">,</span><span class="n">datas</span><span class="p">)</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="n">cur_write</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">except</span> <span class="n">MySQLdb</span><span class="o">.</span><span class="n">Error</span><span class="p">,</span><span class="n">e</span><span class="p">:</span>
+        <span class="k">print</span> <span class="s">&quot;Mysql error </span><span class="si">%d</span><span class="s"> : </span><span class="si">%s</span><span class="s">.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">get_tid</span><span class="p">():</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">vol_url</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s">&#39;btcchina&#39;</span><span class="p">][</span><span class="s">&#39;vol_url&#39;</span><span class="p">]</span>
+        <span class="n">remote_file</span> <span class="o">=</span> <span class="n">urlopen</span><span class="p">(</span><span class="n">vol_url</span><span class="p">)</span>
+        <span class="n">remote_data</span> <span class="o">=</span> <span class="n">remote_file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">remote_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">remote_data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">remote_data</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">remote_data</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s">&#39;tid&#39;</span><span class="p">]</span>
+    <span class="k">except</span> <span class="n">MySQLdb</span><span class="o">.</span><span class="n">Error</span><span class="p">,</span><span class="n">e</span><span class="p">:</span>
+        <span class="k">print</span> <span class="s">&quot;Mysql error </span><span class="si">%d</span><span class="s"> : </span><span class="si">%s</span><span class="s">.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">get_ohlc</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">read</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+        <span class="n">hlvsql</span> <span class="o">=</span> <span class="s">&quot;select max(last),min(last) from ticker where time between date_add(now(),interval -</span><span class="si">%s</span><span class="s"> minute) and now()&quot;</span> <span class="o">%</span> <span class="n">num</span>
+        <span class="n">read</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">hlvsql</span><span class="p">)</span>
+        <span class="n">high</span><span class="p">,</span> <span class="n">low</span> <span class="o">=</span> <span class="n">read</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="n">closesql</span> <span class="o">=</span> <span class="s">&quot;select last from ticker where time between date_add(now(),interval -</span><span class="si">%s</span><span class="s"> minute) and now() order by time desc limit 1&quot;</span> <span class="o">%</span> <span class="n">num</span>
+        <span class="n">read</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">closesql</span><span class="p">)</span>
+        <span class="n">close</span> <span class="o">=</span> <span class="n">read</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="n">opensql</span> <span class="o">=</span> <span class="s">&quot;select last from ticker where time between date_add(now(),interval -</span><span class="si">%s</span><span class="s"> minute) and now() order by time asc limit 1&quot;</span> <span class="o">%</span> <span class="n">num</span>
+        <span class="n">read</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">opensql</span><span class="p">)</span>
+        <span class="n">opend</span> <span class="o">=</span> <span class="n">read</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">opend</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">high</span><span class="p">,</span> <span class="n">low</span><span class="p">,</span> <span class="n">close</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">except</span> <span class="n">MySQLdb</span><span class="o">.</span><span class="n">Error</span><span class="p">,</span><span class="n">e</span><span class="p">:</span>
+        <span class="k">print</span> <span class="s">&quot;Mysql error </span><span class="si">%d</span><span class="s"> : </span><span class="si">%s</span><span class="s">.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">write_ohlc</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">cur_write</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+        <span class="n">ohlcsql</span> <span class="o">=</span>  <span class="s">&#39;insert into ohlc(open, high, low, close, vol) values( </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">)&#39;</span>
+        <span class="n">cur_write</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">ohlcsql</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="n">cur_write</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">except</span> <span class="n">MySQLdb</span><span class="o">.</span><span class="n">Error</span><span class="p">,</span><span class="n">e</span><span class="p">:</span>
+        <span class="k">print</span> <span class="s">&quot;Mysql error </span><span class="si">%d</span><span class="s"> : </span><span class="si">%s</span><span class="s">.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">&quot;执行Mysql写入数据时出错: </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span>  <span class="n">e</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">instance</span><span class="p">():</span>
+    <span class="k">try</span><span class="p">:</span>
+    <span class="c"># returns something like {&quot;high&quot;:738.88,&quot;low&quot;:689.10,&quot;buy&quot;:713.50,&quot;sell&quot;:717.30,&quot;last&quot;:717.41,&quot;vol&quot;:4797.32000000}</span>
+        <span class="n">remote_file</span> <span class="o">=</span> <span class="n">urlopen</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;btcchina&#39;</span><span class="p">][</span><span class="s">&#39;ticker_url&#39;</span><span class="p">])</span>
+        <span class="n">remote_data</span> <span class="o">=</span> <span class="n">remote_file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">remote_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">remote_data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">remote_data</span><span class="p">))[</span><span class="s">&#39;ticker&#39;</span><span class="p">]</span>
+    <span class="c">#   remote_data = {key:literal_eval(remote_data[key]) for key in remote_data}</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="n">remote_data</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">datas</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">remote_data</span><span class="p">:</span>
+        <span class="n">datas</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">remote_data</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">datas</span>
+<span class="n">lastid</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">ohlc_period</span> <span class="o">=</span> <span class="mi">60</span>
+<span class="n">next_ohlc</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span> <span class="o">/</span> <span class="n">ohlc_period</span> <span class="o">*</span> <span class="n">ohlc_period</span>
+<span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+    <span class="n">datas</span> <span class="o">=</span> <span class="n">instance</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">datas</span><span class="p">:</span>
+        <span class="n">write_db</span><span class="p">(</span><span class="n">datas</span><span class="p">)</span>
+    <span class="k">if</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span> <span class="o">&gt;</span> <span class="n">next_ohlc</span><span class="p">):</span>
+        <span class="n">next_ohlc</span> <span class="o">+=</span> <span class="n">ohlc_period</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">get_ohlc</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">latestid</span> <span class="o">=</span> <span class="n">get_tid</span><span class="p">()</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">latestid</span><span class="p">)</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">lastid</span><span class="p">))</span>
+        <span class="n">lastid</span> <span class="o">=</span> <span class="n">latestid</span>
+        <span class="n">write_ohlc</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+<p>这里主要把实时数据存入ticker表，分钟统计数据存入ohlc表。然后是各指标算法。首先是 MACD ：</p>
+<div class="highlight"><pre><code class="python"><span class="c">#/*******************************************************************************</span>
+<span class="c"># * Author: Chenlin Rao | Renren inc.</span>
+<span class="c"># * Email: rao.chenlin@gmail.com</span>
+<span class="c"># * Last modified: 2013-11-26 22:02</span>
+<span class="c"># * Filename: macd.py</span>
+<span class="c"># * Description: </span>
+<span class="c">#       EMA(12)=LastEMA(12)* 11/13 + Close * 2/13</span>
+<span class="c">#       EMA(26)=LastEMA(26)* 25/27 + Close * 2/27</span>
+<span class="c">#       </span>
+<span class="c">#       DIF=EMA(12)-EMA(26)</span>
+<span class="c">#       DEA=LastDEA * 8/10 + DIF * 2/10</span>
+<span class="c">#       MACD=(DIF-DEA) * 2</span>
+<span class="c"># * *****************************************************************************/</span>
+<span class="c">#!/usr/bin/env python</span>
+<span class="c"># -*- coding: utf-8 -*-</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">hashlib</span>
+<span class="kn">import</span> <span class="nn">MySQLdb</span>
+<span class="kn">import</span> <span class="nn">yaml</span>
+<span class="k">class</span> <span class="nc">MACD</span><span class="p">():</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="s">&#39;config.yml&#39;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sleep_time</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s">&#39;btcchina&#39;</span><span class="p">][</span><span class="s">&#39;trade_option&#39;</span><span class="p">][</span><span class="s">&#39;sleep_time&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conn</span> <span class="o">=</span> <span class="n">MySQLdb</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;host&#39;</span><span class="p">],</span><span class="n">user</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;username&#39;</span><span class="p">],</span><span class="n">passwd</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;password&#39;</span><span class="p">],</span><span class="n">db</span> <span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;databasename&#39;</span><span class="p">],</span><span class="n">charset</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;encoding&#39;</span><span class="p">]</span> <span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_getclose</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num</span><span class="p">):</span>
+        <span class="n">read</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+        <span class="n">sql</span> <span class="o">=</span> <span class="s">&quot;select close,time from ohlc order by id desc limit </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">num</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="n">read</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">read</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">results</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">def</span> <span class="nf">_ema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        returns an n period exponential moving average for</span>
+<span class="sd">        the time series s</span>
+<span class="sd">        s is a list ordered from oldest (index 0) to most</span>
+<span class="sd">        recent (index -1)</span>
+<span class="sd">        n is an integer</span>
+<span class="sd">        returns a numeric array of the exponential</span>
+<span class="sd">        moving average</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s">&quot;No enough item in </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">s</span>
+        <span class="n">ema</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="c">#get n sma first and calculate the next n period ema</span>
+        <span class="n">sma</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">s</span><span class="p">[:</span><span class="n">n</span><span class="p">])</span> <span class="o">/</span> <span class="n">n</span>
+        <span class="n">multiplier</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">n</span><span class="p">)</span>
+        <span class="n">ema</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sma</span><span class="p">)</span>
+        <span class="c">#EMA(current) = ( (Price(current) - EMA(prev) ) x Multiplier) + EMA(prev)</span>
+        <span class="n">ema</span><span class="o">.</span><span class="n">append</span><span class="p">((</span> <span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">-</span> <span class="n">sma</span><span class="p">)</span> <span class="o">*</span> <span class="n">multiplier</span><span class="p">)</span> <span class="o">+</span> <span class="n">sma</span><span class="p">)</span>
+        <span class="c">#now calculate the rest of the values</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">s</span><span class="p">[</span><span class="n">n</span><span class="o">+</span><span class="mi">1</span><span class="p">:]:</span>
+            <span class="n">tmp</span> <span class="o">=</span> <span class="p">(</span> <span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="n">ema</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">*</span> <span class="n">multiplier</span><span class="p">)</span> <span class="o">+</span> <span class="n">ema</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">j</span> <span class="o">=</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="n">ema</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tmp</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ema</span>
+    <span class="k">def</span> <span class="nf">getMACD</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+        <span class="n">array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getclose</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="n">prices</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">array</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">mktime</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">timetuple</span><span class="p">()))</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">array</span><span class="p">)</span>
+        <span class="n">short_ema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ema</span><span class="p">(</span><span class="n">prices</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+        <span class="n">long_ema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ema</span><span class="p">(</span><span class="n">prices</span><span class="p">,</span> <span class="mi">26</span><span class="p">)</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">zip</span><span class="p">(</span><span class="n">short_ema</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">long_ema</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">diff</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
+        <span class="n">dea</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ema</span><span class="p">(</span><span class="n">diff</span><span class="p">,</span> <span class="mi">9</span><span class="p">)</span>
+        <span class="n">bar</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="mi">2</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="nb">zip</span><span class="p">(</span><span class="n">diff</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">dea</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="n">bar</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
+        <span class="k">return</span> <span class="nb">zip</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">33</span><span class="p">:],</span> <span class="n">diff</span><span class="p">[</span><span class="mi">8</span><span class="p">:]),</span> <span class="nb">zip</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">33</span><span class="p">:],</span> <span class="n">dea</span><span class="p">),</span> <span class="nb">zip</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">33</span><span class="p">:],</span> <span class="n">bar</span><span class="p">)</span>
+</code></pre></div>
+<p>然后是 BOLL ：</p>
+<div class="highlight"><pre><code class="python"><span class="c">#/*******************************************************************************</span>
+<span class="c"># * Author: Chenlin Rao | Renren inc.</span>
+<span class="c"># * Email: rao.chenlin@gmail.com</span>
+<span class="c"># * Last modified: 2013-11-26 22:02</span>
+<span class="c"># * Filename: macd.py</span>
+<span class="c"># * Description: </span>
+<span class="c">#       MA=avg(close(20))</span>
+<span class="c">#       MD=std(close(20))</span>
+<span class="c">#       </span>
+<span class="c">#       MB=MA(20)</span>
+<span class="c">#       UP=MB + 2*MD</span>
+<span class="c">#       DN=MB - 2*MD</span>
+<span class="c"># * *****************************************************************************/</span>
+<span class="c">#!/usr/bin/env python</span>
+<span class="c"># -*- coding: utf-8 -*-</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">hashlib</span>
+<span class="kn">import</span> <span class="nn">MySQLdb</span>
+<span class="kn">import</span> <span class="nn">yaml</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="k">class</span> <span class="nc">BOLL</span><span class="p">():</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="s">&#39;config.yml&#39;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sleep_time</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s">&#39;btcchina&#39;</span><span class="p">][</span><span class="s">&#39;trade_option&#39;</span><span class="p">][</span><span class="s">&#39;sleep_time&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conn</span> <span class="o">=</span> <span class="n">MySQLdb</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;host&#39;</span><span class="p">],</span><span class="n">user</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;username&#39;</span><span class="p">],</span><span class="n">passwd</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;password&#39;</span><span class="p">],</span><span class="n">db</span> <span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;databasename&#39;</span><span class="p">],</span><span class="n">charset</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;encoding&#39;</span><span class="p">]</span> <span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_getMA</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">array</span><span class="p">):</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">array</span><span class="p">)</span> <span class="o">/</span> <span class="n">length</span>
+    <span class="k">def</span> <span class="nf">_getMD</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">array</span><span class="p">):</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+        <span class="n">average</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">array</span><span class="p">)</span> <span class="o">/</span> <span class="n">length</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">array</span><span class="p">:</span> <span class="n">d</span> <span class="o">+=</span> <span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="n">average</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">d</span><span class="o">/</span><span class="n">length</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span>
+    <span class="k">def</span> <span class="nf">getOHLC</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num</span><span class="p">):</span>
+        <span class="n">read</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+        <span class="n">sql</span> <span class="o">=</span> <span class="s">&quot;select time,open,high,low,close,vol from ohlc order by id desc limit </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">num</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="n">read</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">read</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+        <span class="k">return</span> <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">mktime</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">timetuple</span><span class="p">()))</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span><span class="n">x</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span><span class="n">x</span><span class="p">[</span><span class="mi">5</span><span class="p">]],</span> <span class="n">results</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">def</span> <span class="nf">_getCur</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fromtime</span><span class="p">):</span>
+        <span class="n">curread</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+        <span class="n">cursql</span> <span class="o">=</span> <span class="s">&quot;select last,vol from ticker where time between date_add(&#39;</span><span class="si">%s</span><span class="s">&#39;, interval -0 minute) and now()&quot;</span> <span class="o">%</span> <span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%F</span><span class="s"> %T&#39;</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">localtime</span><span class="p">(</span><span class="n">fromtime</span><span class="p">))</span>
+        <span class="n">curread</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">cursql</span><span class="p">)</span>
+        <span class="n">curlist</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">curread</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
+        <span class="n">vollist</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">curread</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">curlist</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span><span class="o">*</span><span class="mi">1000</span><span class="p">,</span> <span class="n">curlist</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">max</span><span class="p">(</span><span class="n">curlist</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="n">curlist</span><span class="p">),</span> <span class="n">curlist</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="nb">sum</span><span class="p">(</span><span class="n">vollist</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">None</span>
+    <span class="k">def</span> <span class="nf">_getClose</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">matrix</span><span class="p">):</span>
+        <span class="n">close</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">matrix</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">close</span>
+    <span class="k">def</span> <span class="nf">getBOLL</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">days</span><span class="p">):</span>
+        <span class="n">matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getOHLC</span><span class="p">(</span><span class="n">num</span><span class="p">)</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getCur</span><span class="p">(</span><span class="n">matrix</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="mi">1000</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cur</span><span class="p">:</span>
+            <span class="n">matrix</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cur</span><span class="p">)</span>
+        <span class="n">array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getClose</span><span class="p">(</span><span class="n">matrix</span><span class="p">)</span>
+        <span class="n">up</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">mb</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">dn</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">days</span>
+        <span class="k">while</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">array</span><span class="p">):</span>
+            <span class="n">curmb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getMA</span><span class="p">(</span><span class="n">array</span><span class="p">[</span><span class="n">x</span><span class="o">-</span><span class="n">days</span><span class="p">:</span><span class="n">x</span><span class="p">])</span>
+            <span class="n">curmd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getMD</span><span class="p">(</span><span class="n">array</span><span class="p">[</span><span class="n">x</span><span class="o">-</span><span class="n">days</span><span class="p">:</span><span class="n">x</span><span class="p">])</span>
+            <span class="n">mb</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="p">[</span> <span class="n">matrix</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">curmb</span> <span class="p">]</span> <span class="p">)</span>
+            <span class="n">up</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="p">[</span> <span class="n">matrix</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">curmb</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">curmd</span> <span class="p">]</span> <span class="p">)</span>
+            <span class="n">dn</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="p">[</span> <span class="n">matrix</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">curmb</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">curmd</span> <span class="p">]</span> <span class="p">)</span>
+            <span class="n">x</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">matrix</span><span class="p">[</span><span class="n">days</span><span class="p">:],</span> <span class="n">up</span><span class="p">,</span> <span class="n">mb</span><span class="p">,</span> <span class="n">dn</span>
+</code></pre></div>
+<p>最后是 KDJ ：</p>
+<div class="highlight"><pre><code class="python"><span class="c">#/*******************************************************************************</span>
+<span class="c"># * Author: Chenlin Rao | Renren inc.</span>
+<span class="c"># * Email: rao.chenlin@gmail.com</span>
+<span class="c"># * Last modified: 2013-11-26 22:02</span>
+<span class="c"># * Filename: macd.py</span>
+<span class="c"># * Description: </span>
+<span class="c">#       RSV=(close-low(9))/(high(9)-low(9))*100</span>
+<span class="c">#       K=SMA(RSV(3), 1)</span>
+<span class="c">#       D=SMA(K(3), 1)</span>
+<span class="c">#       J=3*K-2*D</span>
+<span class="c"># * *****************************************************************************/</span>
+<span class="c">#!/usr/bin/env python</span>
+<span class="c"># -*- coding: utf-8 -*-</span>
+<span class="kn">import</span> <span class="nn">hashlib</span>
+<span class="kn">import</span> <span class="nn">MySQLdb</span>
+<span class="kn">import</span> <span class="nn">yaml</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="k">class</span> <span class="nc">KDJ</span><span class="p">():</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="s">&#39;config.yml&#39;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sleep_time</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s">&#39;btcchina&#39;</span><span class="p">][</span><span class="s">&#39;trade_option&#39;</span><span class="p">][</span><span class="s">&#39;sleep_time&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conn</span> <span class="o">=</span> <span class="n">MySQLdb</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;host&#39;</span><span class="p">],</span><span class="n">user</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;username&#39;</span><span class="p">],</span><span class="n">passwd</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;password&#39;</span><span class="p">],</span><span class="n">db</span> <span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;databasename&#39;</span><span class="p">],</span><span class="n">charset</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s">&#39;database&#39;</span><span class="p">][</span><span class="s">&#39;encoding&#39;</span><span class="p">]</span> <span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_getHLC</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num</span><span class="p">):</span>
+        <span class="n">read</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+        <span class="n">sql</span> <span class="o">=</span> <span class="s">&quot;select high,low,close,time from ohlc order by id desc limit </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">num</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="n">read</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">read</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">results</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">def</span> <span class="nf">_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">/</span> <span class="n">length</span>
+    <span class="k">def</span> <span class="nf">_getMA</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">window</span><span class="p">):</span>
+        <span class="n">array</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">window</span>
+        <span class="k">while</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
+            <span class="n">curmb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_avg</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">x</span><span class="o">-</span><span class="n">window</span><span class="p">:</span><span class="n">x</span><span class="p">])</span>
+            <span class="n">array</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">curmb</span> <span class="p">)</span>
+            <span class="n">x</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">array</span>
+    <span class="k">def</span> <span class="nf">_getRSV</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arrays</span><span class="p">):</span>
+        <span class="n">rsv</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">times</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="mi">9</span>
+        <span class="k">while</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">arrays</span><span class="p">):</span>
+            <span class="n">high</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">arrays</span><span class="p">[</span><span class="n">x</span><span class="o">-</span><span class="mi">9</span><span class="p">:</span><span class="n">x</span><span class="p">]))</span>
+            <span class="n">low</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">arrays</span><span class="p">[</span><span class="n">x</span><span class="o">-</span><span class="mi">9</span><span class="p">:</span><span class="n">x</span><span class="p">]))</span>
+            <span class="n">close</span> <span class="o">=</span> <span class="n">arrays</span><span class="p">[</span><span class="n">x</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">rsv</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="p">(</span><span class="n">close</span><span class="o">-</span><span class="n">low</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">high</span><span class="o">-</span><span class="n">low</span><span class="p">)</span><span class="o">*</span><span class="mi">100</span> <span class="p">)</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">mktime</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="n">x</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">timetuple</span><span class="p">()))</span> <span class="o">*</span> <span class="mi">1000</span>
+            <span class="n">times</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="n">x</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">times</span><span class="p">,</span> <span class="n">rsv</span>
+    <span class="k">def</span> <span class="nf">getKDJ</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num</span><span class="p">):</span>
+        <span class="n">hlc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getHLC</span><span class="p">(</span><span class="n">num</span><span class="p">)</span>
+        <span class="n">t</span><span class="p">,</span> <span class="n">rsv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getRSV</span><span class="p">(</span><span class="n">hlc</span><span class="p">)</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getMA</span><span class="p">(</span><span class="n">rsv</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getMA</span><span class="p">(</span><span class="n">k</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="mi">3</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mi">2</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">zip</span><span class="p">(</span><span class="n">k</span><span class="p">[</span><span class="mi">3</span><span class="p">:],</span> <span class="n">d</span><span class="p">))</span>
+        <span class="k">return</span> <span class="nb">zip</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">2</span><span class="p">:],</span> <span class="n">k</span><span class="p">),</span> <span class="nb">zip</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">5</span><span class="p">:],</span> <span class="n">d</span><span class="p">),</span> <span class="nb">zip</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">5</span><span class="p">:],</span> <span class="n">j</span><span class="p">)</span>
+</code></pre></div>
+<p>最后通过一个简单的python web框架完成界面展示，这个叫 bottle.py 的框架是个单文件，相当方便。</p>
+<div class="highlight"><pre><code class="python"><span class="c">#!/usr/bin/python</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">yaml</span>
+<span class="kn">from</span> <span class="nn">macd</span> <span class="kn">import</span> <span class="n">MACD</span>
+<span class="kn">from</span> <span class="nn">boll</span> <span class="kn">import</span> <span class="n">BOLL</span>
+<span class="kn">from</span> <span class="nn">kdj</span> <span class="kn">import</span> <span class="n">KDJ</span>
+<span class="kn">from</span> <span class="nn">bottle</span> <span class="kn">import</span> <span class="n">route</span><span class="p">,</span> <span class="n">run</span><span class="p">,</span> <span class="n">static_file</span><span class="p">,</span> <span class="n">redirect</span><span class="p">,</span> <span class="n">template</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="s">&#39;config.yml&#39;</span><span class="p">))</span>
+<span class="n">color</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s">&#39;cn&#39;</span><span class="p">:{</span><span class="s">&#39;up&#39;</span><span class="p">:</span><span class="s">&#39;#ff0000&#39;</span><span class="p">,</span><span class="s">&#39;dn&#39;</span><span class="p">:</span><span class="s">&#39;#00ff00&#39;</span><span class="p">},</span>
+    <span class="s">&#39;us&#39;</span><span class="p">:{</span><span class="s">&#39;dn&#39;</span><span class="p">:</span><span class="s">&#39;#ff0000&#39;</span><span class="p">,</span><span class="s">&#39;up&#39;</span><span class="p">:</span><span class="s">&#39;#00ff00&#39;</span><span class="p">},</span>
+<span class="p">}</span>
+<span class="nd">@route</span><span class="p">(</span><span class="s">&#39;/&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">index</span><span class="p">():</span>
+    <span class="n">redirect</span><span class="p">(</span><span class="s">&#39;/mkb/240&#39;</span><span class="p">)</span>
+<span class="nd">@route</span><span class="p">(</span><span class="s">&#39;/mkb/&lt;ago:int&gt;&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">mkb</span><span class="p">(</span><span class="n">ago</span><span class="p">):</span>
+    <span class="n">like</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s">&#39;webui&#39;</span><span class="p">][</span><span class="s">&#39;color&#39;</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">template</span><span class="p">(</span><span class="s">&#39;webui&#39;</span><span class="p">,</span> <span class="n">ago</span> <span class="o">=</span> <span class="n">ago</span><span class="p">,</span> <span class="n">color</span> <span class="o">=</span> <span class="n">color</span><span class="p">[</span><span class="n">like</span><span class="p">])</span>
+<span class="nd">@route</span><span class="p">(</span><span class="s">&#39;/js/&lt;filename&gt;&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">js</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">static_file</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="s">&#39;./js/&#39;</span><span class="p">)</span>
+<span class="nd">@route</span><span class="p">(</span><span class="s">&#39;/boll&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">boll</span><span class="p">():</span>
+    <span class="k">return</span> <span class="s">&quot;boll&quot;</span>
+<span class="nd">@route</span><span class="p">(</span><span class="s">&#39;/macd/&lt;day:int&gt;&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">macd</span><span class="p">(</span><span class="n">day</span><span class="p">):</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">MACD</span><span class="p">()</span>
+    <span class="n">dif</span><span class="p">,</span> <span class="n">dea</span><span class="p">,</span> <span class="n">bar</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">getMACD</span><span class="p">(</span><span class="n">day</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s">&#39;dif&#39;</span><span class="p">:</span><span class="n">dif</span><span class="p">,</span> <span class="s">&#39;dea&#39;</span><span class="p">:</span><span class="n">dea</span><span class="p">,</span> <span class="s">&#39;bar&#39;</span><span class="p">:</span><span class="n">bar</span><span class="p">})</span>
+<span class="nd">@route</span><span class="p">(</span><span class="s">&#39;/boll/&lt;day:int&gt;&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">boll</span><span class="p">(</span><span class="n">day</span><span class="p">):</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">BOLL</span><span class="p">()</span>
+    <span class="n">ohlc</span><span class="p">,</span> <span class="n">up</span><span class="p">,</span> <span class="n">md</span><span class="p">,</span> <span class="n">dn</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">getBOLL</span><span class="p">(</span><span class="n">day</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s">&#39;ohlc&#39;</span><span class="p">:</span><span class="n">ohlc</span><span class="p">,</span> <span class="s">&#39;up&#39;</span><span class="p">:</span><span class="n">up</span><span class="p">,</span> <span class="s">&#39;md&#39;</span><span class="p">:</span><span class="n">md</span><span class="p">,</span> <span class="s">&#39;dn&#39;</span><span class="p">:</span><span class="n">dn</span><span class="p">})</span>
+<span class="nd">@route</span><span class="p">(</span><span class="s">&#39;/kdj/&lt;day:int&gt;&#39;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">kdj</span><span class="p">(</span><span class="n">day</span><span class="p">):</span>
+    <span class="n">kdj</span> <span class="o">=</span> <span class="n">KDJ</span><span class="p">()</span>
+    <span class="n">k</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">kdj</span><span class="o">.</span><span class="n">getKDJ</span><span class="p">(</span><span class="n">day</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s">&#39;k&#39;</span><span class="p">:</span><span class="n">k</span><span class="p">,</span> <span class="s">&#39;d&#39;</span><span class="p">:</span><span class="n">d</span><span class="p">,</span> <span class="s">&#39;j&#39;</span><span class="p">:</span><span class="n">j</span><span class="p">})</span>
+<span class="n">run</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s">&#39;127.0.0.1&#39;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">8000</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</code></pre></div>
+<p>唯一的一个 html 就是具体用 highcharts 画图的地方，如下：</p>
+<div class="highlight"><pre><code class="html"><span class="nt">&lt;html&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+   <span class="nt">&lt;meta</span> <span class="na">http-equiv=</span><span class="s">&quot;refresh&quot;</span> <span class="na">content=</span><span class="s">&quot;60&quot;</span><span class="nt">&gt;</span>
+   <span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">src=</span><span class="s">&quot;http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+   <span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">src=</span><span class="s">&quot;/js/highstock.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+   <span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">src=</span><span class="s">&quot;/js/highcharts.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+   <span class="nt">&lt;script&gt;</span>
+    <span class="nx">$</span><span class="p">(</span><span class="kd">function</span> <span class="p">()</span> <span class="p">{</span>
+        <span class="nx">Highcharts</span><span class="p">.</span><span class="nx">setOptions</span><span class="p">({</span>  
+            <span class="nx">global</span><span class="o">:</span> <span class="p">{</span>  
+                <span class="nx">useUTC</span><span class="o">:</span> <span class="kc">false</span>  
+            <span class="p">}</span>  
+        <span class="p">});</span> 
+        <span class="nx">$</span><span class="p">.</span><span class="nx">getJSON</span><span class="p">(</span><span class="s1">&#39;/boll/&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">bolldata</span><span class="p">)</span> <span class="p">{</span>
+            <span class="kd">var</span> <span class="nx">ohlc</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="nx">volume</span> <span class="o">=</span> <span class="p">[],</span>
+                <span class="nx">dataLength</span> <span class="o">=</span> <span class="nx">bolldata</span><span class="p">[</span><span class="s1">&#39;ohlc&#39;</span><span class="p">].</span><span class="nx">length</span><span class="p">;</span>
+            <span class="k">for</span> <span class="p">(</span><span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">dataLength</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+                <span class="nx">ohlc</span><span class="p">.</span><span class="nx">push</span><span class="p">([</span>
+                    <span class="nx">bolldata</span><span class="p">[</span><span class="s1">&#39;ohlc&#39;</span><span class="p">][</span><span class="nx">i</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="nx">bolldata</span><span class="p">[</span><span class="s1">&#39;ohlc&#39;</span><span class="p">][</span><span class="nx">i</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span>
+                    <span class="nx">bolldata</span><span class="p">[</span><span class="s1">&#39;ohlc&#39;</span><span class="p">][</span><span class="nx">i</span><span class="p">][</span><span class="mi">2</span><span class="p">],</span>
+                    <span class="nx">bolldata</span><span class="p">[</span><span class="s1">&#39;ohlc&#39;</span><span class="p">][</span><span class="nx">i</span><span class="p">][</span><span class="mi">3</span><span class="p">],</span>
+                    <span class="nx">bolldata</span><span class="p">[</span><span class="s1">&#39;ohlc&#39;</span><span class="p">][</span><span class="nx">i</span><span class="p">][</span><span class="mi">4</span><span class="p">],</span>
+                <span class="p">]);</span>
+                <span class="nx">volume</span><span class="p">.</span><span class="nx">push</span><span class="p">([</span>
+                    <span class="nx">bolldata</span><span class="p">[</span><span class="s1">&#39;ohlc&#39;</span><span class="p">][</span><span class="nx">i</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="nx">bolldata</span><span class="p">[</span><span class="s1">&#39;ohlc&#39;</span><span class="p">][</span><span class="nx">i</span><span class="p">][</span><span class="mi">5</span><span class="p">],</span>
+                <span class="p">])</span>
+            <span class="p">};</span>
+            <span class="nx">$</span><span class="p">.</span><span class="nx">getJSON</span><span class="p">(</span><span class="s1">&#39;/kdj/&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">kdjdata</span><span class="p">)</span> <span class="p">{</span>
+               <span class="nx">$</span><span class="p">.</span><span class="nx">getJSON</span><span class="p">(</span><span class="s1">&#39;/macd/&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">macddata</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="nx">$</span><span class="p">(</span><span class="s1">&#39;#container&#39;</span><span class="p">).</span><span class="nx">highcharts</span><span class="p">(</span><span class="s1">&#39;StockChart&#39;</span><span class="p">,</span> <span class="p">{</span>
+                        <span class="nx">rangeSelector</span><span class="o">:</span> <span class="p">{</span>
+                            <span class="nx">enabled</span><span class="o">:</span> <span class="mi">0</span>
+                        <span class="p">},</span>
+                        <span class="nx">chart</span><span class="o">:</span> <span class="p">{</span>
+                            <span class="nx">backgroundColor</span><span class="o">:</span> <span class="s1">&#39;#333333&#39;</span><span class="p">,</span>
+                        <span class="p">},</span>
+                	    <span class="nx">tooltip</span><span class="o">:</span> <span class="p">{</span>
+                	    	<span class="nx">formatter</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+                				<span class="kd">var</span> <span class="nx">s</span> <span class="o">=</span> <span class="s1">&#39;&lt;b&gt;&#39;</span><span class="o">+</span> <span class="nx">Highcharts</span><span class="p">.</span><span class="nx">dateFormat</span><span class="p">(</span><span class="s1">&#39;%A, %b %e, %H:%M&#39;</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">x</span><span class="p">)</span> <span class="o">+</span><span class="s1">&#39;&lt;/b&gt;&#39;</span><span class="p">;</span>
+                				<span class="nx">$</span><span class="p">.</span><span class="nx">each</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">points</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">i</span><span class="p">,</span> <span class="nx">point</span><span class="p">)</span> <span class="p">{</span>
+                					<span class="nx">s</span> <span class="o">+=</span> <span class="s1">&#39;&lt;br/&gt;&#39;</span><span class="o">+</span><span class="k">this</span><span class="p">.</span><span class="nx">series</span><span class="p">.</span><span class="nx">name</span><span class="o">+</span><span class="s1">&#39;: &#39;</span><span class="o">+</span><span class="nb">parseFloat</span><span class="p">(</span><span class="nx">point</span><span class="p">.</span><span class="nx">y</span><span class="p">).</span><span class="nx">toFixed</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+                				<span class="p">});</span>
+                				<span class="k">return</span> <span class="nx">s</span><span class="p">;</span>
+                			<span class="p">}</span>
+                	    <span class="p">},</span>
+                        <span class="nx">plotOptions</span><span class="o">:</span> <span class="p">{</span>
+                            <span class="nx">series</span><span class="o">:</span> <span class="p">{</span>
+                                <span class="nx">marker</span><span class="o">:</span> <span class="p">{</span>
+                                    <span class="nx">enabled</span><span class="o">:</span> <span class="kc">false</span>
+                                <span class="p">},</span>
+                                <span class="nx">lineWidth</span><span class="o">:</span> <span class="mf">1.1</span><span class="p">,</span>
+                            <span class="p">}</span>
+                        <span class="p">},</span>
+                        <span class="nx">yAxis</span><span class="o">:</span> <span class="p">[{</span>
+                          <span class="nx">title</span><span class="o">:</span> <span class="p">{</span>
+                              <span class="nx">text</span><span class="o">:</span> <span class="s1">&#39;MACD(12,26,9)&#39;</span>
+                          <span class="p">},</span>
+                          <span class="nx">height</span><span class="o">:</span> <span class="mi">200</span><span class="p">,</span>
+                        <span class="p">},</span> <span class="p">{</span>
+                          <span class="nx">title</span><span class="o">:</span> <span class="p">{</span>
+                              <span class="nx">text</span><span class="o">:</span> <span class="s1">&#39;KDJ(9,3,3)&#39;</span>
+                          <span class="p">},</span>
+                          <span class="nx">top</span><span class="o">:</span> <span class="mi">250</span><span class="p">,</span>
+                          <span class="nx">height</span><span class="o">:</span> <span class="mi">150</span><span class="p">,</span>
+                          <span class="nx">offset</span><span class="o">:</span> <span class="mi">0</span><span class="p">,</span>
+                          <span class="nx">gridLineDashStyle</span><span class="o">:</span> <span class="s1">&#39;Dash&#39;</span><span class="p">,</span>
+                          <span class="nx">tickPositions</span><span class="o">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">80</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">]</span>
+                        <span class="p">},</span> <span class="p">{</span>
+                            <span class="nx">title</span><span class="o">:</span> <span class="p">{</span>
+                                <span class="nx">text</span><span class="o">:</span> <span class="s1">&#39;BOLL(20)&#39;</span>
+                            <span class="p">},</span>
+                            <span class="nx">top</span><span class="o">:</span> <span class="mi">450</span><span class="p">,</span>
+                            <span class="nx">height</span><span class="o">:</span> <span class="mi">300</span><span class="p">,</span>
+                            <span class="nx">offset</span><span class="o">:</span> <span class="mi">0</span><span class="p">,</span>
+                        <span class="p">},</span> <span class="p">{</span>
+                            <span class="nx">title</span><span class="o">:</span> <span class="p">{</span>
+                                <span class="nx">text</span><span class="o">:</span> <span class="s1">&#39;VOL&#39;</span>
+                            <span class="p">},</span>
+                            <span class="nx">top</span><span class="o">:</span> <span class="mi">800</span><span class="p">,</span>
+                            <span class="nx">height</span><span class="o">:</span> <span class="mi">100</span><span class="p">,</span>
+                            <span class="nx">offset</span><span class="o">:</span> <span class="mi">0</span><span class="p">,</span>
+                        <span class="p">}],</span>
+                        <span class="nx">series</span><span class="o">:</span> <span class="p">[{</span>
+                            <span class="nx">name</span><span class="o">:</span> <span class="s1">&#39;BAR&#39;</span><span class="p">,</span>
+                            <span class="nx">color</span><span class="o">:</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+                            <span class="nx">negativeColor</span><span class="o">:</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+                            <span class="nx">borderColor</span><span class="o">:</span> <span class="s1">&#39;#333333&#39;</span><span class="p">,</span>
+                            <span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;column&#39;</span><span class="p">,</span>
+                            <span class="nx">data</span><span class="o">:</span> <span class="nx">macddata</span><span class="p">[</span><span class="s1">&#39;bar&#39;</span><span class="p">],</span>
+                            <span class="nx">yAxis</span><span class="o">:</span> <span class="mi">0</span><span class="p">,</span>
+                        <span class="p">},</span> <span class="p">{</span>
+                            <span class="nx">name</span><span class="o">:</span> <span class="s1">&#39;DIFF&#39;</span><span class="p">,</span>
+                            <span class="nx">color</span><span class="o">:</span> <span class="s1">&#39;#ffffff&#39;</span><span class="p">,</span>
+                            <span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;line&#39;</span><span class="p">,</span>
+                            <span class="nx">data</span><span class="o">:</span> <span class="nx">macddata</span><span class="p">[</span><span class="s1">&#39;dif&#39;</span><span class="p">],</span>
+                            <span class="nx">lineWidth</span><span class="o">:</span> <span class="mi">2</span><span class="p">,</span>
+                            <span class="nx">yAxis</span><span class="o">:</span> <span class="mi">0</span><span class="p">,</span>
+                        <span class="p">},</span> <span class="p">{</span>
+                            <span class="nx">name</span><span class="o">:</span> <span class="s1">&#39;DEA&#39;</span><span class="p">,</span>
+                            <span class="nx">color</span><span class="o">:</span> <span class="s1">&#39;#ffff00&#39;</span><span class="p">,</span>
+                            <span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;line&#39;</span><span class="p">,</span>
+                            <span class="nx">data</span><span class="o">:</span> <span class="nx">macddata</span><span class="p">[</span><span class="s1">&#39;dea&#39;</span><span class="p">],</span>
+                            <span class="nx">lineWidth</span><span class="o">:</span> <span class="mi">2</span><span class="p">,</span>
+                            <span class="nx">yAxis</span><span class="o">:</span> <span class="mi">0</span><span class="p">,</span>
+                        <span class="p">},</span> <span class="p">{</span>
+                            <span class="nx">name</span><span class="o">:</span> <span class="s1">&#39;K&#39;</span><span class="p">,</span>
+                            <span class="nx">color</span><span class="o">:</span> <span class="s1">&#39;#ffffff&#39;</span><span class="p">,</span>
+                            <span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;line&#39;</span><span class="p">,</span>
+                            <span class="nx">data</span><span class="o">:</span> <span class="nx">kdjdata</span><span class="p">[</span><span class="s1">&#39;k&#39;</span><span class="p">],</span>
+                            <span class="nx">yAxis</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span>
+                        <span class="p">},</span> <span class="p">{</span>
+                            <span class="nx">name</span><span class="o">:</span> <span class="s1">&#39;D&#39;</span><span class="p">,</span>
+                            <span class="nx">color</span><span class="o">:</span> <span class="s1">&#39;#ffff00&#39;</span><span class="p">,</span>
+                            <span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;line&#39;</span><span class="p">,</span>
+                            <span class="nx">data</span><span class="o">:</span> <span class="nx">kdjdata</span><span class="p">[</span><span class="s1">&#39;d&#39;</span><span class="p">],</span>
+                            <span class="nx">yAxis</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span>
+                        <span class="p">},</span> <span class="p">{</span>
+                            <span class="nx">name</span><span class="o">:</span> <span class="s1">&#39;J&#39;</span><span class="p">,</span>
+                            <span class="nx">color</span><span class="o">:</span> <span class="s1">&#39;#cc99cc&#39;</span><span class="p">,</span>
+                            <span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;line&#39;</span><span class="p">,</span>
+                            <span class="nx">data</span><span class="o">:</span> <span class="nx">kdjdata</span><span class="p">[</span><span class="s1">&#39;j&#39;</span><span class="p">],</span>
+                            <span class="nx">yAxis</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span>
+                        <span class="p">},</span> <span class="p">{</span>
+                            <span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;candlestick&#39;</span><span class="p">,</span>
+                            <span class="nx">name</span><span class="o">:</span> <span class="s1">&#39;ohlc&#39;</span><span class="p">,</span>
+                            <span class="nx">data</span><span class="o">:</span> <span class="nx">ohlc</span><span class="p">,</span>
+                            <span class="nx">upColor</span><span class="o">:</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+                            <span class="nx">upLineColor</span><span class="o">:</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+                            <span class="nx">color</span><span class="o">:</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+                            <span class="nx">lineColor</span><span class="o">:</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+                            <span class="nx">yAxis</span><span class="o">:</span> <span class="mi">2</span><span class="p">,</span>
+                        <span class="p">},</span> <span class="p">{</span>
+                            <span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;spline&#39;</span><span class="p">,</span>
+                            <span class="nx">name</span><span class="o">:</span> <span class="s1">&#39;up&#39;</span><span class="p">,</span>
+                            <span class="nx">data</span><span class="o">:</span> <span class="nx">bolldata</span><span class="p">[</span><span class="s1">&#39;up&#39;</span><span class="p">],</span>
+                            <span class="nx">color</span><span class="o">:</span> <span class="s1">&#39;#ffff00&#39;</span><span class="p">,</span>
+                            <span class="nx">lineWidth</span><span class="o">:</span> <span class="mi">2</span><span class="p">,</span>
+                            <span class="nx">yAxis</span><span class="o">:</span> <span class="mi">2</span><span class="p">,</span>
+                        <span class="p">},</span> <span class="p">{</span>
+                            <span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;spline&#39;</span><span class="p">,</span>
+                            <span class="nx">name</span><span class="o">:</span> <span class="s1">&#39;md&#39;</span><span class="p">,</span>
+                            <span class="nx">data</span><span class="o">:</span> <span class="nx">bolldata</span><span class="p">[</span><span class="s1">&#39;md&#39;</span><span class="p">],</span>
+                            <span class="nx">color</span><span class="o">:</span> <span class="s1">&#39;#ffffff&#39;</span><span class="p">,</span>
+                            <span class="nx">lineWidth</span><span class="o">:</span> <span class="mi">2</span><span class="p">,</span>
+                            <span class="nx">yAxis</span><span class="o">:</span> <span class="mi">2</span><span class="p">,</span>
+                        <span class="p">},</span> <span class="p">{</span>
+                            <span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;spline&#39;</span><span class="p">,</span>
+                            <span class="nx">name</span><span class="o">:</span> <span class="s1">&#39;dn&#39;</span><span class="p">,</span>
+                            <span class="nx">data</span><span class="o">:</span> <span class="nx">bolldata</span><span class="p">[</span><span class="s1">&#39;dn&#39;</span><span class="p">],</span>
+                            <span class="nx">color</span><span class="o">:</span> <span class="s1">&#39;#cc99cc&#39;</span><span class="p">,</span>
+                            <span class="nx">lineWidth</span><span class="o">:</span> <span class="mi">2</span><span class="p">,</span>
+                            <span class="nx">yAxis</span><span class="o">:</span> <span class="mi">2</span><span class="p">,</span>
+                        <span class="p">},</span> <span class="p">{</span>
+                            <span class="nx">name</span><span class="o">:</span> <span class="s1">&#39;VOL&#39;</span><span class="p">,</span>
+                            <span class="nx">borderColor</span><span class="o">:</span> <span class="s1">&#39;#333333&#39;</span><span class="p">,</span>
+                            <span class="nx">type</span><span class="o">:</span> <span class="s1">&#39;column&#39;</span><span class="p">,</span>
+                            <span class="nx">data</span><span class="o">:</span> <span class="nx">volume</span><span class="p">,</span>
+                            <span class="nx">yAxis</span><span class="o">:</span> <span class="mi">3</span><span class="p">,</span>
+                        <span class="p">}]</span>
+                    <span class="p">});</span>
+                <span class="p">});</span>
+            <span class="p">});</span>
+        <span class="p">});</span>
+    <span class="p">});</span> 
+   <span class="nt">&lt;/script&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;body&gt;</span>
+   <span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">&quot;container&quot;</span> <span class="na">style=</span><span class="s">&quot;min-width:800px;height:1000px;&quot;</span><span class="nt">&gt;&lt;/div&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div>
+<p>highcharts 有个问题，就是不能跟 amcharts 或者 echarts 那样提供一个画笔工具，让用户自己在生成的图形上再涂抹线条，这个功能其实在蜡烛图上判断压力位支撑位的时候很有用。不过蜡烛图 btc123 也提供了，我也就懒得再用 amcharts 重写一遍。</p>
+<p>效果如下：</p>
+<p><img src="/images/uploads//btc.png" alt="" /></p>
+      <a href="/2013/12/09/draw-charts-of-bitcoin" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2013/12/09/add-mailinglist-command-to-gitolite" title="为 gitolite 实现 mailinglist 命令行操控" rel="bookmark">为 gitolite 实现 mailinglist 命令行操控</a>
     </h1>
     <p class="alt-font tight">
@@ -1901,44 +2434,6 @@ rex init --name<span class="o">=</span><span class="nv">$vm</span>-name --url<sp
 <p><strong>2013 年 07 月 23 日附注：</strong></p>
 <p>虽然如此，但是 Vagrant 目前已经成为开源社区风头正劲的一个产品，其开放的 plugin 机制导致周边产品大量出现，已经形成了一个不错的社区氛围。还是建议大家了解 Vagrant 。目前 vagrant-plugin 列表见：<a href="https://github.com/mitchellh/vagrant/wiki/Available-Vagrant-Plugins">https://github.com/mitchellh/vagrant/wiki/Available-Vagrant-Plugins</a>。</p>
       <a href="/2013/05/27/use-rex-box-replace-vagrant" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2013/05/14/mojo-and-gocr-for-buildhr-telephone" title="用mojo抓取数据并gocr替换图片内容" rel="bookmark">用mojo抓取数据并gocr替换图片内容</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2013-05-14 00:00:00 +0800">14 May 2013</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>现在的网站越来越狡猾，连招聘网站的信息都懂的把公司的联系方式动态图片化了。还好为了观看方便，没加什么干扰。所以写个脚本来识别还是可以的。虽然到目前为止没发现比较好的 OCR 工具——我指的是可以直接apt-get安装的，有朋友知道哪个比较好的话，欢迎告诉我~</p>
-<p>尝试了一下 tesseract-ocr 和 gocr ，还是 gocr 靠谱一点点。所以 <code>apt-get install gocr</code> 安装然后运行下面这个 Perl 脚本：</p>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="n">ojo</span><span class="p">;</span>
-<span class="k">use</span> <span class="mf">5.010</span><span class="p">;</span>
-<span class="n">g</span><span class="p">(</span><span class="s">&quot;http://search.buildhr.com/job/581968.html&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">dom</span><span class="o">-&gt;</span><span class="n">charset</span><span class="p">(</span><span class="s">&quot;UTF-8&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">find</span><span class="p">(</span><span class="s">&quot;div .postjob .padding&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">find</span><span class="p">(</span><span class="s">&quot;p&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="nb">each</span><span class="p">(</span><span class="n">sub</span><span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$line</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$img_element</span> <span class="o">=</span> <span class="nv">$line</span><span class="o">-&gt;</span><span class="n">at</span><span class="p">(</span><span class="s">&#39;img&#39;</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="nb">defined</span> <span class="nv">$img_element</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$img_url</span> <span class="o">=</span> <span class="nv">$img_element</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">src</span><span class="p">};</span>
-        <span class="n">g</span><span class="p">(</span><span class="nv">$img_url</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">content</span><span class="o">-&gt;</span><span class="n">asset</span><span class="o">-&gt;</span><span class="n">move_to</span><span class="p">(</span><span class="s">&quot;test.jpg&quot;</span><span class="p">);</span>
-        <span class="k">my</span> <span class="nv">$seem_str</span> <span class="o">=</span> <span class="sb">`gocr test.jpg`</span><span class="p">;</span>
-        <span class="nb">chomp</span><span class="p">(</span><span class="nv">$seem_str</span><span class="p">);</span>
-        <span class="n">say</span> <span class="nb">join</span><span class="p">(</span><span class="nv">$seem_str</span><span class="p">,</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/ /</span><span class="p">,</span> <span class="nv">$line</span><span class="o">-&gt;</span><span class="n">text</span><span class="p">));</span>
-    <span class="p">}</span>
-<span class="p">});</span>
-</code></pre></div>
-<p>不过老是把 <code>7</code> 识别成 <code>_</code>。</p>
-<p>真是越来越觉得 ojo 好用啊~</p>
-      <a href="/2013/05/14/mojo-and-gocr-for-buildhr-telephone" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
