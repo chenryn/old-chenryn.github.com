@@ -12,5 +12,4 @@ cp -r _site/* chenryn.github.com/
 cd chenryn.github.com
 git add .
 git commit -am "$msg"
-git push origin
-git push gitcafe
+git push

@@ -44,6 +44,139 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h1 class="entry-title">
+      <a href="/2012/03/17/postgreSQL-DBA-2000-note1" title="PostgreSQL中国用户会DBA2000培训计划北京第一课笔记" rel="bookmark">PostgreSQL中国用户会DBA2000培训计划北京第一课笔记</a>
+    </h1>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-03-17 00:00:00 +0800">17 Mar 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#database-ref" title="database" rel="category tag">database</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <h1 id="postgresql">PostgreSQL及中国用户会简介</h1>
+<p>主讲人 李元佳 galy</p>
+<h2 id="section">数据库分类</h2>
+<p>商业数据库: Oracle, DB2, SQLserver, Sybase&hellip;
+  开源数据库: MySQL, PostgreSQL, Firebird, SQLite, Apache Derby&hellip;</p>
+<h2 id="postgresql-1">PostgreSQL沿革</h2>
+<p>类BSD许可的，面向对象的，关系型数据库管理系统。</p>
+<p>MIT &ndash;&gt; Ingres &ndash;&gt; Postgres &ndash;&gt; PostgreSQL ( 同源的还有SQLserver等 )</p>
+<p>支持SQL2008标准的大部分功能特性，是各种RDBMS的SQL方言中最贴近标准的。</p>
+<h1 id="postgresql-2">PostgreSQL简介</h1>
+<p>主讲人 萧少聪 Scott.Siu</p>
+<h2 id="section-1">用户与进程</h2>
+<p><img src="/images/uploads/pgsql-process.png" alt="postgreSQL中用户与进程的联系" /></p>
+<p>注意在上图中，不管是workmem还是sharebuffer，每个page都是8KB大小。</p>
+<h2 id="section-2">复制流程</h2>
+<p>stream replica的流程如下：</p>
+<pre><code>client --&gt; postgres --&gt; WAL (not file)--&gt; slave --&gt; (return OK) --&gt; master --&gt; commit
+</code></pre>
+<p>在master上的流程细节如下：</p>
+<pre><code>client --&gt; write-ahead log(WAL) buffer --&gt; commit --&gt; (async/fsync~~160%) --&gt; WAL Files (16MB * 132个)
+   ^
+   |--&gt; share buffer  --&gt; bgwriter --&gt; db files
+             ^                            |
+             |--        check point     &lt;-- ## 安装
+</code></pre>
+<p>linux: 注意使用独立的非root用户来安装启动pgsql。在version9.1后，可以跟SElinux结合使用，提高安全性。<br />
+  win: 只能在NTFS文件系统上创建表空间。<br />
+  窗口统一式安装，可以方便的安装stack builder套件。</p>
+<h2 id="section-3">目录</h2>
+<p>默认使用窗口安装的情况下，目录结构如下：</p>
+<pre><code>/opt/PostgreSQL/9.1/
+    |
+    |--&gt; bin/
+    |--&gt; doc/
+    |--&gt; include/
+    |--&gt; lib/
+    |--&gt; share/
+    |--&gt; install/
+    |--&gt; data/
+           |--&gt; base/		存放table和index的ID号
+           |--&gt; global/
+           |--&gt; pg_clog/	运行日志
+           |--&gt; pg_xlog/	WAL日志
+           |--&gt; pg_tblspc/	表空间ID，实质为到真实数据目录的软连接
+           |--&gt; postgresql.conf
+           |--&gt; pg_hba.conf
+</code></pre>
+<h2 id="section-4">创建</h2>
+<ol>
+  <li>使用bin/initdb命令；  </li>
+  <li>修改data/pg_hba.conf里的连接地址段和登录权限；  </li>
+  <li>修改data/postgresql.conf里的监听网卡。</li>
+</ol>
+<h2 id="section-5">启动与停止</h2>
+<p>使用bin/pg_ctl命令。其停止命令可指定三种类型：</p>
+<ol>
+  <li>smart模式，即等待全部client连接断开后停止；  </li>
+  <li>fast模式，即直接回滚全部尚未完成的事务后停止；  </li>
+  <li>immediate模式，即立刻中止全部进程。</li>
+</ol>
+<h2 id="section-6">配置说明</h2>
+<ol>
+  <li>
+    <p>work_mem:  <br />
+并不是每个client连接的postgres进程分配一个work mem，而是SQL每一次的排序work使用一个work mem。包括join和order by。如果没有排序，就不用work mem。如果一条sql里同时使用了N次排序，那么就要使用N个work mem。所以理想的使用方法不是提供太大的work mem来排序，而是尽量缩小需要排序的数据大小，设置为4/8MB即可。  <br />
+该配置是可以online修改的。命令如下：  <br />
+ SET work_mem = 2048;
+ SET work_mem = &lsquo;2MB&rsquo;;
+上面两条命令等价。可以看书其计量单位为1KB，且类型为字符串，所以在自定义计量时需要用引号。</p>
+  </li>
+  <li>
+    <p>share_buffers:  <br />
+理论上为机器物理内存的40%大小。实际测试显示大于8GB后，性能不会有相应的提升，即可认为最大设置到8GB。</p>
+  </li>
+  <li>
+    <p>temp_buffers:  <br />
+无修改意义</p>
+  </li>
+  <li>
+    <p>max_prepared_transactions:  <br />
+并发事务数</p>
+  </li>
+  <li>
+    <p>maintenance_work_mem:  <br />
+vacuum、create index、alter table add foreign key等管理命令使用的work_mem，建议设置1G。因为这些命令经常涉及全表扫描。</p>
+  </li>
+</ol>
+<h2 id="postgresql-3">postgreSQL的数据集概念</h2>
+<pre><code>                      DataBase Cluster
+                             |
+                   |---------|---------|
+                   |         |         |
+                 user     database   tablespace
+                             |
+                           schema
+</code></pre>
+<p>这里的cluster不是HA cluster，而是数据集。<br />
+  一个database里可以有多个schema，一个user可以有多个schema的管理权限，但一个schema只能归属于一个user。<br />
+  默认有一个template0为schema的基础，不可修改，在template0基础上有template1，可以修改。实际创建schema时就是复制template1出来。
+  创建user时，一般都会再创建一个同名的schema，并规定该schema的所属人为该user。这样在pgsql连接到database后，其默认schema即为该同名schema。</p>
+<h2 id="section-7">备份与恢复</h2>
+<h3 id="section-8">备份</h3>
+<p>pg_dump命令，使用-s指定只备份数据结构，-t指定只备份数据内容。</p>
+<h3 id="section-9">基于时间点的备份恢复</h3>
+<ol>
+  <li>select pg_start_backup(&lsquo;FullBackup&rsquo;);</li>
+  <li>tar zcvf full_backup/week1.tgz /opt/PostgreSQL/9.1/data/</li>
+  <li>
+    <p>select pg_stop_backup();</p>
+  </li>
+  <li>tar zxvf full_backup/week1.tgz -C /</li>
+  <li>echo &lsquo;restore_command=&rdquo;cp %f %p&rdquo;&rsquo; &gt; data/recovery.conf</li>
+</ol>
+      <a href="/2012/03/17/postgreSQL-DBA-2000-note1" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h1 class="entry-title">
       <a href="/2012/03/10/go-deep-into-nginx-operation" title="加强了解nginx的几个问题" rel="bookmark">加强了解nginx的几个问题</a>
     </h1>
     <p class="alt-font tight">
@@ -2453,138 +2586,6 @@ function post_node() {
     <span class="p">}</span>
 </code></pre></div>
       <a href="/2011/09/16/dancing-website-for-sync-dist-1" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
-      <a href="/2011/09/08/lbnamed-code-reading" title="lbnamed代码浅读" rel="bookmark">lbnamed代码浅读</a>
-    </h1>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-09-08 00:00:00 +0800">08 Sep 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>群里听说lbnamed这么个东东，用perl实现的动态DNS服务器。程序包括三个perl模块：Stanford::DNSserver模块、Stanford::DNS模块、LBCD模块；三个perl程序：lbnamed主程序、poller探测程序、slbcd监控程序（这个有C语言的版本）。</p>
-<ul>
-  <li>先看主程序lbnamed。</li>
-</ul>
-<p>排除掉sig啊，help啊，pid啊，log啊之类的以后，剩下的主要内容包括：</p>
-<ol>
-  <li>一个Stanford::DNSserver-&gt;new()对象，分别用add_static和add_dynamic方法加入的DNS记录，然后用answer_queries方法启动运行。</li>
-  <li>一个handle_lb_request()函数，用在add_dynamic中完成动态DNS解析响应。</li>
-  <li>一个load_config()函数，用于从文件中读取domain/ip/weight的值并存入hash。</li>
-  <li>一个by_weight()函数，用于排序。</li>
-</ol>
-<ul>
-  <li>接下来主要是去看Stanford::DNSserver里的add_*和answer_queries函数。</li>
-</ul>
-<p>这个模块里，$self除了new()传递的参数以外，还有几个很重要的空间，分别是$self-&gt;{select}、$self-&gt;{static}-&gt;{$domain}-&gt;{$type}-&gt;{answer}、$self-&gt;{static}-&gt;{$domain}-&gt;{$type}-&gt;{ancount}和$self-&gt;{dynamic}-&gt;{$domain}。
-1. add_static()很简单，把传入的配置按照格式组装给Stanford::DNS::dns_answer()，返回值存入$self-&gt;{static}-&gt;{$domain}-&gt;{$type}-&gt;{answer}，同时$self-&gt;{static}-&gt;{$domain}-&gt;{$type}-&gt;{ancount}加1。</p>
-<pre><code>
-*** 2011-10-09注: 代码是.=，即返回值是接入，static方法可以返回多条记录，而dynamic方法只会返回最后加载的一条。
-</code></pre>
-<ol>
-  <li>add_dynamic()更简单，直接把lbnamed里的handle_lb_request()的引用存入$self-&gt;{dynamic}-&gt;{$domain}就完了。</li>
-  <li>answer_queries()方法启动服务器，步骤如下：</li>
-</ol>
-<p>$self-&gt;daemon()，其实就是改变STD后的fork。<br />
- $self-&gt;init()，首先用IO::Socket::INET模块，new出两个socket，分别监听在TCP/UDP的DNS端口上；然后调用$self-&gt;{select}，这在new的时候已经创建了一个IO::Select对象。把之前的两个socket加入到select队列中。<br />
- 在一个while(1){}死循环中，调用select的can_read()方法，具体是$self-&gt;{select}-&gt;can_read(600)，根据IO::Select的说明，这个600表示如果一直没有可以READ的SOCKET，等待600秒后返回一个空队列，也就是说轮训的时候，每个socket会阻塞600秒~<br />
- 如果can_read成立，根据其协议是UDP还是TCP，调用$self-&gt;handle_udp_req或者$self-&gt;handle_tcp_req处理这个socket。</p>
-<ul>
-  <li>然后看$self-&gt;handle_udp_req()方法。</li>
-</ul>
-<ol>
-  <li>用perl内嵌的recv方法，从socket中读取8192字节到$buff，至于这里为什么是8192字节，没有找到比较合理的解释。因为DNS协议的UDP传输一般只有512字节，而UDP协议的不可靠性，也很难保证8192字节的数据完整。唯一在一篇博客上看到说因为NFS的读写数据大小是这个。反正不管怎么样，8192肯定是足够的；</li>
-  <li>把$buff传递给$self-&gt;do_dns_request()函数，返回值赋为$reply。</li>
-  <li>用send方法，把$reply发回给socket。</li>
-</ol>
-<ul>
-  <li>再来看$self-&gt;handle_tcp_req()方法。</li>
-</ul>
-<ol>
-  <li>用IO::Socket::INET::accept()方法创建一个返回到对端的socket对象；</li>
-  <li>关闭原来的socket，释放IO::Select；</li>
-  <li>使用perl内嵌的sysread方法，从socket中读入2个字节到$buff，然后用unpack(&lsquo;n&rsquo;,$buff)的方式解压得到数据长度；</li>
-  <li>根据计算的长度，继续读入相应长度的数据，并传递给$self-&gt;do_dns_request()函数，返回值赋为$reply；</li>
-  <li>用pack(&lsquo;n&rsquo;,length $reply)打包数据长度，接在数据报文的头部，用send方法发送出去；</li>
-  <li>依上面三步的操作，循环进行，直到socket内数据全部读取完成。</li>
-</ol>
-<ul>
-  <li>然后看$self-&gt;do_dns_request()方法。</li>
-</ul>
-<ol>
-  <li>先把buff里的前12字节取出来，然后用unpack(&lsquo;n6C*&rsquo;,$buff)解压成RFC1035标准里的包头信息，包括：</li>
-</ol>
-<pre><code>
-    $id——用来验证请求和响应匹配的随机数, 
-    $flags——包括$opcode查询类型（正向/反向）、$qr（请求/响应）、$tc（截断？）、$rd（是否递归）, 
-    $qdcount——查询的问题个数, 
-    $ancount——响应的结果个数, 
-    $aucount——额，这个在RFC1035里都没发现, 
-    $adcount——附加区域内的响应结果个数。从程序来看，aucount和adcount一直都是0。
-</code></pre>
-<ol>
-  <li>然后用Stanford::DNS::dn_expand()解析$buff出$qname，用unpack(&lsquo;nn&rsquo;, substr($buff, $ptr, 4))解析出$qtype和$qclass，这三个变量是RFC1035.4.1.3中定义的请求区内容。</li>
-  <li>最后，使用$self-&gt;check_static($qname,$qtype,$qclass,\%dnsmsg)或$self-&gt;check_dynamic($qname,$qtype,$qclass,\%dnsmsg,$from)方法，得到响应内容，然后pack(&lsquo;n6&rsquo;, $id, $flags, $qdcount, $dnsmsg{ancount}, $dnsmsg{aucount}, $dnsmsg{adcount}) . $reply组装完成返回。</li>
-</ol>
-<pre><code>
-*** 2011-10-09注: 代码是if( * or * )，即是先检查check_static结果并返回，只有不存在static的情况下，才会check_dynamic去！
-</code></pre>
-<p>上面关于pack/unpack语焉不详，实在是自己也不懂……汗！</p>
-<ul>
-  <li>然后看check_static()函数</li>
-</ul>
-<p>很简单，从前面add_static存入的%{$self-&gt;{static}}里取出对应qname的value即可，同时计算一下ancount。</p>
-<ul>
-  <li>接着是check_dynamic()函数</li>
-</ul>
-<p>跟static不同的是，这里对域名进行了分割然后重拼装，在获取到最先匹配的handler后跳出循环，调用handler处理。举例说：team.www.domain.com这个域名，它先检查是不是存在$self-&gt;{dynamic}-&gt;{www.domain.com}，有就传递(&lsquo;www.domain.com&rsquo;,&rsquo;team&rsquo;,&hellip;)；否则下一步检查$self-&gt;{dynamic}-&gt;{domain.com}，有就传递(&lsquo;domain.com&rsquo;,&rsquo;team.www&rsquo;,&hellip;)；依此类推……
-<br />至于Stanford::DNS模块，主要就是拼装各种数据成DNS协议规范的数据格式，在没看懂RFC1035和pack/unpack的用法前，就不写了。</p>
-<ul>
-  <li>回头继续看那个handler函数</li>
-</ul>
-<ol>
-  <li>在new的时候，调用了&amp;do_reload()做loopfunc；</li>
-  <li>do_reload()中调用了load_config(&ldquo;${poller_results}lb&rdquo;)读取poller的结果文本；</li>
-  <li>load_config()中将groups数组作为key，存入了各项数值，weight、ttl、rnd等；</li>
-  <li>unless ($group = $lb_groups{$qname})这里就是用到了上一步的key，确认域名存在；</li>
-  <li>by_weight()中，用$weight{}对$host排序；</li>
-  <li>选出最终答案，$rnd{$qname} ? @$group[int(rand(min($rnd{$qname},$#$group)))] : @$group[0];不过在load_config中，$rnd{$group}=0（另外一个赋值的地方是$rnd{$weight}=$host，很没道理的地方，我都怀疑是不是写反了？），所以肯定是从数组拿第一个，也就是最大的一个了。</li>
-</ol>
-<ul>
-  <li>server部分完毕，然后看poller程序：</li>
-</ul>
-<ol>
-  <li>大同小异的也是在while(1){&hellip;;sleep(120)}中用IO::Select和IO::Socket::INET完成对host的探测；</li>
-  <li>然后dump_lb()函数里取出各host的探测结果，计算weight，写入文件。</li>
-</ol>
-<p>这个计算方法主要包括了服务器的登录user数量和loadavg的大小。说实话我不清楚为啥要计算user数量……具体的数据格式，可以看LBCD.pm里注释的C语言typeof struct定义，也可以看slbcd脚本里的pack。如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="nv">$reply</span> <span class="o">=</span> <span class="nb">pack</span><span class="p">(</span><span class="s">&quot;nnnnNNNnnnnnCC&quot;</span><span class="p">,</span>            <span class="c1"># build the reply</span>
-              <span class="nv">$version</span><span class="p">,</span> <span class="nv">$id</span><span class="p">,</span> <span class="nv">$op</span><span class="p">,</span> <span class="nv">$status</span><span class="p">,</span>
-              <span class="nv">$btime</span><span class="p">,</span> <span class="nb">time</span><span class="p">(),</span> <span class="nv">$utime</span><span class="p">,</span>
-              <span class="nv">$l1</span><span class="p">,</span> <span class="nv">$l5</span><span class="p">,</span> <span class="nv">$l15</span><span class="p">,</span> <span class="nv">$tot</span><span class="p">,</span> <span class="nv">$uniq</span><span class="p">,</span>
-              <span class="nv">$console</span><span class="p">,</span> <span class="nv">$reserved</span><span class="p">);</span>
-</code></pre></div>
-<ul>
-  <li>最后总结</li>
-</ul>
-<p>这个server利用poller调整解析的weight，但并不是我想象中的百分比解析，而是针对每次解析请求时后端服务器的准实时（120秒）负载情况给出最适合的一个。对于全网GSLB，感觉不太适用；对于内部SLB，又感觉不如LVS好用。<br />
-不过作为一个DNS框架，如果抛开poller，倒也可以自己再设想一个动态dns来：</p>
-<ol>
-  <li>用Net::IP::Match::Regexp匹配ip列表到area区域——可以注意到，lbnamed中写的handler中没有用上传递进去的$from；</li>
-  <li>然后$file是area区域到host/weight(100%)的对应，handler中取rand(100)随机数，跟设定的weight比大小，确定具体用哪个ip；</li>
-  <li>最后改造poller，根据流量，响应时间等，确定一个weight阈值，超标的话就修改$file中得weight大小。</li>
-</ol>
-      <a href="/2011/09/08/lbnamed-code-reading" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
