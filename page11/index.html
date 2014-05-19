@@ -43,9 +43,9 @@
       <div class="span7">
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/08/13/intro-pnp4nagios" title="nagios绘图" rel="bookmark">nagios绘图</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-08-13 00:00:00 +0800">13 Aug 2010</abbr>
@@ -57,40 +57,6 @@
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>nagios默认command中，有个未开启的process_performance_data。可以开启它来保存数据，然后提供给rrdtools绘图。</p>
-<p>下载pnp插件包，官网是<a href="http://www.pnp4nagios.org/">http://www.pnp4nagios.org</a>，和cacti一样，保证有lamp、rrdtool（低版本的还要GD），然后和其他插件一样./configure &amp;&amp; make &amp;&amp; make all &amp;&amp; make install &amp;&amp; make install-config &amp;&amp; make install-init就行了。
-然后修改nagios.cfg如下：</p>
-<p>process_performance_data=1
-service_perfdata_command=process-service-perfdata
-host_perfdata_file=/usr/local/nagios/var/host-perfdata</p>
-<p>修改commands.cfg如下：</p>
-<p>define command{
-    command_name          process-service-perfdata-file
-    command_line          $USER1$/process_perfdata.pl
-}
-define command{
-    command_name          process-host-perfdata-file
-    command_line          $USER1$/process_perfdata.pl
-}</p>
-<p>再修改pnp/process_perfdata.cfg-sample，设定好rrdtool等的路径，另存为process_perfdata.cfg。重启nagios即可。</p>
-<p>过一会图就出来了，不过我自己写的两个脚本，随意检测正常，页面上也看到了输出值，就是没图……报出来***.rrd not found。进目录一看，其他图都创建出来了，就自定义脚本的没有……</p>
-<p>咬牙看了会include/function.inc.php，发现php在调用rrdtool create的时候，使用的直接就是$data[1][&rsquo;*&lsquo;]这样的数据，整个functions里都没有看到怎么匹配切割数据的部分。可是看页面上nagios自带的command输出，也没什么明显标记啊？</p>
-<table>
-  <tbody>
-    <tr>
-      <td>上服务器看脚本，试着手动运行了一次check_http，发现输出结果比页面上显示的还多了一串“</td>
-      <td>time=0.003329s;5.000000;10.000000;0.000000 size=1576B;;;0”！这个明显有着固定的格式！</td>
-    </tr>
-  </tbody>
-</table>
-<p>然后在页面上点开check_http看，发现在报警状态“Status Information:  HTTP OK HTTP/1.0 200 OK - 1576 bytes in 0.003 seconds”下还有一行“ Performance Data: time=0.003329s;5.000000;10.000000;0.000000 size=1576B;;;0”。原来如此……</p>
-<table>
-  <tbody>
-    <tr>
-      <td>修改shell脚本的echo内容，也照葫芦画瓢的加上了“</td>
-      <td>port ${PORT}=${PORT_CONN};${WARNING};${CRITICAL};;”等五分钟后，再点开pnp图，果然出现了！</td>
-    </tr>
-  </tbody>
-</table>
       <a href="/2010/08/13/intro-pnp4nagios" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -98,9 +64,9 @@ define command{
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/08/13/intro-gnuplot" title="gnuplot画图" rel="bookmark">gnuplot画图</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-08-13 00:00:00 +0800">13 Aug 2010</abbr>
@@ -125,21 +91,22 @@ define command{
 23:49 409.255
 23:54 423.512
 23:59 390.676
-然后编写gnuplot的配置文件如下：</p>
-<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@Zabbix cache<span class="o">]</span><span class="c"># cat log.conf</span>
-<span class="nb">set </span>terminal png truecolor size 550,250    <span class="c">#指定输出成png图片，且图片大小为550×250，需要ligpng支持，采用默认颜色设定</span>
-<span class="nb">set </span>output <span class="s2">&quot;log.png&quot;</span>    <span class="c">#指定输出png图片的文件名</span>
-<span class="nb">set </span>autoscale    <span class="c">#轴向标记自动控制</span>
-<span class="nb">set </span>xdata <span class="nb">time</span>    <span class="c">#X轴数据格式为时间</span>
-<span class="nb">set </span>timefmt <span class="s2">&quot;%H:%M&quot;</span>    <span class="c">#时间输入格式为&quot;小时:分钟&quot;</span>
-<span class="nb">set </span>style data lines    <span class="c">#数据显示方式为连线</span>
-<span class="nb">set </span>xlabel <span class="s2">&quot;time per day&quot;</span>    <span class="c">#X轴标题</span>
-<span class="nb">set </span>ylabel <span class="s2">&quot;Mbps&quot;</span>    <span class="c">#Y轴标题</span>
-<span class="nb">set </span>title <span class="s2">&quot;image.tuku.china.com flow&quot;</span>    <span class="c">#图片标题</span>
-<span class="nb">set </span>grid    <span class="c">#显示网格</span>
-plot <span class="s2">&quot;test.log&quot;</span> using 1:2 title <span class="s2">&quot;access_flow&quot;</span>    <span class="c">#从test.log文件中读取第一列和第二列作为X轴和Y轴数据，示例名&quot;log_flow&quot;</span>
-</code></pre></div>
-<p>最后运行cat log.conf | gnuplot命令，就生成了log.png文件，如下：
+然后编写gnuplot的配置文件如下：
+{% highlight bash %}
+[root@Zabbix cache]# cat log.conf
+set terminal png truecolor size 550,250    #指定输出成png图片，且图片大小为550×250，需要ligpng支持，采用默认颜色设定
+set output &ldquo;log.png&rdquo;    #指定输出png图片的文件名
+set autoscale    #轴向标记自动控制
+set xdata time    #X轴数据格式为时间
+set timefmt &ldquo;%H:%M&rdquo;    #时间输入格式为&rdquo;小时:分钟&rdquo;
+set style data lines    #数据显示方式为连线
+set xlabel &ldquo;time per day&rdquo;    #X轴标题
+set ylabel &ldquo;Mbps&rdquo;    #Y轴标题
+set title &ldquo;image.tuku.china.com flow&rdquo;    #图片标题
+set grid    #显示网格
+plot &ldquo;test.log&rdquo; using 1:2 title &ldquo;access_flow&rdquo;    #从test.log文件中读取第一列和第二列作为X轴和Y轴数据，示例名&rdquo;log_flow&rdquo;
+{% endhighlight %}
+最后运行cat log.conf | gnuplot命令，就生成了log.png文件，如下：
 <img src="/images/uploads/gnuplot.png" alt="" />
 就是不知道X轴上这个01/01怎么消除掉……
 对比帝联提供的flash图片如下：
@@ -152,9 +119,9 @@ plot <span class="s2">&quot;test.log&quot;</span> using 1:2 title <span class="s
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/08/13/intro-bc-command" title="bc命令及其他" rel="bookmark">bc命令及其他</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-08-13 00:00:00 +0800">13 Aug 2010</abbr>
@@ -166,26 +133,6 @@ plot <span class="s2">&quot;test.log&quot;</span> using 1:2 title <span class="s
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>在写check_if_flow.sh的时候，因为要比较的值太多，几个网卡，每个都分进出、然后分w和c。如果直接if判断大小，会写的无比庞大……于是想到根据比较结果先输出一个变量，大就是1，小就是0，类似这种。</p>
-<p>于是找到了bc命令，最终结果如下：</p>
-<p>[root@test ~]# echo &ldquo;1.13 &gt; 1.2&rdquo;|bc
-0
-[root@test ~]# echo &ldquo;1.13 &lt; 1.2&rdquo;|bc
-1
-bc支持+-*/%^=!&gt;&lt;各种运算，还能通过scale指定小数点后几位；
-还能任意转换数字的进制，如下：</p>
-<p>[root@test ~]# echo &lsquo;obase=10; ibase=16; 1E79&rsquo; | bc
-7801</p>
-<p>相比之前脚本里用的awk要灵活（就是必须大写）。awk从十进制变十六进制很容易，变回去就难了……得用上函数才行：</p>
-<p>[root@test ~]# echo &lsquo;1E79&rsquo;|awk &lsquo;{printf &ldquo;%s&rdquo;,strtonum(&ldquo;0x&rdquo;$1)}&rsquo;
-7801</p>
-<p>而shell相反，从十六进制变十进制很容易，反过来去难……</p>
-<p>[root@test ~]# echo $[16#1e79]
-7801</p>
-<p>ksh中可以指定typeset -i，bash没找到~所以只能把别的进制改成10进制</p>
-<p>[root@test ~]# ksh
-# typeset -i16 num=7801
-# echo $num
-16#1e79</p>
       <a href="/2010/08/13/intro-bc-command" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -193,9 +140,9 @@ bc支持+-*/%^=!&gt;&lt;各种运算，还能通过scale指定小数点后几位
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/08/05/traffic-monitor" title="流量监控" rel="bookmark">流量监控</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-08-05 00:00:00 +0800">05 Aug 2010</abbr>
@@ -215,171 +162,6 @@ bc支持+-*/%^=!&gt;&lt;各种运算，还能通过scale指定小数点后几位
 （因为近期cacti上的图时不时有某些机器突发满载流量尖峰，持续时间又很短，所以靠cacti或者nagios本身这种间隔性轮询扫描很可能就错过去了）
 最终想法是，在机器上后台长期运行监控脚本，碰到流量突发，发送到监控服务器，监控服务器上开启sniffer或者wireshark抓包，同时发邮件报警。
 目前初步完成监控客户端脚本如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">IO::</span><span class="n">Socket</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Getopt::</span><span class="n">Long</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(strftime)</span><span class="p">;</span>
-<span class="c1">#Init</span>
-<span class="k">my</span> <span class="nv">%traf</span><span class="p">;</span>
-<span class="k">my</span> <span class="p">(</span><span class="nv">$warning</span><span class="p">,</span><span class="nv">$interval</span><span class="p">,</span><span class="nv">$usage</span><span class="p">,</span><span class="nv">$silent</span><span class="p">);</span>
-<span class="k">my</span> <span class="p">(</span><span class="nv">$eth0_in</span><span class="p">,</span><span class="nv">$eth0_out</span><span class="p">,</span><span class="nv">$eth1_in</span><span class="p">,</span><span class="nv">$eth1_out</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">$alarm</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-<span class="nv">$warning</span> <span class="o">=</span> <span class="s">&quot;1000,2000,10000,80000&quot;</span><span class="p">;</span>
-<span class="nv">$interval</span> <span class="o">=</span> <span class="mi">10</span><span class="p">;</span>
-<span class="c1">#get options</span>
-<span class="nn">Getopt::Long::</span><span class="n">Configure</span><span class="p">(</span><span class="s">&#39;bundling&#39;</span><span class="p">);</span>
-<span class="n">GetOptions</span><span class="p">(</span>
-    <span class="s">&quot;h&quot;</span> <span class="o">=&gt;</span> <span class="nv">$usage</span><span class="p">,</span> <span class="s">&quot;v&quot;</span> <span class="o">=&gt;</span> <span class="nv">$usage</span><span class="p">,</span>
-    <span class="s">&quot;s&quot;</span> <span class="o">=</span> <span class="nv">$silent</span><span class="p">,</span>
-    <span class="s">&quot;w=s&quot;</span> <span class="o">=&gt;</span> <span class="nv">$warning</span><span class="p">,</span>
-    <span class="s">&quot;H=s&quot;</span> <span class="o">=&gt;</span> <span class="nv">$peer</span><span class="p">,</span>
-    <span class="s">&quot;t=f&quot;</span> <span class="o">=&gt;</span> <span class="nv">$interval</span><span class="p">,</span>
-<span class="p">);</span>
-<span class="k">if</span> <span class="p">(</span><span class="nv">$usage</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">usage</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">if</span> <span class="p">(</span><span class="nv">$warning</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">usage</span> <span class="k">unless</span> <span class="nv">$warning</span> <span class="o">=~</span><span class="sr"> /d+,d+,d+,d+/</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">my</span> <span class="p">(</span><span class="nv">$eth0_in_warn</span><span class="p">,</span><span class="nv">$eth0_out_warn</span><span class="p">,</span><span class="nv">$eth1_in_warn</span><span class="p">,</span><span class="nv">$eth1_out_warn</span><span class="p">)</span> <span class="o">=</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/,/</span><span class="p">,</span><span class="nv">$warning</span><span class="p">);</span>
-<span class="c1">#fork</span>
-<span class="nb">defined</span><span class="p">(</span><span class="k">my</span> <span class="nv">$pid</span><span class="o">=</span><span class="nb">fork</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;Cant fork:$!&quot;</span><span class="p">;</span>
-<span class="k">unless</span><span class="p">(</span><span class="nv">$pid</span><span class="p">){</span>
-<span class="p">}</span><span class="k">else</span><span class="p">{</span>
-    <span class="nb">exit</span> <span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="c1">#main</span>
-<span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
-<span class="c1">#这点很奇怪，本打算把main里头的东西直接写在while里的，运行却一直没输出；只要定义成sub，立马就好用……</span>
-    <span class="n">main</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="c1">#functions</span>
-<span class="k">sub </span><span class="nf">main</span> <span class="p">{</span>
-    <span class="p">(</span><span class="nv">$eth0_in</span><span class="p">,</span><span class="nv">$eth0_out</span><span class="p">,</span><span class="nv">$eth1_in</span><span class="p">,</span><span class="nv">$eth1_out</span><span class="p">)</span> <span class="o">=</span> <span class="n">count</span><span class="p">;</span>
-    <span class="c1">#每5分钟保存到tmp文件，供nrpe读取数据，给nagios画图用</span>
-    <span class="k">my</span> <span class="nv">$nrpetime</span> <span class="o">=</span> <span class="n">strftime</span><span class="p">(</span><span class="s">&quot;%M%S&quot;</span><span class="p">,</span><span class="nb">localtime</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="nv">$nrpetime</span> <span class="o">=~</span><span class="sr"> /d(5|0)0d/</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">write_for_nrpe</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="nb">alarm</span> <span class="k">unless</span><span class="p">(</span><span class="nv">$silent</span><span class="p">);</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">count</span> <span class="p">{</span>
-    <span class="n">data</span><span class="p">;</span>
-    <span class="nv">$traf</span><span class="p">{</span><span class="s">&quot;eth0In_old&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$traf</span><span class="p">{</span><span class="n">eth0In</span><span class="p">};</span>
-    <span class="nv">$traf</span><span class="p">{</span><span class="s">&quot;eth1In_old&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$traf</span><span class="p">{</span><span class="n">eth1In</span><span class="p">};</span>
-    <span class="nv">$traf</span><span class="p">{</span><span class="s">&quot;eth0Out_old&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$traf</span><span class="p">{</span><span class="n">eth0Out</span><span class="p">};</span>
-    <span class="nv">$traf</span><span class="p">{</span><span class="s">&quot;eth1Out_old&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$traf</span><span class="p">{</span><span class="n">eth1Out</span><span class="p">};</span>
-    <span class="nb">sleep</span> <span class="nv">$interval</span><span class="p">;</span>
-    <span class="n">data</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$eth0_in_flow</span> <span class="o">=</span> <span class="nb">sprintf</span> <span class="s">&quot;%.2f&quot;</span><span class="p">,(</span><span class="nv">$traf</span><span class="p">{</span><span class="n">eth0In</span><span class="p">}</span><span class="o">-</span><span class="nv">$traf</span><span class="p">{</span><span class="s">&quot;eth0In_old&quot;</span><span class="p">})</span><span class="sr">/$interval*8/</span><span class="mi">1024</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$eth1_in_flow</span> <span class="o">=</span> <span class="nb">sprintf</span> <span class="s">&quot;%.2f&quot;</span><span class="p">,(</span><span class="nv">$traf</span><span class="p">{</span><span class="n">eth1In</span><span class="p">}</span><span class="o">-</span><span class="nv">$traf</span><span class="p">{</span><span class="s">&quot;eth1In_old&quot;</span><span class="p">})</span><span class="sr">/$interval*8/</span><span class="mi">1024</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$eth0_out_flow</span> <span class="o">=</span> <span class="nb">sprintf</span> <span class="s">&quot;%.2f&quot;</span><span class="p">,(</span><span class="nv">$traf</span><span class="p">{</span><span class="n">eth0Out</span><span class="p">}</span><span class="o">-</span><span class="nv">$traf</span><span class="p">{</span><span class="s">&quot;eth0Out_old&quot;</span><span class="p">})</span><span class="sr">/$interval*8/</span><span class="mi">1024</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$eth1_out_flow</span> <span class="o">=</span> <span class="nb">sprintf</span> <span class="s">&quot;%.2f&quot;</span><span class="p">,(</span><span class="nv">$traf</span><span class="p">{</span><span class="n">eth1Out</span><span class="p">}</span><span class="o">-</span><span class="nv">$traf</span><span class="p">{</span><span class="s">&quot;eth1Out_old&quot;</span><span class="p">})</span><span class="sr">/$interval*8/</span><span class="mi">1024</span><span class="p">;</span>
-    <span class="k">return</span> <span class="nv">$eth0_in_flow</span><span class="p">,</span><span class="nv">$eth0_out_flow</span><span class="p">,</span><span class="nv">$eth1_in_flow</span><span class="p">,</span><span class="nv">$eth1_out_flow</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">data</span> <span class="p">{</span>
-    <span class="nb">open</span> <span class="n">DEV</span><span class="p">,</span><span class="s">&quot;&amp;lt;/proc/net/dev&quot;</span> <span class="o">||</span> <span class="nb">die</span> <span class="s">&quot;Cannot open procfs!&quot;</span><span class="p">;</span>
-    <span class="k">while</span> <span class="p">(</span><span class="nb">defined</span><span class="p">(</span><span class="k">my</span> <span class="nv">$ifdata</span><span class="o">=&amp;</span><span class="ow">lt</span><span class="p">;</span><span class="n">DEV</span><span class="o">&gt;</span><span class="p">)){</span>
-        <span class="k">next</span> <span class="k">if</span> <span class="nv">$ifdata</span> <span class="o">!~</span> <span class="sr">/eth/</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">@data</span> <span class="o">=</span> <span class="nb">split</span> <span class="p">(</span><span class="sr">/:|s+/</span><span class="p">,</span><span class="nv">$ifdata</span><span class="p">);</span>
-        <span class="nv">$traf</span><span class="p">{</span><span class="s">&quot;$data[1]In&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$data</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
-        <span class="nv">$traf</span><span class="p">{</span><span class="s">&quot;$data[1]Out&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$data</span><span class="p">[</span><span class="mi">10</span><span class="p">];</span>
-    <span class="p">}</span>
-    <span class="nb">close</span> <span class="n">DEV</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">write_for_nrpe</span> <span class="p">{</span>
-    <span class="nb">open</span> <span class="n">FH</span><span class="p">,</span><span class="s">&quot;&gt;/tmp/if_flow.txt&quot;</span> <span class="o">||</span> <span class="nb">die</span> <span class="vg">$!</span><span class="p">;</span>
-    <span class="k">print</span> <span class="n">FH</span> <span class="s">&quot;$eth0_in|$eth0_out|$eth1_in|$eth1_out&quot;</span><span class="p">;</span>
-    <span class="nb">close</span> <span class="n">FH</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">alarm</span> <span class="p">{</span>
-    <span class="c1">#考虑到默认10s取值一次，突发流量如果持续100s，就会向socket发送10次，所以进行判定，只在突发开始和突发结束时发送warn和ok。写的很初级……</span>
-    <span class="k">my</span> <span class="nv">$alarm_int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="nv">$alarm_int</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="p">(</span><span class="nv">$eth0_in</span><span class="o">-</span><span class="nv">$eth0_in_warn</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">);</span>
-    <span class="nv">$alarm_int</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="p">(</span><span class="nv">$eth0_out</span><span class="o">-</span><span class="nv">$eth0_out_warn</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">);</span>
-    <span class="nv">$alarm_int</span> <span class="o">=</span> <span class="mi">2</span> <span class="k">if</span> <span class="p">(</span><span class="nv">$eth1_in</span><span class="o">-</span><span class="nv">$eth1_in_warn</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">);</span>
-    <span class="nv">$alarm_int</span> <span class="o">=</span> <span class="mi">2</span> <span class="k">if</span> <span class="p">(</span><span class="nv">$eth1_out</span><span class="o">-</span><span class="nv">$eth1_out_warn</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">);</span>
-    <span class="k">next</span> <span class="k">if</span> <span class="nv">$alarm_int</span> <span class="o">==</span> <span class="nv">$alarm</span><span class="p">;</span>
-    <span class="n">call_sniffer</span><span class="p">(</span><span class="s">&quot;eth0:WARN&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="nv">$alarm_int</span><span class="o">-</span><span class="nv">$alarm</span><span class="o">==</span><span class="mi">1</span><span class="p">);</span>
-    <span class="n">call_sniffer</span><span class="p">(</span><span class="s">&quot;eth1:WARN&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="nv">$alarm_int</span><span class="o">-</span><span class="nv">$alarm</span><span class="o">==</span><span class="mi">2</span><span class="p">);</span>
-    <span class="n">call_sniffer</span><span class="p">(</span><span class="s">&quot;eth0:OK&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="nv">$alarm_int</span><span class="o">-</span><span class="nv">$alarm</span><span class="o">==-</span><span class="mi">1</span><span class="p">);</span>
-    <span class="n">call_sniffer</span><span class="p">(</span><span class="s">&quot;eth1:OK&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="nv">$alarm_int</span><span class="o">-</span><span class="nv">$alarm</span><span class="o">==-</span><span class="mi">2</span><span class="p">);</span>
-    <span class="nv">$alarm</span> <span class="o">=</span> <span class="nv">$alarm_int</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">call_sniffer</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$message</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$socket</span> <span class="o">=</span> <span class="nn">IO::Socket::</span><span class="n">INET</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="n">PeerAddr</span> <span class="o">=&gt;</span> <span class="nv">$peer</span><span class="p">,</span>
-                                       <span class="n">PeerPort</span> <span class="o">=&gt;</span> <span class="mi">12345</span><span class="p">,</span>
-                                       <span class="n">Proto</span><span class="err">   </span> <span class="o">=&gt;</span> <span class="s">&#39;tcp&#39;</span><span class="p">)</span>
-                 <span class="ow">or</span> <span class="nb">die</span> <span class="vg">$@</span><span class="p">;</span>
-    <span class="k">print</span> <span class="nv">$socket</span> <span class="s">&quot;${message}n&quot;</span><span class="p">;</span>
-    <span class="nv">$socket</span><span class="o">-&gt;</span><span class="nb">shutdown</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$answer</span> <span class="o">=</span> <span class="sr">&lt;$socket&gt;</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span><span class="nv">$answer</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">print</span> <span class="nv">$answer</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="nv">$socket</span><span class="o">-&gt;</span><span class="nb">close</span> <span class="ow">or</span> <span class="nb">die</span> <span class="vg">$!</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">usage</span> <span class="p">{</span>
-    <span class="k">print</span> <span class="s">&quot;Version: check_eth_flow.pl v0.1n&quot;</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;Usage: check_eth_flow.pl -w 1000,2000,10000,80000 -t 10n&quot;</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;tt-w Warning Value: eth0_in,eth0_out,eth1_in,eth1_out;n&quot;</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;tt-t Interval Time;n&quot;</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;tt-s Silent write for nagios;n&quot;</span>
-    <span class="k">print</span> <span class="s">&quot;tt-H Host address of peer;n&quot;</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;tt-h Print this usage.n&quot;</span><span class="p">;</span>
-    <span class="nb">exit</span> <span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>nrpe的check_if_flow.sh就比较简单了，如下：</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
-<span class="k">while </span><span class="nb">getopts</span> <span class="s2">&quot;w:c:h&quot;</span> OPT;do
-    <span class="k">case</span> <span class="nv">$OPT</span> in
-    w<span class="o">)</span>
-        <span class="nv">WARNING</span><span class="o">=</span><span class="k">${</span><span class="nv">OPTARG</span><span class="k">}</span>
-        <span class="nv">eth0_in_warn</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$WARNING</span>|awk -F, <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
-        <span class="nv">eth0_out_warn</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$WARNING</span>|awk -F, <span class="s1">&#39;{print $2}&#39;</span><span class="sb">`</span>
-        <span class="nv">eth1_in_warn</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$WARNING</span>|awk -F, <span class="s1">&#39;{print $3}&#39;</span><span class="sb">`</span>
-        <span class="nv">eth1_out_warn</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$WARNING</span>|awk -F, <span class="s1">&#39;{print $4}&#39;</span><span class="sb">`</span>
-        ;;
-    c<span class="o">)</span>
-        <span class="nv">CRITICAL</span><span class="o">=</span><span class="k">${</span><span class="nv">OPTARG</span><span class="k">}</span>
-        <span class="nv">eth0_in_critical</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$CRITICAL</span>|awk -F, <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
-        <span class="nv">eth0_out_critical</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$CRITICAL</span>|awk -F, <span class="s1">&#39;{print $2}&#39;</span><span class="sb">`</span>
-        <span class="nv">eth1_in_critical</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$CRITICAL</span>|awk -F, <span class="s1">&#39;{print $3}&#39;</span><span class="sb">`</span>
-        <span class="nv">eth1_out_critical</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$CRITICAL</span>|awk -F, <span class="s1">&#39;{print $4}&#39;</span><span class="sb">`</span>
-        ;;
-    *<span class="o">)</span>
-        <span class="nb">echo</span> <span class="s2">&quot;Usage: $0 -w 500,500,1000,1000 -c 2000,2000,10000,10000&quot;</span>
-        <span class="nb">exit </span>0
-        ;;
-    <span class="k">esac</span>
-<span class="k">done</span>
-<span class="nv">eth0_in</span><span class="o">=</span><span class="sb">`</span>cat /tmp/if_flow.txt|awk -F| <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
-<span class="nv">eth0_out</span><span class="o">=</span><span class="sb">`</span>cat /tmp/if_flow.txt|awk -F| <span class="s1">&#39;{print $2}&#39;</span><span class="sb">`</span>
-<span class="nv">eth1_in</span><span class="o">=</span><span class="sb">`</span>cat /tmp/if_flow.txt|awk -F| <span class="s1">&#39;{print $3}&#39;</span><span class="sb">`</span>
-<span class="nv">eth1_out</span><span class="o">=</span><span class="sb">`</span>cat /tmp/if_flow.txt|awk -F| <span class="s1">&#39;{print $4}&#39;</span><span class="sb">`</span>
-<span class="nv">eth0_in_diff</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="s2">&quot;$eth0_in &amp;lt; $eth0_in_warn&quot;</span>|bc<span class="sb">`</span>
-<span class="nv">eth0_out_diff</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="s2">&quot;$eth0_out &amp;lt; $eth0_out_warn&quot;</span>|bc<span class="sb">`</span>
-<span class="nv">eth1_in_diff</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="s2">&quot;$eth1_in &amp;lt; $eth1_in_warn&quot;</span>|bc<span class="sb">`</span>
-<span class="nv">eth1_out_diff</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="s2">&quot;$eth1_out &amp;lt; $eth1_out_warn&quot;</span>|bc<span class="sb">`</span>
-<span class="nv">eth0_in_diff_2</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="s2">&quot;$eth0_in &gt; $eth0_in_critical&quot;</span>|bc<span class="sb">`</span>
-<span class="nv">eth0_out_diff_2</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="s2">&quot;$eth0_out &gt; $eth0_out_critical&quot;</span>|bc<span class="sb">`</span>
-<span class="nv">eth1_in_diff_2</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="s2">&quot;$eth1_in &gt; $eth1_in_critical&quot;</span>|bc<span class="sb">`</span>
-<span class="nv">eth1_out_diff_2</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="s2">&quot;$eth1_out &gt; $eth1_out_critical&quot;</span>|bc<span class="sb">`</span>
-<span class="k">if</span> <span class="o">[[</span> <span class="nv">$eth0_in_diff_2</span> -eq 1 <span class="o">]]</span> <span class="o">||</span> <span class="o">[[</span> <span class="nv">$eth0_out_diff_2</span> -eq 1 <span class="o">]]</span> <span class="o">||</span> <span class="o">[[</span> <span class="nv">$eth1_in_diff_2</span> -eq 1 <span class="o">]]</span> <span class="o">||</span> <span class="o">[[</span> <span class="nv">$eth1_out_diff_2</span> -eq 1 <span class="o">]]</span>;<span class="k">then</span>
-<span class="k">    </span><span class="nb">echo</span> <span class="s2">&quot;CRITICAL!The flow are $eth0_in,$eth0_out,$eth1_in,$eth1_out Kb|eth0_in=${eth0_in}Kbps;${eth0_in_warn};${eth0_in_critical};0;0 eth0_out=${eth0_out}Kbps;${eth0_out_warn};${eth0_out_critical};0;0 eth1_in=${eth1_in}Kbps;${eth1_in_warn};${eth1_in_critical};0;0 eth1_out=${eth1_out}Kbps;${eth1_out_warn};${eth1_out_critical};0;0&quot;</span>
-    <span class="nb">exit </span>2
-<span class="k">elif</span> <span class="o">[[</span> <span class="nv">$eth0_in_diff</span> -eq 1 <span class="o">]]</span>  <span class="o">[[</span> <span class="nv">$eth0_out_diff</span> -eq 1 <span class="o">]]</span>  <span class="o">[[</span> <span class="nv">$eth1_in_diff</span> -eq 1 <span class="o">]]</span>  <span class="o">[[</span> <span class="nv">$eth1_out_diff</span> -eq 1 <span class="o">]]</span>;<span class="k">then</span>
-<span class="k">    </span><span class="nb">echo</span> <span class="s2">&quot;OK!The flow are $eth0_in,$eth0_out,$eth1_in,$eth1_out Kb|eth0_in=${eth0_in}Kbps;${eth0_in_warn};${eth0_in_critical};0;0 eth0_out=${eth0_out}Kbps;${eth0_out_warn};${eth0_out_critical};0;0 eth1_in=${eth1_in}Kbps;${eth1_in_warn};${eth1_in_critical};0;0 eth1_out=${eth1_out}Kbps;${eth1_out_warn};${eth1_out_critical};0;0&quot;</span>
-    <span class="nb">exit </span>0
-<span class="k">else</span>
-<span class="k">    </span><span class="nb">echo</span> <span class="s2">&quot;WARNING!The flow are $eth0_in,$eth0_out,$eth1_in,$eth1_out Kb|eth0_in=${eth0_in}Kbps;${eth0_in_warn};${eth0_in_critical};0;0 eth0_out=${eth0_out}Kbps;${eth0_out_warn};${eth0_out_critical};0;0 eth1_in=${eth1_in}Kbps;${eth1_in_warn};${eth1_in_critical};0;0 eth1_out=${eth1_out}Kbps;${eth1_out_warn};${eth1_out_critical};0;0&quot;</span>
-    <span class="nb">exit </span>1
-<span class="k">fi</span>
-</code></pre></div>
       <a href="/2010/08/05/traffic-monitor" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -387,9 +169,9 @@ bc支持+-*/%^=!&gt;&lt;各种运算，还能通过scale指定小数点后几位
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/08/04/concat" title="concat" rel="bookmark">concat</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-08-04 00:00:00 +0800">04 Aug 2010</abbr>
@@ -401,18 +183,6 @@ bc支持+-*/%^=!&gt;&lt;各种运算，还能通过scale指定小数点后几位
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>今天逛到淘宝核心系统组的公开博客，然后知道了淘宝开源平台<a href="http://code.taobao.org/">http://code.taobao.org/</a>，刚出来的东东，上面开源了淘宝目前正在使用的key-value分布式存储tair和nginx的concet模块、Cookie模块，以及这个平台本身的代码……在回复中，淘宝的人说有关tair的update都会同步在这个平台上进行，而不是另起一个闭源分支，或者想新浪的sina-sdd那样放弃。据说九月份，淘宝还会放出它的分布式文件系统TFS来，毕竟时间不长，会不会“人亡政息”，有待考验……</p>
-<p>不过我对这个concet模块有点兴趣，从其英文介绍（淘宝真是，对国人也用英文）来看，是仿照apache的mod_concet用来合并js/css文件输出的。于是去找mod_concet资料来看。其官方发布在google上。说明很简单，安装方法、配置方法、效果……</p>
-<div class="highlight"><pre><code class="css"><span class="o">&lt;</span><span class="nt">link</span> <span class="nt">href</span><span class="o">=/</span><span class="nt">a</span><span class="o">/</span><span class="nt">a</span><span class="nc">.css</span> <span class="nt">type</span><span class="o">=</span><span class="nt">text</span><span class="o">/</span><span class="nt">css</span><span class="o">&gt;</span>
-<span class="o">&lt;</span><span class="nt">link</span> <span class="nt">href</span><span class="o">=/</span><span class="nt">a</span><span class="o">/</span><span class="nt">b</span><span class="nc">.css</span> <span class="nt">type</span><span class="o">=</span><span class="nt">text</span><span class="o">/</span><span class="nt">css</span><span class="o">&gt;</span>
-<span class="o">&lt;</span><span class="nt">link</span> <span class="nt">href</span><span class="o">=/</span><span class="nt">a</span><span class="o">/</span><span class="nt">c</span><span class="nc">.css</span> <span class="nt">type</span><span class="o">=</span><span class="nt">text</span><span class="o">/</span><span class="nt">css</span><span class="o">&gt;</span>
-</code></pre></div>
-<p>统一写成&lt;link href=/a/a.css,/a/b.css,/a/c.css type=text/css&gt;就可以了。
-效果据说快20%-30%。
-写mod_concet模块的AOL工程师自己的截图如下：
-<img src="http://pic04.babytreeimg.com/foto/thumbs/59/14/67/3472f5340b8860e7e8f4_m.png" alt="" />
-其last-modified定义，则是选取了合并前的文件中MTIME最晚的那个。
-或许有些道理，因为浏览器对同一域名能开启的并发数有限，而太小的文件下载速度加不起来……
-不过js或者css不一定总是能写在一块的，留作一个记录吧~~</p>
       <a href="/2010/08/04/concat" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -420,9 +190,9 @@ bc支持+-*/%^=!&gt;&lt;各种运算，还能通过scale指定小数点后几位
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/08/03/squid2-6-bug-about-if_none_match" title="squid2.6的bug（if-none-match）" rel="bookmark">squid2.6的bug（if-none-match）</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-08-03 00:00:00 +0800">03 Aug 2010</abbr>
@@ -435,36 +205,6 @@ bc支持+-*/%^=!&gt;&lt;各种运算，还能通过scale指定小数点后几位
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>话接上篇。
 在发现经过squid的刷新请求头不带If-None-Match后，向squid-user发邮件询问。Amos回复如下：</p>
-<p>On Mon, 02 Aug 2010 07:56:09 +0800, Gemmy <a href="mailto:chenryn@163.com"><span style="text-decoration:underline;"><span style="color:#0000ff;"><a href="&#109;&#097;&#105;&#108;&#116;&#111;:&#099;&#104;&#101;&#110;&#114;&#121;&#110;&#064;&#049;&#054;&#051;&#046;&#099;&#111;&#109;">&#099;&#104;&#101;&#110;&#114;&#121;&#110;&#064;&#049;&#054;&#051;&#046;&#099;&#111;&#109;</a></span></span></a> wrote:
-&lt;blockquote style="color:#000000;"&gt;
- Hi~
-&gt; I have a nginx webserver adding the static-etags module and a
-&gt; squid2.6.23 before the nginx. When I access to the nginx directly, I can
-&gt; see the ETag in response header and If-None-Match in the request header
-&gt; after refresh. But when I access to the squid, ETag header still
-&gt; exist,If-None-Match header disappeared!
-&gt; The squid.conf have most basic configuration items, nothing about cache.
-&gt; Why does this happen?
-&lt;/blockquote&gt;
-Squid-2 has problems with If-None-Match.
-<a href="http://bugs.squid-cache.org/show_bug.cgi?id=2112"><span style="text-decoration:underline;"><span style="color:#0000ff;">http://bugs.squid-cache.org/show_bug.cgi?id=2112</span></span></a></p>
-<p>Please upgrade to Squid-2.7. It will behave a lot better regarding ETags
-in general and <a href="http://bugs.squid-cache.org/show_bug.cgi?id=2112"><span style="text-decoration:underline;"><span style="color:#0000ff;">http://bugs.squid-cache.org/show_bug.cgi?id=2112</span></span></a> has some
-patches on 2.7 that you may want to try.</p>
-<p>Amos</p>
-<p>赶紧看看bug2112报告《Squid does not send If-None-Match tag for cache revalidation》，原来是http.c里，虽然
-httpBuildRequestHeader定义了if-none-match，但却忘了定义接下来向源站发送的request-etags！
-重新下载squid2.7.9，编译完成后开始测试。访问动作和相应的日志记录如下：
-第一次访问：
-1280803634.566     65 59.108.42.242 TCP_MISS/200 19127 GET <a href="http://club.china.com/data/thread/1011/2716/16/81/5_1.html">http://club.china.com/data/thread/1011/2716/16/81/5_1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;<a href="http://club.china.com/">http://club.china.com/</a>&rdquo; &ldquo;Mozilla/5.0 (Windows; Windows NT 5.1; rv:2.0b2) Gecko/20100720 Firefox/4.0b2&rdquo;
-F5刷新有新内容：
-1280803714.220    488 59.108.42.242 TCP_REFRESH_MISS/200 19127 GET <a href="http://club.china.com/data/thread/1011/2716/16/81/5_1.html">http://club.china.com/data/thread/1011/2716/16/81/5_1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;<a href="http://club.china.com/">http://club.china.com/</a>&rdquo; &ldquo;Mozilla/5.0 (Windows; Windows NT 5.1; rv:2.0b2) Gecko/20100720 Firefox/4.0b2&rdquo;
-F5刷新没新内容：
-1280805207.149      3 59.108.42.242 TCP_REFRESH_HIT/304 309 GET <a href="http://club.china.com/data/threads/1011/1.html">http://club.china.com/data/threads/1011/1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;-&ldquo; &ldquo;Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)&rdquo;
-回复后返回新内容：
-1280803803.696     20 59.108.42.242 TCP_REFRESH_HIT/200 19126 GET <a href="http://club.china.com/data/thread/1011/2716/16/81/5_1.html">http://club.china.com/data/thread/1011/2716/16/81/5_1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;<a href="http://r.club.china.com/jsp/pub/replyAutoJump.jsp?url=http://club.china.com/data/thread/1011/2716/16/81/5_1.html&amp;forumid=1011&amp;message=&amp;picmessage">http://r.club.china.com/jsp/pub/replyAutoJump.jsp?url=http%3A%2F%2Fclub.china.com%2Fdata%2Fthread%2F1011%2F2716%2F16%2F81%2F5_1.html&amp;forumid=1011&amp;message=&amp;picmessage</a>=&rdquo; &ldquo;Mozilla/5.0 (Windows; Windows NT 5.1; rv:2.0b2) Gecko/20100720 Firefox/4.0b2&rdquo;
-Ctrl+F5刷新：
-1280803821.731     12 59.108.42.242 TCP_CLIENT_REFRESH_MISS/200 19127 GET <a href="http://club.china.com/data/thread/1011/2716/16/81/5_1.html">http://club.china.com/data/thread/1011/2716/16/81/5_1.html</a> - ROUNDROBIN_PARENT/127.0.0.1 text/html &ldquo;<a href="http://r.club.china.com/jsp/pub/replyAutoJump.jsp?url=http://club.china.com/data/thread/1011/2716/16/81/5_1.html&amp;forumid=1011&amp;message=&amp;picmessage">http://r.club.china.com/jsp/pub/replyAutoJump.jsp?url=http%3A%2F%2Fclub.china.com%2Fdata%2Fthread%2F1011%2F2716%2F16%2F81%2F5_1.html&amp;forumid=1011&amp;message=&amp;picmessage</a>=&rdquo; &ldquo;Mozilla/5.0 (Windows; Windows NT 5.1; rv:2.0b2) Gecko/20100720 Firefox/4.0b2&rdquo;</p>
       <a href="/2010/08/03/squid2-6-bug-about-if_none_match" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -472,9 +212,9 @@ Ctrl+F5刷新：
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/08/01/test-last_modified-etag-of-nginx" title="郁闷的last-modified和etag试验" rel="bookmark">郁闷的last-modified和etag试验</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-08-01 00:00:00 +0800">01 Aug 2010</abbr>
@@ -486,31 +226,6 @@ Ctrl+F5刷新：
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>手上有一个伪静态的论坛bbs.example.com，每当有用户回复帖子的时候，提交到r.bbs.example.com，然后由r.bbs.example.com的提示页面replyautojump.jsp延迟3000后调用window.location.href函数返回原来的帖子——期间即完成对该帖的静态化。</p>
-<p>为了实效性，之前的配置，将这类html都设定为no-cache。现在考虑到流量和IO的问题，计划希望能够将这类html尽可能的缓存在browser和proxy上，但每次都能采用304的方式，确认帖子的最新情况。对于不太热门的板块，不太热点的帖子，应该能缓存一段时间，减轻webserver的压力；就算是热门，哪怕几十秒钟的缓存，对于全网流量，也是积腋成裘。。。</p>
-<p>因为论坛页面上，用SSI方式include了一些广告、点击排名等挂件。所以nginx上设定了ssi on，导致response-header中，没有了last-modified——按照常规，一般是在长期不变的html里include经常改变的shtml，而每次在解析SSI时去读取所有shtml的MTIME然后计算最后一个MTIME来设定成总页面的last-modified，是个比较繁琐且耗资源的做法（网上有lighttpd的patch，就是这么做的），所以包括nginx在内的多数webserver采取了比较简便的方法，即取消掉last-modified输出。参见nginx/src/http/module/ngx_http_ssi_filter_module.c第361行：</p>
-<div class="highlight"><pre><code class="c"><span class="k">static</span> <span class="kt">ngx_int_t</span>
-<span class="nf">ngx_http_ssi_header_filter</span><span class="p">(</span><span class="kt">ngx_http_request_t</span> <span class="o">*</span><span class="n">r</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="err">……</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">r</span> <span class="o">==</span> <span class="n">r</span><span class="o">-&gt;</span><span class="n">main</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">ngx_http_clear_content_length</span><span class="p">(</span><span class="n">r</span><span class="p">);</span>
-        <span class="n">ngx_http_clear_last_modified</span><span class="p">(</span><span class="n">r</span><span class="p">);</span>
-        <span class="n">ngx_http_clear_accept_ranges</span><span class="p">(</span><span class="n">r</span><span class="p">);</span>
-    <span class="p">}</span>
-    <span class="k">return</span> <span class="n">ngx_http_next_header_filter</span><span class="p">(</span><span class="n">r</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>而我这系统的情况，可能广告1天一变，排行15分钟一变，都远远慢于页面本身的更新速度，完全可以将html的MTIME认定为总页面的last-modified。
-注释掉相应源码，重新编译nginx后进行试验，在使用F5刷新的时候，果然发送了IMS，这一步成功了；可是回复帖子后，因为是跳转方式，浏览器直接采用本地cache，而不会发送IMS，所以还是看到旧页面。。。</p>
-<hr />
-<p>因为测试平台上正好有另一个端口运行着httpd，不小心发现在跳转时如果有etag的话，还是会发送INM确认。于是今天开始试验往nginx上加etag。
-从git上下载etag模块源码，采用add-module方式重编译nginx，启动后先试验直接从nginx访问。确认其在回复跳转时发送了INM，然后加上前段squid，怪事出现了——虽然response-header中确实有etag，刷新网页时request-header中却一直没有出现if-none-match！！</p>
-<p>返回查看squid和nginx的日志。squid中一直记录的是TCP_REFRESH_MISS/200，nginx上更离谱！304时传输的文件大小居然比200时还大！见下：
-    127.0.0.1 - - [01/Aug/2010:15:18:18 +0800] &ldquo;GET /data/thread/1011/2716/14/71/9<em>1.html HTTP/1.0&rdquo; 200 14823 &ldquo;-&ldquo; &ldquo;Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)&rdquo; &ldquo;124.200.241.143&rdquo;
-    124.200.241.143 - - [01/Aug/2010:15:18:57 +0800] &ldquo;GET /data/thread/1011/2716/14/71/9</em>1.html HTTP/1.1&rdquo; 304 23459 &ldquo;-&ldquo; &ldquo;Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30)&rdquo; &ldquo;-&ldquo;</p>
-<hr />
-<p>最后作为尝试，再打开SSI的last-modified同时加载etag编译了一次，试验结果，发现和没etag时一模一样，只见IMS不见INM。可是squid明明在2.6.1开始就支持etag了，怪哉~~</p>
-<p>下次有时间，再试试lighttpd的etag吧~</p>
       <a href="/2010/08/01/test-last_modified-etag-of-nginx" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -518,9 +233,9 @@ Ctrl+F5刷新：
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/07/28/monitor-netflow-by-proc_net_tcp" title="网络监控与/proc/net/tcp文件" rel="bookmark">网络监控与/proc/net/tcp文件</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-07-28 00:00:00 +0800">28 Jul 2010</abbr>
@@ -532,84 +247,6 @@ Ctrl+F5刷新：
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>nagios自带的check_antp太过简约，除了状态统计输出外，什么参数都不提供。在面对不同应用服务器时，报警就成了很大问题。于是决定自己写一个check脚本。作脚本运行，与命令操作时一个不同，就是要考虑一下效率问题。在高并发的机器上定期运行netstat -ant命令去统计，显然不太合适，可以直接从proc系统中取数据，这就快多了。</p>
-<p>先介绍/proc/net/tcp文件，这里记录的是ipv4下所有tcp连接的情况，包括下列数值：</p>
-<pre><code>sl  local_address rem_address   st tx_queue rx_queue tr tm-&gt;when retrnsmt   uid  timeout inode
-0: 00000000:3241 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 22714864 1 ffff88004f918740 750 0 0 2 -1
-</code></pre>
-<p>最主要的，就是local_address本地地址:端口、rem_address远程地址:端口、st连接状态。</p>
-<p>注1：文件中都是用的16进制，所以HTTP的80端口记录为0050。  <br />
-注2：状态码对应如下</p>
-<pre><code>00  "ERROR_STATUS",
-01  "TCP_ESTABLISHED",
-02  "TCP_SYN_SENT",
-03  "TCP_SYN_RECV",
-04  "TCP_FIN_WAIT1",
-05  "TCP_FIN_WAIT2",
-06  "TCP_TIME_WAIT",
-07  "TCP_CLOSE",
-08  "TCP_CLOSE_WAIT",
-09  "TCP_LAST_ACK",
-0A  "TCP_LISTEN",
-0B  "TCP_CLOSING",
-</code></pre>
-<p>然后介绍nrpe的check脚本。脚本不管怎么写都行，对于nagios服务器端来说，它除了接受脚本的输出结果外，只认脚本运行的退出值（测试时可以运行后用echo $?看），包括OK的exit 0、WARNING的exit 1、CRITICAL的exit 2、未知的exit 3。</p>
-<p>最后一个简单的检查http端口连接数的脚本如下：</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
-<span class="c">#Written by Gemmy.Rao</span>
-<span class="c">#Email to: &lt;a href=&quot;mailto:chenlin.rao@bj.china.com&quot;&gt;chenlin.rao@bj.china.com&lt;/a&gt;</span>
-<span class="c">#Version 0.2</span>
-<span class="c">#CHANGES</span>
-<span class="c">#Add -p option for checking other service&#39;s port</span>
-<span class="c">#Init</span>
-<span class="nv">PORT</span><span class="o">=</span>80
-<span class="nv">WARNING</span><span class="o">=</span>5000
-<span class="nv">CRITICAL</span><span class="o">=</span>20000
-<span class="c">#get options</span>
-<span class="k">while </span><span class="nb">getopts</span> <span class="s2">&quot;w:c:p:hs&quot;</span> OPT;do
-    <span class="k">case</span> <span class="nv">$OPT</span> in
-    w<span class="o">)</span>
-        <span class="nv">WARNING</span><span class="o">=</span><span class="k">${</span><span class="nv">OPTARG</span><span class="k">}</span>
-        ;;
-    c<span class="o">)</span>
-        <span class="nv">CRITICAL</span><span class="o">=</span><span class="k">${</span><span class="nv">OPTARG</span><span class="k">}</span>
-        ;;
-    p<span class="o">)</span>
-        <span class="nv">PORT</span><span class="o">=</span><span class="k">${</span><span class="nv">OPTARG</span><span class="k">}</span>
-        <span class="c">#转换各端口的十进制成十六进制</span>
-        <span class="nv">PORT_16</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="k">${</span><span class="nv">PORT</span><span class="k">}</span>|awk -F, <span class="s1">&#39;{for(i=1;i&lt;=NF;i++)printf &quot;|%.4X&quot;,$i}&#39;</span>|sed <span class="s1">&#39;s/|//&#39;</span><span class="sb">`</span>
-        ;;
-    h<span class="o">)</span>
-        <span class="nb">echo</span> <span class="s2">&quot;Usage: $0 -w 500 -c 2000 -p 80,8081 -s&quot;</span>
-        <span class="nb">exit </span>0
-        ;;
-    s<span class="o">)</span>
-        <span class="nv">SILENT</span><span class="o">=</span>1
-        ;;
-    *<span class="o">)</span>
-        <span class="nb">echo</span> <span class="s2">&quot;Usage: $0 -w 500 -c 2000 -p 80,8081&quot;</span>
-        <span class="nb">exit </span>0
-        ;;
-    <span class="k">esac</span>
-<span class="k">done</span>
-<span class="c">#经过time测试，取值速度netstat &gt; awk &#39;//{a++}END{print a}&#39; &gt; cat|grep|wc &gt; cat|awk|wc，在2w连接下，netstat要20s，最快的方式不到5s（一般nagios到10s就该直接报timeout了）</span>
-<span class="nv">PORT_CONN</span><span class="o">=</span><span class="sb">`</span>cat /proc/net/tcp*|awk <span class="s1">&#39;$2~/:(&#39;</span><span class="nv">$PORT_16</span><span class="s1">&#39;)$/&#39;</span>|wc -l<span class="sb">`</span>
-<span class="k">if</span> <span class="o">[[</span> <span class="s2">&quot;$SILENT&quot;</span> <span class="o">==</span> 1 <span class="o">]]</span>;<span class="k">then</span>
-    <span class="o">[[</span> -d /usr/local/nagios <span class="o">]]</span> <span class="o">||</span> mkdir -p /usr/local/nagios
-    <span class="nb">echo</span> <span class="s2">&quot;Silent log write OK | Port ${PORT}=${PORT_CONN};${WARNING};${CRITICAL};0;0&quot;</span>
-    <span class="nb">echo</span> -en <span class="s2">&quot;`date`t$PORT_CONNn&quot;</span> &gt;&gt; /usr/local/nagios/conn.log
-    <span class="nb">exit </span>0
-<span class="k">elif</span> <span class="o">[[</span> <span class="s2">&quot;$PORT_CONN&quot;</span> -lt <span class="s2">&quot;$WARNING&quot;</span> <span class="o">]]</span>;<span class="k">then</span>
-<span class="k">    </span><span class="nb">echo</span> <span class="s2">&quot;Port $PORT connection OK for $PORT_CONN. | Port ${PORT}=${PORT_CONN};${WARNING};${CRITICAL};0;0&quot;</span>
-    <span class="nb">exit </span>0
-<span class="k">elif</span> <span class="o">[[</span> <span class="s2">&quot;$PORT_CONN&quot;</span> -gt <span class="s2">&quot;$CRITICAL&quot;</span> <span class="o">]]</span>;<span class="k">then</span>
-<span class="k">    </span><span class="nb">echo</span> <span class="s2">&quot;Port $PORT connection critical for $PORT_CONN!! | Port ${PORT}=${PORT_CONN};${WARNING};${CRITICAL};0;0&quot;</span>
-    <span class="nb">exit </span>2
-<span class="k">else</span>
-<span class="k">    </span><span class="nb">echo</span> <span class="s2">&quot;Port $PORT connection warning for $PORT_CONN! | Port ${PORT}=${PORT_CONN};${WARNING};${CRITICAL};0;0&quot;</span>
-    <span class="nb">exit </span>1
-<span class="k">fi</span>
-</code></pre></div>
-<p>之后有必要的话，可以再取$4去统计st。</p>
       <a href="/2010/07/28/monitor-netflow-by-proc_net_tcp" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -617,9 +254,9 @@ Ctrl+F5刷新：
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/07/28/compute-flows-by-access_log" title="日志流量计算" rel="bookmark">日志流量计算</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-07-28 00:00:00 +0800">28 Jul 2010</abbr>
@@ -631,11 +268,6 @@ Ctrl+F5刷新：
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>一般来说流量带宽是通过snmp协议取网卡流量画图。不过有的时候，为了优化分析或者排错，也会直接去计算服务的访问流量。方法很简单，根据日志中记录的请求时间（squid记录的是请求响应完成时间，如果要精确，可以再减去响应时间，不过一般squid的文件不至于5分钟内还传不完的……），按每5分钟一汇总其字节数，然后均摊到300秒上。</p>
-<p>计算全日志中最高带宽的命令行如下：</p>
-<div class="highlight"><pre><code class="bash">cat <span class="nv">$ACCESS_LOG</span>|awk -F<span class="s1">&#39;[: ]&#39;</span> <span class="s1">&#39;{a[$5&quot;:&quot;$6]+=$14}END{for(i in a){print i,a[i]}}&#39;</span>|sort|awk <span class="s1">&#39;{a+=$2;if(NR%5==0){if(a&gt;b){b=a;c=$1};a=0}}END{print c,b*8/300/1024/1024}&#39;</span>
-</code></pre></div>
-<p>（日志为标准apache日志格式）
-而把最后的awk改成&rsquo;{a+=$2;if(NR%5==0){print $1,a*8/300/1024/1024;a=0}}&rsquo;，就可以输出每5分钟时的流量值，然后用GD库画图~~（有时间看看perl的GD:Graph模块，应该不难）</p>
       <a href="/2010/07/28/compute-flows-by-access_log" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -643,9 +275,9 @@ Ctrl+F5刷新：
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/07/17/location-seo" title="域名切换导致的 SEO 问题" rel="bookmark">域名切换导致的 SEO 问题</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-07-17 00:00:00 +0800">17 Jul 2010</abbr>
@@ -657,39 +289,6 @@ Ctrl+F5刷新：
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>网站某频道准备启用新域名，切换过程中，为了保证网民访问效果，对老域名下的所有请求设置了重定向到新域名下相同url。测试访问正常后上线使用。</p>
-<p>过几天，发现该频道在各搜索引擎的收录数和关键词排名中都消失了！</p>
-<h2 id="se0-">SE0 收录的问题</h2>
-<p>原来对于搜索引擎来讲，301永久重定向与302临时重定向属于不同情况。它们认可301永久重定向规则，并依此规则转移原请求的数据……</p>
-<p>照此修改nginx配置</p>
-<div class="highlight"><pre><code class="nginx"><span class="k">server</span> <span class="p">{</span>
-    <span class="kn">server_name</span> <span class="s">old.domain.com</span><span class="p">;</span>
-    <span class="c1">#rewrite ^/(.*)$ http://new.domain.com/$1 last;</span>
-    <span class="kn">rewrite</span> <span class="s">^/(.*)</span>$ <span class="s">http://new.domain.com/</span><span class="nv">$1</span> <span class="s">permanent</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">server</span> <span class="p">{</span>
-    <span class="c1">#server_name old.domain.com toold.domain.com;</span>
-    <span class="kn">server_name</span> <span class="s">new.domain.com</span> <span class="s">toold.domain.com</span><span class="p">;</span>
-    <span class="kn">root</span> <span class="s">/www/old.domain.com</span><span class="p">;</span>
-    <span class="kn">index</span> <span class="s">index.html</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>配置生效后，收录逐渐恢复。</p>
-<p>目前查询的结果，新老域名的google收录比为28600:46100，百度收录比为1200:97400。</p>
-<p>据网友经验，百度对301重定向大概也需要3个月左右的时间才能完全反应过来……汗死</p>
-<h2 id="google-pr">google PR的问题</h2>
-<p>收录解决后，PR的问题又报出来了。目前查询结果，old.domain.com的PR为6，new.domain.com的PR还是0，而且toolod.domain.com的PR也是6，并提示可能是劫持了old.domain.com的PR！</p>
-<p>只好再去看PR的资料……PR是google发明的对页面重要性等级的分析算法。从0到10非等比升高。主要是通过相互之间的链接来衡量得出的，外部链接的PR越高，网站得到的PR评分也越高（粗略的说）。对于google来说，google、yahoo等搜索引擎的收录，显然是PR衡量中极为重要的（google自定为10，yahoo、baidu等搜索是9，sina等门户是8…）显然，对于网站域名迁移切换来说，搜索引擎的收录数迁移是基础。    </p>
-<p>不过收录转移完了，PR也变不了——因为PR计算太复杂了，哪怕以google的实力也不可能做到实时更新，而是几乎2.5-3个月才更新一次！    </p>
-<p>同时，据google的Webspam团队老大Matt Cutts说：即使在域名迁移中使用301重定向，在PR统计时，也会有一定的损失！    </p>
-<p>总之，想看到new.domain.com的PR恢复成6，耐心等待吧……    </p>
-<p>然后研究toold的劫持PR报告是怎么来的……    </p>
-<p>一般大家的说法，劫持PR都是采用重定向或者别名的方式（上面提到了，这个方式也不会获得完全一样的PR）。显然我这里的情况不是。    </p>
-<p>也有人说，劫持PR直接A到IP更方便。也有人怀疑自己租机建站得到的是其他站的PR，难道相同IP的域名PR都会一样？查询一下和new.domian.com在同一台nginx上的另一个域名，PR是5。猜测不对。    </p>
-<p>或许，因为toold读取的网页文件和old是一致的，所以获得的外链也一致。但外面的反向链接，肯定指的都是old而不是toold，导致toold的反链数过少，所以被怀疑为PR劫持了。    </p>
-<p>不过，据编辑说，toold这个域名从来就没有上线发布使用过，搜索引擎从哪里抓到的页面呢？    </p>
-<p>nginx 的同一 server{} 段内的多个 <code>server_name</code> 配置，默认只会把第一个域名设定为 <code>$server_name</code>。    </p>
-<p>dns 上也没有配反向解析。    </p>
-<p>实在想不到还有哪里能泄露出这个toold了……    </p>
       <a href="/2010/07/17/location-seo" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -697,9 +296,9 @@ Ctrl+F5刷新：
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/07/17/intro-netapp" title="初识NetApp存储" rel="bookmark">初识NetApp存储</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-07-17 00:00:00 +0800">17 Jul 2010</abbr>
@@ -746,9 +345,9 @@ RAID-DP，同时拥有两种校验，并把这两种校验都单独存盘。  <b
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/07/06/modify-login-shell" title="login-shell的更改" rel="bookmark">login-shell的更改</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-07-06 00:00:00 +0800">06 Jul 2010</abbr>
@@ -760,14 +359,6 @@ RAID-DP，同时拥有两种校验，并把这两种校验都单独存盘。  <b
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>之前用ports把BSD系统的login-shell改成bash后，今天又打算改回csh去。不料重新chsh -s /bin/csh后，却弹出如下错误提示：</p>
-<pre><code>chsh: entry inconsistent
-chsh: pw_copy: Invalid argument
-</code></pre>
-<p>很诡异的提示~然后直接运行chsh修改SHELL；修改/etc/passwd和/etc/master.passwd中的/usr/local/bin/bash为/bin/csh；退出重登录，还是bash没变……</p>
-<p>经过谷大婶的帮助，发现原来在login的时候，并不是读取/etc/master.passwd来决定login-shell，而是会去读取/etc/pwd.db和/etc/spwd.db。只需要运行如下命令更新这两个db文件就可以了：</p>
-<pre><code>pwd_mkdb /etc/master.passwd
-</code></pre>
-<p>试验一下，果然ok了~~</p>
       <a href="/2010/07/06/modify-login-shell" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -775,9 +366,9 @@ chsh: pw_copy: Invalid argument
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/07/03/a-memory-error-of-java" title="Java报错一例" rel="bookmark">Java报错一例</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-07-03 00:00:00 +0800">03 Jul 2010</abbr>
@@ -789,15 +380,6 @@ chsh: pw_copy: Invalid argument
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>新迁移一例apache+resin系统，运行不久后时不时就出现500错误。从日志中看到如下报错：</p>
-<pre><code>OutOfMemoryError: PermGen space
-</code></pre>
-<p>内存溢出，可是free、top来看，mem和swap都还有很多空闲~
-于是去谷歌一下，看到如下说法：</p>
-<p>PermGen space全称Permanent Generation space（永久保存内存区），这部分内存用来保存Class和Meta的信息——Class在load的时候进入PermGen，之后Java运行时，GC（垃圾回收机制）就不再去管这部分内容了。当resin对jsp进行percompile时，可能就导致内存溢出了……默认空间为4M！
-Heap space（JVM运行调用的内存区），JVM启动时，默认的初始空间Xms是物理内存的1/64，最大空间Xmx是物理内存的1/4。建议指定Xms和Xmx相同（小于物理内存的80%），然后Xmn为Xmx的1/4。</p>
-<p>解决办法：</p>
-<p>修改java启动参数，追加“-Xms256m -Xmx256m -XX:MaxNewSize=256m -XX:MaxPermSize=256m”，定死space大小。
-重启至今故障未出现。</p>
       <a href="/2010/07/03/a-memory-error-of-java" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -805,9 +387,9 @@ Heap space（JVM运行调用的内存区），JVM启动时，默认的初始空�
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/06/26/example-of-chinese-garbled-in-dynamic-page" title="动态页面正文部分中文乱码排障一例" rel="bookmark">动态页面正文部分中文乱码排障一例</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-06-26 00:00:00 +0800">26 Jun 2010</abbr>
@@ -836,9 +418,9 @@ diff两台机器的resin.conf，除了开启的端口外，没有任何不同的
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/06/23/intro-random-variable" title="$RANDOM变量妙用" rel="bookmark">$RANDOM变量妙用</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-06-23 00:00:00 +0800">23 Jun 2010</abbr>
@@ -850,9 +432,6 @@ diff两台机器的resin.conf，除了开启的端口外，没有任何不同的
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>$RANDOM是linux自带的一个随机数变量，其随机范围从0-32767（man bash说的）。每次unset再恢复后，$RANDOM都会变化。</p>
-<p>那么，在想获得某个范围内的随机数的时候，只需要很简单的利用一下这个变量就可以了。比如想随机生成一个C段的ip。如下：</p>
-<p>echo 192.168.0.$[$RANDOM*255/32767]
-192.168.0.71</p>
       <a href="/2010/06/23/intro-random-variable" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -860,9 +439,9 @@ diff两台机器的resin.conf，除了开启的端口外，没有任何不同的
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/06/07/testing-awk-shell-variables" title="折腾 awk 内调用 shell 变量" rel="bookmark">折腾 awk 内调用 shell 变量</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-06-07 00:00:00 +0800">07 Jun 2010</abbr>
@@ -874,27 +453,6 @@ diff两台机器的resin.conf，除了开启的端口外，没有任何不同的
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>在对squid进行目录刷新的时候，一般使用的脚本都是采用for i in <code>squidclient mgr:objects|grep $1|awk '{print $2}'</code>;do squidclient -m purge &ldquo;$i&rdquo;;done的方式。</p>
-<p>mgr:objects本来就是一个比较费资源的请求，假如一个200G的cache，这个$i变量该卡多久才能有反应？抑或直接挂掉……</p>
-<table>
-  <tbody>
-    <tr>
-      <td>于是把这个稍微改进一下，变成squidclient mgr:objects</td>
-      <td>awk &lsquo;/&rdquo;&lsquo;$1&rsquo;&rdquo;/{system(&ldquo;squidclient -m purge &ldquo;$2)}&rsquo;，因为awk对每行进行匹配后，就可以同时作出反应，所以比存一个大变量要好一些。</td>
-    </tr>
-  </tbody>
-</table>
-<p>不过在使用中发现还有一些别的问题。比如碰到http://www.test.com/abc(123).html这样的url的时候，就会出错：</p>
-<p>sh: -c: line 0: syntax error near unexpected token `(&lsquo;</p>
-<p>url里的括号和awk函数的括号冲突了。所以对$2不能简单引用就完，还得处理。
-CU上有人给出如下写法：</p>
-<p>awk &lsquo;{system(&ldquo;squidclient -m purge &lsquo;&rsquo;&rsquo;&ldquo;$2&rdquo;&rsquo;&rsquo;&rsquo;&rdquo;)}&rsquo;</p>
-<p>一试果然可以，试着分解一下这堆引号：</p>
-<p>&lsquo;{system(&ldquo;squidclient -m purge &lsquo;第一部分，单引号表示里面的内容都传递给awk处理；</p>
-<p>&lsquo;第二部分，shell环境下转义单引号为普通字符；</p>
-<p>&rsquo;&ldquo;$2&rdquo;&lsquo;第三部分，传递给awk，其中第一个&rdquo;接第一部分的&rdquo;，完成system函数的命令部分，其中包括了第二部分的普通字符&rsquo;；</p>
-<p>&lsquo;第四部分，shell环境下转义单引号为普通字符；</p>
-<p>&rsquo;&rdquo;)}&rsquo;第五部分，传递给awk，其中&rdquo;接第三部分的第二个&rdquo;，其中包含了第四部分的普通字符&rsquo;；</p>
-<p>合在一起，就给替换好的$2加上了一对&rsquo;&lsquo;，然后通过system函数传递给shell执行。OK~~</p>
       <a href="/2010/06/07/testing-awk-shell-variables" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -902,9 +460,9 @@ CU上有人给出如下写法：</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/30/intro-two-lock-tools" title="文件锁和 CPU 绑定" rel="bookmark">文件锁和 CPU 绑定</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-30 00:00:00 +0800">30 May 2010</abbr>
@@ -916,44 +474,6 @@ CU上有人给出如下写法：</p>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>从网上看到的两个锁定，都是util-linux包里的。</p>
-<p>一个是flock。我从字面上猜测是文件描述符锁~~help显示如下：</p>
-<pre><code>flock (util-linux 2.13-pre7)    
-Usage: flock [-sxun][-w #] fd#
-       flock [-sxon][-w #] file [-c] command...
-  -s  --shared     Get a shared lock
-  -x  --exclusive  Get an exclusive lock
-  -u  --unlock     Remove a lock
-  -n  --nonblock   Fail rather than wait
-  -w  --timeout    Wait for a limited amount of time
-  -o  --close      Close file descriptor before running command
-  -c  --command    Run a single command string through the shell
-  -h  --help       Display this text
-  -V  --version    Display version
-</code></pre>
-<p>比如在rsync定时同步某文件夹的时候，可能担心上一次任务还没执行完，下一次就开始了。于是可以采用如下方式：</p>
-<pre><code>1 * * * * flock -xn /var/run/rsync.lock -c 'rsync -avlR /data/files 172.16.xxx.xxx:/data'
-</code></pre>
-<p>对照usage，x创建一个独享锁，n是如果已存在就退出（这点扶凯说是就等待，但我觉得从help来看是退出，然后等下一分钟重新探测），然后一个lock文件，c是shell命令，具体内容就是rsync。
-另一个是taskset，同样字面来看，任务设定锁。help如下：</p>
-<pre><code>taskset (util-linux 2.13-pre7)    
-usage: taskset [options] [mask | cpu-list] [pid | cmd [args...]]
-set or get the affinity of a process
-  -p, --pid                  operate on existing given pid    
-  -c, --cpu-list             display and specify cpus in list format
-  -h, --help                 display this help
-  -v, --version              output version information&lt;/p&gt;
-The default behavior is to run a new command:    
-  taskset 03 sshd -b 1024
-You can retrieve the mask of an existing task:
-  taskset -p 700
-Or set it:
-  taskset -p 03 700
-List format uses a comma-separated list instead of a mask:
-  taskset -pc 0,3,7-11 700
-Ranges in list format can take a stride argument:
-  e.g. 0-31:2 is equivalent to mask 0x55555555
-</code></pre>
-<p>用这个命令，可以把不同的进程，锁定在不同的CPU上完成。这个做法，之前在nginx优化上曾经碰到过，不过那是nginx自带的功能。<br />在CU上看到有人提起squid与CPU，squid是只支持单CPU的，不过可以通过在不同端口开启多squid进程的办法来完成对多CPU的利用，一般情况下，各squid进程会自动分配在不同CPU上跑，不过这个是系统的资源分配，难保出问题，就可以用这个命令完成锁定了。</p>
       <a href="/2010/05/30/intro-two-lock-tools" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -961,9 +481,9 @@ Ranges in list format can take a stride argument:
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/28/xen-install-pv" title="xen安装PV" rel="bookmark">xen安装PV</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-28 00:00:00 +0800">28 May 2010</abbr>
@@ -988,19 +508,21 @@ Ranges in list format can take a stride argument:
 返回isos/去看，终于发现一个极弱智的问题：目录下有LiveCD和bin-DVD两个镜像，我直接点了最顶上的一个，也就是LiveCD那个……
 赶紧重新下载……
 之后一路顺利。
-A机(10.10.10.10)上：</p>
-<div class="highlight"><pre><code class="bash">wget http://mirrors.sohu.com/centos/5.4/isos/x86_64/CentOS-5.4-x86_64-bin-DVD.iso -c
+A机(10.10.10.10)上：
+{% highlight bash %}
+wget http://mirrors.sohu.com/centos/5.4/isos/x86<em>64/CentOS-5.4-x86</em>64-bin-DVD.iso -c
 mount -o loop -t iso9660 /cache/CentOS-5.4-x86_64-bin-DVD.iso /mnt
-<span class="nb">echo</span> <span class="s1">&#39;/mnt 10.10.10.0/24(ro,async)&#39;</span>&gt;&gt;/etc/exports
+echo &lsquo;/mnt 10.10.10.0/24(ro,async)&rsquo;&raquo;/etc/exports
 /etc/init.d/portmap start
 /etc/init.d/nfs start
-</code></pre></div>
-<p>B机(10.10.10.11)上：</p>
-<div class="highlight"><pre><code class="bash">mkdir /img
-dd <span class="k">if</span><span class="o">=</span>/dev/zero <span class="nv">of</span><span class="o">=</span>/img/test.img <span class="nv">bs</span><span class="o">=</span>1024k <span class="nv">count</span><span class="o">=</span>8k
-virt-install --paravirt --file<span class="o">=</span>/img/test.img --name<span class="o">=</span><span class="nb">test</span> --ram<span class="o">=</span>1024 --vcpus<span class="o">=</span>1 --bridge<span class="o">=</span>xenbr0 --bridge<span class="o">=</span>xenbr1 --nographics --location<span class="o">=</span>nfs:10.10.10.10:/mnt
-</code></pre></div>
-<p>（半虚拟化、虚拟机安装位置、虚拟机名、内存、CPU、桥接网卡*2、文本模式、安装源）
+{% endhighlight %}
+B机(10.10.10.11)上：
+{% highlight bash %}
+mkdir /img
+dd if=/dev/zero of=/img/test.img bs=1024k count=8k
+virt-install &ndash;paravirt &ndash;file=/img/test.img &ndash;name=test &ndash;ram=1024 &ndash;vcpus=1 &ndash;bridge=xenbr0 &ndash;bridge=xenbr1 &ndash;nographics &ndash;location=nfs:10.10.10.10:/mnt
+{% endhighlight %}
+（半虚拟化、虚拟机安装位置、虚拟机名、内存、CPU、桥接网卡*2、文本模式、安装源）
 然后就是很普通的linux安装过程了，填ip，分区云云……选择最小化安装，reboot。
 又见报错：
     Restarting system.
@@ -1025,9 +547,9 @@ virt-install --paravirt --file<span class="o">=</span>/img/test.img --name<span 
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/27/pod-problem-by-permission-of-tmp" title="perl的POD权限问题" rel="bookmark">perl的POD权限问题</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-27 00:00:00 +0800">27 May 2010</abbr>
@@ -1039,20 +561,6 @@ virt-install --paravirt --file<span class="o">=</span>/img/test.img --name<span 
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>今天继续查找mod_perl对req_header的处理。</p>
-<p>一开始打算用perldoc看Apache2::Request模块，结果在运行时出现如下错误：</p>
-<pre><code>Error in tempfile() using /tmp/XXXXXXXXXX:parent directory (./) is
-not writable at /usr/lib/perl5/5.8.8/Pod/Perldoc.pm line 1483.
-</code></pre>
-<p>改到/tmp/执行命令，还是报错。看来和PWD是没关系，跟/tmp本身的权限有关吧～～（因为我经常在/tmp下做试验，可能不知道什么时候无意就改了权限了）</p>
-<p>chmod 777 /tmp</p>
-<p>再执行命令，ok了～～</p>
-<hr />
-<p>在看过Apache2::Request的doc后，没有发现header相关的设定，决定去直接看apache的那些pm，不过之前只管CPAN哗哗安装了，可从来没管过它们都安装在哪里……</p>
-<p>/usr/五六个目录都是perl的，找起来可真不是个容易事～（记得之前测试，perl脚本每次执行，都有好几百毫秒用来查找模块在什么位置……）</p>
-<p>一时偷懒去百度了一下，很不错，看到CPAN常见问题集，正好有这个办法：</p>
-<p>perl -MFile::Find=find -MFile::Spec::Functions -Tlwe &lsquo;find { wanted =&gt; sub { print canonpath $_ if /.pmz/ }, no_chdir =&gt; 1 }, @INC&rsquo;</p>
-<p>然后grep Apache，就看到结果了，都安装在/usr/lib64/perl5/site_perl/5.8.8/x86_64-linux-thread-multi/Apache2这个路径下。
-进去grep &lsquo;$r-&gt;header&rsquo; *，立马就看出来，是RequestRec.pm里的。</p>
       <a href="/2010/05/27/pod-problem-by-permission-of-tmp" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1060,9 +568,9 @@ not writable at /usr/lib/perl5/5.8.8/Pod/Perldoc.pm line 1483.
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/27/anti_hotlinking-in-apache-by-mod_perl-3" title="apache防盗链（mod_perl试用三）" rel="bookmark">apache防盗链（mod_perl试用三）</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-27 00:00:00 +0800">27 May 2010</abbr>
@@ -1073,36 +581,38 @@ not writable at /usr/lib/perl5/5.8.8/Pod/Perldoc.pm line 1483.
       <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>客户的要求，还剩下最后一步，就是referer限定。对于apache，有Mod_rewrite现成的可用：</p>
-<div class="highlight"><pre><code class="apache"><span class="nb">RewriteEngine</span> <span class="k">on</span>
-<span class="nb">RewriteCond</span> %{HTTP_REFERER} !^http://(www.)?test.com/.*$ [NC]
-<span class="nb">RewriteRule</span> .mp3$ http://www.test.com/ [R=301,L]
-</code></pre></div>
-<p>不过既然之前已经用了perl，这里就一口气把perl写完吧：</p>
-<div class="highlight"><pre><code class="perl"><span class="k">sub </span><span class="nf">handler</span> <span class="p">{</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span><span class="o">-&gt;</span><span class="n">server</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$secret</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">dir_config</span><span class="p">(</span><span class="s">&#39;Secret&#39;</span><span class="p">)</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span><span class="c1">#这里可以写成$r-&gt;dir_config-&gt;{Secret}</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">()</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$expire</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">;</span>
-<span class="o">+</span><span class="err">   </span> <span class="k">my</span> <span class="nv">$referer</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">headers_in</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">Referer</span><span class="p">}</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span><span class="c1">#这里却不可以写成$r-&gt;headers_in(Referer)，会报错“argument is not a blessed reference (expecting an APR::Table derived object)，不知道为什么？</span>
-<span class="o">+</span><span class="err">   </span> <span class="k">if</span> <span class="p">(</span><span class="nv">$referer</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^http://music.test.com#oi){</span>
-<span class="err">   </span> <span class="k">if</span> <span class="p">(</span><span class="nv">$uri</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^/(d{4})(d{2})(d{2})(d{2})(d{2})/(w{32})(/S+.mp3)$#oi){</span>
-<span class="err">       </span> <span class="k">my</span> <span class="p">(</span><span class="nv">$year</span><span class="p">,</span> <span class="nv">$mon</span><span class="p">,</span> <span class="nv">$mday</span><span class="p">,</span> <span class="nv">$hour</span><span class="p">,</span> <span class="nv">$min</span><span class="p">,</span> <span class="nv">$md5</span><span class="p">,</span> <span class="nv">$path</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$1</span><span class="p">,</span> <span class="nv">$2</span><span class="p">,</span> <span class="nv">$3</span><span class="p">,</span> <span class="nv">$4</span><span class="p">,</span> <span class="nv">$5</span><span class="p">,</span> <span class="nv">$6</span><span class="p">,</span> <span class="nv">$7</span><span class="p">);</span>
-<span class="err">       </span> <span class="k">my</span> <span class="nv">$str</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$secret</span> <span class="o">.</span> <span class="nv">$year</span> <span class="o">.</span> <span class="nv">$mon</span> <span class="o">.</span> <span class="nv">$mday</span> <span class="o">.</span> <span class="nv">$hour</span> <span class="o">.</span> <span class="nv">$min</span> <span class="o">.</span> <span class="nv">$path</span><span class="p">);</span>
-<span class="err">       </span> <span class="k">my</span> <span class="nv">$reqtime</span> <span class="o">=</span> <span class="n">mktime</span><span class="p">(</span><span class="mo">00</span><span class="p">,</span> <span class="nv">$min</span><span class="p">,</span> <span class="nv">$hour</span><span class="p">,</span> <span class="nv">$mday</span><span class="p">,</span> <span class="nv">$mon</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="nv">$year</span> <span class="o">-</span> <span class="mi">1900</span><span class="p">);</span>
-<span class="err">       </span> <span class="k">my</span> <span class="nv">$now</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
-<span class="err">       </span> <span class="k">if</span> <span class="p">(</span> <span class="nv">$now</span> <span class="o">-</span> <span class="nv">$reqtime</span> <span class="o">&lt;</span> <span class="nv">$expire</span><span class="p">){</span>
-<span class="err">               </span> <span class="k">if</span> <span class="p">(</span><span class="nv">$str</span> <span class="ow">eq</span> <span class="nv">$md5</span><span class="p">)</span> <span class="p">{</span>
-<span class="err">                   </span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">(</span><span class="s">&quot;$path&quot;</span><span class="p">);</span>
-<span class="err">                   </span> <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">DECLINED</span><span class="p">;</span>
-<span class="err">               </span> <span class="p">}</span>
-<span class="err">       </span> <span class="p">}</span>
-<span class="err">  </span> <span class="p">}</span>
-<span class="o">+</span><span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>简单两句话，就ok了。测试如下：
+      <p>客户的要求，还剩下最后一步，就是referer限定。对于apache，有Mod_rewrite现成的可用：
+{% highlight apache %}
+RewriteEngine on
+RewriteCond %{HTTP_REFERER} !^http://(www.)?test.com/.*$ [NC]
+RewriteRule .mp3$ http://www.test.com/ [R=301,L]
+{% endhighlight %}
+不过既然之前已经用了perl，这里就一口气把perl写完吧：
+{% highlight perl %}
+sub handler {
+    my $r = shift;
+    my $s = Apache2::ServerUtil-&gt;server;
+    my $secret = $r-&gt;dir_config(&lsquo;Secret&rsquo;) || &lsquo;&rsquo;;#这里可以写成$r-&gt;dir_config-&gt;{Secret}
+    my $uri = $r-&gt;uri() || &lsquo;&rsquo;;
+    my $expire = 2 * 3600;
++    my $referer = $r-&gt;headers_in-&gt;{Referer} || &lsquo;&rsquo;;#这里却不可以写成$r-&gt;headers_in(Referer)，会报错“argument is not a blessed reference (expecting an APR::Table derived object)，不知道为什么？
++    if ($referer =~ m#^http://music.test.com#oi){
+    if ($uri =~ m#^/(d{4})(d{2})(d{2})(d{2})(d{2})/(w{32})(/S+.mp3)$#oi){
+        my ($year, $mon, $mday, $hour, $min, $md5, $path) = ($1, $2, $3, $4, $5, $6, $7);
+        my $str = md5_hex($secret . $year . $mon . $mday . $hour . $min . $path);
+        my $reqtime = mktime(00, $min, $hour, $mday, $mon - 1, $year - 1900);
+        my $now = time;
+        if ( $now - $reqtime &lt; $expire){
+                if ($str eq $md5) {
+                    $r-&gt;uri(&ldquo;$path&rdquo;);
+                    return Apache2::Const::DECLINED;
+                }
+        }
+   }
++}
+}
+{% endhighlight %}
+简单两句话，就ok了。测试如下：
     [27/May/2010:22:45:00 +0800] &quot;GET /201005272218/ceaf967f6bcf9a185a3287b2e3ff5a02/smg/123.mp3 HTTP/1.0&quot; 200 - <a href="http://music.test.com/">http://music.test.com</a> &quot;Wget/1.10.2 (Red Hat modified)&quot;
     [27/May/2010:22:45:05 +0800] &quot;GET /201005272218/ceaf967f6bcf9a185a3287b2e3ff5a02/smg/123.mp3 HTTP/1.0&quot; 404 - <a href="http://www.baidu.com/">http://www.baidu.com</a> &quot;Wget/1.10.2 (Red Hat modified)&quot;
     [27/May/2010:22:45:17 +0800] &quot;GET /201005272218/ceaf967f6bcf9a185a3287b2e3ff5a03/smg/123.mp3 HTTP/1.0&quot; 404 - <a href="http://music.test.com/">http://music.test.com</a> &quot;Wget/1.10.2 (Red Hat modified)&quot;
@@ -1115,9 +625,9 @@ not writable at /usr/lib/perl5/5.8.8/Pod/Perldoc.pm line 1483.
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/27/a-non-host-error-in-squid" title="一个少见的squid报错" rel="bookmark">一个少见的squid报错</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-27 00:00:00 +0800">27 May 2010</abbr>
@@ -1139,15 +649,16 @@ not writable at /usr/lib/perl5/5.8.8/Pod/Perldoc.pm line 1483.
 2010-05-25-14:10:00 0 60.209.232.219 TCP_MEM_HIT/200 679 GET http://jobseeker.zhaopin.com/favicon.ico - NONE/- application/octet-stream &ldquo;-&ldquo; &ldquo;Mozilla/5.0 (Windows; U; Windows NT 5.1; zh-TW; rv:1.9.0.11) Gecko/2009060215 Firefox/3.0.11 (.NET CLR 3.5.30729)&rdquo;
 2010-05-25-14:12:39 2 60.209.232.219 TCP_DENIED/403 1464 GET http://113.6.255.97/zhaopin/aboutus/law.html - NONE/- text/html &ldquo;-&ldquo; &ldquo;-&ldquo;
 2010-05-25-14:12:41 1 60.209.232.219 TCP_DENIED/403 1464 GET http://113.6.255.97/zhaopin/aboutus/law.html - NONE/- text/html &ldquo;http://jobseeker.zhaopin.com/zhaopin/aboutus/law.html&rdquo; &ldquo;Mozilla/5.0 (Windows; U; Windows NT 5.1; zh-TW; rv:1.9.0.11) Gecko/2009060215 Firefox/3.0.11 (.NET CLR 3.5.30729)&rdquo;
-截图的那个时间点，日志中的user-agent居然是空！而且就在短短的一分钟前后，就连续出现正确和错误的反复访问。。。。。。在同事的提醒下，试着扫描了一下这个clientip，发现它还开着80端口：</p>
-<div class="highlight"><pre><code class="bash">Starting Nmap 4.11 <span class="o">(</span> &lt;a <span class="nv">href</span><span class="o">=</span><span class="s2">&quot;http://www.insecure.org/nmap/&quot;</span>&gt;&lt;u&gt;&lt;font <span class="nv">color</span><span class="o">=</span><span class="s2">&quot;#0000ff&quot;</span>&gt;http://www.insecure.org/nmap/&lt;/font&gt;&lt;/u&gt;&lt;/a&gt; <span class="o">)</span> at 2010-05-25 17:22 CST
+截图的那个时间点，日志中的user-agent居然是空！而且就在短短的一分钟前后，就连续出现正确和错误的反复访问。。。。。。在同事的提醒下，试着扫描了一下这个clientip，发现它还开着80端口：
+{% highlight bash %}
+Starting Nmap 4.11 ( <a href="http://www.insecure.org/nmap/"><u><font color="#0000ff">http://www.insecure.org/nmap/</font></u></a> ) at 2010-05-25 17:22 CST
 Interesting ports on 60.209.232.219:
 Not shown: 1679 filtered ports
 PORT STATE SERVICE
 80/tcp open http
-Nmap finished: 1 IP address <span class="o">(</span>1 host up<span class="o">)</span> scanned in 37.623 seconds
-</code></pre></div>
-<p>目前只能猜测这个ip应该是一个代理网关服务器，在转发访问请求的时候，把header中的Host信息给弄没了~~</p>
+Nmap finished: 1 IP address (1 host up) scanned in 37.623 seconds
+{% endhighlight %}
+目前只能猜测这个ip应该是一个代理网关服务器，在转发访问请求的时候，把header中的Host信息给弄没了~~</p>
       <a href="/2010/05/27/a-non-host-error-in-squid" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1155,9 +666,9 @@ Nmap finished: 1 IP address <span class="o">(</span>1 host up<span class="o">)</
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/26/anti_hotlinking-in-apache-by-mod_perl-2" title="apache防盗链（mod_perl试用二）" rel="bookmark">apache防盗链（mod_perl试用二）</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-26 00:00:00 +0800">26 May 2010</abbr>
@@ -1169,51 +680,42 @@ Nmap finished: 1 IP address <span class="o">(</span>1 host up<span class="o">)</
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>上回提到的防盗链方式是在strings上加上key和time，uri本身是不变的，这种方式其实现在不是很主流，主流的方式是将计算得出的加密串直接改在uri的路径里。比如下面将要提到的例子。要求其实和早先那个<a href="/2010/01/30/anti-hotlinking-in-nginx-lighttpd-squid">squid防盗链</a>的一模一样，就是改成用apache来跑。
-Test.pm内容如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="n">Test</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Socket</span> <span class="sx">qw(inet_aton)</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(difftime mktime)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestRec</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Connection</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestUtil</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Log</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Request</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Const</span> <span class="sx">qw(DECLINED FORBIDDEN)</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">handler</span> <span class="p">{</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span><span class="o">-&gt;</span><span class="n">server</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$secret</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">dir_config</span><span class="p">(</span><span class="s">&#39;Secret&#39;</span><span class="p">)</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">()</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$expire</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">if</span> <span class="p">(</span><span class="nv">$uri</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^/(d{4})(d{2})(d{2})(d{2})(d{2})/(w{32})(/S+.mp3)$#oi) {</span>
-       <span class="err"> </span><span class="k">my</span> <span class="p">(</span><span class="nv">$year</span><span class="p">,</span> <span class="nv">$mon</span><span class="p">,</span> <span class="nv">$mday</span><span class="p">,</span> <span class="nv">$hour</span><span class="p">,</span> <span class="nv">$min</span><span class="p">,</span> <span class="nv">$md5</span><span class="p">,</span> <span class="nv">$path</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$1</span><span class="p">,</span> <span class="nv">$2</span><span class="p">,</span> <span class="nv">$3</span><span class="p">,</span> <span class="nv">$4</span><span class="p">,</span> <span class="nv">$5</span><span class="p">,</span> <span class="nv">$6</span><span class="p">,</span> <span class="nv">$7</span><span class="p">);</span>
-       <span class="err"> </span><span class="k">my</span> <span class="nv">$str</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$secret</span> <span class="o">.</span> <span class="nv">$year</span> <span class="o">.</span> <span class="nv">$mon</span> <span class="o">.</span> <span class="nv">$mday</span> <span class="o">.</span> <span class="nv">$hour</span> <span class="o">.</span> <span class="nv">$min</span> <span class="o">.</span> <span class="nv">$path</span><span class="p">);</span>
-       <span class="err"> </span><span class="k">my</span> <span class="nv">$reqtime</span> <span class="o">=</span> <span class="n">mktime</span><span class="p">(</span><span class="mo">00</span><span class="p">,</span> <span class="nv">$min</span><span class="p">,</span> <span class="nv">$hour</span><span class="p">,</span> <span class="nv">$mday</span><span class="p">,</span> <span class="nv">$mon</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="nv">$year</span> <span class="o">-</span> <span class="mi">1900</span><span class="p">);</span>
-       <span class="err"> </span><span class="k">my</span> <span class="nv">$now</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
-       <span class="err"> </span><span class="k">if</span> <span class="p">(</span> <span class="nv">$now</span> <span class="o">-</span> <span class="nv">$reqtime</span> <span class="o">&lt;</span> <span class="nv">$expire</span><span class="p">){</span>
-          <span class="err">  </span><span class="k">if</span> <span class="p">(</span><span class="nv">$str</span> <span class="ow">eq</span> <span class="nv">$md5</span><span class="p">)</span> <span class="p">{</span>
-          <span class="err">  </span>   <span class="err"> </span><span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">(</span><span class="s">&quot;$path&quot;</span><span class="p">);</span>
-          <span class="err">   </span>   <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">DECLINED</span><span class="p">;</span>
-          <span class="err">  </span><span class="p">}</span>
-       <span class="err"> </span><span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-<span class="mi">1</span><span class="p">;</span>
-</code></pre></div>
-<p>然后在httpd.conf中加上如下配置：</p>
-<div class="highlight"><pre><code class="apache"><span class="nb">PerlPostConfigRequire</span> <span class="sx">/home/apache2/perl/start.pl</span>
-<span class="nb">SetHandler</span> modperl
-<span class="nb">PerlTransHandler</span> Test
-<span class="nb">PerlSetVar</span> Secret abcdef
-</code></pre></div>
-<p>这里需要注意几点，根据modperl的处理流程，修改uri的时候，handler还没有走到对文件进行寻址，所以无法区分文件路径等信息，故而 <code>PerlTransHandler</code> 配置不能在 <code>&lt;Directory&gt;</code> 和 <code>&lt;Location&gt;</code> 里面。</p>
-<p>而在<a href="/2010/04/15/anti_hotlinking-in-apache-by-mod_perl">试用一</a>里，核对strings是用的 <code>PerlAccessHandler</code>，当时已经确认了uri的文件路径，故而可以在 <code>&lt;Location&gt;</code> 里。</p>
-<p>另，上面的pm，对错误访问返回的是404，如果需要403，<code>return FORBIDDEN</code> 就可以了。</p>
-<p>如果想同时根据referer来防盗链，可能要在 <code>PerlHeaderParserHandler</code> 阶段在进行一次判定了，这个还在研究，不知道怎么取request-header的信息……</p>
+Test.pm内容如下：
+{% highlight perl %}
+package Test;
+use strict;
+use warnings;
+use Socket qw(inet_aton);
+use POSIX qw(difftime mktime);
+use Digest::MD5 qw(md5_hex);
+use Apache2::RequestRec ();
+use Apache2::Connection ();
+use Apache2::RequestUtil ();
+use Apache2::ServerUtil ();
+use Apache2::Log ();
+use Apache2::Request ();
+use Apache2::Const qw(DECLINED FORBIDDEN);
+sub handler {
+    my $r = shift;
+    my $s = Apache2::ServerUtil-&gt;server;
+    my $secret = $r-&gt;dir_config(&lsquo;Secret&rsquo;) || &lsquo;&rsquo;;
+    my $uri = $r-&gt;uri() || &lsquo;&rsquo;;
+    my $expire = 2 * 3600;
+    if ($uri =~ m#^/(d{4})(d{2})(d{2})(d{2})(d{2})/(w{32})(/S+.mp3)$#oi) {
+        my ($year, $mon, $mday, $hour, $min, $md5, $path) = ($1, $2, $3, $4, $5, $6, $7);
+        my $str = md5_hex($secret . $year . $mon . $mday . $hour . $min . $path);
+        my $reqtime = mktime(00, $min, $hour, $mday, $mon - 1, $year - 1900);
+        my $now = time;
+        if ( $now - $reqtime &lt; $expire){
+            if ($str eq $md5) {
+                $r-&gt;uri(&ldquo;$path&rdquo;);
+                return Apache2::Const::DECLINED;
+            }
+        }
+    }
+}
+1;
+{% endhighlight %}</p>
       <a href="/2010/05/26/anti_hotlinking-in-apache-by-mod_perl-2" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1221,9 +723,9 @@ Test.pm内容如下：</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/23/learning-mtu" title="（读书笔记）网卡调优MTU" rel="bookmark">（读书笔记）网卡调优MTU</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-23 00:00:00 +0800">23 May 2010</abbr>
@@ -1235,15 +737,6 @@ Test.pm内容如下：</p>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>还是那本《linux操作系统之奥秘》，系统管理性能调校章节。7.1.3 Jumbo Frame：</p>
-<p>大概的意思，虽然现在的系统读写磁盘，内存、cpu等等都是好几K一块，而网卡则千兆万兆都有了；但有个基本的问题是，网卡在整整传输数据包的时候，其封包大小是另有限制的，即MTU（Maximum Transmission Unit，最大传输单元）。</p>
-<p>书里打了个比方，以前人工搬运，一个纸箱子半米大刚好，现在用货车了，还是半米长的纸箱子，虽然一次装的确实是多了，不过密封拆封的次数和耗时还是没少的……完全可以换成集装箱嘛~~这就是jumbo frame。</p>
-<p>当然，这个集装箱目前还有很多问题，第一、他还不是一个标准化的东东；第二、他不能单方面做决定（你用集装箱运过去了，收局却只会拆纸箱~）；第三、丢帧的冗错更复杂了（这个书里没讲，不过我想应该会吧~）……肯定还有别的问题，不然标准化组织肯定早解决了。</p>
-<p>由这些情况来看，在internet上大规模运用，肯定是不行的。不过在服务器集群里头的SAN上，收发端都是自己掌控，又不用担心跨网的丢包，或许还是不错的运用。</p>
-<hr />
-<p>今天又看到扶凯一篇nfs优化。在[rw]size上做了些文章，这是nfs服务器和客户端的传输块大小。顿时想到之前看到的MTU了。如果把MTU调整一下，不刚好可以配合一下了？</p>
-<p>结果百度了一下，果然已经有修改MTU的nfs优化文章了。先用ping -s和nfsstat -o net确认不同封包情况下的丢包率，然后ifconfig eth0 mtu修改MTU值。</p>
-<p>这里自然可以运用之前我写过的netperf了，呵呵~
-打算有时间，试试去。</p>
       <a href="/2010/05/23/learning-mtu" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1251,9 +744,9 @@ Test.pm内容如下：</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/23/intro-bash-usage" title="bash使用技巧" rel="bookmark">bash使用技巧</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-23 00:00:00 +0800">23 May 2010</abbr>
@@ -1265,40 +758,6 @@ Test.pm内容如下：</p>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>几个跟ctrl有关的操作，很有爱，贴一下：</p>
-<ol>
-  <li>最常见的：^l，相当于clear命令清屏；</li>
-  <li>最有用的：^r，自动打开一个(reverse-i-search)`&rsquo;: 的提示符，可以搜索之前的history，注意：搜索内容仅限于command，不包括option和file。不过我试验对于wget等命令，又可以搜索整行任意内容……汗</li>
-  <li>
-    <p>常用的一个系列：</p>
-    <p>^a，回到行首，写完一串命令后突然发现最前头要修改一下~
- ^e，回到行尾，其实这两个最常用的情况我是在写for循环执行的时候；
- ^u，剪切从行首到当前光标的所有内容；
- ^k，剪切从当前光标到行尾的所有内容；
- ^y，粘贴刚才剪切的内容——在辛辛苦苦敲好一长串命令，却发现要先执行别的命令才行的时候，这三条操作就很有用了。
- ^w，删除从当前光标到向左最近一个空格之前的内容；
- ^t，交换当前光标和光标左边字符的位置，这个一般不怎么用，就一个字符嘛，直接重写好了~~
- ^p，执行上一条命令。</p>
-  </li>
-</ol>
-<hr />
-<p>几个关于history的操作和配置，同样有爱，继续粘贴：
-1. 最常用的，看操作时间和扩容：HISTTIMEFORMAT=&rsquo;%F %T &lsquo;和HISTFILESIZE=2000、HISTSIZE=2000；
-2. 可能很有用的，HISTCONTROL=ignoredups或者erasedups甚至ignorespace:</p>
-<pre><code>ignoredups连续执行的命令只记录一次，比方在做wget测试的时候，可能一口气就敲了十多次~~
-erasedups哪怕不是连着执行的，也只记录一次；
-ignorespace如果在命令前加个空格，这条命令就不记录进history了~
-</code></pre>
-<ol>
-  <li>更狠一点，有些太常用的命令懒得加空格，也不想记录，直接HISTIGNORE=&rdquo;pwd:ls&rdquo;</li>
-  <li>最狠的，history -c全删了~~</li>
-</ol>
-<hr />
-<ol>
-  <li>执行最近一次类似的命令：比如!tai</li>
-  <li>执行history里的第100条命令：!100</li>
-  <li>上一条命令：!!，另外的衍生物!!:n即上一条命令的第几个参数，^为第一个，$为最后一个。这两个情况可以简写成!^和!$</li>
-  <li>推论，最近一次类似命令的参数!tai:n</li>
-</ol>
       <a href="/2010/05/23/intro-bash-usage" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1306,9 +765,9 @@ ignorespace如果在命令前加个空格，这条命令就不记录进history�
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/22/intro-mod_perl-process-by-image" title="mod_perl处理流程图一张~" rel="bookmark">mod_perl处理流程图一张~</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-22 00:00:00 +0800">22 May 2010</abbr>
@@ -1323,11 +782,6 @@ ignorespace如果在命令前加个空格，这条命令就不记录进history�
 <img alt="" src="http://www.fayland.org/journal/img/http_cycle_all.gif" /></p>
 <hr />
 <p>其实mod_perl官网有也有这个类似的图，不过没这个pp~~</p>
-<p>总的来说，mod_perl不同的指令，就是分别插入到这个圆圈上的标签位置，完成不同的作用。</p>
-<p>比如说，PerlTransHandler可以做url_rewrite；PerlHeaderParserHandler可以判断request_header；PerlAccessHandler可以做访问控制；PerlAuthenHandler可以做用户验证；PerlLogHandler可以记录日志。</p>
-<p>如果perl程序return的是Apache2::Const::OK，那就直接结束这个圆环，进入之后apache该干的事情去；如果是Apache2::Const::DECLINED，那就表示这个handler正常完成了，继续沿着圆环走吧~</p>
-<p> 针对每个handler的具体可配置，还是看官网吧：<a href="http://perl.apache.org/docs/2.0/user/handlers/http.html" target="_blank">http://perl.apache.org/docs/2.0/user/handlers/http.html</a></p>
-<p>之前我就是这个地方犯错了，在httpd.conf里指定的accesshandler，程序却想完成rewrite的功能，结果一直报404……</p>
       <a href="/2010/05/22/intro-mod_perl-process-by-image" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>

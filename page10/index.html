@@ -43,9 +43,9 @@
       <div class="span7">
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/11/18/template-problem-of-pnp4nagios-2" title="pnp4nagios的模板问题(2)" rel="bookmark">pnp4nagios的模板问题(2)</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-11-18 00:00:00 +0800">18 Nov 2010</abbr>
@@ -57,42 +57,6 @@
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>接上篇。结尾时找到的url确实就是解决这个问题的。我错怪作者鸟~~</p>
-<p>在 <code>nagios/etc/pnp/check_commands</code> 文件夹下，可以添加 <code>%check_command%.cfg</code> 配置文件，以定义pnp在使用模板时的一些参数。在我的应用环境下，只需要添加如下一个 <code>check_nrpe.cfg</code> 即可：</p>
-<pre><code>CUSTOM_TEMPLATE = 1   #使用命令的第一个参数做自定义模板名
-DATATYPE = GAUGE       #数据类型为即时数值
-USE_MIN_ON_CREATE = 0    #绘图数据最小值为0，用来排除某些错误溢出导致的负值
-</code></pre>
-<p>然后就可以进 <code>nagios/share/pnp/templates/</code> 下去创建自己需要的模板了。仿照cacti的样子写个loadavg的如下：</p>
-<div class="highlight"><pre><code class="php"><span class="cp">&lt;?php</span>
-<span class="nv">$opt</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;--vertical-label Load -l0  --title </span><span class="se">\&quot;</span><span class="s2">CPU Load for </span><span class="si">$hostname</span><span class="s2"> / </span><span class="si">$servicedesc</span><span class="se">\&quot;</span><span class="s2"> &quot;</span><span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="err"> </span><span class="s2">&quot;DEF:var1=</span><span class="si">$rrdfile</span><span class="s2">:</span><span class="si">$DS[1]</span><span class="s2">:AVERAGE &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;DEF:var2=</span><span class="si">$rrdfile</span><span class="s2">:</span><span class="si">$DS[2]</span><span class="s2">:AVERAGE &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;DEF:var3=</span><span class="si">$rrdfile</span><span class="s2">:</span><span class="si">$DS[3]</span><span class="s2">:AVERAGE &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;CDEF:total=var1,var2,+,var3,+ &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;HRULE:</span><span class="si">$WARN[1]</span><span class="s2">#FFFF00 &quot;</span><span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;HRULE:</span><span class="si">$CRIT[1]</span><span class="s2">#FF0000 &quot;</span><span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;AREA:var1#FFD700:</span><span class="se">\&quot;</span><span class="s2">load 1 </span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var1:LAST:</span><span class="se">\&quot;</span><span class="s2">%6.2lf last</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var1:AVERAGE:</span><span class="se">\&quot;</span><span class="s2">%6.2lf avg</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var1:MAX:</span><span class="se">\&quot;</span><span class="s2">%6.2lf max</span><span class="se">\\</span><span class="s2">n</span><span class="se">\&quot;</span><span class="s2"> &quot;</span><span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;AREA:var2#7FFF00:</span><span class="se">\&quot;</span><span class="s2">Load 5 </span><span class="se">\&quot;</span><span class="s2">:STACK &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var2:LAST:</span><span class="se">\&quot;</span><span class="s2">%6.2lf last</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var2:AVERAGE:</span><span class="se">\&quot;</span><span class="s2">%6.2lf avg</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var2:MAX:</span><span class="se">\&quot;</span><span class="s2">%6.2lf max</span><span class="se">\\</span><span class="s2">n</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;AREA:var3#FF0000:</span><span class="se">\&quot;</span><span class="s2">Load 15</span><span class="se">\&quot;</span><span class="s2">:STACK &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var3:LAST:</span><span class="se">\&quot;</span><span class="s2">%6.2lf last</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var3:AVERAGE:</span><span class="se">\&quot;</span><span class="s2">%6.2lf avg</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;GPRINT:var3:MAX:</span><span class="se">\&quot;</span><span class="s2">%6.2lf max</span><span class="se">\\</span><span class="s2">n</span><span class="se">\&quot;</span><span class="s2"> &quot;</span> <span class="p">;</span>
-<span class="nv">$def</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.=</span> <span class="s2">&quot;LINE1:total#000000 &quot;</span> <span class="p">;</span>
-<span class="cp">?&gt;</span><span class="x"></span>
-</code></pre></div>
-<p>采用DEF方式定义数据，CDEF方式计算总和，HRULE画水平线，AREA画涂层，LINE画连线(有1/2/3种粗细)，STACK累加数值绘图效果，GPRINT计算并显示数据。</p>
-<p>只画一个图就都是$def[1]，如果需要两个图就是$def[2]，依次类推，不过页面上的Datesource是读取的*.xml文件中的<name>，如果合并数据绘图，显示就会有问题，所以最好就把所有数据都画一张图里。比如网卡流量。用CDEF取反，我不知道RPN中有没有特定函数，简单的采用了0,var,-方式，将部分数据倒到x轴下方~~</name></p>
-<p>如果不是STACK的话，需要注意一点，AREA方式是不透明的，单纯的图层覆盖，所以一定要把最大的值放在最前面绘制，然后才能有效果。像流量这种没谱的事情，最好就采用LINE方式~~</p>
-<p>目前我绘制的load、conn、flow三个rra如下：</p>
-<p><img src="/images/uploads/load.jpg" alt="load" /></p>
-<p><img src="/images/uploads/conn.jpg" alt="conn" /></p>
-<p><img src="/images/uploads/flow.jpg" alt="flow" /></p>
       <a href="/2010/11/18/template-problem-of-pnp4nagios-2" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -100,9 +64,9 @@ USE_MIN_ON_CREATE = 0    #绘图数据最小值为0，用来排除某些错�
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/11/17/template-problem-of-pnp4nagios-1" title="pnp4nagios的模板问题(1)" rel="bookmark">pnp4nagios的模板问题(1)</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-11-17 00:00:00 +0800">17 Nov 2010</abbr>
@@ -114,49 +78,6 @@ USE_MIN_ON_CREATE = 0    #绘图数据最小值为0，用来排除某些错�
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>实在是看不下去pnp4nagios的丑陋的rrd效果，想着自己修改一下模板。</p>
-<p>很容易找到了目前使用的模板：nagios/share/pnp/templates.dist/default.php，不过看到目录下已经有不少其他的模板文件，为啥一个都没用上呢？</p>
-<p>从nagios/share/pnp/include/function.inc.php里看到了doFindTemplate()，定义如下：</p>
-<div class="highlight"><pre><code class="php"><span class="x">if (is_readable($conf[&#39;template_dir&#39;].&#39;/templates/&#39; . $template . &#39;.php&#39;)) {</span>
-<span class="x">$template_file = $conf[&#39;template_dir&#39;].&#39;/templates/&#39; . $template . &#39;.php&#39;;</span>
-<span class="x">}elseif (is_readable($conf[&#39;template_dir&#39;].&#39;/templates.dist/&#39; . $template . &#39;.php&#39;)) {</span>
-<span class="x">$template_file = $conf[&#39;template_dir&#39;].&#39;/templates.dist/&#39; . $template . &#39;.php&#39;;</span>
-<span class="x">}elseif (is_readable($conf[&#39;template_dir&#39;].&#39;/templates/default.php&#39;)) {</span>
-<span class="x">$template_file = $conf[&#39;template_dir&#39;].&#39;/templates/default.php&#39;;</span>
-<span class="x">}else {</span>
-<span class="x">$template_file = $conf[&#39;template_dir&#39;].&#39;/templates.dist/default.php&#39;;</span>
-<span class="x">}</span>
-</code></pre></div>
-<p>也就是说其实pnp是找不到对应check_command的模板，才使用了最后的default.php！</p>
-<p>正巧，default.php里输出了check_command到rra上，可以看到，几乎所有的命令输出都是&rdquo;Check Command check_nrpe&rdquo;。</p>
-<p>也就是说，pnp设计者很贴心的设计了自动查找命令模板的功能，却没有考虑到nagios最广泛的应用插件nrpe……</p>
-<p>在pnp官网文档<a href="http://docs.pnp4nagios.org/pnp-0.4/tpl?s[]=template">http://docs.pnp4nagios.org/pnp-0.4/tpl?s[]=template</a>上指出，rrd使用模板是读取了perfdata中相应的xml文件，xml内容类似如下几行：</p>
-<div class="highlight"><pre><code class="xml"><span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; standalone=&quot;yes&quot;?&gt;</span>
-<span class="nt">&lt;NAGIOS&gt;</span>
-<span class="nt">&lt;DATASOURCE&gt;</span>
-<span class="nt">&lt;TEMPLATE&gt;</span>check_nrpe<span class="nt">&lt;/TEMPLATE&gt;</span>
-<span class="nt">&lt;IS_MULTI&gt;</span>0<span class="nt">&lt;/IS_MULTI&gt;</span>
-<span class="nt">&lt;DS&gt;</span>1<span class="nt">&lt;/DS&gt;</span>
-<span class="nt">&lt;NAME&gt;</span>eth0_in<span class="nt">&lt;/NAME&gt;</span>
-<span class="nt">&lt;UNIT&gt;</span>Mbps<span class="nt">&lt;/UNIT&gt;</span>
-<span class="nt">&lt;ACT&gt;</span>2.96<span class="nt">&lt;/ACT&gt;</span>
-<span class="nt">&lt;WARN&gt;</span>976.56<span class="nt">&lt;/WARN&gt;</span>
-<span class="nt">&lt;WARN_MIN&gt;&lt;/WARN_MIN&gt;</span>
-<span class="nt">&lt;WARN_MAX&gt;&lt;/WARN_MAX&gt;</span>
-<span class="nt">&lt;WARN_RANGE_TYPE&gt;&lt;/WARN_RANGE_TYPE&gt;</span>
-<span class="nt">&lt;CRIT&gt;</span>976.56<span class="nt">&lt;/CRIT&gt;</span>
-<span class="nt">&lt;CRIT_MIN&gt;&lt;/CRIT_MIN&gt;</span>
-<span class="nt">&lt;CRIT_MAX&gt;&lt;/CRIT_MAX&gt;</span>
-<span class="nt">&lt;CRIT_RANGE_TYPE&gt;&lt;/CRIT_RANGE_TYPE&gt;</span>
-<span class="nt">&lt;MIN&gt;</span>0<span class="nt">&lt;/MIN&gt;</span>
-<span class="nt">&lt;MAX&gt;</span>0<span class="nt">&lt;/MAX&gt;</span>
-<span class="nt">&lt;/DATASOURCE&gt;</span>
-</code></pre></div>
-<p>这些标签都是给模板使用的，比如default.php中输出命令的那行就是：
-$def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo;\r&rdquo; &lsquo;;</p>
-<p>如果直接修改xml中的<template>标签内容，确实可以调用成新的模板显示。但间隔时间一过，xml就自动更新成默认配置输出的结果……</template></p>
-<p>解决在大规模环境下nrpe监控数据绘图模板的问题~或许还得继续查找xml的定义，待续ing~</p>
-<p>补充：看到官网如下网页，似乎是针对这个问题的，英文慢慢啃~
-<a href="http://docs.pnp4nagios.org/pnp-0.4/tpl_custom">http://docs.pnp4nagios.org/pnp-0.4/tpl_custom</a></p>
       <a href="/2010/11/17/template-problem-of-pnp4nagios-1" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -164,9 +85,9 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/11/16/china-internet-sites-performance-industry-reference-data-publiced-by-networkbech" title="基调发布《中国互联网网站性能行业参考数据》" rel="bookmark">基调发布《中国互联网网站性能行业参考数据》</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-11-16 00:00:00 +0800">16 Nov 2010</abbr>
@@ -178,7 +99,6 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p><a href="http://www.networkbench.com/trade-rank/index.html">http://www.networkbench.com/trade-rank/index.html</a></p>
-<p>不是做广告，不过说实话还是觉得基调很有头脑，搞出这么个东西来~~~</p>
       <a href="/2010/11/16/china-internet-sites-performance-industry-reference-data-publiced-by-networkbech" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -186,9 +106,9 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/11/12/intro-mysqlreport" title="mysql状态报表工具" rel="bookmark">mysql状态报表工具</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-11-12 00:00:00 +0800">12 Nov 2010</abbr>
@@ -200,31 +120,6 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>最近学习mysql，从监控的角度出发，然后发现了一个很不错的个人网站<a href="http://hackmysql.com">http://hackmysql.com</a>，啧啧，看这名字就NB烘烘滴~</p>
-<p>网站的tools列表提供了一系列站长认为很不错的mysql工具，其中有他自己早年写的四个perl，也有他目前所在公司出品的工具（大名鼎鼎的Maatkit，据说80%的国外mysqlDBA使用它，国内有大头刚曾经写过14篇介绍文章，以后有时间再看，地址如下：<a href="http://search.chinaunix.net/bbs.php?q=Maatkit&amp;username=&amp;st=title&amp;bbs=1&amp;forums=136&amp;page=1">http://search.chinaunix.net/bbs.php?q=Maatkit&amp;username=&amp;st=title&amp;bbs=1&amp;forums=136&amp;page=1</a>）。</p>
-<p>在国内目前的技术文章来看（即百度可见范围内），比较常见的两个工具正是该站提供的，一个是状态报告工具mysqlreport，一个是日志分析工具mysqlsla。</p>
-<p>今天先说mysqlreport，安装很简单：wget <a href="http://hackmysql.com/scripts/mysqlreport">http://hackmysql.com/scripts/mysqlreport</a></p>
-<p>要使用它，首先需要有几个perl模块：DBI和DBD::mysql。CPAN安装即可。需要注意的是，因为DBD::mysql的安装过程中需要调用mysql_config，如果机器上没有mysql或者mysql的bin不在PATH里，都会报错。这时候退出安装mysql，然后到.cpan/里去手动perl Makefile.PL &ndash;with-mysql_config=/path/to/mysql_config安装吧~~</p>
-<p>使用方法也有&ndash;help的详尽说明，大抵是&ndash;host/&ndash;user/&ndash;password，比较好玩的是还提供了&ndash;relative/&ndash;report-count用来短时间段内的定时报告。</p>
-<p>报告包括：</p>
-<ul>
-  <li>key buffer的使用率和命中率；</li>
-  <li>请求的分类比例（QC Hits和DMS越多越好，Com_最好不要超过3%）及具体情况；</li>
-  <li>慢查询情况（最好一个没有）；</li>
-  <li>全表查询和排序情况（这个越少越好）；</li>
-  <li>表锁等待情况（最好没有）；</li>
-  <li>表使用和命中率情况（尽量命中的好）；</li>
-  <li>连接情况（适中即可）；</li>
-  <li>线程复用情况；</li>
-</ul>
-<p>然后是InnoDB引擎的一些</p>
-<ul>
-  <li>锁等待；</li>
-  <li>读写速度；</li>
-  <li>行操作情况</li>
-</ul>
-<p>mysqlreport2008年之后就停止了更新，一部分人则开始采用tuning-primer.sh收集报表。这个shell脚本直接利用mysql客户端登陆服务器后show status然后进行运算，除了和mysqlreport极为类似的报表外，还采用不同颜色显示提供了作者的优化建议，边看边学习，很不错，下载地址如下：<a href="http://www.day32.com/MySQL/tuning-primer.sh">http://www.day32.com/MySQL/tuning-primer.sh</a></p>
-<p>这个网站同样提供了对mysql主从同步的脚本和监控脚本，都是shell脚本~~</p>
-<p>最后，还要表扬一下ifeng的运维童鞋，他们用php完成一个功能介乎mysqlreport和tuning-primer之间的mysql状态报表网页，目前版本是mysqlmonitor1.0.0（不过下载链接坏了……）。其中很多推荐配置中文说明，不过在“具体情况具体分析”方面还不够智能，所有建议都是统一在4G内存mysql服务器的假设条件下给出的，也没有对报表数据进行阀值触发。</p>
       <a href="/2010/11/12/intro-mysqlreport" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -232,9 +127,9 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/11/10/problem-of-nrpe-compiling" title="nrpe编译小问题" rel="bookmark">nrpe编译小问题</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-11-10 00:00:00 +0800">10 Nov 2010</abbr>
@@ -246,40 +141,6 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>一般情况下，在nagios被监控端安装nrpe和nagios-plugins的工作相当的简单重复。不过这次碰上一个诡异问题。</p>
-<p>设备是RedHat AS4，在./configure时，报出如下错误：</p>
-<p>checking for C compiler default output file name&hellip; a.out</p>
-<p>checking whether the C compiler works&hellip; configure: error: cannot run C compiled programs.</p>
-<p>If you meant to cross compile, use `&ndash;host&rsquo;.</p>
-<p>See `config.log&rsquo; for more details.</p>
-<p>dmesg信息输出如下：</p>
-<p>a.out[4272]: segfault at 00000000bffff770 rip 0000000000400456 rsp 00000000bffff770 error 4</p>
-<p>起先以为是内存问题，检查boot.log没问题；然后又yum reinstall了gcc，问题依旧。</p>
-<p>在config.log中慢慢翻，赫然看到如下一段：</p>
-<p>configure:1782: checking for C compiler version</p>
-<p>configure:1785: gcc &ndash;version &lt;/dev/null &gt;&amp;5</p>
-<p>gcc32 (GCC) 3.2.3 20030502 (Red Hat Linux 3.2.3-47.3)</p>
-<p>Copyright (C) 2002 Free Software Foundation, Inc.</p>
-<p>This is free software; see the source for copying conditions.  There is NO</p>
-<p>warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</p>
-<p>&nbsp;</p>
-<p>configure:1788: $? = 0</p>
-<p>configure:1790: gcc -v &lt;/dev/null &gt;&amp;5</p>
-<p>Reading specs from /usr/lib/gcc-lib/x86_64-redhat-linux/3.2.3/specs</p>
-<p>Configured with: ../configure &ndash;prefix=/usr &ndash;mandir=/usr/share/man &ndash;infodir=/usr/share/info &ndash;enable-shared &ndash;enable-threads=posix &ndash;disable-checking &ndash;with-system-zlib &ndash;enable-<em>_cxa_atexit &ndash;enable-languages=c,c++ &ndash;disable-libgcj &ndash;host=x86</em>64-redhat-linux</p>
-<p>Thread model: posix</p>
-<p>gcc version 3.2.3 20030502 (Red Hat Linux 3.2.3-47.3)</p>
-<p>configure:1793: $? = 0</p>
-<p>configure:1795: gcc -V &lt;/dev/null &gt;&amp;5</p>
-<p>gcc32: argument to `-V&rsquo; is missing</p>
-<p>configure:1798: $? = 1</p>
-<p>……</p>
-<h2 id="section">&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;</h2>
-<h2 id="output-variables">Output variables.</h2>
-<h2 id="section-1">&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;</h2>
-<p>……</p>
-<p>host=&rsquo;x86_64-unknown-linux-gnu&rsquo;</p>
-<p>真相大白！因为./configure检查出来的hostname和gcc编译时的hostname不一致！</p>
-<p>改用./configure &ndash;host=x86_64-redhat-linux，编译顺利通过~~~</p>
       <a href="/2010/11/10/problem-of-nrpe-compiling" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -287,9 +148,9 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/11/09/intro-squid-debug_log" title="squid的debug日志" rel="bookmark">squid的debug日志</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-11-09 00:00:00 +0800">09 Nov 2010</abbr>
@@ -301,1311 +162,6 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>今天为了检查防盗链配置，打开了squid的debug日志(squid.conf: debug_options ALL,9)。tailf观察，很是学习了一番squid的工作模式。</p>
-<p>1、空闲时日志也一直在滚动，诸如“do_comm_select: 0 fds ready”、“storeDirClean: Cleaning directory /tmpfs/cache/03/2D”这样，第一个很显然就是表示TCPsocket可以accept请求；第二个是定期清除过期目录；</p>
-<p>2、发送请求之后，accept部分如下：</p>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>fd_open FD 15 HTTP Request</td>
-      <td>&nbsp;</td>
-    </tr>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>httpAccept: FD 15: accepted port 80 client 124.238.250.28:39168</td>
-      <td>&nbsp;</td>
-    </tr>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataLock: 0x7589c8</td>
-      <td>&nbsp;</td>
-    </tr>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>comm_add_close_handler: FD 15, handler=0x4218f0, data=0x9a14f8</td>
-      <td>&nbsp;</td>
-    </tr>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataLock: 0x9a14f8</td>
-      <td>&nbsp;</td>
-    </tr>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>commSetTimeout: FD 15 timeout 300</td>
-      <td>&nbsp;</td>
-    </tr>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>commSetSelect: FD 15 type 1</td>
-      <td>&nbsp;</td>
-    </tr>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>commSetEvents(fd=15)</td>
-      <td>&nbsp;</td>
-    </tr>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>comm_call_handlers(): got fd=15 read_event=1 write_event=0 F-&gt;read_handler=0x423370 F-&gt;write_handler=(nil)</td>
-      <td>&nbsp;</td>
-    </tr>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>comm_call_handlers(): Calling read handler on fd=15</td>
-      <td>&nbsp;</td>
-    </tr>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientReadRequest: FD 15: reading request&hellip;</td>
-      <td>&nbsp;</td>
-    </tr>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataLock: 0x9a14f82010/11/09 19:18:18</td>
-      <td>cbdataValid: 0x9a14f8</td>
-    </tr>
-  </tbody>
-</table>
-<p>3、读取请求信息，创建entry空间，如下：</p>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>Parser: retval 1: from 0-&gt;68: method 0-&gt;2; url 4-&gt;57; version 59-&gt;67 (1/0)</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>parseHttpRequest: Method is &lsquo;GET&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>parseHttpRequest: URI is &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>parseHttpRequest: req_hdr = {Referer: http://w.china.com</td>
-    </tr>
-  </tbody>
-</table>
-<p>User-Agent: Wget/1.10.2 (Red Hat modified)</p>
-<p>Accept: <em>/</em></p>
-<p>Host: shanzhai.china.com</p>
-<p>}</p>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>parseHttpRequest: prefix_sz = 183, req_line_sz = 69</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>parseHttpRequest: Request Header is</td>
-    </tr>
-  </tbody>
-</table>
-<p>&nbsp;</p>
-<p>Referer: http://w.china.com</p>
-<p>User-Agent: Wget/1.10.2 (Red Hat modified)</p>
-<p>Accept: <em>/</em></p>
-<p>Host: shanzhai.china.com</p>
-<p>&nbsp;</p>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>parseHttpRequest: Complete request received</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>commSetTimeout: FD 15 timeout 86400</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>init-ing hdr: 0x9604f8 owner: 1</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>parsing hdr: (0x9604f8)</td>
-    </tr>
-  </tbody>
-</table>
-<p>Referer: http://w.china.com</p>
-<p>User-Agent: Wget/1.10.2 (Red Hat modified)</p>
-<p>Accept: <em>/</em></p>
-<p>Host: shanzhai.china.com</p>
-<p>&nbsp;</p>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>creating entry 0x9a5610: near &lsquo;Referer: http://w.china.com&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>created entry 0x9a5610: &lsquo;Referer: http://w.china.com&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>0x9604f8 adding entry: 45 at 0</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>creating entry 0x847c10: near &lsquo;User-Agent: Wget/1.10.2 (Red Hat modified)&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>created entry 0x847c10: &lsquo;User-Agent: Wget/1.10.2 (Red Hat modified)&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>0x9604f8 adding entry: 50 at 1</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>creating entry 0x9a4d20: near &lsquo;Accept: <em>/</em>&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>created entry 0x9a4d20: &lsquo;Accept: <em>/</em>&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>0x9604f8 adding entry: 0 at 2</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>creating entry 0x9a1cb0: near &lsquo;Host: shanzhai.china.com&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>created entry 0x9a1cb0: &lsquo;Host: shanzhai.china.com&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>0x9604f8 adding entry: 27 at 3</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>removing 183 bytes; conn-&gt;in.offset = 0</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>0x9604f8 lookup for 20</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientSetKeepaliveFlag: http_ver = 1.0</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientSetKeepaliveFlag: method = GET</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>0x9604f8 lookup for 41</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>0x9604f8 lookup for 9</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>0x9604f8 lookup for 52</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>0x9604f8 lookup for 41</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>0x9604f8 lookup for 9</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>0x9604f8 lookup for 59</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataLock: 0x734ed8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataLock: 0x9a14f8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataLock: 0x9a17a8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataValid: 0x734ed8</td>
-    </tr>
-  </tbody>
-</table>
-<p>&nbsp;</p>
-<p>至此完成了请求信息的存取，并保持HTTP/1.0下的keepalive。</p>
-<p>&nbsp;</p>
-<p>4、请求acl检查部分</p>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclCheck: checking &lsquo;http_access allow swfs !notnull_refer&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAclList: checking swfs</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAcl: checking &lsquo;acl swfs url_regex -i ^http://flash.shanzhai.china.com/swfsimple/com/china/ceuf/map/.*.swf&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchRegex: checking &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchRegex: looking for &lsquo;^http://flash.shanzhai.china.com/swfsimple/com/china/ceuf/map/.*.swf&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAclList: no match, returning 0</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataLock: 0x734b68</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataUnlock: 0x734ed8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataValid: 0x734b68</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclCheck: checking &lsquo;http_access deny pics !notnull_refer&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAclList: checking pics</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAcl: checking &lsquo;acl pics url_regex -i .(jpg</td>
-      <td>gif</td>
-      <td>jpeg</td>
-      <td>png</td>
-      <td>mp3</td>
-      <td>smi</td>
-      <td>wma</td>
-      <td>swf)$&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchRegex: checking &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchRegex: looking for &lsquo;.(jpg</td>
-      <td>gif</td>
-      <td>jpeg</td>
-      <td>png</td>
-      <td>mp3</td>
-      <td>smi</td>
-      <td>wma</td>
-      <td>swf)$&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchRegex: match &lsquo;.(jpg</td>
-      <td>gif</td>
-      <td>jpeg</td>
-      <td>png</td>
-      <td>mp3</td>
-      <td>smi</td>
-      <td>wma</td>
-      <td>swf)$&rsquo; found in &lsquo;http://shanzhai.china.com/images/simple/siteGuid</td>
-    </tr>
-  </tbody>
-</table>
-<p>eR.gif&rsquo;</p>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAclList: checking !notnull_refer</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAcl: checking &lsquo;acl notnull_refer referer_regex .&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchRegex: checking &lsquo;http://w.china.com&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchRegex: looking for &lsquo;.&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchRegex: match &lsquo;.&rsquo; found in &lsquo;http://w.china.com&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAclList: no match, returning 0</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataLock: 0x735308</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataUnlock: 0x734b68</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataValid: 0x735308</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclCheck: checking &lsquo;http_access deny pics !domain_refer&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAclList: checking pics</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAcl: checking &lsquo;acl pics url_regex -i .(jpg</td>
-      <td>gif</td>
-      <td>jpeg</td>
-      <td>png</td>
-      <td>mp3</td>
-      <td>smi</td>
-      <td>wma</td>
-      <td>swf)$&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchRegex: checking &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchRegex: looking for &lsquo;.(jpg</td>
-      <td>gif</td>
-      <td>jpeg</td>
-      <td>png</td>
-      <td>mp3</td>
-      <td>smi</td>
-      <td>wma</td>
-      <td>swf)$&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchRegex: match &lsquo;.(jpg</td>
-      <td>gif</td>
-      <td>jpeg</td>
-      <td>png</td>
-      <td>mp3</td>
-      <td>smi</td>
-      <td>wma</td>
-      <td>swf)$&rsquo; found in &lsquo;http://shanzhai.china.com/images/simple/siteGuid</td>
-    </tr>
-  </tbody>
-</table>
-<p>eR.gif&rsquo;</p>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAclList: checking !domain_refer</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAcl: checking &lsquo;acl domain_refer referer_regex -i ^http://[^/]<em>china.com ^http://124.238.253.</em>&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchRegex: checking &lsquo;http://w.china.com&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchRegex: looking for &lsquo;^http://[^/]*china.com&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchRegex: match &lsquo;^http://[^/]*china.com&rsquo; found in &lsquo;http://w.china.com&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAclList: no match, returning 0</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataLock: 0x7355a8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataUnlock: 0x735308</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataValid: 0x7355a8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclCheck: checking &lsquo;http_access allow Safe_ports Domain&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAclList: checking Safe_ports</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAcl: checking &lsquo;acl Safe_ports port 80&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAclList: checking Domain</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAcl: checking &lsquo;acl Domain dstdomain .china.com&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchDomainList: checking &lsquo;shanzhai.china.com&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchDomainList: &lsquo;shanzhai.china.com&rsquo; found</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAclList: returning 1</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclCheck: match found, returning 1</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataUnlock: 0x7355a8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclCheckCallback: answer=1</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataValid: 0x9a17a8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>The request GET http://shanzhai.china.com/images/simple/siteGuideR.gif is ALLOWED, because it matched &lsquo;Domain&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<p>对照squid.conf，发现acl检测是从上到下依次进行（一般acl都这样），且http_access后最多只能有2个aclname</p>
-<p>&nbsp;</p>
-<p>5、rewrite部分</p>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientRedirectStart: &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientRedirectDone: &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo; result=NULL</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientStoreURLRewriteStart: &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientStoreURLRewriteDone: &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo; result=NULL</td>
-    </tr>
-  </tbody>
-</table>
-<p>&nbsp;</p>
-<p>6、cache配置</p>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientInterpretRequestHeaders: REQ_NOCACHE = NOT SET</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientInterpretRequestHeaders: REQ_CACHABLE = SET</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientInterpretRequestHeaders: REQ_HIERARCHICAL = SET</td>
-    </tr>
-  </tbody>
-</table>
-<p>7、cache_store检查</p>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientProcessRequest: GET &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>0x9604f8 lookup for 53</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>storeGet: looking up 15EBB8A96296D7407EA1D03F075666BC</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientProcessRequest2: default HIT</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientProcessRequest: TCP_HIT for &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>storeLockObject: (client_side.c:3544): key &lsquo;15EBB8A96296D7407EA1D03F075666BC&rsquo; count=1</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>storeAufsDirRefObj: referencing 0x753680 0/272</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>storeLockObject: (store_client.c:122): key &lsquo;15EBB8A96296D7407EA1D03F075666BC&rsquo; count=2</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>storeAufsDirRefObj: referencing 0x753680 0/272</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>storeClientCopy: 15EBB8A96296D7407EA1D03F075666BC, seen 0, want 0, size 4096, cb 0x41dd90, cbdata 0x9a17a8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataLock: 0x9a17a8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataLock: 0x9a2178</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>storeClientCopy2: 15EBB8A96296D7407EA1D03F075666BC</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>storeClientCopy3: Copying from memory</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>stmemCopy: offset 0: size 4096</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataValid: 0x9a17a8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientCacheHit: http://shanzhai.china.com/images/simple/siteGuideR.gif = 200</td>
-    </tr>
-  </tbody>
-</table>
-<p>&nbsp;</p>
-<p>8、过期时间</p>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>refreshCheck: &lsquo;http://shanzhai.china.com/images/simple/siteGuideR.gif&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>FRESH: expires 1320836796 &gt;= check_time 1289301498</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>Staleness = -1</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>refreshCheck: Matched &lsquo;<none> 0 20% 259200'</none></td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>refreshCheck: age = 702</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>   check_time:    Tue, 09 Nov 2010 11:18:18 GMT</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>   entry-&gt;timestamp:  Tue, 09 Nov 2010 11:06:36 GMT</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientCacheHit: refreshCheckHTTPStale returned 0</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>clientCacheHit: HIT</td>
-    </tr>
-  </tbody>
-</table>
-<p>&nbsp;</p>
-<p>9、继续完成entry</p>
-<table>
-  <tbody>
-    <tr>
-      <td>……2010/11/09 19:18:18</td>
-      <td>destroying entry 0x9a4cc0: &lsquo;Connection: keep-alive&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>……2010/11/09 19:18:18</td>
-      <td>created entry 0x9a4c60: &lsquo;Connection: close&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<p>&nbsp;</p>
-<p>10、响应acl检查部分</p>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclCheck: checking &lsquo;http_reply_access allow all&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAclList: checking all</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAcl: checking &lsquo;acl all src 0.0.0.0/0.0.0.0&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchIp: &lsquo;124.238.250.28&rsquo; found</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclMatchAclList: returning 1</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclCheck: match found, returning 1</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataUnlock: 0x731988</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>aclCheckCallback: answer=1</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataValid: 0x9a17a8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>The reply for GET http://shanzhai.china.com/images/simple/siteGuideR.gif is ALLOWED, because it matched &lsquo;all&rsquo;</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>packing sline 0x9a5010 using 0x7fffdb895d10:</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>HTTP/1.1 200 OK</td>
-    </tr>
-  </tbody>
-</table>
-<p>&nbsp;</p>
-<p>11、传输文件</p>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>packing hdr: (0x9a5028)</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>comm_write: FD 15: sz 362: hndl 0x424d60: data 0x9a17a8.</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataLock: 0x9a17a8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>commSetSelect: FD 15 type 2</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>commSetEvents(fd=15)</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataUnlock: 0x9a17a8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataUnlock: 0x9a14f8</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataFree: 0x846f18</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataFree: Freeing 0x846f18</td>
-    </tr>
-  </tbody>
-</table>
-<table>
-  <tbody>
-    <tr>
-      <td>2010/11/09 19:18:18</td>
-      <td>cbdataUnlock: 0x9a17a8</td>
-    </tr>
-  </tbody>
-</table>
-<p>&nbsp;</p>
       <a href="/2010/11/09/intro-squid-debug_log" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1613,9 +169,9 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/11/04/intro-inotify" title="inotify使用一例" rel="bookmark">inotify使用一例</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-11-04 00:00:00 +0800">04 Nov 2010</abbr>
@@ -1627,11 +183,6 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>在对一个大磁盘进行inotify监听时，爆出如下错误：</p>
-<p>Failed to watch /mnt/;
-upper limit on inotify watches reached!
-Please increase the amount of inotify watches allowed per user via `/proc/sys/fs/inotify/max_user_watches&rsquo;.</p>
-<p>cat一下这个文件，默认值是8192；df -i看看inode数量，远远大过这个值~</p>
-<p>echo 8192000 &gt; /proc/sys/fs/inotify/max_user_watches即可~</p>
       <a href="/2010/11/04/intro-inotify" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1639,9 +190,9 @@ Please increase the amount of inotify watches allowed per user via `/proc/sys/fs
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/10/27/problem-about-vrrp-and-intro-flood-ping" title="集群故障检查记录" rel="bookmark">集群故障检查记录</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-10-27 00:00:00 +0800">27 Oct 2010</abbr>
@@ -1653,20 +204,6 @@ Please increase the amount of inotify watches allowed per user via `/proc/sys/fs
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>某服务器集群，是双lvs_keepalived+多nginx结构。最近突然发现流量监控出现较大波动，nginx的access.log时常出现持续几十秒的无外来访问情况（即只有LVS的ip过来的400探测）。</p>
-<p>在两台lvs设备上的/var/log/messages上都看到大量的VIP切换记录：</p>
-<p>Oct 22 09:47:12 localhost Keepalived_vrrp: VRRP_Instance(VI<em>10) Transition to MASTER STATE
-Oct 22 09:47:13 localhost Keepalived_vrrp: VRRP_Instance(VI</em>10) Entering MASTER STATE
-Oct 22 09:47:13 localhost Keepalived_vrrp: VRRP_Instance(VI_10) setting protocol VIPs.</p>
-<p>Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI<em>10) Received higher prio advert
-Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI</em>10) Entering BACKUP STATE
-Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI_10) removing protocol VIPs.</p>
-<p>相互之间ping丢包相当严重，而ping同一网段其他ip都没问题。</p>
-<p>学来一个比较直观而且细腻的ping用法：ping -f $IP -c 5000</p>
-<p>man上对-f的解释如下：</p>
-<p>-f     Flood  ping.  For  every  ECHO_REQUEST  sent  a  period &ldquo;.&rdquo; is printed, while for ever ECHO_REPLY received a backspace is printed.  This provides a rapid display of how many packets are being dropped.  If interval is not given, it sets  interval to zero and outputs packets as fast as they come back or one hundred times per second, whichever is more.  Only the superuser may use this option with zero interval.</p>
-<p>-f    洪水ping，每当发送一个ECHO_REQUEST请求时，都在屏幕上打印一个点&rdquo;.&rdquo;，而收到ECHO_REPLY时就退格一次。以此简洁明了的显示出丢了多少个包。如果不明确指定发包间隔，默认间隔时间为0，即收包有多快，发包就有多快，可能每秒100次，或许更快~注意：只有超级用户root才能不设间隔的使用洪水ping参数-f</p>
-<p>我们把这个丢包.叫做贪吃蛇，哈哈~~</p>
-<p>采用更换服务器网线、强制指定网卡速率等办法，丢包率从近30%下降到了5%，问题依然没有全部解决。最后重启机器，就OK了……真实问题是否和ipvs有关，待查ing</p>
       <a href="/2010/10/27/problem-about-vrrp-and-intro-flood-ping" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1674,9 +211,9 @@ Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI_10) removing protoco
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/10/27/intro-myisamchk" title="Myisamchk小工具使用手册(转)" rel="bookmark">Myisamchk小工具使用手册(转)</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-10-27 00:00:00 +0800">27 Oct 2010</abbr>
@@ -1688,241 +225,6 @@ Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI_10) removing protoco
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>前不久碰上mysql的表损坏，百度到这篇文章，现在转载过来，原文出处：<a href="http://logzgh.itpub.net/post/3185/454455">http://logzgh.itpub.net/post/3185/454455</a></p>
-<p>Myisamchk是MyISAM表维护的一个非常实用的工具。可以使用myisamchk实用程序来获得有关数据库表的信息或检查、修复、优化他们。myisamchk适用MyISAM表(对应.MYI和.MYD文件的表)。
-1.myisamchk的调用方法
-myisamchk [options] tbl_name &hellip;
-其中options指定你想让myisamchk干什么。</p>
-<p>它允许你通过使用模式“*.MYI”指定在一个目录所有的表。
-shell&gt; myisamchk *.MYI</p>
-<p>推荐的快速检查所有MyISAM表的方式是：</p>
-<p>shell&gt; myisamchk &ndash;silent &ndash;fast /path/to/datadir/<em>/</em>.MYI
-当你运行myisamchk时，必须确保其它程序不使用表。</p>
-<p>当你运行myisamchk时内存分配重要.MYIsamchk使用的内存大小不能超过用-O选项指定的。对于大多数情况，使用-O sort=16M应该足够了。
-另外在修复时myisamchk需要大量硬盘空间，基本上是所涉及表空间的双倍大小。</p>
-<p>2.myisamchk的一般选项
-&ndash;debug=debug_options, -# debug_options
-输出调试记录文件。debug_options字符串经常是&rsquo;d:t:o,filename&rsquo;。</p>
-<p>&ndash;silent，-s
-沉默模式。仅当发生错误时写输出。</p>
-<p>&ndash;wait, -w
-如果表被锁定，不是提示错误终止，而是在继续前等待到表被解锁。
-如果不使用&ndash;skip-external-locking，可以随时使用myisamchk来检查表。当检查表时，所有尝试更新表的客户端将等待，直到myisamchk准备好可以继续。
-请注意如果用&ndash;skip-external-locking选项运行mysqld，只能用另一个myisamchk命令锁定表。</p>
-<p>&ndash;var_name=value
-可以通过&ndash;var_name=value选项设置下面的变量:
-decode_bits 9
-ft_max_word_len 取决于版本
-ft_min_word_len 4
-ft_stopword_file 内建列表
-key_buffer_size 523264
-myisam_block_size 1024
-read_buffer_size 262136
-sort_buffer_size 2097144
-sort_key_blocks 16
-stats_method nulls_unequal
-write_buffer_size 262136
-如果想要快速修复，将key_buffer_size和sort_buffer_size变量设置到大约可用内存的25%。
-可以将两个变量设置为较大的值，因为一个时间只使用一个变量。
-myisam_block_size是用于索引块的内存大小。
-stats_method影响当给定&ndash;analyze选项时，如何为索引统计搜集处理NULL值。</p>
-<p>3.myisamchk的检查选项
-&ndash;check, -c
-检查表的错误。如果你不明确指定操作类型选项，这就是默认操作。</p>
-<p>&ndash;check-only-changed, -C
-只检查上次检查后有变更的表。</p>
-<p>&ndash;extend-check, -e
-非常仔细地检查表。如果表有许多索引将会相当慢。</p>
-<p>&ndash;fast，-F
-只检查没有正确关闭的表。</p>
-<p>&ndash;force, -f
-如果myisamchk发现表内有任何错误，则自动进行修复。</p>
-<p>&ndash;information, -i
-打印所检查表的统计信息。</p>
-<p>&ndash;medium-check, -m
-比&ndash;extend-check更快速地进行检查。只能发现99.99%的错误</p>
-<p>&ndash;update-state, -U
-将信息保存在.MYI文件中，来表示表检查的时间以及是否表崩溃了。该选项用来充分利用&ndash;check-only-changed选项，
-但如果mysqld服务器正使用表并且正用&ndash;skip-external-locking选项运行时不应使用该选项。</p>
-<p>&ndash;read-only, -T
-不要将表标记为已经检查。如果你使用myisamchk来检查正被其它应用程序使用而没有锁定的表很有用</p>
-<p>4.myisamchk的修复选项
-&ndash;backup, -B
-将.MYD文件备份为file_name-time.BAK</p>
-<p>&ndash;character-sets-dir=path
-字符集安装目录。</p>
-<p>&ndash;correct-checksum
-纠正表的校验和信息。</p>
-<p>&ndash;data-file-length=len, -D len
-数据文件的最大长度</p>
-<p>&ndash;extend-check，-e
-进行修复，试图从数据文件恢复每一行。一般情况会发现大量的垃圾行。不要使用该选项,除非你不顾后果。</p>
-<p>&ndash;force, -f
-覆盖旧的中间文件(文件名类似tbl_name.TMD)，而不是中断</p>
-<p>&ndash;keys-used=val, -k val
-对于myisamchk，该选项值为位值，说明要更新的索引。选项值的每一个二进制位对应表的一个索引，其中第一个索引对应位0。
-选项值0禁用对所有索引的更新，可以保证快速插入。通过myisamchk -r可以重新激活被禁用的索引。</p>
-<p>&ndash;parallel-recover, -p
-与-r和-n的用法相同，但使用不同的线程并行创建所有键。</p>
-<p>&ndash;quick，-q
-不修改数据文件，快速进行修复。</p>
-<p>&ndash;recover, -r
-可以修复几乎所有一切问题，除非唯一的键不唯一时(对于MyISAM表，这是非常不可能的情况)。如果你想要恢复表，
-这是首先要尝试的选项。如果myisamchk报告表不能用-r恢复，则只能尝试-o。
-在不太可能的情况下-r失败，数据文件保持完好）。</p>
-<p>&ndash;safe-recover, -o
-使用一个老的恢复方法读取，按顺序读取所有行，并根据找到的行更新所有索引树。这比-r慢些，
-但是能处理-r不能处理的情况。该恢复方法使用的硬盘空间比-r少。一般情况，你应首先用-r维修，如果-r失败则用-o。</p>
-<p>&ndash;sort-recover, -n
-强制myisamchk通过排序来解析键值，即使临时文件将可能很大。</p>
-<p>5.myisamchk的其他选项
-myisamchk支持以下表检查和修复之外的其它操作的选项：</p>
-<p>&ndash;analyze，-a
-分析键值的分布。这通过让联结优化器更好地选择表应该以什么次序联结和应该使用哪个键来改进联结性能。
-要想获取分布相关信息，使用myisamchk &ndash;description &ndash;verbose tbl_name命令或SHOW KEYS FROM tbl_name语句。</p>
-<p>&ndash;sort-index, -S
-以从高到低的顺序排序索引树块。这将优化搜寻并且将使按键值的表扫描更快。</p>
-<p>&ndash;set-auto-increment[=value], -A[value]
-强制从给定值开始的新记录使用AUTO_INCREMENT编号(或如果已经有AUTO_INCREMENT值大小的记录，应使用更高值)。
-如果未指定value，新记录的AUTO_INCREMENT编号应使用当前表的最大值加上1。</p>
-<p>&ndash;description, -d
-打印出关于表的描述性信息。
-例如：
-[root@qa-sandbox-1 mysql]# myisamchk -d user.MYI
-MyISAM file: user.MYI
-Record format: Packed
-Character set: latin1_swedish_ci (8)
-Data records: 6 Deleted blocks: 1
-Recordlength: 346</p>
-<p>table description:
-Key Start Len Index Type
-1 1 180 unique char packed stripped
-181 48 char stripped</p>
-<p>6.如何修复表</p>
-<p>检查你的表
-如果你有很多时间，运行myisamchk *.MYI或myisamchk -e *.MYI。使用-s（沉默）选项禁止不必要的信息。
-如果mysqld服务器处于宕机状态，应使用&ndash;update-state选项来告诉myisamchk将表标记为&rsquo;检查过的&rsquo;。</p>
-<p>简单安全的修复
-首先，试试myisamchk -r -q tbl_name(-r -q意味着“快速恢复模式”)
-如果在修复时，你得到奇怪的错误(例如out of memory错误)，或如果myisamchk崩溃，到阶段3。</p>
-<p>困难的修复
-只有在索引文件的第一个16K块被破坏，或包含不正确的信息，或如果索引文件丢失，你才应该到这个阶段。在这种情况下，需要创建一个新的索引文件。按如下步骤操做：</p>
-<ol>
-  <li>把数据文件移到安全的地方。</li>
-  <li>使用表描述文件创建新的(空)数据文件和索引文件：</li>
-  <li>shell&gt; mysql db_name</li>
-  <li>mysql&gt; SET AUTOCOMMIT=1;</li>
-  <li>mysql&gt; TRUNCATE TABLE tbl_name;</li>
-  <li>mysql&gt; quit
-如果你的MySQL版本没有TRUNCATE TABLE，则使用DELETE FROM tbl_name。</li>
-  <li>将老的数据文件拷贝到新创建的数据文件之中。（不要只是将老文件移回新文件之中；你要保留一个副本以防某些东西出错。）</li>
-</ol>
-<p>回到阶段2。现在myisamchk -r -q应该工作了。（这不应该是一个无限循环）。</p>
-<p>你还可以使用REPAIR TABLE tbl_name USE_FRM，将自动执行整个程序。</p>
-<p>非常困难的修复
-只有.frm描述文件也破坏了，你才应该到达这个阶段。这应该从未发生过，因为在表被创建以后，描述文件就不再改变了。</p>
-<ol>
-  <li>从一个备份恢复描述文件然后回到阶段3。你也可以恢复索引文件然后回到阶段2。对后者，你应该用myisamchk -r启动。</li>
-  <li>如果你没有进行备份但是确切地知道表是怎样创建的，在另一个数据库中创建表的一个拷贝。删除新的数据文件，然后从其他数据库将描述文件和索引文件移到破坏的数据库中。这样提供了新的描述和索引文件，但是让.MYD数据文件独自留下来了。回到阶段2并且尝试重建索引文件。</li>
-</ol>
-<p>7.清理碎片
-对Innodb 表则可以通过执行以下语句来整理碎片，提高索引速度：
-ALTER TABLE tbl_name ENGINE = Innodb;
-这其实是一个 NULL 操作，表面上看什么也不做，实际上重新整理碎片了。</p>
-<p>对myisam表格，为了组合碎片记录并且消除由于删除或更新记录而浪费的空间，以恢复模式运行myisamchk：</p>
-<p>shell&gt; myisamchk -r tbl_name</p>
-<p>你可以用SQL的OPTIMIZE TABLE语句使用的相同方式来优化表，OPTIMIZE TABLE可以修复表并对键值进行分析，并且可以对索引树进行排序以便更快地查找键值。</p>
-<p>8.建立表检查计划
-运行一个crontab，每天定期检查所有的myisam表格。
-35 0 * * 0 /path/to/myisamchk &ndash;fast &ndash;silent /path/to/datadir/<em>/</em>.MYI</p>
-<p>9.获取表的信息</p>
-<p>myisamchk -d tbl_name：以“描述模式”运行myisamchk，生成表的描述
-myisamchk -d -v tbl_name: 为了生成更多关于myisamchk正在做什么的信息，加上-v告诉它以冗长模式运行。
-myisamchk -eis tbl_name:仅显示表的最重要的信息。因为必须读取整个表，该操作很慢。
-myisamchk -eiv tbl_name:这类似 -eis，只是告诉你正在做什么。</p>
-<p>10.Myisamchk产生的信息解释</p>
-<p>MyISAM file
-ISAM(索引)文件名。</p>
-<p>File-version
-ISAM格式的版本。当前总是2。</p>
-<p>Creation time
-数据文件创建的时间。</p>
-<p>Recover time
-索引/数据文件上次被重建的时间。</p>
-<p>Data records
-在表中有多少记录。</p>
-<p>Deleted blocks
-有多少删除的块仍然保留着空间。你可以优化表以使这个空间减到最小。参见第7章：优化。</p>
-<p>Datafile parts
-对动态记录格式，这指出有多少数据块。对于一个没有碎片的优化过的表，这与Data records相同。</p>
-<p>Deleted data
-不能回收的删除数据有多少字节。你可以优化表以使这个空间减到最小。参见第7章：优化。</p>
-<p>Datafile pointer
-数据文件指针的大小，以字节计。它通常是2、3、4或5个字节。大多数表用2个字节管理，但是目前这还不能从MySQL控制。
-对固定表，这是一个记录地址。对动态表，这是一个字节地址。</p>
-<p>Keyfile pointer
-索引文件指针的大小，以字节计。它通常是1、2或3个字节。大多数表用 2 个字节管理，但是它自动由MySQL计算。
-它总是一个块地址。</p>
-<p>Max datafile length
-表的数据文件(.MYD文件)能够有多长，以字节计。</p>
-<p>Max keyfile length
-表的键值文件(.MYI文件)能够有多长，以字节计。</p>
-<p>Recordlength
-每个记录占多少空间，以字节计。</p>
-<p>Record format
-用于存储表行的格式。上面的例子使用Fixed length。其他可能的值是Compressed和Packed。</p>
-<p>table description
-在表中所有键值的列表。对每个键，给出一些底层的信息：
-Key
-该键的编号。
-Start
-该索引部分从记录的哪里开始。
-Len
-该索引部分是多长。对于紧凑的数字，这应该总是列的全长。对字符串，它可以比索引的列的全长短些，
-因为你可能会索引到字符串列的前缀。
-Index
-unique或multip（multiple)。表明一个值是否能在该索引中存在多次。
-Type
-该索引部分有什么数据类型。这是一个packed、stripped或empty选项的ISAM数据类型。
-Root
-根索引块的地址。
-Blocksize
-每个索引块的大小。默认是1024，但是从源码构建MySQL时，该值可以在编译时改变。
-Rec/key
-这是由优化器使用的统计值。它告诉对该键的每个值有多少条记录。唯一键总是有一个1值。
-在一个表被装载后(或变更很大)，可以用myisamchk -a更新。如果根本没被更新，给定一个30的默认值。
-在上面例子的表中，第9个键有两个table description行。这说明它是有2个部分的多部键。</p>
-<p>Keyblocks used
-键块使用的百分比是什么。当在例子中使用的表刚刚用myisamchk重新组织时，该值非常高(很接近理论上的最大值)。</p>
-<p>Packed
-MySQL试图用一个通用后缀压缩键。这只能被用于CHAR/VARCHAR/DECIMAL列的键。对于左部分类似的长字符串，
-能显著地减少使用空间。在上面的第3个例子中，第4个键是10个字符长，可以减少60%的空间。</p>
-<p>Max levels
-对于该键的B树有多深。有长键的大表有较高的值。</p>
-<p>Records
-表中有多少行。</p>
-<p>M.recordlength
-平均记录长度。对于有定长记录的表，这是准确的记录长度，因为所有记录的长度相同。</p>
-<p>Packed
-MySQL从字符串的结尾去掉空格。Packed值表明这样做达到的节约的百分比。</p>
-<p>Recordspace used
-数据文件被使用的百分比。</p>
-<p>Empty space
-数据文件未被使用的百分比。</p>
-<p>Blocks/Record
-每个记录的平均块数(即，一个碎片记录由多少个连接组成)。对固定格式表，这总是1。该值应该尽可能保持接近1.0。
-如果它变得太大，你可以重新组织表。参见第7章：优化。</p>
-<p>Recordblocks
-多少块(链接)被使用。对固定格式，它与记录的个数相同。</p>
-<p>Deleteblocks
-多少块(链接)被删除。</p>
-<p>Recorddata
-在数据文件中使用了多少字节。</p>
-<p>Deleted data
-在数据文件中多少字节被删除(未使用)。</p>
-<p>Lost space
-如果一个记录被更新为更短的长度，就损失了一些空间。这是所有这样的损失之和，以字节计。</p>
-<p>Linkdata
-当使用动态表格式，记录碎片用指针连接(每个4 ～ 7字节)。 Linkdata指这样的指针使用的内存量之和。</p>
       <a href="/2010/10/27/intro-myisamchk" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1930,9 +232,9 @@ MySQL从字符串的结尾去掉空格。Packed值表明这样做达到的节约
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/10/21/translation-of-mysql-error-log" title="mysql错误日志中文翻译" rel="bookmark">mysql错误日志中文翻译</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-10-21 00:00:00 +0800">21 Oct 2010</abbr>
@@ -1944,67 +246,6 @@ MySQL从字符串的结尾去掉空格。Packed值表明这样做达到的节约
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>1005：创建表失败</p>
-<p>1006：创建数据库失败</p>
-<p>1007：数据库已存在，创建数据库失败</p>
-<p>1008：数据库不存在，删除数据库失败</p>
-<p>1009：不能删除数据库文件导致删除数据库失败</p>
-<p>1010：不能删除数据目录导致删除数据库失败</p>
-<p>1011：删除数据库文件失败</p>
-<p>1012：不能读取系统表中的记录</p>
-<p>1016: 无法打开文件</p>
-<p>1020：记录已被其他用户修改</p>
-<p>1021：硬盘剩余空间不足，请加大硬盘可用空间</p>
-<p>1022：关键字重复，更改记录失败</p>
-<p>1023：关闭时发生错误</p>
-<p>1024：读文件错误</p>
-<p>1025：更改名字时发生错误</p>
-<p>1026：写文件错误</p>
-<p>1032：记录不存在</p>
-<p>1036：数据表是只读的，不能对它进行修改</p>
-<p>1037：系统内存不足，请重启数据库或重启服务器</p>
-<p>1038：用于排序的内存不足，请增大排序缓冲区</p>
-<p>1040：已到达数据库的最大连接数，请加大数据库可用连接数</p>
-<p>1041：系统内存不足</p>
-<p>1042：无效的主机名</p>
-<p>1043：无效连接</p>
-<p>1044：当前用户没有访问数据库的权限</p>
-<p>1045：不能连接数据库，用户名或密码错误</p>
-<p>1048：字段不能为空</p>
-<p>1049：数据库不存在</p>
-<p>1050：数据表已存在</p>
-<p>1051：数据表不存在</p>
-<p>1054：字段不存在</p>
-<p>1062：字段值重复，入库失败</p>
-<p>1065：无效的SQL语句，SQL语句为空</p>
-<p>1081：不能建立Socket连接</p>
-<p>1114：数据表已满，不能容纳任何记录</p>
-<p>1116：打开的数据表太多</p>
-<p>1129：数据库出现异常，请重启数据库</p>
-<p>1130：连接数据库失败，没有连接数据库的权限</p>
-<p>1133：数据库用户不存在</p>
-<p>1141：当前用户无权访问数据库</p>
-<p>1142：当前用户无权访问数据表</p>
-<p>1143：当前用户无权访问数据表中的字段</p>
-<p>1146：数据表不存在</p>
-<p>1147：未定义用户对数据表的访问权限</p>
-<p>1149：SQL语句语法错误</p>
-<p>1158：网络错误，出现读错误，请检查网络连接状况</p>
-<p>1159：网络错误，读超时，请检查网络连接状况</p>
-<p>1160：网络错误，出现写错误，请检查网络连接状况</p>
-<p>1161：网络错误，写超时，请检查网络连接状况</p>
-<p>1169：字段值重复，更新记录失败</p>
-<p>1177：打开数据表失败</p>
-<p>1180：提交事务失败</p>
-<p>1181：回滚事务失败</p>
-<p>1203：当前用户和数据库建立的连接已到达数据库的最大连接数，请增大可用的数据库连接数或重启数据库</p>
-<p>1205：加锁超时</p>
-<p>1211：当前用户没有创建用户的权限</p>
-<p>1216：外键约束检查失败，更新子表记录失败</p>
-<p>1217：外键约束检查失败，删除或修改主表记录失败</p>
-<p>1226：当前用户使用的资源已超过所允许的资源，请重启数据库或重启服务器</p>
-<p>1227：权限不足，您无权进行此操作</p>
-<p>1235：MySQL版本过低，不具有本功能</p>
-<p>1250：客户端不支持服务器要求的认证协议，请考虑升级客户端</p>
       <a href="/2010/10/21/translation-of-mysql-error-log" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -2012,9 +253,9 @@ MySQL从字符串的结尾去掉空格。Packed值表明这样做达到的节约
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/10/21/auto-refresh-of-pnp4nagios" title="页面自动刷新小问题" rel="bookmark">页面自动刷新小问题</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-10-21 00:00:00 +0800">21 Oct 2010</abbr>
@@ -2026,22 +267,6 @@ MySQL从字符串的结尾去掉空格。Packed值表明这样做达到的节约
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>cacti的页面，每5分钟自动刷新一次，这样就可以“实时”的看到rrd绘图的最新结果。</p>
-<p>nagios加上pnp插件后，也有rrd绘图的页面，但却没有自动刷新。</p>
-<p>查看pnp/config.cfg，里面已经配置了$conf[&lsquo;refresh&rsquo;] = &ldquo;90&rdquo;;但页面没有反应。</p>
-<p>于是分别查看cacti和pnp的页面源代码，cacti的如下：</p>
-<p>&lt;meta http-equiv=refresh content=&rsquo;300&rsquo;&gt;</p>
-<p>pnp的如下：</p>
-<meta http-equiv="refresh" content="90; URL=***" />
-<p>看来时这个META标签写法不对，修改nagios/share/pnp/include/funcation.inc.php如下：</p>
-<ul>
-  <li>
-    <p>print &ldquo;&lt;meta http-equiv="refresh" content="&rdquo; . $conf[&lsquo;refresh&rsquo;] . &ldquo;; URL=&rdquo; . $_SERVER[&lsquo;REQUEST_URI&rsquo;] . &ldquo;"&gt;\n&rdquo;;</p>
-  </li>
-  <li>
-    <p>print &ldquo;&lt;meta http-equiv="refresh" content="&rdquo;.$conf[&lsquo;refresh&rsquo;].&rdquo;"&gt;\n&rdquo;;</p>
-  </li>
-</ul>
-<p>保存退出，刷新页面后等待90s，果然更新了~~</p>
       <a href="/2010/10/21/auto-refresh-of-pnp4nagios" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -2049,9 +274,9 @@ MySQL从字符串的结尾去掉空格。Packed值表明这样做达到的节约
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/10/20/solution-of-tcp_overflow" title="tcp overflow报错" rel="bookmark">tcp overflow报错</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-10-20 00:00:00 +0800">20 Oct 2010</abbr>
@@ -2063,42 +288,6 @@ MySQL从字符串的结尾去掉空格。Packed值表明这样做达到的节约
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>在对TCP参数进行sysctl优化时，通常会减小net.ipv4.tcp_max_tw_buckets这个设置，以减少服务器的TIME_WAIT数量，提高服务器响应速度。</p>
-<p>不过对于squid服务器来说，这个优化没什么作用，而且在/var/log/messages和dmesg中大屏大屏的出现如下kernel报错。很是烦人……
-printk: 7277 messages suppressed.
-TCP: time wait bucket table overflow</p>
-<p>更深一步，如果去linux内核代码中搜索的话，可以发现如下：</p>
-<p>struct inet_timewait_sock *tw = NULL;
-const struct inet_connection_sock *icsk = inet_csk(sk);
-const struct tcp_sock *tp = tcp_sk(sk);
-int recycle_ok = 0;</p>
-<p>if (tcp_death_row.sysctl_tw_recycle &amp;&amp; tp-&gt;rx_opt.ts_recent_stamp)
-recycle_ok = icsk-&gt;icsk_af_ops-&gt;remember_stamp(sk);</p>
-<p>if (tcp_death_row.tw_count &lt; tcp_death_row.sysctl_max_tw_buckets)
-tw = inet_twsk_alloc(sk, state);</p>
-<p>if (tw != NULL) {</p>
-<p>&hellip;&hellip;</p>
-<p>} else {</p>
-<p>/* Sorry, if we&rsquo;re out of memory, just CLOSE this
-* socket up.  We&rsquo;ve got bigger problems than
-* non-graceful socket closings.
-*/
-LIMIT_NETDEBUG(KERN_INFO &ldquo;TCP: time wait bucket table overflow\n&rdquo;);
-}</p>
-<p>&hellip;&hellip;</p>
-<p>struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk, const int state)
-{
-struct inet_timewait_sock *tw =
-kmem_cache_alloc(sk-&gt;sk_prot_creator-&gt;twsk_prot-&gt;twsk_slab,
-GFP_ATOMIC);
-if (tw != NULL) {</p>
-<p>&hellip;&hellip;</p>
-<p>}
-return tw;
-}</p>
-<p>也就是，报出该错有两个可能性：</p>
-<p>1、tcp_death_row.tw_count &gt;= tcp_death_row.sysctl_max_tw_buckets</p>
-<p>2、调用 kmem_cache_alloc 分配 tw 错误</p>
-<p>所以，对squid服务器，可以适当放大net.ipv4.tcp_max_tw_buckets的设置~~</p>
       <a href="/2010/10/20/solution-of-tcp_overflow" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -2106,9 +295,9 @@ return tw;
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/10/19/intro-nagiostats" title="nagios性能监控" rel="bookmark">nagios性能监控</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-10-19 00:00:00 +0800">19 Oct 2010</abbr>
@@ -2120,63 +309,6 @@ return tw;
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>nagios自带有性能监控工具nagiostats，安装在nagios路径的bin/下。直接运行即可看到主机、服务的检测频率，故障数量及比例等。举例如下：</p>
-<p>Nagios Stats 3.0.3
-Copyright (c) 2003-2008 Ethan Galstad (www.nagios.org)
-Last Modified: 06-25-2008
-License: GPL</p>
-<h2 id="current-status-data">CURRENT STATUS DATA</h2>
-<p>Status File:                            /usr/local/nagios/var/status.dat
-Status File Age:                        0d 0h 0m 9s
-Status File Version:                    3.0.3</p>
-<p>Program Running Time:                   6d 17h 48m 34s
-Nagios PID:                             14400
-Used/High/Total Command Buffers:        0 / 0 / 4096</p>
-<p>Total Services:                         1343
-Services Checked:                       1343
-Services Scheduled:                     1343
-Services Actively Checked:              1343
-Services Passively Checked:             0
-Total Service State Change:             0.000 / 11.580 / 0.009 %
-Active Service Latency:                 0.001 / 4.541 / 0.451 sec
-Active Service Execution Time:          0.007 / 6.723 / 0.202 sec
-Active Service State Change:            0.000 / 11.580 / 0.009 %
-Active Services Last 1/5/15/60 min:     379 / 927 / 1178 / 1343
-Passive Service Latency:                0.000 / 0.000 / 0.000 sec
-Passive Service State Change:           0.000 / 0.000 / 0.000 %
-Passive Services Last 1/5/15/60 min:    0 / 0 / 0 / 0
-Services Ok/Warn/Unk/Crit:              1343 / 0 / 0 / 0
-Services Flapping:                      0
-Services In Downtime:                   0</p>
-<p>Total Hosts:                            239
-Hosts Checked:                          239
-Hosts Scheduled:                        239
-Hosts Actively Checked:                 239
-Host Passively Checked:                 0
-Total Host State Change:                0.000 / 0.000 / 0.000 %
-Active Host Latency:                    0.014 / 5.048 / 2.766 sec
-Active Host Execution Time:             4.006 / 5.095 / 4.018 sec
-Active Host State Change:               0.000 / 0.000 / 0.000 %
-Active Hosts Last 1/5/15/60 min:        223 / 238 / 239 / 239
-Passive Host Latency:                   0.000 / 0.000 / 0.000 sec
-Passive Host State Change:              0.000 / 0.000 / 0.000 %
-Passive Hosts Last 1/5/15/60 min:       0 / 0 / 0 / 0
-Hosts Up/Down/Unreach:                  239 / 0 / 0
-Hosts Flapping:                         0
-Hosts In Downtime:                      0</p>
-<p>Active Host Checks Last 1/5/15 min:     183 / 444 / 1135
-Scheduled:                           183 / 444 / 1133
-On-demand:                           0 / 0 / 2
-Parallel:                            183 / 444 / 1134
-Serial:                              0 / 0 / 0
-Cached:                              0 / 0 / 1
-Passive Host Checks Last 1/5/15 min:    0 / 0 / 0
-Active Service Checks Last 1/5/15 min:  494 / 1082 / 3209
-Scheduled:                           494 / 1082 / 3209
-On-demand:                           0 / 0 / 0
-Cached:                              0 / 0 / 0
-Passive Service Checks Last 1/5/15 min: 0 / 0 / 0</p>
-<p>External Commands Last 1/5/15 min:      0 / 0 / 0</p>
-<p>&nbsp;</p>
       <a href="/2010/10/19/intro-nagiostats" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -2184,9 +316,9 @@ Passive Service Checks Last 1/5/15 min: 0 / 0 / 0</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/10/13/a-problem-of-php-compiling" title="php编译小问题" rel="bookmark">php编译小问题</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-10-13 00:00:00 +0800">13 Oct 2010</abbr>
@@ -2198,16 +330,6 @@ Passive Service Checks Last 1/5/15 min: 0 / 0 / 0</p>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>昨天应用调整，尝试将服务器上的php降级，从5.3.0降到5.2.10，在编译时爆出如下错误提示：</p>
-<p>./.libs/libgd.so: undefined reference to `png_check_sig&rsquo;
-collect2: ld returned 1 exit status</p>
-<p>因为之前有过安装，所以可以确认libpng是已经存在的。百度后看到如下说法：</p>
-<p>libpng-1.4.0源码中的libpng-1.4.0.txt有说明,已经取消了png_check_sig这个函数,改用png_sig_cmp代替.自从libpng-0.90就已经反对使用png_check_sig函数了</p>
-<p>所以修改php源码中的ext/gd/libgd/gd_png.c如下：</p>
-<ul>
-  <li>  if (!png_check_sig (sig, 8)) { /* bad signature */</li>
-  <li>if (png_sig_cmp (sig, 0, 8)) { /* bad signature */</li>
-</ul>
-<p>保存后重新编译，顺利通过。</p>
       <a href="/2010/10/13/a-problem-of-php-compiling" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -2215,9 +337,9 @@ collect2: ld returned 1 exit status</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/10/09/change-time-zone-of-linux" title="linux更改时区" rel="bookmark">linux更改时区</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-10-09 00:00:00 +0800">09 Oct 2010</abbr>
@@ -2244,9 +366,9 @@ collect2: ld returned 1 exit status</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/10/06/a-question-of-google" title="google校招笔试题" rel="bookmark">google校招笔试题</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-10-06 00:00:00 +0800">06 Oct 2010</abbr>
@@ -2257,57 +379,6 @@ collect2: ld returned 1 exit status</p>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>刚在CU看到传说中的一道google2011年校招笔试题，如下：</p>
-<p>现在北京有一套房子，价格200万，假设房价每年上涨 10%，一个软件工程师每年固定能赚40万。如果他想买这套房子，不贷 款，不涨工资，没有其他收入，每年不吃不喝不消费，那么他需要几年才能攒够钱买这套房子？
-A, 5年
-B, 7年
-C, 8年
-D, 9年
-E, 永远买不起</p>
-<p>最简单的思路，算算每年的房价和攒下的工资总数，最多到房价超过400万的时候就不用算了，因为那时候10%就大于工资了……</p>
-<h1 id="binbash">!/bin/bash</h1>
-<p>fangzi=200
-gongzi=40
-while true
-do
-fangzi_new=<code>echo $fangzi|awk '{print $1*1.1}'</code>
-gongzi_new=<code>echo $gongzi|awk '{print $1+40}'</code>
-echo -ne &ldquo;$fangzi_new\t$gongzi_new\n&rdquo;
-fangzi=<code>echo $fangzi_new</code>
-gongzi=<code>echo $gongzi_new</code>
-sleep 5
-done
-运行结果如下：
-220    80
-242    120
-266.2    160
-292.82    200
-322.102    240
-354.312    280
-389.743    320
-428.717    360</p>
-<p>完蛋了，永远买不起……</p>
-<p>不过有人提供另一种思路，如果先买40万的房子，第二年卖出，然后买84万的……</p>
-<h1 id="binbash-1">!/bin/bash</h1>
-<p>fangzi=200
-gongzi=40
-while true
-do
-fangzi_new=<code>echo $fangzi|awk '{print $1*1.1}'</code>
-gongzi_new=<code>echo $gongzi|awk '{print $1*1.1+40}'</code>
-echo -ne &ldquo;$fangzi_new\t$gongzi_new\n&rdquo;
-fangzi=<code>echo $fangzi_new</code>
-gongzi=<code>echo $gongzi_new</code>
-sleep 5
-done
-运行结果如下：
-220    84
-242    132.4
-266.2    185.64
-292.82    244.204
-322.102    308.624
-354.312    379.486</p>
-<p>第七年就搞定了！！而第七年的工资总数是280万，倒房能倒到379.5万！！</p>
-<p>唉~~</p>
       <a href="/2010/10/06/a-question-of-google" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -2315,9 +386,9 @@ done
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/09/26/perlbal" title="perlbal" rel="bookmark">perlbal</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-09-26 00:00:00 +0800">26 Sep 2010</abbr>
@@ -2331,27 +402,6 @@ done
       <p>看mogileFS，其中用到了perlbal，这是一个用perl完成的超轻量级服务器程序。包括了web、proxy、loadbalance等功能，嗯，看起来和nginx很像。
 又想到曾经在CU上看到一个说法，用解释性脚本语言编写的服务器程序执行相应的网页，效率最高。
 我就会凑点perl，下perlbal来体验一把吧~~</p>
-<p>发挥一下perl的优势，直接采用CPAN安装。（从扶凯那学来cpanm方式，确实方便）</p>
-<div class="highlight"><pre><code class="bash">wget http://xrl.us/cpanm -O /sbin/cpanm
-chmod +x !<span class="err">$</span>
-!<span class="nv">$ </span>Perlbal
-perlbal --help
-Usage: perlbal <span class="o">[</span>OPTS<span class="o">]</span>
---help           This usage info
---version        Print perlbal release version
---config<span class="o">=[</span>file<span class="o">]</span>  Specify Perlbal config file
-<span class="o">(</span>default: /etc/perlbal/perlbal.conf<span class="o">)</span>
---daemon         Daemonize
-</code></pre></div>
-<p>多简单呀~~
-不过问题来了，这个配置文件到哪找去呀~~不管是cpan.org还是danga.com/perlbal都简单到极致，压根没提及配置文件，仿佛大家都能把源码看一遍似的……
-好在随后在mogileFS的<a href="http://www.livejournal.com/doc/server/index.html" target="_blank">教程</a>里看到了perlbal的一些配置步骤。然后发现这个cpanm太偷懒了也不好……还是svn下来全部文件比较合适~~</p>
-<div class="highlight"><pre><code class="bash">svn checkout http://code.sixapart.com/svn/perlbal/trunk/
-ls trunk/conf/
-echoservice.conf  load-balancer.conf  nodelist.dat  not-modified-plugin.conf  perlbal.conf  ssl.conf  virtual-hosts.conf  webserver.conf
-</code></pre></div>
-<p>各种配置文件都列出来了~
-不过再去trunk/lib/Perlbal/下看看pm，就发现还有很多功能没有conf出来呢，比如Stats.pm、Cache.pm、ReproxyManager.pm等等~~</p>
       <a href="/2010/09/26/perlbal" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -2359,9 +409,9 @@ echoservice.conf  load-balancer.conf  nodelist.dat  not-modified-plugin.conf�
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/09/26/configure-transfer-to-peer-in-squid" title="squid回源选择配置小结" rel="bookmark">squid回源选择配置小结</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-09-26 00:00:00 +0800">26 Sep 2010</abbr>
@@ -2373,18 +423,6 @@ echoservice.conf  load-balancer.conf  nodelist.dat  not-modified-plugin.conf�
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>一共关系到cache_peer/always_direct/never_direct/hierarchy_stoplist/prefer_direct等配置项。</p>
-<p>squid的<a href="http://www.deckle.co.za/squid-users-guide/Cache_Hierarchies#The_always_direct_and_never_direct_tags" target="_blank">使用指南</a>上，关于always_direct和never_direct这么写到：</p>
-<p>Squid checks all <em>always_direct</em> tags before it checks any <em>never_direct</em> tags. If a matching <em>always_direct</em> tag is found, Squid will not check the <em>never_direct</em> tags, but decides which cache to talk to immediately&hellip;.
-If the line used the <em>deny</em> keyword instead of <em>allow</em>, Squid would have simply skipped on to checking the <em>never_direct</em> lines</p>
-<p>squid的<a href="http://http://www.squid-cache.org/Doc/config/hierarchy_stoplist/" target="_blank">配置说明</a>上，关于hierarchy_stoplist这么写到：</p>
-<p>use this to not query neighbor caches for certain objects&hellip;.never_direct overrides this option</p>
-<p>squid的<a href="http://www.squid-cache.org/mail-archive/squid-users/201009/0330.html" target="_blank">邮件列表</a>上，Amos这么解释：</p>
-<p>always_direct <em>prevents</em> peers being used. It does not force them. &ldquo; hierarchy_stoplist ? &ldquo; is the directive preventing the peer being used.</p>
-<p>看起来挺让人晕头转向的。
-其实就是说：</p>
-<p>always_direct allow的优先级高于never_direct，但deny（包括allow !）时则不。  <br />
-hierarchy_stoplist强制请求通过域名解析回源，但never_direct又优先于它。  <br />
-prefer_direct用于所有cache_peer都down了时，never_direct会报错，而prefer会转入dns解析。     </p>
       <a href="/2010/09/26/configure-transfer-to-peer-in-squid" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -2392,9 +430,9 @@ prefer_direct用于所有cache_peer都down了时，never_direct会报错，而pr
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/09/17/conditional-command-details" title="条件判断命令小细节" rel="bookmark">条件判断命令小细节</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-09-17 00:00:00 +0800">17 Sep 2010</abbr>
@@ -2406,32 +444,6 @@ prefer_direct用于所有cache_peer都down了时，never_direct会报错，而pr
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>服务器上有个定时任务，执行结果输出到out.txt中以便查看，类似下行这样的：</p>
-<p>*/5 * * * * /shell/runscript.sh&nbsp;&raquo; /shell/out.txt</p>
-<p>runscript.sh中执行script.sh，完成后删除。</p>
-<p>/shell目录下的所有文件不定期的通过rsync &ndash;delete同步过去。
-结果发现如果script在5分钟内无法执行完毕的话，cron会重复执行……
-考虑到rsync过来的时候out.txt已经被删除掉了决定在runscript.sh前加上一段[[ -f out.txt ]] &amp;&amp; exit
-结果发现script一直无法运行了。
-想想原来是cron每5分钟都会去生成out.txt，只不过当空闲的时候，这个out.txt是空文件而已。
-修改判断为[[ -s out.txt ]] &amp;&amp; exit
-成功。
-其实当文件存在的情况下，shell的条件判断还有很多很多种可能，列表如下：</p>
-<pre><code>-b file            若文件存在且是一个块特殊文件，则为真
--c file            若文件存在且是一个字符特殊文件，则为真
--d file            若文件存在且是一个目录，则为真
--e file            若文件存在，则为真
--f file            若文件存在且是一个规则文件，则为真
--g file            若文件存在且设置了SGID位的值，则为真
--h file            若文件存在且为一个符合链接，则为真
--k file            若文件存在且设置了"sticky"位的值
--p file            若文件存在且为一已命名管道，则为真
--r file            若文件存在且可读，则为真
--s file            若文件存在且其大小大于零，则为真
--u file            若文件存在且设置了SUID位，则为真
--w file            若文件存在且可写，则为真
--x file            若文件存在且可执行，则为真
--o file            若文件存在且被有效用户ID所拥有，则为真
-</code></pre>
       <a href="/2010/09/17/conditional-command-details" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -2439,9 +451,9 @@ prefer_direct用于所有cache_peer都down了时，never_direct会报错，而pr
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/09/14/intro-snmp-config-and-oids-of-squid" title="squid的snmp配置和部分oid说明" rel="bookmark">squid的snmp配置和部分oid说明</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-09-14 00:00:00 +0800">14 Sep 2010</abbr>
@@ -2452,41 +464,13 @@ prefer_direct用于所有cache_peer都down了时，never_direct会报错，而pr
       <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>首先配置squid.conf如下：</p>
-<div class="highlight"><pre><code class="squid"><span class="k">acl</span><span class="w"> </span>MonitorCenter<span class="w"> </span><span class="k">src</span><span class="w"> </span><span class="mf">127.0.0.1</span><span class="w"></span>
-<span class="k">acl</span><span class="w"> </span>snmppublic<span class="w"> </span><span class="k">snmp_community</span><span class="w"> </span>public<span class="w"></span>
-<span class="k">snmp_access</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>snmppublic<span class="w"> </span>MonitorCenter<span class="w"></span>
-<span class="k">snmp_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span><span class="no">all</span><span class="w"></span>
-</code></pre></div>
-<p>然后配置snmpd.conf如下：</p>
-<pre><code>com2sec notConfigUser  default    public
-group   notConfigGroup v2c           notConfigUser
-view    systemview    included   .1.3.6.1.4.1.3495.1
-proxy -v 1 -c public 127.0.0.1:3401 .1.3.6.1.4.1.3495.1
-</code></pre>
-<p>分别重启squid和snmpd即可。
-用snmpwalk -v 2c -c public 192.168.0.2 1.3.6.1.4.1.3495 -Cc就可以查看全部的数据了。对了解前段缓存有用的oid主要如下：</p>
-<pre><code>SNMPv2-SMI::enterprises.3495.1.1.1.0 = INTEGER: 286800          内存缓存文件大小KB
-SNMPv2-SMI::enterprises.3495.1.1.2.0 = INTEGER: 1072480         磁盘缓存文件大小KB
-SNMPv2-SMI::enterprises.3495.1.3.1.3.0 = INTEGER: 387200        内存使用大小KB
-SNMPv2-SMI::enterprises.3495.1.3.1.5.0 = INTEGER: 8             进程使用CPU的比例
-SNMPv2-SMI::enterprises.3495.1.3.1.7.0 = Gauge32: 66757         缓存文件总数
-SNMPv2-SMI::enterprises.3495.1.3.1.10.0 = Gauge32: 225          可用文件描述符个数
-SNMPv2-SMI::enterprises.3495.1.3.1.12.0 = Gauge32: 799          当前使用中的文件描述符个数
-SNMPv2-SMI::enterprises.3495.1.3.2.1.15.0 = Gauge32: 90377      当前访问缓存的客户端总数
-SNMPv2-SMI::enterprises.3495.1.3.2.2.1.9.1 = INTEGER: 89        一分钟请求命中比
-SNMPv2-SMI::enterprises.3495.1.3.2.2.1.10.1 = INTEGER: 94       一分钟字节命中比
-SNMPv2-SMI::enterprises.3495.1.3.2.2.1.3.1 = INTEGER: 7         一分钟TCP_MISS/200比
-SNMPv2-SMI::enterprises.3495.1.3.2.2.1.4.1 = INTEGER: 0         一分钟TCP_IMS_HIT/304比
-SNMPv2-SMI::enterprises.3495.1.3.2.2.1.5.1 = INTEGER: 0         一分钟TCP_HIT/200比
-SNMPv2-SMI::enterprises.3495.1.3.2.2.1.11.1 = INTEGER: 45       一分钟TCP_REFRESH_HIT/304比
-++++++++以上oid最后一位都可以改成任意时间（分钟为单位）进行统计++++++++
-SNMPv2-SMI::enterprises.3495.1.5.1.1.9.10.10.10.13 = Counter32: 324396    请求回某源的总数
-SNMPv2-SMI::enterprises.3495.1.5.2.1.2.58.31.229.71 = Counter32: 19       某客户ip的http请求数
-SNMPv2-SMI::enterprises.3495.1.5.2.1.3.58.31.229.71 = Counter32: 327      响应该IP请求的字节数KB
-SNMPv2-SMI::enterprises.3495.1.5.2.1.4.58.31.229.71 = Counter32: 17       响应该IP请求的命中率
-SNMPv2-SMI::enterprises.3495.1.5.2.1.5.58.31.229.71 = Counter32: 324      响应该IP请求的字节命中数KB
-</code></pre>
+      <p>首先配置squid.conf如下：
+{% highlight squid %}
+acl MonitorCenter src 127.0.0.1
+acl snmppublic snmp_community public
+snmp_access allow snmppublic MonitorCenter
+snmp_access deny all
+{% endhighlight %}</p>
       <a href="/2010/09/14/intro-snmp-config-and-oids-of-squid" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -2494,9 +478,9 @@ SNMPv2-SMI::enterprises.3495.1.5.2.1.5.58.31.229.71 = Counter32: 324      响
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/09/14/an-oid-error-of-snmpwalk" title="snmpwalk的报错一例" rel="bookmark">snmpwalk的报错一例</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-09-14 00:00:00 +0800">14 Sep 2010</abbr>
@@ -2508,22 +492,6 @@ SNMPv2-SMI::enterprises.3495.1.5.2.1.5.58.31.229.71 = Counter32: 324      响
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>在给squid配置了snmp后，用snmpwalk采集数据，总览一下：</p>
-<p>snmpwalk 192.168.0.2 -v 2c -c public 1.3.6.1.4.1.3495</p>
-<p>刷到最后爆出错误：</p>
-<pre><code>SNMPv2-SMI::enterprises.3495.1.5.2.1.1.218.28.141.150 = IpAddress: 218.28.141.150
-SNMPv2-SMI::enterprises.3495.1.5.2.1.1.119.184.18.137 = IpAddress: 119.184.18.137
-Error: OID not increasing: SNMPv2-SMI::enterprises.3495.1.5.2.1.1.218.28.141.150
-&gt;= SNMPv2-SMI::enterprises.3495.1.5.2.1.1.119.184.18.137
-</code></pre>
-<p>原来snmp默认在抓取oid的时候，是按顺序递增下去请求的，而squid的最后一个1.5.2.1类别，是客户端数据，IP是分散的，所以218没法增长到119，于是就出错退出了。
-解决方法很简单，加上-Cc参数即可，help说明如下：</p>
-<p>-C APPOPTS    Set various application specific behaviours:
-     p:  print the number of variables found
-     i:  include given OID in the search range
-     I:  don&rsquo;t include the given OID, even if no results are returned
-     c:  do not check returned OIDs are increasing
-     t:  Display wall-clock time to complete the request</p>
-<p>不过这里加上-Cc后，简直就是在刷屏了，无数客户端ip全部都要打印出来，慎用慎用……</p>
       <a href="/2010/09/14/an-oid-error-of-snmpwalk" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -2531,9 +499,9 @@ Error: OID not increasing: SNMPv2-SMI::enterprises.3495.1.5.2.1.1.218.28.141.150
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/08/25/string-operator-on-bsd" title="BSD下的字符串运算" rel="bookmark">BSD下的字符串运算</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-08-25 00:00:00 +0800">25 Aug 2010</abbr>
@@ -2553,18 +521,6 @@ Error: OID not increasing: SNMPv2-SMI::enterprises.3495.1.5.2.1.1.218.28.141.150
 转移到BSD后，脚本报错：expr: syntax error
 分别在linux和bsd上man expr后对比了一下，发现bsd上的expr确实没有index、length、substr等运算，原来linux上的expr是GNU的；而bsd上的expr是POSIX的，没有gnu的那些扩展用法……
 于是必须使用些通用的办法来完成这个截取功能。方法很多，举例如下：</p>
-<p>1、awk法
-awk &lsquo;BEGIN{print length(&lsquo;$a&rsquo;)}&rsquo;;
-awk &lsquo;BEGIN{print substr(&lsquo;$c&rsquo;,&rsquo;$b&rsquo;,&rsquo;$d&rsquo;)}&rsquo;</p>
-<p>2、bash扩展法
-${#a}
-${c:$b:${#c}}</p>
-<p>3、标准expr+cut法
-expr &ldquo;$a  &ldquo; : &ldquo;.*&rdquo;
-echo $c | cut -c $b-$d</p>
-<p>POSIX下的expr没有length，不过man中提供了采用:匹配.*的方法获取长度；</p>
-<p>GNU下的expr substr和awk的substr函数一样，都是从$b位开始，截取$d位数的字符子串；而cut命令则是从$b位开始截取到$d位为止的字符子串。</p>
-<p>其实cut这种方法才是最符合前面的length的，不过substr的时候，位数多设一些，也不影响结果~~</p>
       <a href="/2010/08/25/string-operator-on-bsd" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -2572,9 +528,9 @@ echo $c | cut -c $b-$d</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/08/24/received-a-mail-from-jwplayer" title="收到jwplayer的推广邮件" rel="bookmark">收到jwplayer的推广邮件</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-08-24 00:00:00 +0800">24 Aug 2010</abbr>
@@ -2595,9 +551,9 @@ echo $c | cut -c $b-$d</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/08/24/intro-pmap" title="pmap命令" rel="bookmark">pmap命令</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-08-24 00:00:00 +0800">24 Aug 2010</abbr>
@@ -2610,30 +566,6 @@ echo $c | cut -c $b-$d</p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>继pgrep之后，又发现一个pmap命令，有些不错的小作用~
 比方说，用pgrep java得出pid后，用pmap $pid，得出输出结果如下：</p>
-<pre><code>23792:   /usr/java/jdk1.5.0_14/bin/java -Djava.util.logging.manager=com.caucho.log.LogManagerImpl -Djava.system.class.loader=com.caucho.loader.SystemClassLoader -Djavax.management.builder.initial=com.caucho.jmx.MBeanServerBuilderImpl -Djava.awt.headless=true -Dresin.home=/usr/local/resin3.1.8-rtuku/ -Xmx256m -Xss1m -Xdebug -Dcom.sun.management.jmxremote -Djava.util.logging.manager=com.caucho.log.LogManagerImpl -Djavax.management.builder.initial=com.caucho.jmx.MBeanServerBuilderImpl -Djava.awt.headless=true -Dresin.
-0028f000     72K r-x--  /lib/libnsl-2.3.4.so
-002a1000      8K rwx--  /lib/libnsl-2.3.4.so
-002a3000      8K rwx--    [ anon ]
-0031c000     84K r-x--  /lib/ld-2.3.4.so
-00331000      4K r-x--  /lib/ld-2.3.4.so
-00332000      4K rwx--  /lib/ld-2.3.4.so
-0033a000   1172K r-x--  /lib/tls/libc-2.3.4.so
-0045f000      4K r-x--  /lib/tls/libc-2.3.4.so
-00460000     12K rwx--  /lib/tls/libc-2.3.4.so
-00463000      8K rwx--    [ anon ]
-00467000    132K r-x--  /lib/tls/libm-2.3.4.so
-……
-b7f50000      4K rwx--    [ anon ]
-b7f51000      4K r-x--    [ anon ]
-b7f52000      4K r-x--    [ anon ]
-bfcf1000     12K -----    [ anon ]
-bfcf4000   1012K rwx--    [ stack ]
-total   652340K
-</code></pre>
-<p>从中可以看出来加载的所有so和线程堆栈用掉的内存。据称，当anon在512K-4M之间的超过上千个的时候，可能就是在多线程上有问题了。</p>
-<p>还有一个用途，比较偏门的。
-比如一个squid服务器，前人直接cd进目录，然后./squid启用的服务。那怎么去知道这个squid到底在那个目录里呢？（尤其是发现惯用的/usr/local下哗哗的摆着五个squid目录……）</p>
-<p>现在只要pmap 一下，第一条就给出了全路径。哈哈~~</p>
       <a href="/2010/08/24/intro-pmap" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -2641,9 +573,9 @@ total   652340K
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/08/24/inotifypurge_cache" title="inotify+purge_cache" rel="bookmark">inotify+purge_cache</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-08-24 00:00:00 +0800">24 Aug 2010</abbr>
@@ -2677,24 +609,16 @@ total   652340K
 在web服务器上，从sourceforge下载inotify-tools源码编译：wget http://github.com/downloads/rvoicilas/inotify-tools/inotify-tools-3.14.tar.gz &amp;&amp; tar zxf inotify-tools-3.14.tar.gz &amp;&amp; cd inotify-tools-3.14 &amp;&amp; ./configure &ndash;prefix=/usr &amp;&amp; make &amp;&amp; make install
 从squid上scp /usr/local/squid/bin/squidclient 到web服务器上；
 要是没有curl的话，yum install一个。
-最后创建inotify-purge.sh脚本如下：</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
-<span class="nv">WEB_DIR</span><span class="o">=</span>/path/to/example
-<span class="nv">IPLIST</span><span class="o">=</span><span class="s2">&quot;1.2.3.4</span>
-<span class="s2">1.2.3.5</span>
-<span class="s2">1.2.3.6</span>
-<span class="s2">1.2.3.7</span>
-<span class="s2">1.2.3.8</span>
-<span class="s2">&quot;</span>
-inotifywait -mrq --format <span class="s1">&#39;%f&#39;</span> -e modify,delete,create,move <span class="k">${</span><span class="nv">WEB_DIR</span><span class="k">}</span> | <span class="k">while </span><span class="nb">read </span>file
-<span class="k">do</span>
-<span class="k">    </span><span class="nv">PURGE_URL</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="s2">&quot;http://dvs.china.com/$file&quot;</span><span class="sb">`</span>
-    <span class="k">for </span>i in <span class="nv">$IPLIST</span>;<span class="k">do</span>
-        /home/tools/squidclient -p 80 -h <span class="nv">$i</span> -m purge <span class="s2">&quot;$PURGE_URL&quot;</span>
-    <span class="k">done</span>
-<span class="k">    </span>curl -s -d <span class="s2">&quot;username=test&amp;amp;password=123456&amp;amp;type=1&amp;amp;url=$PURGE_URL&quot;</span> http://pushwt.dnion.com/cdnUrlPush.do
-<span class="k">done</span>
-</code></pre></div>
+最后创建inotify-purge.sh脚本如下：
+{% highlight bash %}
+#!/bin/bash
+WEB_DIR=/path/to/example
+IPLIST=&rdquo;1.2.3.4
+1.2.3.5
+1.2.3.6
+1.2.3.7
+1.2.3.8
+&ldquo;</p>
       <a href="/2010/08/24/inotifypurge_cache" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>

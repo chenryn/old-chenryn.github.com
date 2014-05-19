@@ -43,9 +43,9 @@
       <div class="span7">
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2009/11/03/nid-00135-of-dbname" title="修改dbname常见的一个错误NID-00135及解决…" rel="bookmark">修改dbname常见的一个错误NID-00135及解决…</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
@@ -57,168 +57,6 @@
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>oracle自带有nid用以修改dbname。查看其命令语法如下表所示：</p>
-<pre><code>DBNEWID: Release 10.2.0.4.0 - Production on Wed Jun 24 20:06:08 2009
-Copyright (c) 1982, 2007,
-Oracle.    All
-rights reserved.
-Keyword
-Description                                        (Default)
-----------------------------------------------------
-TARGET            Username/Password                            (NONE)
-DBNAME            New
-database name                            (NONE)
-LOGFILE
-Output Log
-(NONE)
-REVERT            Revert
-failed
-change
-NO
-SETNAME
-Set a new database name
-only
-NO
-APPEND            Append
-to output log
-NO
-HELP                Displays
-these
-messages                NO 其动作描述用“=”表示。
-</code></pre>
-<p>假设某oracle数据库sys密码为123456，欲更名dbname为aaa，则其修改dbname的命令应如下行所示：</p>
-<p>nid target=sys/123456 dbname=aaa</p>
-<p>网上关于修改dbname的博客文章和论坛问答，基本都是在windows平台上的操作。其提示要点，在于运行nid系统命令之前，必须将数据库置于mount状态下。以此类推，在linux下的操作步骤，应该如下：</p>
-<div class="highlight"><pre><code class="sql"><span class="k">sql</span> <span class="o">&gt;</span> <span class="n">shutdown</span>
-<span class="k">immediate</span><span class="p">;</span>
-<span class="k">sql</span> <span class="o">&gt;</span> <span class="n">startup</span> <span class="n">mount</span><span class="p">;</span>
-<span class="k">sql</span> <span class="o">&gt;</span> <span class="k">host</span> <span class="n">nid</span> <span class="n">target</span><span class="o">=</span><span class="n">sys</span><span class="o">/</span><span class="mi">123456</span> <span class="n">dbname</span><span class="o">=</span><span class="n">aaa</span>
-</code></pre></div>
-<p>但我按此步骤进行之后，却提示如下字段：
-    NID-00135: There are 1 active threads
-    Change of database name failed during validation - database is
-    intact.
-    DBNEWID - Completed with validation errors.
-经过多机试验，发现这个错误并非偶然出现一两次而已，至于windows平台下，为何无人提起，就有待日后研究了。
-关于这个错误，关键是检查两个地方。
-第一是表空间与数据文件的状态：
-    SQL&gt; select
-    file#,status,name from
-    v$datafile;
-    FILE#
-    STATUS    NAME
-    &mdash;&mdash;&mdash;- &mdash;&mdash;-
-    &mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;
-    1
-    SYSTEM    /u01/app/oracle/oradata/db1/system01.dbf
-    2
-    ONLINE    /u01/app/oracle/oradata/db1/undotbs01.dbf
-    3
-    ONLINE    /u01/app/oracle/oradata/db1/sysaux01.dbf
-    4
-    ONLINE    /u01/app/oracle/oradata/db1/usertbs.dbf
-    5
-    ONLINE    /u01/app/oracle/oradata/db1/raocl.dbf
-正常情况下，其状态应该是online或者offline。但如果因为历史操作的原因，导致某数据文件的状态变成了recovery，那么就会出问题了。
-解决方法也简单，drop掉出错的数据文件就行了。
-第二是归档文件的设置：
-    SQL&gt; archive log
-    list
-    Database log
-    mode                            Archive
-    Mode
-    Automatic
-    archival
-    Enabled
-    Archive
-    destination                        /u01/app/oracle/product/10.2.0/db1/dbs/arch
-    Oldest online log
-    sequence
-    31
-    Next log sequence to
-    archive
-    33
-    Current log
-    sequence
-    33
-    SQL&gt; host ls $ORACLE_HOME/dbs
-    alert_db1.log
-    arch1<em>29</em>689269707.dbf    control01.ctl
-    initdw.ora    spfiledb1.ora.bak
-    arch1<em>25</em>689269707.dbf    arch1<em>30</em>689269707.dbf    control02.ctl
-    init.ora
-    arch1<em>26</em>689269707.dbf    arch1<em>31</em>689269707.dbf    db1<em>ora</em>4704.trc    lkAAA
-    arch1<em>27</em>689269707.dbf    arch1<em>32</em>689269707.dbf    hc_db1.dat                lkDB1
-    arch1<em>28</em>689269707.dbf    cntrldb1.dbf                        initdb1.ora
-    orapwdb1
-如果没有设置归档文件路径或者没有归档文件存在，nid也会出错。
-设置归档文件模式、路径并手工归档的命令分别如下：
-    SQL&gt; alter database archivelog;
-    SQL&gt; alter system
-    set log_archive_dest_1=&rsquo;location=/u01/app/oracle/oradata/db1/arch&rsquo;;
-    SQL&gt; alter system
-    archive log current;
-注意：归档文件模式也要在mount下设置。
-确认完成这两步以后，在重新运行nid系统命令，出现如下字段，即可成功更改dbname了。
-    Control Files in database:
-    /u01/app/oracle/product/10.2.0/db1/dbs/control01.ctl
-    /u01/app/oracle/product/10.2.0/db1/dbs/control02.ctl
-    Change database ID and database
-    name DB1 to AAA? (Y/[N]) =&gt; Y
-    Proceeding with operation
-    Changing database ID from 1283133323 to
-    1845742016
-    Changing database name from DB1
-    to AAA
-    Control
-    File
-    /u01/app/oracle/product/10.2.0/db1/dbs/control01.ctl -
-    modified
-    Control
-    File
-    /u01/app/oracle/product/10.2.0/db1/dbs/control02.ctl -
-    modified
-    Datafile
-    /u01/app/oracle/oradata/db1/system01.dbf - dbid changed, wrote new
-    name
-    Datafile
-    /u01/app/oracle/oradata/db1/undotbs01.dbf - dbid changed, wrote new
-    name
-    Datafile
-    /u01/app/oracle/oradata/db1/sysaux01.dbf - dbid changed, wrote new
-    name
-    Datafile
-    /u01/app/oracle/oradata/db1/usertbs.dbf - dbid changed, wrote new
-    name
-    Datafile
-    /u01/app/oracle/oradata/db1/raocl.dbf - dbid changed, wrote new
-    name
-    Datafile
-    /u01/app/oracle/oradata/db1/temp01.dbf - dbid changed, wrote new
-    name
-    Control
-    File
-    /u01/app/oracle/product/10.2.0/db1/dbs/control01.ctl - dbid
-    changed, wrote new name
-    Control
-    File
-    /u01/app/oracle/product/10.2.0/db1/dbs/control02.ctl - dbid
-    changed, wrote new name
-    Instance
-    shut down
-    Database name changed to
-    AAA.
-    Modify parameter file and generate a new password file before restarting.
-    Database ID for database AAA
-    changed to 1845742016.
-    All previous backups and archived redo logs for this database are
-    unusable.
-    Database has been shutdown, open
-    database with RESETLOGS option.
-    Succesfully changed database
-    name and
-    ID.
-    DBNEWID - Completed succesfully.
-至于引起这个错误的深层次原因，从之前有过的其他操作猜测，会不会是scn不一致的原因？？如果是这个原因，那或许只要很简单的CKPT就可以了。找时间试验一下。</p>
       <a href="/2009/11/03/nid-00135-of-dbname" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -226,9 +64,9 @@ messages                NO 其动作描述用“=”表示。
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2009/11/03/learning-sed" title="sed使用" rel="bookmark">sed使用</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
@@ -241,25 +79,6 @@ messages                NO 其动作描述用“=”表示。
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>shell这东西，只有活逼到手头上了，才知道应该去学什么。
 比如有客户要求修改/home/squid/share/errors/Simplify_Chinese/里所有的错误页面转向到他们自己专用的界面去，七八个节点，几十台服务器，几百个文件，一个一个vi编辑，多可怕。只好现学现卖sed，目前发现两种办法：</p>
-<p>1、find+sed
-比如这样：
-find . -name &ldquo;*.html&rdquo; -exec sed -i &ldquo;s/eht/the/g&rdquo; {} ;
-用exec传输find的结果给sed，{}是集合的意思；</p>
-<p>2、sed+grep
-比如这样：
-sed -i &ldquo;s/eht/the/g&rdquo; <code>grep eht -rl /test</code>
-这个-rl参数，有时间研究一下。</p>
-<p>或者这样：
-grep &ldquo;abc&rdquo; * -R | awk -F: &lsquo;{print $1}&rsquo; | sort | uniq | xargs sed -i &lsquo;s/abc/abcde/g&rsquo;</p>
-<p>awk -F:的意思是指定:为列的分隔符，sort排序，uniq删除重复行，最后用xargs传输大量数据给sed。</p>
-<table>
-  <tbody>
-    <tr>
-      <td>说到xargs，比如曾经有一次/var/spool/clientmqueue目录占用了大量磁盘空间，但其中的文件都是4.0K，数量及其多，单纯用rm，无法达到目的，就得用ls</td>
-      <td>xargs rm -f才行。</td>
-    </tr>
-  </tbody>
-</table>
       <a href="/2009/11/03/learning-sed" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -267,9 +86,9 @@ grep &ldquo;abc&rdquo; * -R | awk -F: &lsquo;{print $1}&rsquo; | sort | uniq | x
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2009/11/03/expect-script-to-modify-ssh-configurations-of-cluster" title="expect脚本——批量修改ssh配置" rel="bookmark">expect脚本——批量修改ssh配置</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
@@ -281,41 +100,6 @@ grep &ldquo;abc&rdquo; * -R | awk -F: &lsquo;{print $1}&rsquo; | sort | uniq | x
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>公司服务器一般通过ssh进行远程管理。以前大家登录的时候，都是随意选内外网IP进入。王总接手后，说这事隐患太大了，必须禁了外网ssh。第一思路，用iptables把外网ssh的包DROP掉；第二思路，用tcpwrapper把sshd的allow写死；第三思路，修改sshd_config，只监听内网请求。</p>
-<p>由于一些说不清楚的原因，iptables的办法没法用；而tcpwrapper占用CPU资源较多；所以最后决定用第三种办法。</p>
-<p>公司服务器比较多，而且根据随机登录查看的结果，sshd_config内容居然还太不一样～～手工干了一天，改了两组服务器后，终于下定决心要整个全自动脚本出来干活……
-目前的办法是这样的：</p>
-<p>cat ssh.exp</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/usr/bin/expect -f</span>
-log_file exp.log
-<span class="nb">set </span>timeout -1
-<span class="nb">set </span>ipaddr <span class="o">[</span>lrange <span class="nv">$argv</span> 0 0<span class="o">]</span>
-<span class="k">for</span> <span class="o">{</span><span class="nb">set </span>i 1<span class="o">}</span> <span class="o">{</span><span class="nv">$i</span>&lt;4<span class="o">}</span> <span class="o">{</span>incr i<span class="o">}</span> <span class="o">{</span>
-    spawn ssh <span class="nv">$ipaddr</span>
-    expect <span class="o">{</span>
-        <span class="s2">&quot;*password:&quot;</span> <span class="nb">break</span>
-        <span class="s2">&quot;to host&quot;</span> <span class="o">{</span>sleep 2<span class="o">}</span>;
-        sleep 3
-    <span class="o">}</span>
-<span class="o">}</span>
-send <span class="s2">&quot;123456r&quot;</span>
-expect <span class="s2">&quot;]#&quot;</span>
-send <span class="s2">&quot;cd /etc/sshr&quot;</span>
-send <span class="s2">&quot;cp sshd_config sshd_config.`date +%F-%T`.bakr&quot;</span>
-send <span class="s2">&quot;sed -i /^ListenAddress.*$/d sshd_configr&quot;</span>
-send <span class="s2">&quot;echo ListenAddress `/sbin/ifconfig eth0|awk &#39;/inet /{print $2}&#39;|awk -F: &#39;{print $2}&#39;` &gt;&gt; sshd_configr&quot;</span>
-send <span class="s2">&quot;service sshd restartr&quot;</span>
-send <span class="s2">&quot;exitr&quot;</span>
-interact
-</code></pre></div>
-<p>cat do.sh</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/sh</span>
-<span class="k">for </span>ip in <span class="sb">`</span>cat ip.lst<span class="sb">`</span>
-<span class="k">do</span>
-    ./ssh.exp <span class="nv">$ip</span> &gt; /dev/null 2&gt;&amp;1
-<span class="k">done</span>
-cat exp.log | grep host | awk <span class="s1">&#39;{print $5}&#39;</span>|sort|uniq &gt;&gt; errorip
-<span class="nb">echo</span> <span class="s2">&quot;以下IP无法修改&quot;</span>;cat errorip
-</code></pre></div>
       <a href="/2009/11/03/expect-script-to-modify-ssh-configurations-of-cluster" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -323,9 +107,9 @@ cat exp.log | grep host | awk <span class="s1">&#39;{print $5}&#39;</span>|sort|
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2009/11/03/expect-log-analysis" title="expect日志分析" rel="bookmark">expect日志分析</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
@@ -340,40 +124,43 @@ cat exp.log | grep host | awk <span class="s1">&#39;{print $5}&#39;</span>|sort|
 由于不同服务的管理方法不同，上次关闭了ssh的外网登录以后，各地不断有服务器报出这样那样的问题。主管一发狠：“全面检查！”
 在检查中，还真发现不少问题。最突出的就是很多本应该上传到中心服务器的日志居然一直留在本机没动弹！时不时发作出来，就撑爆了根分区——这当然有分区规划不合理的问题。但在线业务，磁盘划分修改起来就不是那么方便了。于是退而求其次，定期监控日志文件大小吧。这回expect只要du
 -sh一下就行了，方便的很。问题在下一步的分析。
-摘举exp.log中一次循环的执行结果如下：</p>
-<div class="highlight"><pre><code class="bash">The authenticity of host <span class="s1">&#39;1.2.3.4 (1.2.3.4)&#39;</span> can<span class="s1">&#39;t be established.</span>
-<span class="s1">RSA key fingerprint is</span>
-<span class="s1">bb:d5:81:e1:84:09:c5:32:f6:fb:e1:b3:d3:de:c3:53.</span>
-<span class="s1">Are you sure you want to continue connecting (yes/no)? yes</span>
-<span class="s1">Warning: Permanently added &#39;</span>1.2.3.4<span class="s1">&#39; (RSA) to the list of known hosts.</span>
-<span class="s1">root@1.2.3.4&#39;</span>s password:
+摘举exp.log中一次循环的执行结果如下：
+{% highlight bash %}
+The authenticity of host &lsquo;1.2.3.4 (1.2.3.4)&rsquo; can&rsquo;t be established.
+RSA key fingerprint is
+bb:d5:81:e1:84:09:c5:32:f6:fb:e1:b3:d3:de:c3:53.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added &lsquo;1.2.3.4&rsquo; (RSA) to the list of known hosts.
+root@1.2.3.4&rsquo;s password:
 4.0K /home/apache2/logs/access_log
-</code></pre></div>
-<p>第一步，是用如下脚本，可以做到提取日志达到50M大小的服务器IP。</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
-<span class="nv">nk</span><span class="o">=</span><span class="sb">`</span>sed -n -e <span class="s2">&quot;/50M/=&quot;</span> exp.log<span class="sb">`</span>
-<span class="nv">nnk</span><span class="o">=</span><span class="sb">`</span>expr <span class="nv">$nk</span> - 1<span class="sb">`</span>
-sed -n <span class="s2">&quot;$nnk&quot;</span>p<span class="s2">&quot;&quot;</span> exp.log|awk -F<span class="s2">&quot;&#39;&quot;</span> <span class="s1">&#39;{print $1}&#39;</span>|awk -F<span class="s2">&quot;@&quot;</span> <span class="s1">&#39;{print $2}&#39;</span>
-</code></pre></div>
-<p>但问题是：如果同时有两台到50M呢？或者在运行到它时，已经到50M以上呢？
+{% endhighlight %}
+第一步，是用如下脚本，可以做到提取日志达到50M大小的服务器IP。
+{% highlight bash %}
+#!/bin/bash
+nk=<code>sed -n -e "/50M/=" exp.log</code>
+nnk=<code>expr $nk - 1</code>
+sed -n &ldquo;$nnk&rdquo;p&rdquo;&rdquo; exp.log|awk -F&rdquo;&rsquo;&rdquo; &lsquo;{print $1}&rsquo;|awk -F&rdquo;@&rdquo; &lsquo;{print $2}&rsquo;
+{% endhighlight %}
+但问题是：如果同时有两台到50M呢？或者在运行到它时，已经到50M以上呢？
 于是我想，以ls -sh显示大小，人眼好看，电脑不好认啊。如果用du -b，那大小相同的几率就应该小很多很多了。然后定一个阀值，进行比较循环就可以了。
-最后脚本如下：</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
-<span class="k">for </span>ip in <span class="sb">`</span>cat ip.lst<span class="sb">`</span>
-<span class="k">do</span>
-./ssh.exp <span class="nv">$ip</span> &gt; /dev/null 2&amp;&gt;1
-<span class="k">done</span>
-<span class="nv">bs</span><span class="o">=</span>400
-<span class="nv">size</span><span class="o">=</span><span class="sb">`</span>grep access exp.log | awk <span class="s1">&#39;{if ($1&amp;gt;&#39;</span><span class="s2">&quot;$bs&quot;</span><span class="s1">&#39;){print $1}}&#39;</span><span class="sb">`</span>
-<span class="k">for </span>so in <span class="nv">$size</span>
-<span class="k">do</span>
-<span class="nv">nk</span><span class="o">=</span><span class="sb">`</span>sed -n -e <span class="s2">&quot;/$so/=&quot;</span> exp.log<span class="sb">`</span>
-<span class="nv">nnk</span><span class="o">=</span><span class="sb">`</span>expr <span class="nv">$nk</span> - 1<span class="sb">`</span>
-sed -n <span class="s2">&quot;$nnk&quot;</span>p<span class="s2">&quot;&quot;</span> exp.log | awk -F<span class="s2">&quot;&#39;&quot;</span> <span class="s1">&#39;{print $1}&#39;</span>|awk -F@ <span class="s1">&#39;{print $2}&#39;</span>
-<span class="k">done</span>
-</code></pre></div>
-<h1 id="sed-nsng-explogexpssh">本来想用sed &lsquo;N;s/n//g&rsquo; exp.log来合并行尾，省得调行号，但exp日志的格式因为ssh登录的提示信息不一而无法统一，只能放弃。</h1>
-<p>试验性的在ip.lst中输入了15个IP，运行结果显示出来了两个。成功。</p>
+最后脚本如下：
+{% highlight bash %}
+#!/bin/bash
+for ip in <code>cat ip.lst</code>
+do
+./ssh.exp $ip &gt; /dev/null 2&amp;&gt;1
+done
+bs=400
+size=<code>grep access exp.log | awk '{if ($1&amp;gt;'"$bs"'){print $1}}'</code>
+for so in $size
+do
+nk=<code>sed -n -e "/$so/=" exp.log</code>
+nnk=<code>expr $nk - 1</code>
+sed -n &ldquo;$nnk&rdquo;p&rdquo;&rdquo; exp.log | awk -F&rdquo;&rsquo;&rdquo; &lsquo;{print $1}&rsquo;|awk -F@ &lsquo;{print $2}&rsquo;
+done
+{% endhighlight %}
+#本来想用sed &lsquo;N;s/n//g&rsquo; exp.log来合并行尾，省得调行号，但exp日志的格式因为ssh登录的提示信息不一而无法统一，只能放弃。
+试验性的在ip.lst中输入了15个IP，运行结果显示出来了两个。成功。</p>
       <a href="/2009/11/03/expect-log-analysis" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -381,9 +168,9 @@ sed -n <span class="s2">&quot;$nnk&quot;</span>p<span class="s2">&quot;&quot;</s
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2009/11/03/dollar-zero-in-awk" title="awk变量$0妙用" rel="bookmark">awk变量$0妙用</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
@@ -396,36 +183,40 @@ sed -n <span class="s2">&quot;$nnk&quot;</span>p<span class="s2">&quot;&quot;</s
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>接着说上篇的脚本。
 因为看awk看的入迷，边想把exp.log的处理那段都用awk写出来。惊喜的发现awk有个内置参数NR，而且awk内部也可以进行运算。
-于是上次的脚本就改成了这个样子：</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
-<span class="k">for </span>ip in <span class="sb">`</span>cat ip.lst<span class="sb">`</span>
-<span class="k">do</span>
-./ssh.exp <span class="nv">$ip</span> &gt; /dev/null 2&amp;&gt;1
-<span class="k">done</span>
-<span class="nv">NK</span><span class="o">=</span><span class="sb">`</span>awk <span class="s1">&#39;BEGIN{bs=4000000}/access/{if($1&gt;bs){nk=NR-1;print nk}}&#39;</span> exp.log<span class="sb">`</span>
-<span class="k">for </span>nnk in <span class="nv">$NK</span>
-<span class="k">do</span>
-awk -F<span class="s2">&quot;[@|&#39;]&quot;</span> <span class="s1">&#39;NR==&#39;</span><span class="s2">&quot;$nnk&quot;</span><span class="s1">&#39; {print $2}&#39;</span> exp.log
-<span class="k">done</span>
-</code></pre></div>
-<p>然后又发现awk中$0的鬼怪。于是进一步简化成了这个样子：</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
-<span class="k">for </span>ip in
-<span class="sb">`</span>cat ip.lst<span class="sb">`</span>
-<span class="k">do</span>
-./ssh.exp <span class="nv">$ip</span> &gt; /dev/null 2&amp;&gt;1
-<span class="k">done</span>
-awk <span class="s1">&#39;BEGIN{bs=4000000}/access/{if($1&gt;bs)print x};{x=$0}&#39;</span> exp.log|awk -F<span class="s2">&quot;[@|&#39;]&quot;</span> <span class="s1">&#39;{print $2}&#39;</span>
-</code></pre></div>
-<p>终于算是圆了自己用一句话搞定它的梦。yeah～
+于是上次的脚本就改成了这个样子：
+{% highlight bash %}
+#!/bin/bash
+for ip in <code>cat ip.lst</code>
+do
+./ssh.exp $ip &gt; /dev/null 2&amp;&gt;1
+done
+NK=<code>awk 'BEGIN{bs=4000000}/access/{if($1&gt;bs){nk=NR-1;print nk}}' exp.log</code>
+for nnk in $NK
+do
+awk -F&rdquo;[@|&rsquo;]&rdquo; &lsquo;NR==&rsquo;&ldquo;$nnk&rdquo;&rsquo; {print $2}&rsquo; exp.log
+done
+{% endhighlight %}
+然后又发现awk中$0的鬼怪。于是进一步简化成了这个样子：
+{% highlight bash %}
+#!/bin/bash
+for ip in
+<code>cat ip.lst</code>
+do
+./ssh.exp $ip &gt; /dev/null 2&amp;&gt;1
+done
+awk &lsquo;BEGIN{bs=4000000}/access/{if($1&gt;bs)print x};{x=$0}&rsquo; exp.log|awk -F&rdquo;[@|&rsquo;]&rdquo; &lsquo;{print $2}&rsquo;
+{% endhighlight %}
+终于算是圆了自己用一句话搞定它的梦。yeah～
 不过对这个原理还是不很明白。因为print x;x=$0出来是上一行，但print $0则是本行。why?
-网上对打印前一行还提出另一个写法，就看的更莫名其妙了：</p>
-<div class="highlight"><pre><code class="bash">awk <span class="s1">&#39;/regex/{print (x==&quot;&quot;?&quot;&quot;:x)};{x=$0}&#39;</span> <span class="nv">$1</span>
-</code></pre></div>
-<p>而打印后一行是这样：</p>
-<div class="highlight"><pre><code class="bash">awk <span class="s1">&#39;/regex/{getline;print}&#39;</span> <span class="nv">$1</span>
-</code></pre></div>
-<p>不过这毕竟是恰好上下行而已，如果是要前几行的，还是要靠NR运算了。</p>
+网上对打印前一行还提出另一个写法，就看的更莫名其妙了：
+{% highlight bash %}
+awk &lsquo;/regex/{print (x==&rdquo;&rdquo;?&rdquo;&ldquo;:x)};{x=$0}&rsquo; $1
+{% endhighlight %}
+而打印后一行是这样：
+{% highlight bash %}
+awk &lsquo;/regex/{getline;print}&rsquo; $1
+{% endhighlight %}
+不过这毕竟是恰好上下行而已，如果是要前几行的，还是要靠NR运算了。</p>
 <hr />
 <p>这个问题现在已经知道了，因为awk的流式处理，print x;x=$0，这个时候的x要等到下一行时才print出来。</p>
       <a href="/2009/11/03/dollar-zero-in-awk" class="read_more span2 pull-right">继续阅读……</a>
@@ -435,9 +226,9 @@ awk <span class="s1">&#39;BEGIN{bs=4000000}/access/{if($1&gt;bs)print x};{x=$0}&
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2009/11/03/automate-configure-squid" title="squid 自动配置脚本" rel="bookmark">squid 自动配置脚本</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
@@ -449,93 +240,6 @@ awk <span class="s1">&#39;BEGIN{bs=4000000}/access/{if($1&gt;bs)print x};{x=$0}&
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>公司刚重新规定了squid服务的标准配置。以后，客户的配置要求，统一安排。这样，除了一些有特殊要求（比如加密／防盗链等）的以外，普通客户就可以逐步实现简洁明了的规范化自动化配置。</p>
-<p>目前squid的初始化准备还在慢慢进行中，趁有点空闲，先把自动化配置脚本搞出来。</p>
-<p>主程序do.sh如下：</p>
-<div class="highlight"><pre><code class="bash">    <span class="c">#!/bin/bash</span>
-    <span class="k">if</span> <span class="o">[</span> <span class="s2">&quot;$#&quot;</span> -ne 2 <span class="o">]</span>;<span class="k">then</span>
-<span class="k">    </span><span class="nb">echo</span> <span class="s2">&quot;Usage: ./do.sh [command][customer]&quot;</span>
-    <span class="nb">echo</span> <span class="s2">&quot;For example:./do.sh add abc&quot;</span>
-    <span class="nb">echo</span> <span class="s2">&quot;                            ./do.sh del abc&quot;</span>
-    <span class="nb">exit </span>1
-    <span class="k">elif</span> <span class="o">[</span> ! -s ip.lst -a -e ip.lst <span class="o">]</span>;<span class="k">then</span>
-<span class="k">    </span><span class="nb">echo</span> <span class="s2">&quot;No server in ip.lst&quot;</span>
-    <span class="nb">exit </span>1
-    <span class="k">fi</span>
-<span class="k">    for </span>ip in <span class="sb">`</span>cat ip.lst<span class="sb">`</span>;<span class="k">do</span>
-<span class="k">    </span>ping -c 5 <span class="nv">$ip</span>
-    expect ssh.exp <span class="nv">$ip</span> <span class="nv">$1</span> <span class="nv">$2</span>
-    <span class="k">done</span>
-</code></pre></div>
-<p>ssh.exp如下：</p>
-<div class="highlight"><pre><code class="tcl">    <span class="c">#!/usr/bin/expect -f</span>
-    <span class="nv">log_file</span> exp.log
-    <span class="k">set</span> ipaddr <span class="k">[</span><span class="nb">lindex</span> <span class="nv">$argv</span> <span class="mi">0</span><span class="k">]</span>
-    <span class="k">set</span> command <span class="k">[</span><span class="nb">lindex</span> <span class="nv">$argv</span> <span class="mi">1</span><span class="k">]</span>
-    <span class="k">set</span> custom <span class="k">[</span><span class="nb">lindex</span> <span class="nv">$argv</span> <span class="mi">2</span><span class="k">]</span>
-    <span class="nv">spawn</span> scp <span class="o">/</span>squid.config<span class="o">/</span><span class="nv">$custom</span> <span class="o">/</span>rt<span class="o">/</span>conf.sh <span class="nv">$ipaddr:</span><span class="o">/</span>root<span class="o">/</span>
-    <span class="k">for</span> <span class="k">{}</span> <span class="mi">1</span> <span class="k">{}</span> <span class="k">{</span>
-      <span class="nv">expect</span> <span class="k">{</span>
-        <span class="nb">eof</span>
-        <span class="k">break</span>
-        <span class="s2">&quot;(yes/no)?&quot;</span> <span class="k">{</span><span class="nv">send</span> <span class="s2">&quot;yesr&quot;</span><span class="k">}</span>
-        <span class="s2">&quot;assword:&quot;</span> <span class="k">{</span><span class="nv">send</span> <span class="s2">&quot;123456r&quot;</span><span class="k">}</span>
-      <span class="k">}</span>
-    <span class="k">}</span>
-    <span class="nv">spawn</span> ssh root<span class="err">@</span><span class="nv">$ipaddr</span> bash conf.sh <span class="nv">$command</span> <span class="nv">$custom</span>
-    <span class="k">for</span> <span class="k">{}</span> <span class="mi">1</span> <span class="k">{}</span> <span class="k">{</span>
-      <span class="nv">expect</span> <span class="k">{</span>
-        <span class="nb">eof</span>
-        <span class="k">break</span>
-        <span class="s2">&quot;(yes/no)?&quot;</span> <span class="k">{</span><span class="nv">send</span> <span class="s2">&quot;yesr&quot;</span><span class="k">}</span>
-        <span class="s2">&quot;assword:&quot;</span> <span class="k">{</span><span class="nv">send</span> <span class="s2">&quot;123456r&quot;</span><span class="k">}</span>
-      <span class="k">}</span>
-    <span class="k">}</span>
-</code></pre></div>
-<p>conf.sh如下：</p>
-<div class="highlight"><pre><code class="bash">    <span class="c">#!/bin/bash</span>
-    <span class="nv">NR</span><span class="o">=</span><span class="k">$(</span>cat <span class="nv">$2</span>|wc -l<span class="k">)</span>
-    <span class="nv">CONF</span><span class="o">=</span>/etc/squid.conf
-    <span class="k">if</span> <span class="o">[</span> <span class="s2">&quot;$1&quot;</span> <span class="o">==</span> <span class="s2">&quot;add&quot;</span> <span class="o">]</span>;<span class="k">then</span>
-<span class="k">        </span>sed -i <span class="s2">&quot;/config/r $2&quot;</span> <span class="nv">$CONF</span>
-    <span class="k">elif</span> <span class="o">[</span> <span class="s2">&quot;$1&quot;</span> <span class="o">==</span> <span class="s2">&quot;del&quot;</span> <span class="o">]</span>;<span class="k">then</span>
-<span class="k">        </span><span class="nv">CFNR</span><span class="o">=</span><span class="sb">`</span>sed -n -e /<span class="nv">$2</span>/<span class="o">=</span> <span class="nv">$CONF</span><span class="sb">`</span>
-        <span class="nv">BEGINNR</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$CFNR</span>|awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
-        <span class="nv">ENDNR</span><span class="o">=</span><span class="sb">`</span>expr <span class="nv">$BEGINNR</span> + <span class="nv">$NR</span><span class="sb">`</span>
-        sed -i <span class="s2">&quot;/$BEGINNR/,/$ENDNR/d&quot;</span> <span class="nv">$CONF</span>
-        rm -f <span class="s2">&quot;$2&quot;</span>*
-    <span class="k">else</span>
-<span class="k">        </span><span class="nb">echo</span> <span class="s2">&quot;Use add or del please!&quot;</span>
-    <span class="k">fi</span>
-<span class="k">    </span>killall -9 squid
-    <span class="nb">ulimit</span> -HSn 655360
-    /sbin/squid -s
-</code></pre></div>
-<p>然后我们模拟一个叫做abc的客户来测试CDN了。那么我只要在/squid.config/下创建一个叫做abc的文本，内容是针对性的配置部分字段，假设如下：</p>
-<div class="highlight"><pre><code class="squid"><span class="w">    </span><span class="c">#abc</span><span class="w"></span>
-<span class="w">    </span><span class="k">refresh_pattern</span><span class="w"> </span>-i<span class="w"> </span>http://www.abc.com/.*.(jpg|gif|js|css|swf|xml)$<span class="w"> </span><span class="m">1440</span><span class="w"> </span><span class="m">50%</span><span class="w"> </span><span class="m">4320</span><span class="w"> </span>ignore-reload<span class="w"></span>
-<span class="w">    </span><span class="k">acl</span><span class="w"> </span>abc<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^http://www.abc.com/.*.(html|do|jsp|asp|aspx|axd|asmx)<span class="w"></span>
-<span class="w">    </span>cache<span class="w"> </span><span class="no">deny</span><span class="w"> </span>abc<span class="w"></span>
-</code></pre></div>
-<p>然后运行./do.sh add abc，就可以自动在ip.lst里所有的服务器的squid.conf中的“#config”字段下面，添上abc的配置文件了。</p>
-<p>过一段时间，要是abc这个客户流失了，就运行./do.sh del abc就行了。</p>
-<p>之前的思路，局限在一句句往配置文件里插句子。于是用下面这个办法</p>
-<div class="highlight"><pre><code class="bash">    sed -i s/<span class="s2">&quot;config&quot;</span>/<span class="o">{</span>
-    a<span class="s2">&quot;……&quot;</span>/
-    a<span class="s2">&quot;……&quot;</span>/
-    a<span class="s2">&quot;……&quot;</span>/
-    <span class="o">}</span>
-    squid.conf
-</code></pre></div>
-<p>而这样配置句段的顺序就反过来了，还得用 <code>sed -n "1!G;h;$!d"</code> 命令倒序读取——最开始用cat命令，结果cat在读取abc这个文件的时候会自动把空格前后的内容分段读出，于是改用sed。至于倒序之后，再怎么插入，就没有研究了。因为当时我发现了可以直接将文件a插入文件b的方法～～</p>
-<table>
-  <tbody>
-    <tr>
-      <td>del的时候，其实在操作上还有一个办法。就是每次的配置不单以#abc开头，还用一个#abcEND结尾。这样，ENDNR就不用计算，直接取echo $CFNR</td>
-      <td>awk &lsquo;{print $NF}&rsquo;就行了。</td>
-    </tr>
-  </tbody>
-</table>
-<p>说到这个CFNR，让人很郁闷的一点是，这个sed -n -e出来的几个数字，我本意是作一个数组的，但怎么试验，shell都把这一串数字存在${CFNR[0]}一个元素里……数组到底怎么输入，还得研究～～</p>
       <a href="/2009/11/03/automate-configure-squid" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>

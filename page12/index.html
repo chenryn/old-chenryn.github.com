@@ -43,9 +43,9 @@
       <div class="span7">
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/21/intro-strace" title="strace进程跟踪排错一例" rel="bookmark">strace进程跟踪排错一例</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-21 00:00:00 +0800">21 May 2010</abbr>
@@ -129,9 +129,9 @@ select(18, [4 6], [6], NULL, NULL)      = 1 (out [6])  <br />
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/20/little-diff-in-url_rewrite" title="url_rewrite配置的小区别" rel="bookmark">url_rewrite配置的小区别</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-20 00:00:00 +0800">20 May 2010</abbr>
@@ -151,9 +151,9 @@ select(18, [4 6], [6], NULL, NULL)      = 1 (out [6])  <br />
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/18/intro-motd" title="服务器登陆欢迎信息~" rel="bookmark">服务器登陆欢迎信息~</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-18 00:00:00 +0800">18 May 2010</abbr>
@@ -185,9 +185,9 @@ OK啦~~</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/14/intro-pushd-popd" title="（读书笔记）pushd/popd命令" rel="bookmark">（读书笔记）pushd/popd命令</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-14 00:00:00 +0800">14 May 2010</abbr>
@@ -218,9 +218,9 @@ pushd 路径1  <br />
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/11/stop-snmp-nrpe-output-into-syslog" title="关闭snmp和nrpe的syslog正常输出" rel="bookmark">关闭snmp和nrpe的syslog正常输出</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-11 00:00:00 +0800">11 May 2010</abbr>
@@ -232,35 +232,6 @@ pushd 路径1  <br />
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>默认安装启动的snmp，会把日志记录在系统日志/var/log/messages里。</p>
-<p>特别郁闷的一点是，哪怕一次snmp连接请求，它也要记录上好几句。。。系统日志呀，多少关键信息，就这样湮没在snmp的刷屏里了……</p>
-<p>于是决定关掉这些输出。找了找，snmp.conf里好像没有关于log-file的配置，ps看进程，/usr/sbin/snmpd后面跟了长长一大串的options，于是觉得可以看看&ndash;help和/etc/init.d/里的启动脚本。</p>
-<p>果然看到-L参数，而进程中启动的真是Ls：facility:  log to syslog (via the specified facility)！！</p>
-<p>指定这部分option（即Ls）为LS 2，就可以了！</p>
-<p>而/etc/init.d/snmpd中，这部分定义如下：</p>
-<div class="highlight"><pre><code class="bash"><span class="k">if</span> <span class="o">[</span> -e /etc/snmp/snmpd.options <span class="o">]</span>; <span class="k">then</span>
-    . /etc/snmp/snmpd.options
-<span class="k">else</span>
-<span class="k">    </span><span class="nv">OPTIONS</span><span class="o">=</span><span class="s2">&quot;-Lsd -Lf /dev/null -p /var/run/snmpd.pid -a&quot;</span>
-<span class="k">fi</span>
-</code></pre></div>
-<p>可见/etc/snmp/snmpd.options优先级比OPTIONS高，而且修改单独文件也比修改系统启动脚本放心些。</p>
-<div class="highlight"><pre><code class="bash">cat &gt; /etc/snmp/snmpd.options <span class="s">&lt;&lt;EOF</span>
-<span class="s">OPTIONS=&quot;-LS 2 d -Lf /dev/null -p /var/run/snmpd.pid -a&quot;</span>
-<span class="s">EOF</span>
-</code></pre></div>
-<p>/etc/init.d/snmpd restart，等等再看，messages里果然没有snmp的刷屏了~~
-（注：不同版本的OS启动脚本不同，请自行参考。至少我手头的服务器上就还有在/etc/sysconfig/snmpd.options里的，且须写成Ls而不是LS）</p>
-<hr />
-<p>然后是nrpe，这也是个刷屏的高手，而且处理起来比snmp还麻烦。因为在nrpe.cfg中，同样没有关于log_file的记录，也没有单独的启动options，因为它是交给xinetd去管理的。</p>
-<p>xinetd呀，听着就让我动手的胆子小了不少~~小心着看吧</p>
-<p>xinetd &ndash;help，呃，压根没输出；</p>
-<p>/etc/init.d/xinetd，除了LANG基本没什么定义……</p>
-<p>再进/etc/xinetd.d/，赫然发现一个文件叫nrpe！赶紧打开一看，有一条“log_on_failure  += USERID”，改成“log_on_failure  =”，保存退出，重启观察，messages里还是出现新nrpe的条目，失败了……</p>
-<p>等等，之前为什么是+=呢？返回上层目录，看/etc/xinetd.conf，原来有“Define general logging characteristics”，默认的日志记录选项，包括log_on_failure/log_on_success和log_type。嗯，看来就是log_type了！</p>
-<p>vi /etc/xinetd.d/nrpe，插入log_type SYSLOG daemon info……当然是不行的。百度一下xinetd文档，原来这里有七个等级，看样子应该是从高到低：emerg，alert，crit，err，warning，notice，info，debug。我就改个warning看看吧，不行！alert，还不行！！</p>
-<p>发怒了，用emerg——电脑铛铛作响，原来emerg不单记录syslog，还强制显示在tty上…（估计是因为nrpe记录都是start/stop，算起来都是最高级别的动作吧）…就xinetd这速度，都搞的没法干活了~~摸索着捣鼓回原状，继续研究吧~</p>
-<p>log_type除了syslog，还有file soft hard方式 ，单独记录。那我输出到空不就行了？于是写成log_type = /dev/null，重启报错：“wrong number of arguments [file=/etc/xinetd.d/nrpe] [line=13]”。文档明确说了soft和hard是可以在不写的情况下默认为5MB 5.05MB的，那只能是file写的格式不对了。</p>
-<p>改成log_type = file /dev/null，重启。等呀等呀，五分钟过去了，messages里还是没有nrpe的记录，成功了！</p>
       <a href="/2010/05/11/stop-snmp-nrpe-output-into-syslog" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -268,9 +239,9 @@ pushd 路径1  <br />
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/11/performance-optimization-of-perl-script-2" title="perl脚本性能优化（续）" rel="bookmark">perl脚本性能优化（续）</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-11 00:00:00 +0800">11 May 2010</abbr>
@@ -282,17 +253,6 @@ pushd 路径1  <br />
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>上回提到，性能优化的四个回答，今天在扶凯的博客里看到一篇文章，刚好是同样情况下的流程优化。按照其中的说法，修改测试，果然改进很大：</p>
-<p>优化的地方在这里：</p>
-<p>-:foreach (sort keys %url_table) {
-+:if(exists $url_table{$1}) {
-print LIST_FH &ldquo;$_n&rdquo;;}</p>
-<p>在将所有的url写入散列后，一般的处理办法是用keys检索哈希表，而其实只需要判定存在，直接输出即可。
-然后分别用time测试四个脚本，结果如下：</p>
-<pre><code>长正则，检索哈希——1.882s
-短正则，检索哈希——1.543s
-长正则，判定输出——0.804s
-短正则，判定输出——0.651s
-</code></pre>
       <a href="/2010/05/11/performance-optimization-of-perl-script-2" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -300,9 +260,9 @@ print LIST_FH &ldquo;$_n&rdquo;;}</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/07/purge-cache-by-perl-script-2" title="perl边学边练（purge脚本进阶）" rel="bookmark">perl边学边练（purge脚本进阶）</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-07 00:00:00 +0800">07 May 2010</abbr>
@@ -313,39 +273,14 @@ print LIST_FH &ldquo;$_n&rdquo;;}</p>
       <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>之前的purge脚本usage是./purge.pl &ldquo;url1&rdquo; &ldquo;url2&rdquo;。如果url变成成百上千个那么多的时候，这样就不行了。也需要在脚本中处理成文件句柄。修改如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="k">use</span> <span class="nn">IO::</span><span class="n">Socket</span><span class="p">;</span>
-<span class="k">unless</span> <span class="p">(</span><span class="nv">@ARGV</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span> <span class="nb">die</span> <span class="s">&quot;usage: $0 ip.list url.list&quot;</span> <span class="p">}</span>
-<span class="nb">open</span><span class="p">(</span><span class="n">HOST</span><span class="p">,</span><span class="s">&quot;&lt;$ARGV[0]&quot;</span><span class="p">)</span><span class="o">||</span><span class="nb">die</span> <span class="s">&quot;cannot open the ip list&quot;</span><span class="p">;</span>
-<span class="nb">open</span><span class="p">(</span><span class="n">URL</span><span class="p">,</span><span class="s">&quot;&lt;$ARGV[1]&quot;</span><span class="p">)</span><span class="o">||</span><span class="nb">die</span> <span class="s">&quot;cannot open the url list&quot;</span><span class="p">;</span>
-<span class="nv">$EOL</span> <span class="o">=</span> <span class="s">&quot;15121512&quot;</span><span class="p">;</span>
-<span class="k">while</span> <span class="p">(</span><span class="nb">defined</span><span class="p">(</span><span class="nv">$ip</span><span class="o">=</span><span class="sr">&lt;HOST&gt;</span><span class="p">)){</span>
-    <span class="nb">seek</span> <span class="n">URL</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="k">while</span> <span class="p">(</span><span class="nb">defined</span><span class="p">(</span><span class="nv">$uri</span><span class="o">=</span><span class="sr">&lt;URL&gt;</span><span class="p">)){</span>
-        <span class="nv">$remote</span> <span class="o">=</span> <span class="nn">IO::Socket::</span><span class="n">INET</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">Proto</span> <span class="o">=&gt;</span> <span class="s">&quot;tcp&quot;</span><span class="p">,</span>
-                                         <span class="n">PeerAddr</span><span class="err"> </span> <span class="o">=&gt;</span> <span class="nv">$ip</span><span class="p">,</span>
-                                         <span class="n">PeerPort</span><span class="err"> </span> <span class="o">=&gt;</span> <span class="s">&quot;80&quot;</span><span class="p">,</span>
-                                       <span class="p">);</span>
-        <span class="k">unless</span> <span class="p">(</span><span class="nv">$remote</span><span class="p">)</span> <span class="p">{</span> <span class="nb">die</span> <span class="s">&quot;cannot connect to http daemon on $ip&quot;</span> <span class="p">}</span>
-        <span class="nv">$remote</span><span class="o">-&gt;</span><span class="n">autoflush</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
-        <span class="k">print</span> <span class="nv">$remote</span> <span class="s">&quot;PURGE $uri HTTP/1.0&quot;</span><span class="o">.</span><span class="nv">$EOL</span><span class="p">;</span>
-        <span class="k">while</span> <span class="p">(</span> <span class="sr">&lt;$remote&gt;</span> <span class="p">)</span> <span class="p">{</span> <span class="k">print</span> <span class="p">}</span>
-        <span class="nb">close</span> <span class="nv">$remote</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-<span class="nb">close</span><span class="p">(</span><span class="n">URL</span><span class="p">);</span>
-<span class="nb">close</span><span class="p">(</span><span class="n">HOST</span><span class="p">);</span>
-</code></pre></div>
-<p>在改编时碰到的问题，或者说学习到的东西就是这个while双重嵌套里句柄的问题。
-一开始，我写成了 <code>open;open;while(a){while(b){}};close;close;</code> 这样子。结果输出结果只能执行完b循环就正常退出了。
-然后修改成 <code>open;open;while(a){while(b){}close;};close;</code> 这样，结果在执行完一遍b循环后，继续的a循环提示打开的句柄已关闭——这证明a循环是执行了的，只是没结果……
-再修改成 <code>open;while(a){open;while(b){}close;};close;</code> 这样，结果执行结果正常了！然后想到这么频繁的打开关闭句柄或许效率不太好，于是继续寻找办法。
-最后修改成这样 <code>open;open;while(a){seek B,0,0;while(b){}};close;close;</code> 即上面代码段的样子，执行结果也正常。
-关键在这个 <code>seek</code> 函数，用途是在（文件较大的情况下）指定从哪个位置开始读取：
-usage：seek FILEHANDLE文件句柄,POSITION 读取开始位置字节,WHENCE（0-重新开始、1-当前开始、2-文件最后开始）
-因为在第一遍b循环的时候，文件句柄已经读取到了文件最后，所以在下一次循环的时候，要用seek,0,0返回文件初始位置，重新逐行输入。
-而之前的脚本因为while里嵌套的是foreach，已经一次性将文件读入数组了，所以不存在句柄的问题。</p>
+      <p>之前的purge脚本usage是./purge.pl &ldquo;url1&rdquo; &ldquo;url2&rdquo;。如果url变成成百上千个那么多的时候，这样就不行了。也需要在脚本中处理成文件句柄。修改如下：
+{% highlight perl %}
+#!/usr/bin/perl -w
+use IO::Socket;
+unless (@ARGV == 2) { die &ldquo;usage: $0 ip.list url.list&rdquo; }
+open(HOST,&rdquo;&lt;$ARGV[0]&rdquo;)||die &ldquo;cannot open the ip list&rdquo;;
+open(URL,&rdquo;&lt;$ARGV[1]&rdquo;)||die &ldquo;cannot open the url list&rdquo;;
+$EOL = &ldquo;15121512&rdquo;;</p>
       <a href="/2010/05/07/purge-cache-by-perl-script-2" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -353,9 +288,9 @@ usage：seek FILEHANDLE文件句柄,POSITION 读取开始位置字节,WHENCE（0
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/07/performance-optimization-of-perl-script-by-devel-nytprof" title="用Devel::NYTProf模块排查优化perl脚本性能" rel="bookmark">用Devel::NYTProf模块排查优化perl脚本性能</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-07 00:00:00 +0800">07 May 2010</abbr>
@@ -367,33 +302,6 @@ usage：seek FILEHANDLE文件句柄,POSITION 读取开始位置字节,WHENCE（0
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>缓存服务器上有一个perl写的日志分析脚本，记录所有不重复的url。之后对squid进行目录刷新时，从记录下来的文件中查找匹配的url即可。</p>
-<p>不过这些天服务器老是出现负载报警，用top观察，这个 <code>url_parser.pl</code> 脚本一旦执行时，就占用了高达90%的CPU和40%的MEM。wc看存储的url.list文件，有大概4,000,000行；<code>url.$(date).list</code> 当前有140,000行。</p>
-<p>于是上CU去请教perl执行效率的查找思路。</p>
-<p>回复有：1、正则精准度；2、文件读取效率；3、全局变量数；4、频繁打开句柄；5、流程优化</p>
-<p>比如读取文件不要用 <code>@line=FILE</code> 用 <code>while(&lt;FILE&gt;)</code> ；正则<code>^</code> 句首，带上 <code>/oi</code> ；注意哈希表与内存交换区等等；最后推荐给我 <code>Devel::NYTProf</code> ，进行测试。</p>
-<div class="highlight"><pre><code class="perl"><span class="n">perl</span> <span class="o">-</span><span class="n">MCPAN</span> <span class="o">-</span><span class="n">e</span> <span class="n">shell</span>
-<span class="o">&gt;</span><span class="n">install</span> <span class="nn">JSON::</span><span class="n">Any</span><span class="err">（不安这个东东，在</span><span class="n">nyt</span><span class="err">生成</span><span class="n">html</span><span class="err">的时候会报</span><span class="n">warning</span><span class="err">，不过不安也可以）</span>
-<span class="o">&gt;</span><span class="n">install</span> <span class="nn">Devel::</span><span class="n">NYTProf</span>
-</code></pre></div>
-<p>然后采用 <code>perl -d:NYTProf /home/purge/url_parser.pl</code> 运行脚本，会在当前路径下生成nytprof.out。</p>
-<p>再用 <code>nytprofhtml nytprof.out</code> 生成web页面。</p>
-<p>另开一个apache，将生成的nytprof目录发布出来。用ie打开即可看到了，如下：</p>
-<p><img src="/images/uploads/nytprof-index.jpg" alt="nytprof" /></p>
-<p>下面还有载入模块的时间。之前我用strace跟踪了一下脚本的运行，发现在载入pm的时候，perl会搜索好多乱七八糟的目录，最后才正确，还一度担心是因为这个原因浪费了时间和资源呢。不过根据测试结果来看，载入模块总共花了不到30ms，不是什么可怕的事情。</p>
-<p>然后点击 <code>/home/purge/url_parser.pl</code> 的 <code>reports（line·block·sub）</code>，可以看到具体每个语句的执行情况：</p>
-<p><img src="/images/uploads/devel-nytprof-time.jpg" alt="nytprof-0" /></p>
-<p>打开十四万行的url文件花了2.14s，然后再用2.09s将它们载入哈希表中；</p>
-<p><img src="/images/uploads/devel-nytprof-time1.jpg" alt="nytprof-1" /></p>
-<p>打开正在运行的access.log（5分钟截取一次，squidclient mgr:5min里rps为17.65，即大概该有5000行以下；结果显示是3306 calls）并截取其中的url，花了141ms，然后再用42.6ms载入哈希表中；</p>
-<p><img src="/images/uploads/devel-nytprof-time2.jpg" alt="nytprof-2" /></p>
-<p>最后，用919ms对哈希表排序，用1.58s重记录整个url文件。</p>
-<p>(143677-143579=98，即3306条日志中有98条是新增url)</p>
-<p>注意到第二张图中，对access.log分析时，match那步，<strong>每行花了30us</strong>！而在对urllist和tmplog分析时，每行只花3-4us的样子。看来是这一步的正则写的不好了，如下:</p>
-<div class="highlight"><pre><code class="perl">    <span class="k">my</span> <span class="nv">$log_pattern</span><span class="err">  </span> <span class="o">=</span> <span class="n">qr</span> <span class="s">&#39;^.*?d+s+w+s+(http://.+?)s+.+&#39;</span><span class="p">;</span>
-</code></pre></div>
-<p>根据日志的格式和需求，改成这样 <code>my $log_pattern   = qr 's(http://.+?)s';</code> 其他不变，再次测试，该部分的测试结果如下：</p>
-<p><img src="/images/uploads/devel-nytprof-time3.jpg" alt="nytprof-3" /></p>
-<p>__降低成7us每行__啦！效果明显呀~~</p>
       <a href="/2010/05/07/performance-optimization-of-perl-script-by-devel-nytprof" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -401,9 +309,9 @@ usage：seek FILEHANDLE文件句柄,POSITION 读取开始位置字节,WHENCE（0
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/06/intro-httping" title="web服务监控小工具httping" rel="bookmark">web服务监控小工具httping</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-06 00:00:00 +0800">06 May 2010</abbr>
@@ -416,52 +324,6 @@ usage：seek FILEHANDLE文件句柄,POSITION 读取开始位置字节,WHENCE（0
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>今天偶然看到这个工具，感觉挺有用的，记录一下。
 安装过程很简单：</p>
-<div class="highlight"><pre><code class="bash">wget http://www.vanheusden.com/httping/httping-1.4.1.tgz
-tar zxvf httping-1.4.1.tgz -C /tmp/
-<span class="nb">cd</span> /tmp/httping-1.4.1/
-make <span class="o">&amp;&amp;</span> make install
-</code></pre></div>
-<p>默认就安装在/usr下了。如果不想，直接改Makefile去。
-然后使用：</p>
-<p>httping -options</p>
-<h3 id="g-url">-g url</h3>
-<p>###  -h hostname
-###  -p port
-###  -x host:port（如果是测squid，用-x，不要用-h；和curl的不一样，curl -H指定的是发送的hostname，这个-h是指定给DNS解析的hostname）
-###  -c count
-###  -t timeout
-###  -s statuscode
-###  -S 将时间分开成连接和传输两部分显示
-###  -G GET（默认是HEAD）
-###  -b 在使用了GET的前提下显示传输速度KB/s
-###  -B 同-b，不过使用了压缩
-###  -I useragent
-###  -R referer
-###  -C cookie=*
-###  -l SSL
-###  -U username
-###  -P password
-###  -n a,b 提供给nagios监控用的，当平均响应时间&gt;=a时，返回1；&gt;=b，返回2；默认为0
-###  -N c 提供给nagios监控用的，一切正常返回0，否则只要有失败的就返回c</p>
-<p>举例如下：</p>
-<pre><code>httping -x 211.151.78.37:80 http://bj.qu114.com/ -SGbs -c 10
-Using proxyserver: 211.151.78.37:80
-PING bj.qu114.com:80 (http://bj.qu114.com/):
-connected to bj.qu114.com:80, seq=0 time=27.00+2945.88=2972.87 ms 200 OK 16KB/s
-connected to bj.qu114.com:80, seq=1 time=27.09+2233.38=2260.47 ms 200 OK 17KB/s
-connected to bj.qu114.com:80, seq=2 time=26.90+168.70=195.60 ms 200 OK 400KB/s
-connected to bj.qu114.com:80, seq=3 time=26.89+2524.52=2551.41 ms 200 OK 15KB/s
-connected to bj.qu114.com:80, seq=4 time=26.90+1939.48=1966.37 ms 200 OK 20KB/s
-connected to bj.qu114.com:80, seq=5 time=26.79+2085.52=2112.31 ms 200 OK 18KB/s
-connected to bj.qu114.com:80, seq=6 time=27.04+1294.78=1321.82 ms 200 OK 32KB/s
-connected to bj.qu114.com:80, seq=7 time=26.97+2527.29=2554.26 ms 200 OK 15KB/s
-connected to bj.qu114.com:80, seq=8 time=26.88+1498.28=1525.16 ms 200 OK 27KB/s
-connected to bj.qu114.com:80, seq=9 time=27.21+1208.70=1235.91 ms 200 OK 34KB/s
---- http://bj.qu114.com/ ping statistics ---
-10 connects, 10 ok, 0.00% failed
-round-trip min/avg/max = 195.6/1869.6/2972.9 ms
-Transfer speed: min/avg/max = 15/59/400 KB
-</code></pre>
       <a href="/2010/05/06/intro-httping" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -469,9 +331,9 @@ Transfer speed: min/avg/max = 15/59/400 KB
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/05/05/intro-netperf" title="netperf网络测试" rel="bookmark">netperf网络测试</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-05-05 00:00:00 +0800">05 May 2010</abbr>
@@ -483,80 +345,6 @@ Transfer speed: min/avg/max = 15/59/400 KB
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>本文的主要参考是IBM工作室的一篇文章：<a href="http://www.ibm.com/developerworks/cn/linux/l-netperf/index.html" target="_blank">http://www.ibm.com/developerworks/cn/linux/l-netperf/index.html</a></p>
-<p>文中指出网络性能的五个衡量指标，前两个是可用性和响应时间，这也是最经常关注的，因为有最常见的ping命令；然后是利用率、可用带宽和剩余带宽。</p>
-<ul>
-  <li>安装：</li>
-</ul>
-<div class="highlight"><pre><code class="bash">wget ftp://ftp.netperf.org/netperf/netperf-2.4.5.tar.gz
-tar zxvf netperf-2.4.5.tar.gz -C /tmp
-<span class="nb">cd</span> /tmp/netperf-2.4.5
-./configure <span class="o">&amp;&amp;</span> make <span class="o">&amp;&amp;</span> make install
-</code></pre></div>
-<p>然后在服务器端运行/usr/local/bin/netserver启动服务，可以看到如下正确结果：</p>
-<pre><code>Starting netserver at port 12865
-Starting netserver at hostname 0.0.0.0 port 12865 and family AF_UNSPEC
-</code></pre>
-<p>同样在客户端（即网络另一头的服务器上）安装好，就可以用/usr/local/bin/netperf工具进行测试了。</p>
-<ul>
-  <li>我的测试环境是：</li>
-</ul>
-<p>S:121.14.225.197 汕头电信  <br />
-C:218.60.36.39 沈阳网通</p>
-<p>绝对的跨网测试了，呵呵~</p>
-<p>一、先测试默认的TCP_STREAM批量传输，结果如下：</p>
-<pre><code>/usr/local/bin/netperf -H 121.14.225.197 -l 60
-TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 121.14.225.197 (121.14.225.197) port 0 AF_INET
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-873800 163840 163840    60.46       6.52
-</code></pre>
-<p>即电信设备采用873800字节的socket接收缓存，网通设备采用163840字节的socket发送缓存，测试60.46秒后，网络吞吐量为6.52Mb/s。</p>
-<p>逐次采用-m修改发送包的大小后，发现在如下情况时，网络吞吐量是最好的（是默认发送分组的两倍半）：</p>
-<pre><code>/usr/local/bin/netperf -H 121.14.225.197 -l 60 -- -m 8192
-TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 121.14.225.197 (121.14.225.197) port 0 AF_INET
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-873800 163840   8192    61.46      17.60
-</code></pre>
-<p>可见在南北互联中间某环节的路由器，限定了socket缓冲区的大小。</p>
-<p>二、然后测试UDP的批量：</p>
-<pre><code>/usr/local/bin/netperf -t UDP_STREAM -H 121.14.225.197 -l 60 -- -m 8192
-UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 121.14.225.197 (121.14.225.197) port 0 AF_INET
-Socket  Message  Elapsed      Messages
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-6553600    8192   60.01     6973545      0    7615.92
-6553600           60.01      393669            429.93
-</code></pre>
-<p>可以看到，只有5.65%的UDP分组被接收了……</p>
-<p>三、小请求大应答模式的测试</p>
-<p>1、数据库请求（一次TCP连接，反复传输数据）：</p>
-<pre><code>/usr/local/bin/netperf -t TCP_RR -H 121.14.225.197  -- -r 32,1024
-TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 121.14.225.197 (121.14.225.197) port 0 AF_INET
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate
-bytes  Bytes  bytes    bytes   secs.    per sec
-163840 873800 32       1024    10.00      18.49
-163840 873800
-</code></pre>
-<p>在32字节请求和1024字节响应的情况下，平均交易率为18.49次/秒。</p>
-<p>2、HTTP请求（每次传输都新建连接）：</p>
-<pre><code>/usr/local/bin/netperf -t TCP_CRR -H 121.14.225.197  -- -r 32,1024
-TCP Connect/Request/Response TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 121.14.225.197 (121.14.225.197) port 0 AF_INET
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate
-bytes  Bytes  bytes    bytes   secs.    per sec
-163840 873800 32       1024    10.00       9.30
-163840 873800
-</code></pre>
-<p>RPS几乎下降一般，可见TCP建连是很耗时间的。</p>
-<p>3、还可以测试UDP_RR，理论上来说，去除掉TCP建连的耗时，UDP_RR的RPS应该有所提高。不过在我的跨网环境下，rps几乎低到0.1，考虑到之前测试得到的5%的收发率，这个测试基本只能在局域网内才有意义。</p>
       <a href="/2010/05/05/intro-netperf" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -564,9 +352,9 @@ bytes  Bytes  bytes    bytes   secs.    per sec
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/30/ipcs-error-in-squid-start" title="系统消息队列（squid启动小故障）" rel="bookmark">系统消息队列（squid启动小故障）</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-30 00:00:00 +0800">30 Apr 2010</abbr>
@@ -580,38 +368,6 @@ bytes  Bytes  bytes    bytes   secs.    per sec
       <p>昨天公司一台服务器被机房动手动脚之后，上面的虚拟机变得极不正常。squid基本跑不了三四个小时就out of memory一次。虽然已经把cache_mem调低到free的1/4了。依然如此。
 更过分的事情刚才发生了，在又一次挂掉后，squid重启动彻底失败起不来了。
 赶紧查看cache.log，其中记载了失败的原因，如下：</p>
-<pre><code>storeDiskdInit: msgget: (28) No space left on device
-FATAL: msgget failed
-</code></pre>
-<p>一眼看起来像是磁盘空间满了，df一看，没问题呀，use才1%呢！
-然后注意到其具体失败处，是msgget函数。msgget是用来新建/获取信息队列的。也就是说，信息队列的某个方面满了。查看一下这方面的信息：</p>
-<pre><code>[root@sitesquid1 ~]# ipcs -l
------- Shared Memory Limits --------
-max number of segments = 4096
-max seg size (kbytes) = 67108864
-max total shared memory (kbytes) = 17179869184
-min seg size (bytes) = 1
------- Semaphore Limits --------
-max number of arrays = 128
-max semaphores per array = 250
-max semaphores system wide = 32000
-max ops per semop call = 32
-semaphore max value = 32767
------- Messages: Limits --------
-max queues system wide = 16
-max size of message (bytes) = 65536
-default max size of queue (bytes) = 65536
-</code></pre>
-<p>看着有点晕，队列系统宽度的最大值，这个比较难理解（下面明明有最大大小了呀？）。只好求助百度，原来就是能打开的消息队列的最大个数，或者说消息队列标识符的最大值。
-看这个值挺小的，再看网上也有DB2和apache修改这个值的说法，那就修改一下试试：</p>
-<pre><code>sysctl -w kernel.msgmni=128
-</code></pre>
-<p>再启动squid，OK！！
-再重新看看消息队列标识符到底打开了多少：</p>
-<pre><code>[root@spshort5 ~]# ipcs|awk '/msqid/{a=NR}END{print NR-a}'
-19
-</code></pre>
-<p>果然是超过16。</p>
       <a href="/2010/04/30/ipcs-error-in-squid-start" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -619,9 +375,9 @@ default max size of queue (bytes) = 65536
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/29/tech-to-get-int-in-awk" title="awk取数值小技巧" rel="bookmark">awk取数值小技巧</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-29 00:00:00 +0800">29 Apr 2010</abbr>
@@ -634,16 +390,6 @@ default max size of queue (bytes) = 65536
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>今天在Q群里看到有人在取ping值时用的小技巧，很是不错，加深了对awk的理解。
 ping命令输出如下：</p>
-<p>64 bytes from xd-22-5-a8.bta.net.cn (202.108.22.5): icmp_seq=1 ttl=55 time=20.7 ms</p>
-<p>要取20.7出来，一般会指定=和&rdquo; &ldquo;两个FS，然后取NF-1列。</p>
-<p>不过这个群友给出另一个办法，指定=为FS，然后取$NF+0，其值就是20.7了！</p>
-<p>很好很好，采用一个+0的计算，等于是指定前面的$NF为数字型，于是~~</p>
-<p>不过这个字母不能在数字前面，否则awk会认为是0。例如下：</p>
-<pre><code>echo 123ms|awk '{print $1+0}'
-123
-echo ms123|awk '{print $1+0}'
-0
-</code></pre>
       <a href="/2010/04/29/tech-to-get-int-in-awk" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -651,9 +397,9 @@ echo ms123|awk '{print $1+0}'
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/26/intro-at-command" title="at命令" rel="bookmark">at命令</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-26 00:00:00 +0800">26 Apr 2010</abbr>
@@ -666,21 +412,6 @@ echo ms123|awk '{print $1+0}'
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>经常使用crontab做定时任务。不过偶然碰到只需要半夜执行一次就够了的时候，还用crontab的话，第二天还得记得上去删除掉任务。就比较麻烦了——尤其是我记忆力不太好~~
 好在发现了at命令：</p>
-<p>首先启动at服务/etc/init.d/atd start</p>
-<p>然后at -f test.sh -v 17:10</p>
-<p>系统返回</p>
-<pre><code>job 1 at 2010-04-27 17:10
-</code></pre>
-<p>然后at -f ptest.sh  2:00 july 11
-系统返回</p>
-<pre><code>job 2 at 2010-07-11 02:00
-</code></pre>
-<p>用atq查看任务队列</p>
-<pre><code>2 2010-07-11 02:00 a root
-1 2010-04-27 16:10 a root
-</code></pre>
-<p>用at -c [job号]查看任务内容</p>
-<p>用atrm [job号]删除任务</p>
       <a href="/2010/04/26/intro-at-command" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -688,9 +419,9 @@ echo ms123|awk '{print $1+0}'
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/25/learning-concurrent-shell-script" title="shell并发脚本学习" rel="bookmark">shell并发脚本学习</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-25 00:00:00 +0800">25 Apr 2010</abbr>
@@ -702,82 +433,6 @@ echo ms123|awk '{print $1+0}'
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>在CU上看到的老帖子，创建并发程序的shell。个人觉得非常经典，贴回来好好学习使用。用（）包围的是我写的学习笔记，#的是原帖注释：</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/usr/bin/ksh（自然我得把这里改成bash）</span>
-<span class="c"># SCRIPT: ptest.sh</span>
-<span class="c"># AUTHOR: Ray001（呃，这些也是要学习滴，版权意识嘛~）</span>
-<span class="c"># DATE: 2008/10/03</span>
-<span class="c"># REV: 2.0</span>
-<span class="c"># For STUDY</span>
-<span class="c"># PURPOSE:</span>
-<span class="c"># 实现进程并发，提高执行效率，同时能记录每个执行失败的子进程信息</span>
-<span class="c">#定义并发进程数量</span>
-<span class="nv">PARALLEL</span><span class="o">=</span>3
-<span class="c">#定义临时管道文件名（我为这个定义想了好久，不知道$$.是什么特殊变量；后来实际上测试机一实验才发现把事情想复杂了……这就是以“脚本pid+.fifo”组成的字符串而已。完全可以改写成其他样子。</span>
-<span class="nv">TMPFILE</span><span class="o">=</span><span class="nv">$$</span>.fifo
-<span class="c">#定义导出配置文件全路径名（其实我个人很诧异为什么这里要定义到家目录去，这样在touch ptest.cfg的时候多麻烦呀）</span>
-<span class="nv">CMD_CFG</span><span class="o">=</span><span class="nv">$HOME</span>/cfg/ptest.cfg
-<span class="c">#定义失败标识文件</span>
-<span class="nv">FAILURE_FLAG</span><span class="o">=</span>failure.log
-<span class="c">####################### 函数定义 ########################</span>
-<span class="c"># 中断时kill子进程（学习重点一：kill -9 0——杀死脚本自己及衍生出来的子进程，嗯，全家自杀）</span>
-<span class="k">function </span>trap_exit
-<span class="o">{</span>
-    <span class="nb">kill</span> -9 0
-<span class="o">}</span>
-<span class="c"># 通用执行函数</span>
-exec_cmd<span class="o">()</span>
-<span class="o">{</span>
-    <span class="c"># 此处为实际需要执行的命令，本例中用sleep做示例</span>
-    sleep <span class="k">${</span><span class="nv">1</span><span class="k">}</span>
-    <span class="k">if</span> <span class="o">[</span> <span class="nv">$?</span> -ne 0 <span class="o">]</span>
-    <span class="k">then</span>
-<span class="k">        </span><span class="nb">echo</span> <span class="s2">&quot;命令执行失败&quot;</span>
-    <span class="k">return </span>1
-<span class="k">fi</span>
-<span class="o">}</span>
-<span class="c">####################### 主程序 ########################</span>
-<span class="c">#（学习重点二：当信号为1、2、3、15时，执行&#39;&#39;中的命令，即调用trap_exit函数自杀，然后退出该shell并返回信号2——把0、1留给后面用）</span>
-<span class="nb">trap</span> <span class="s1">&#39;trap_exit; exit 2&#39;</span> 1 2 3 15
-<span class="c">#清理失败标识文件</span>
-rm -f  <span class="k">${</span><span class="nv">FAILURE_FLAG</span><span class="k">}</span>
-<span class="c">#为并发进程创建相应个数的占位（其实这个定义不绝对正确有效，比如占了十个位，但cfg中只有7个参数传递，这个脚本就只有7个并发，不过这是小节，无关大雅~）</span>
-<span class="c">#（创建命名管道）</span>
-mkfifo <span class="nv">$TMPFILE</span>
-<span class="c">#（学习重点三：为命名管道指定文件标识符为4，&lt;&gt;分别是输入和输出，即绑定了该管道的输入输出都在4这个文件标识符上！）</span>
-<span class="nb">exec </span>4&lt;&gt;<span class="nv">$TMPFILE</span>
-<span class="c">#(删除管道文件，不知道这步是为什么，目前只能猜测是担心程序运行时该文件被其他人或者程序误用吧？)</span>
-rm -f <span class="nv">$TMPFILE</span>
-<span class="c">#（用{}和用()的区别在shell是否会衍生子进程。let命令用以变量运算。这一段给文件标识符输入了几个回车。）</span>
-<span class="c">#（不知道这几个回车和“并发占位”什么关系。找了很久，没发现？？目前猜测是管道的流处理所以每个子进程用一行）</span>
-<span class="o">{</span>
-    <span class="nv">count</span><span class="o">=</span><span class="nv">$PARALLEL</span>
-    <span class="k">while</span> <span class="o">[</span> <span class="nv">$count</span> -gt 0 <span class="o">]</span>
-    <span class="k">do</span>
-<span class="k">        </span><span class="nb">echo</span>
-<span class="nb">        let </span><span class="nv">count</span><span class="o">=</span><span class="nv">$count</span>-1
-    <span class="k">done</span>
-<span class="o">}</span> &gt;&amp; 4
-<span class="c">#从任务列表 seq 中按次序获取每一个任务</span>
-<span class="c">#（从家目录下那个cfg文件中读取sleep的时间）</span>
-<span class="k">while </span><span class="nb">read </span>SEC
-<span class="k">do</span>
-    <span class="c">#（从标识符中读取回车？不懂，还是管道和子进程的问题……）</span>
-    <span class="nb">read</span> &lt;&amp; 4
-    <span class="c">#（后台执行主程序命令或者输出错误日志，完成后清空标识符）</span>
-    <span class="o">(</span>  exec_cmd <span class="k">${</span><span class="nv">SEC</span><span class="k">}</span> <span class="o">||</span> <span class="nb">echo</span> <span class="k">${</span><span class="nv">SEC</span><span class="k">}</span>&gt;&gt;<span class="k">${</span><span class="nv">FAILURE_FLAG</span><span class="k">}</span> ; <span class="nb">echo</span> &gt;&amp;amp;4 <span class="o">)</span> &amp;
-<span class="k">done</span>&lt;<span class="nv">$CMD_CFG</span>
-<span class="c">#（等待子进程结果返回值）</span>
-<span class="nb">wait</span>
-<span class="c">#（关闭文件标识符4）</span>
-<span class="nb">exec </span>4&gt;&amp;-
-<span class="c">#并发进程结束后判断是否全部成功</span>
-<span class="k">if</span> <span class="o">[</span> -f <span class="k">${</span><span class="nv">FAILURE_FLAG</span><span class="k">}</span> <span class="o">]</span>
-<span class="k">then</span>
-<span class="k">    </span><span class="nb">exit </span>1
-<span class="k">else</span>
-<span class="k">    </span><span class="nb">exit </span>0
-<span class="k">fi</span>
-</code></pre></div>
       <a href="/2010/04/25/learning-concurrent-shell-script" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -785,9 +440,9 @@ rm -f <span class="nv">$TMPFILE</span>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/23/cdn-analysis-for-www-qidian-com" title="起点小说网的cdn分析~（绝非正式报告）" rel="bookmark">起点小说网的cdn分析~（绝非正式报告）</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-23 00:00:00 +0800">23 Apr 2010</abbr>
@@ -827,9 +482,9 @@ aspx?文件，url比较长，类似这种：http://ipagent.igalive.com/s.aspx?ad
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/22/perl-built_in-variables" title="perl内置变量" rel="bookmark">perl内置变量</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-22 00:00:00 +0800">22 Apr 2010</abbr>
@@ -841,63 +496,6 @@ aspx?文件，url比较长，类似这种：http://ipagent.igalive.com/s.aspx?ad
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>$_ 默认输入/模式搜索空间，常用于-f -d测试、print unlink函数、m// s/// tr///匹配、foreach while循环</p>
-<p>@_ 传递给函数的所有参数</p>
-<p>$&amp;/$<code>/$' 分别是上次匹配成功（时/前/后）的字符串（这三个变量会导致效率显著降低）
-local $_ = 'abcdefghi';
-/def/;
-print "$</code>:$&amp;:$&rsquo;n&rdquo;;         # prints abc:def:ghi</p>
-<p>$+ 上次搜索中最后一个括号匹配的文本
-/Version: (.<em>)|Revision: (.</em>)/ &amp;&amp; ($rev = $+);</p>
-<p>$^N 上次搜索中最后闭合的组所匹配的文本（可能嵌套）
-(?:(&hellip;)(?{ $var = $^N }));    #这样可以省去计算括号个数</p>
-<p>$* 匹配模式优化（即当其==0时，perl认为字符串仅为一行(n)，推荐使用/s和/m代替此变量）</p>
-<p>$. 相当于awk中的NR，但如果文件句柄被close()，$.就会复位，相当于FNR</p>
-<p>$/ 相当于RS，正常情况设置为字符串；设置为undef即一口气全读入；设置为整数标量时则读入小于该整数的记录而不是行；一些小文件，可以采用$data = do { local $/;<fh>; };单行命令读入，就是这个原理。</fh></p>
-<p>$ 相当于ORS</p>
-<p>$, 相当于OFS</p>
-<p>$&rdquo; 同$,不过用于向用&rdquo;引起的字符串插入数据的时候</p>
-<p>$; 模拟多维数组时下标的分隔符。
-$foo{$a,$b,$c};
-$foo{join($;, $a, $b, $c)};        #两者相当</p>
-<table>
-  <tbody>
-    <tr>
-      <td>$</td>
-      <td>设置为非零值时，强制刷新每次输出缓存；在向管道和套接字输出时设置该变量</td>
-    </tr>
-  </tbody>
-</table>
-<p>$# 相当于OFMT，不过awk里是%.6g，perl里是%<em>n</em>g，<em>n</em>取决于OS上float.h 中 DBL_DIG 宏的值（不建议使用该变量）</p>
-<p>@-/@+ 分别是模式匹配时，每次成功匹配字符串开始和结束处的偏移量</p>
-<p>在对某个变量 $var 进行匹配后：
-$` 和 &ldquo;substr($var, 0, $-[0])&rdquo; 相同
-$&amp; 和 &ldquo;substr($var, $-[0], $+[0] - $-[0])&rdquo; 相同
-$&rsquo; 和 &ldquo;substr($var, $+[0])&rdquo; 相同
-$1 和 &ldquo;substr($var, $-[1], $+[1] - $-[1])&rdquo; 相同
-$2 和 &ldquo;substr($var, $-[2], $+[2] - $-[2])&rdquo; 相同</p>
-<p>$#+是最近成功匹配了多少个组</p>
-<p>$[ 数组中的第一个元素/字符串中第一个字符的索引号，默认为0（最好不要改）</p>
-<p>$] perl解释器版本（5.001格式）</p>
-<p>$^V perl解释器版本（5.8.8格式）</p>
-<p>$^T 程序运行时间（UNIX秒）</p>
-<p>$$ perl脚本的运行进程号</p>
-<p>$&lt; perl脚本的运行实际用户</p>
-<p>$&gt; perl脚本的运行有效用户</p>
-<p>$( perl脚本的运行实际用户组</p>
-<p>$) perl脚本的运行有效用户组</p>
-<p>$0 当前程序名</p>
-<p>$@/$!/$^E/$? 分别是perl解释器、C库、操作系统、外部程序检测到的错误</p>
-<div class="highlight"><pre><code class="perl"><span class="nb">eval</span> <span class="sx">q{</span>
-<span class="sx">    open my $pipe, &quot;/cdrom/install |&quot; or die $!;</span>
-<span class="sx">    my @res = &lt;$pipe&gt;;</span>
-<span class="sx">    close $pipe or die &quot;bad pipe: $?, $!&quot;;</span>
-<span class="sx">}</span><span class="p">;</span>
-</code></pre></div>
-<p>在需要 &ldquo;eval&rdquo; 的字符串没有通过编译(若 &ldquo;open&rdquo; 或 &ldquo;close&rdquo;导入的原型错误则可能发生)或者 Perl 代码在执行过程中 die() 掉，则 $@变量会被设置。这些情况下 $@ 的值是编译错误信息或 &ldquo;die&rdquo; 的参数(其中会内插 $! 和 $?)。(另见 Fatal)  <br />
-上面的 eval() 表达式执行后，open()、&rdquo;<pipe>" 和 "close" 被翻译成对 C运行库的调用，继而 进入操作系统内核。若其中某个调用失败，则 $! 会设置为C 库的 "errno" 值。</pipe></p>
-<p>在少数操作系统下，$^E 可能含有更详细的错误指示，例如“CDROM仓门没有关闭”。不支持扩展错误 信息的系统只是将 $^E 设置为和 $!一样的值。</p>
-<p>最后，$? 在外部程序 /cdrom/install 失败时设置为非 0 值。高8位反映出该程序遇到的特定错误 条件(程序的 exit() 值)，低8位反映失败方式，例如信号致死或核心转储，细节参见 wait(2)。对比仅在检测到错误条件时才设置的 $! 和 $^E，变量 $? 在每个 &ldquo;wait&rdquo; 或管道&rdquo;close&rdquo; 时都会 设置并冲掉旧值。这一行为更接近 $@，后者在每次 eval()后总是在失败时设置并在成功时清除。</p>
-<p>更多细节请分别参见 $@、$!、$^E 和 $? 各自的说明。</p>
       <a href="/2010/04/22/perl-built_in-variables" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -905,9 +503,9 @@ $2 和 &ldquo;substr($var, $-[2], $+[2] - $-[2])&rdquo; 相同</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/22/nginx-default-proxy_cache_key" title="要命的刷新" rel="bookmark">要命的刷新</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-22 00:00:00 +0800">22 Apr 2010</abbr>
@@ -920,37 +518,6 @@ $2 和 &ldquo;substr($var, $-[2], $+[2] - $-[2])&rdquo; 相同</p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>今天一天都在跟刷新做斗争。
 先是squid的目录刷新，用/home/squid/bin/squidclient -p 80 mgr:objects|awk &lsquo;/harbin/{system(&ldquo;/home/squid/bin/squidclient -p 80 -m purge &ldquo;$2}&rsquo;刷新一遍；客户反馈看到的依然是旧页面；我想想似乎看到url里有带()的，awk的system函数这时候会出错；于是改成用for i in <code>/home/squid/bin/squidclient -p 80 mgr:objects|awk '/harbin/{print $2}'</code>;do /home/squid/bin/squidclient -p 80 -m purge &ldquo;$i&rdquo;;done再刷新一遍；然后自己绑定节点访问，居然也还看到是旧页面！</p>
-<p>通过httpwatch抓取，其中的http://www.harbin-beer.cn/flash/age.swf的Age高达23325，显然没有被purge到，单独提交/home/squid/bin/squidclient -p 80 -m purge http://www.harbin-beer.cn/flash/age.swf，再访问，Ok了！！
-毫无疑问http://www.harbin-beer.cn/flash/age.swf这个url绝对是能被/harbin/模式匹配的，但为什么之前刷新不到？而且不单单是某一台服务器如此。。。</p>
-<p>然后是nginx的url刷新，某小图片加速客户原先是增量缓存，于是nginx中只是很简单的配置了一下文件类型和缓存时间。不料今天客户突然传过来一个24M大小的url列表，将近30万条url要求全网刷新！而这批nginx连后台刷新接口都没有……哭
-临时更换nginx版本为&ndash;add-ngx_cache_purge的。在设置proxy_cache_purge时却又碰到了难题。因为之前的cache配置里压根没配置proxy_cache_key！！有心格盘，但一算，300000*5k=1.5G，而cache已存文件是100G，格盘动作太大了……
-进到nginx的cache目录下，strings其中的文件，看到如下信息：</p>
-<div class="highlight"><pre><code class="bash"><span class="o">[</span>root@ct5 ~<span class="o">]</span><span class="c"># strings /cache/0/00/c7de957045a9987b18f94d3cc1f99000 |head</span>
-KEY: http://images6.anjukestatic.com/property/20090904/22/65/91/69/22659169/600x600.jpg
-HTTP/1.0 200 OK
-Server: nginx
-Date: Thu, 11 Mar 2010 15:48:20 GMT
-Content-Type: image/jpeg
-ajk: <span class="nv">server</span><span class="o">=</span>img01-001
-Expires: Thu, 31 Dec 2037 23:55:55 GMT
-Cache-Control: max-age<span class="o">=</span>315360000
-X-Cache: HIT from CDN01-001
-Age: 1465699
-</code></pre></div>
-<p>对照其他带purge的nginx_cache格式，可以发现nginx默认的proxy_cache_key应该是$scheme://$host$uri$is_args$args，那么proxy_cache_purge就设成$scheme://$host$1$is_args$args，重读配置，然后curl -x 127.0.0.1:80 http://images6.anjukestatic.com/purge/property/20090904/22/65/91/69/22659169/600x600.jpg，看到</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;html&gt;</span>
-<span class="nt">&lt;head&gt;&lt;title&gt;</span>Successful purge<span class="nt">&lt;/title&gt;&lt;/head&gt;</span>
-<span class="nt">&lt;body</span> <span class="na">bgcolor=</span><span class="s">&quot;white&quot;</span><span class="nt">&gt;</span>
-<span class="nt">&lt;center&gt;&lt;h1&gt;</span>Successful purge<span class="nt">&lt;/h1&gt;</span>
-<span class="nt">&lt;br&gt;</span>Key : http://images6.anjukestatic.com/property/20090904/22/65/91/69/22659169/600x600.jpg
-<span class="nt">&lt;br&gt;</span>Path: /cache/0/00/c7de957045a9987b18f94d3cc1f99000
-<span class="nt">&lt;/center&gt;</span>
-<span class="nt">&lt;hr&gt;&lt;center&gt;</span>nginx/0.7.65<span class="nt">&lt;/center&gt;</span>
-<span class="nt">&lt;/body&gt;</span>
-<span class="nt">&lt;/html&gt;</span>
-</code></pre></div>
-<p>（写到这里，想到google首页源代码省略了&lt;/body&gt;&lt;/html&gt;，据说是因为就少这几个字符，在全球就能节省几个G的带宽。相比来说这个purgemodule可真浪费的）
-再ls /cache/0/00/c7de957045a9987b18f94d3cc1f99000，提示No such file or directory，成功了。接下来就是for循环刷新了……</p>
       <a href="/2010/04/22/nginx-default-proxy_cache_key" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -958,9 +525,9 @@ Age: 1465699
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/20/sscanf-usage" title="sscanf用法" rel="bookmark">sscanf用法</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-20 00:00:00 +0800">20 Apr 2010</abbr>
@@ -972,19 +539,6 @@ Age: 1465699
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>int sscanf(</p>
-<p>const char *buffer,</p>
-<p>const char *format [,argument ] &hellip;</p>
-<p>);
-最简单的举例：切割时间</p>
-<p>char sztime1[16] = &ldquo;&rdquo;, sztime2[16] = &ldquo;&rdquo;;
-sscanf(&ldquo;2006:03:18 - 2006:04:18&rdquo;, &ldquo;%s - %s&rdquo;, sztime1, sztime2);</p>
-<p>可是如果时间是&rdquo;2006:03:18-2006:04:18&rdquo;，即没有空格时，%s的定义就没法用了。这时候可以使用%[..]来定义，如下</p>
-<p>sscanf(&ldquo;2006:03:18-2006:04:18&rdquo;, &ldquo;%[0-9,:]-%[0-9,:]&rdquo;, sztime1, sztime2);</p>
-<p>%[]的用法，类似正则表达式，可以采用[a-z]这样的匹配；可以采用[^a-z]这样的排除匹配；还可以采用*[a-z]这样的匹配过滤。举例如下：</p>
-<p>const  char sourceStr[] = &ldquo;hello, world&rdquo;;</p>
-<p>char buf[10] = {0};</p>
-<p>sscanf(sourceStr, &ldquo;%*s%s&rdquo;, buf);</p>
-<p>执行结果就是过滤了hello，打印出world~~</p>
       <a href="/2010/04/20/sscanf-usage" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -992,9 +546,9 @@ sscanf(&ldquo;2006:03:18 - 2006:04:18&rdquo;, &ldquo;%s - %s&rdquo;, sztime1, sz
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/15/intro-iscsi-2" title="iscsi试验（读写测试）" rel="bookmark">iscsi试验（读写测试）</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-15 00:00:00 +0800">15 Apr 2010</abbr>
@@ -1008,48 +562,6 @@ sscanf(&ldquo;2006:03:18 - 2006:04:18&rdquo;, &ldquo;%s - %s&rdquo;, sztime1, sz
       <p>隔了一天，回头再来mount /dev/sda /mnt；成功了~
 不信邪，再上一台，login，mount，继续成功……
 难道是前天rp不行？</p>
-<p>然后试验写入。发现在每台client上的写入，都暂时不会显示在server和其他client上。只有经过logout和login后才会显示。
-接着进行一下简单的读写速度测试，先是read，用hdparm工具，结果如下：</p>
-<p>服务器端：[root@ct5 ~]# hdparm -tT /dev/xvdb1
-/dev/xvdb1:
- Timing cached reads:   20880 MB in  1.99 seconds = 10486.02 MB/sec
- Timing buffered disk reads:  162 MB in  3.01 seconds =  53.85 MB/sec</p>
-<p>客户端：[root@ct5 ~]# hdparm -tT /dev/sda
-/dev/sda:
- Timing cached reads:   21944 MB in  1.99 seconds = 11022.51 MB/sec
- Timing buffered disk reads:  152 MB in  3.02 seconds =  50.41 MB/sec</p>
-<p>然后用apache发布，wget的速度基本也差不多。</p>
-<p>然后是write，用time dd，最开始指定了bs=4k，结果让我很惊讶</p>
-<p>服务器端：[root@ct5 cache]# time dd if=/dev/zero of=rao bs=4k count=655360
-655360+0 records in
-655360+0 records out
-2684354560 bytes (2.7 GB) copied, 35.1299 seconds, 76.4 MB/s  <br />
-real 0m35.204s  <br />
-user 0m0.440s  <br />
-sys 0m6.968s    </p>
-<p>而客户端2684354560 bytes (2.7 GB) copied, 28.584 seconds, 93.9 MB/s  <br />
-real 0m28.650s  <br />
-user 0m0.496s  <br />
-sys 0m7.404s    </p>
-<p>居然比服务器端还快。于是想到iscsi的封包机制，可能bs4k有影响，于是往下降成2k，结果立刻有体现了</p>
-<p>服务器1342177280 bytes (1.3 GB) copied, 6.93954 seconds, 193 MB/s  <br />
-real 0m6.943s  <br />
-user 0m0.428s  <br />
-sys 0m4.848s    </p>
-<p>客户端1342177280 bytes (1.3 GB) copied, 12.5357 seconds, 107 MB/s  <br />
-real 0m12.539s  <br />
-user 0m0.348s  <br />
-sys 0m4.720s    </p>
-<p>再降成1k，结果稍慢</p>
-<p>服务器671088640 bytes (671 MB) copied, 4.1199 seconds, 163 MB/s  <br />
-real 0m4.123s  <br />
-user 0m0.372s  <br />
-sys 0m3.280s    </p>
-<p>客户端671088640 bytes (671 MB) copied, 7.06874 seconds, 94.9 MB/s  <br />
-real 0m7.093s  <br />
-user 0m0.328s  <br />
-sys 0m3.324s  <br />
-可见在写速率上，还是有一定差距的。</p>
       <a href="/2010/04/15/intro-iscsi-2" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1057,9 +569,9 @@ sys 0m3.324s  <br />
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/15/anti_hotlinking-in-apache-by-mod_perl" title="apache防盗链（mod_perl试用）" rel="bookmark">apache防盗链（mod_perl试用）</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-15 00:00:00 +0800">15 Apr 2010</abbr>
@@ -1071,112 +583,6 @@ sys 0m3.324s  <br />
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>客户需求如下：</p>
-<p>在web请求视频时，按算法生成密文和明文串，然后依规则组成最终的url请求；</p>
-<p>算法规则：</p>
-<p>用如下三个关键词生成 MD5 密文：</p>
-<ol>
-  <li>自定义密钥：abcde.；</li>
-  <li>视频文件真实路径，即/path/to/file.rmvb；</li>
-  <li>请求时间，以当前UNIX时间换算为十六进制字符串，并作为明文；</li>
-</ol>
-<p>最终url格式是 <code>http://www.test.com/path/to/file.rmvb?key=1234567890abcdefghijklmnopqrstuy&amp;t=1234abcd</code> 这样。</p>
-<p>要求失效时间为8小时。</p>
-<p>这个需求和之前一次相当类似，不过上回是squid，这次是apache。同样采用perl脚本进行防盗链设置，apache需要使用mod_perl模块。</p>
-<p>首先安装perl模块：</p>
-<div class="highlight"><pre><code class="bash">wget http://perl.apache.org/dist/mod_perl-2.0-current.tar.gz
-tar zxvf mod_perl-2.0-current.tar.gz
-<span class="nb">cd </span>mod_perl-2.0-current.tar.gz
-perl Makefile.PL <span class="nv">MP_APXS</span><span class="o">=</span>/home/apache2/bin/apxs
-make <span class="o">&amp;&amp;</span> make install
-<span class="nb">echo</span> <span class="s2">&quot;LoadModule perl_module modules/mod_perl.so&quot;</span> &gt;&gt; /home/apache2/conf/httpd.conf
-perl -MCPAN -e shell
-&gt;install Apache2::Request
-&gt;look Apache2::Request
-rm -f configure
-rm -f apreq2-config
-./buildconf
-perl Makefile.PL
-make <span class="o">&amp;&amp;</span> make install
-<span class="nb">exit</span>
-<span class="c">#因为64位系统的libexpat.so有问题，编译libapreq2会出问题，只好如此强制安装</span>
-<span class="nb">echo</span> <span class="s2">&quot;LoadModule apreq_module modules/mod_apreq2.so&quot;</span> &gt;&gt; /home/apache2/conf/httpd.conf
-</code></pre></div>
-<p>因为libapreq2.so安装在/home/apache2/lib/下了，所以需要echo &ldquo;/home/apache2/lib&rdquo; &gt;/etc/lo.so.conf.d/apache.conf，然后ldconfig。</p>
-<p>修改httpd.conf，加入如下设置：</p>
-<div class="highlight"><pre><code class="apache"><span class="nb">PerlPostConfigRequire</span> <span class="sx">/home/apache2/perl/start.pl</span>
-<span class="nt">&lt;Location</span> <span class="s">/smg</span><span class="nt">&gt;</span>
-<span class="nb">SetHandler</span> modperl
-<span class="nb">PerlAccessHandler</span> DLAuth
-<span class="nb">PerlSetVar</span> ShareKey abcde.
-<span class="nt">&lt;/Location&gt;</span>
-</code></pre></div>
-<p>然后mkdir /home/apache2/perl/，在其中创建start.pl和DLAuth.pm两个文件。start.pl文件内容如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="n">strict</span><span class="p">;</span> 
-<span class="k">use</span> <span class="n">lib</span> <span class="sx">qw(/home/apache2/perl)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestIO</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestRec</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Connection</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestUtil</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Log</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Request</span> <span class="p">();</span>
-<span class="mi">1</span><span class="p">;</span> 
-</code></pre></div>
-<p>DLAuth.pm文件内容如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="n">DLAuth</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Socket</span> <span class="sx">qw(inet_aton)</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(difftime strftime)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestIO</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestRec</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Connection</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestUtil</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Log</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Request</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Const</span> <span class="o">-</span><span class="n">compile</span> <span class="o">=&gt;</span> <span class="sx">qw(OK FORBIDDEN)</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">handler</span> <span class="p">{</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span><span class="o">-&gt;</span><span class="n">server</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$shareKey</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">dir_config</span><span class="p">(</span><span class="s">&#39;ShareKey&#39;</span><span class="p">)</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">()</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$args</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">args</span><span class="p">()</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$expire</span> <span class="o">=</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">if</span> <span class="p">(</span><span class="nv">$args</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^key=(\w{32})&amp;t=(\w{8})$#i) {</span>
-<span class="err">   </span>     <span class="k">my</span> <span class="p">(</span><span class="nv">$key</span><span class="p">,</span> <span class="nv">$date</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$1</span><span class="p">,</span> <span class="nv">$2</span><span class="p">);</span>
-<span class="err">   </span>     <span class="k">my</span> <span class="nv">$str</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$shareKey</span> <span class="o">.</span> <span class="nv">$uri</span> <span class="o">.</span> <span class="nv">$date</span><span class="p">)</span>
-<span class="err">   </span>     <span class="k">my</span> <span class="nv">$reqtime</span> <span class="o">=</span> <span class="nb">hex</span><span class="p">(</span><span class="nv">$date</span><span class="p">);</span>
-<span class="err">   </span>     <span class="k">my</span> <span class="nv">$now</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
-<span class="err">   </span>     <span class="k">if</span> <span class="p">(</span> <span class="nv">$now</span> <span class="o">-</span> <span class="nv">$reqtime</span> <span class="o">&lt;</span> <span class="nv">$expire</span><span class="p">)</span> <span class="p">{</span>
-<span class="err">   </span> <span class="err">   </span>     <span class="k">if</span> <span class="p">(</span><span class="nv">$str</span> <span class="ow">eq</span> <span class="nv">$key</span><span class="p">)</span> <span class="p">{</span>
-<span class="err">   </span> <span class="err">   </span> <span class="err">   </span>     <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">OK</span><span class="p">;</span>
-<span class="err">   </span> <span class="err">   </span>     <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-<span class="err">       </span> <span class="err">   </span> <span class="err">   </span> <span class="nv">$s</span><span class="o">-&gt;</span><span class="n">log_error</span><span class="p">(</span><span class="s">&quot;[$uri FORBIDDEN] Auth failed&quot;</span><span class="p">);</span>
-<span class="err">   </span> <span class="err">   </span> <span class="err">   </span>     <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">FORBIDDEN</span><span class="p">;</span>
-<span class="err">   </span> <span class="err">   </span>     <span class="p">}</span>
-<span class="err">   </span>     <span class="p">}</span>
-<span class="err">   </span> <span class="p">}</span>
-<span class="err">   </span> <span class="nv">$s</span><span class="o">-&gt;</span><span class="n">log_error</span><span class="p">(</span><span class="s">&quot;[$uri FORBIDDEN] Auth failed&quot;</span><span class="p">);</span>
-<span class="err">   </span> <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">FORBIDDEN</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="mi">1</span><span class="p">;</span>
-</code></pre></div>
-<p>就可以了。</p>
-<p>apachectl restart。测试一下，先用perl自己生成一个测试链接：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$key</span> <span class="o">=</span> <span class="s">&quot;bestv.&quot;</span><span class="p">;</span>
-<span class="nv">$path</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">(</span><span class="nv">@ARGV</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">$date</span> <span class="o">=</span> <span class="nb">sprintf</span><span class="p">(</span><span class="s">&quot;%x&quot;</span><span class="p">,</span><span class="nb">time</span><span class="p">);</span>
-<span class="nv">$result</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$key</span> <span class="o">.</span> <span class="nv">$path</span> <span class="o">.</span> <span class="nv">$date</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="s">&quot;http://127.0.0.1$path?key=$result&amp;t=$date&quot;</span><span class="p">;</span>
-<span class="k">print</span> <span class="nv">$uri</span><span class="p">;</span>
-</code></pre></div>
-<p>运行 <code>./url.pl /smg/abc.rmvb</code> 生成 <code>http://127.0.0.1/smg/abc.rmvb?key=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=4bc7dd5a</code>，然后 <code>wget -S -O /dev/null "http://127.0.0.1/smg/abc.rmvb?key=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=4bc7dd5a"</code>，返回 200 OK;任意修改 t 为 12345678，再 wget，返回 403 Forbidden。<code>error_log</code> 显示如下：</p>
-<pre><code>[Fri Apr 16 11:47:06 2010] [error] [/smg/abc.rmvbkey=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=12345678 FORBIDDEN] Auth failed
-</code></pre>
       <a href="/2010/04/15/anti_hotlinking-in-apache-by-mod_perl" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1184,9 +590,9 @@ make <span class="o">&amp;&amp;</span> make install
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/12/intro-iscsi-1" title="iscsi试验（失败，慎入）" rel="bookmark">iscsi试验（失败，慎入）</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-12 00:00:00 +0800">12 Apr 2010</abbr>
@@ -1197,47 +603,14 @@ make <span class="o">&amp;&amp;</span> make install
       <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>聊天时听同事提及iscsi。回来后借助百度和谷歌大概了解了一下是网络存储，就赶紧下了软件包作测试。</p>
-<div class="highlight"><pre><code class="bash">wget http://downloads.sourceforge.net/project/iscsitarget/iscsitarget/1.4.19/iscsitarget-1.4.19.tar.gz
+      <p>聊天时听同事提及iscsi。回来后借助百度和谷歌大概了解了一下是网络存储，就赶紧下了软件包作测试。
+{% highlight bash %}
+wget http://downloads.sourceforge.net/project/iscsitarget/iscsitarget/1.4.19/iscsitarget-1.4.19.tar.gz
 tar zxvf iscsitarget-1.4.19.tar.gz
-<span class="nb">cd </span>iscsitarget-1.4.19
-make <span class="o">&amp;&amp;</span> make install
-</code></pre></div>
-<p>就完成了服务器端的安装，然后修改配置文件/etc/iet/ietd.conf，方便起见，就写最基本的三行：</p>
-<pre><code>Target iqn.2010-04.com.test:storage.xvdb1
-Lun 0 Path=/dev/xvdb1,Type=fileio
-Alias Test
-</code></pre>
-<p>启动服务/etc/init.d/iscsi-target start，netstat查看，发现有3260端口的监听了。</p>
-<p>然后是客户端，更容易，直接yum install iscsi-initiator-utils就够了。然后启动服务/etc/init.d/iscsid start。</p>
-<p>然后链接服务器，iscsiadm -m discovery -t st -p 10.12.13.86，可以搜索到了。不过居然出现两个，分别是服务器内外网ip搜索的值。两个办法。</p>
-<p>一个是定义客户端/var/lib/iscsi/iface/ieth0文件如下：</p>
-<pre><code>iface.iscsi_ifacename = ieth0
-iface.net_ifacename = eth0
-iface.hwaddress = default
-iface.transport_name = tcp
-</code></pre>
-<p>然后用iscsiadm -m discovery -t st -p 10.12.13.86 -I ieth0命令搜索；</p>
-<p>一个是定义服务端/etc/iet/targets.allow文件如下：</p>
-<pre><code>ALL 10.12.13.0/24
-</code></pre>
-<p>然后/etc/init.d/iscsi-target restart就可以了。</p>
-<p>最后搜索结果如下：</p>
-<pre><code>10.12.13.86:3260,1 iqn.2010-04.com.rao:storage.xvdb1
-</code></pre>
-<p>在客户端用iscsiadm -m node -p 10.12.13.86 &ndash;targetname iqn.2010-04.com.rao:storage.xvdb1 &ndash;login命令，就可以连上磁盘了。然后用fdisk -l命令可以看到如下输出：</p>
-<pre><code>Disk /dev/sda: 750.1 GB, 750153729024 bytes
-</code></pre>
-<p>试验到目前为止一切正常。然后再mount这个sda的时候，赫然提示没有格式化！！
-好吧，fdisk /dev/sda然后mkfs.ext3 /dev/sda1再mount /dev/sda1 /mnt。
-OK，返回服务器端，mount，居然提示ext3错误~~</p>
-<p>再开一台，同样到mount的时候，又一次提示没有格式化。
-难道iscsi和nfs不一样，压根不能多客户端同时连接一块磁盘？？？
-还是说因为iscsi默认是sda，而虚拟机是xvda，之间有冲突？？？
-于是返回谷歌搜索“iscsi xen”，结果看来应该是第一种了。
-<a href="http://www.performancemagic.com/iscsi-xen-howto/index.html">xen和iscsi的常见合用</a>
-，是在Domain0上链接iscsi，然后基于不同的target分别create虚拟机模板和虚拟机磁盘，进一步可以保证虚拟平台出问题时，可以迅速的转移到另一个虚拟平台上。
-而后看到<a target="_blank" href="http://www.sansky.net/">存储部落</a>中的介绍，iscsi可以同样理解为裸设备，要达到网络共享，需要配套另外的共享软件~比如GFS</p>
+cd iscsitarget-1.4.19
+make &amp;&amp; make install
+{% endhighlight %}
+就完成了服务器端的安装，然后修改配置文件/etc/iet/ietd.conf，方便起见，就写最基本的三行：</p>
       <a href="/2010/04/12/intro-iscsi-1" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1245,9 +618,9 @@ OK，返回服务器端，mount，居然提示ext3错误~~</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/10/refresh-problem-of-js-location_replace" title="客户页面小故障" rel="bookmark">客户页面小故障</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-10 00:00:00 +0800">10 Apr 2010</abbr>
@@ -1259,43 +632,47 @@ OK，返回服务器端，mount，居然提示ext3错误~~</p>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>今天接到客户电话，说，主页已经提交过了刷新任务，上面的图片已经更新，但点击图片后链接到的页面内容还是老的……
-仔细一看，原来主页里的html是这么定义的：</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://msn.golfbox.cn/cache/922/36717.html&quot;</span> <span class="na">target=</span><span class="s">&quot;_blank&quot;</span><span class="nt">&gt;&lt;img</span> <span class="na">src=</span><span class="s">&quot;/upload/img/20100410/20100410144202.jpg&quot;</span> <span class="na">width=</span><span class="s">&quot;125&quot;</span> <span class="na">height=</span><span class="s">&quot;80&quot;</span> <span class="na">class=</span><span class="s">&quot;border_blue&quot;</span> <span class="nt">/&gt;&lt;/a&gt;</span>
-</code></pre></div>
-<p>而http://msn.golfbox.cn/cache/922/36717.html的内容是这样：</p>
-<div class="highlight"><pre><code class="html"><span class="nt">&lt;meta</span> <span class="na">http-equiv=</span><span class="s">&quot;Content-Type&quot;</span> <span class="na">content=</span><span class="s">&quot;text/html; charset=utf-8&quot;</span> <span class="nt">/&gt;&lt;script </span><span class="na">language=</span><span class="s">&quot;JavaScript&quot;</span><span class="nt">&gt;</span>
-<span class="err"> </span><span class="nx">location</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="s2">&quot;http://msn.golfbox.cn/cache/874/36804.html&quot;</span><span class="p">);</span>
-<span class="nt">&lt;/script&gt;</span>
-</code></pre></div>
-<p>于是跟客户交流确认，他们网站的主页框架上比较固定的地方，都是采用这种方式，来提供内容更新的。。。
-他们又不肯给出具体更新了那些跳转页面，只好写个小脚本，去处理比对。如果有相同url的location.replace地址不统一的，就强制更新这些页面。</p>
-<div class="highlight"><pre><code class="bash"><span class="c">#!/bin/bash</span>
-curl http://msn.golfbox.cn/ |sed <span class="s1">&#39;s/\n//g&#39;</span>|sed <span class="s1">&#39;s/href=/\n/g&#39;</span>|grep <span class="s2">&quot;^&quot;</span>http://msn.golfbox.cn/cache<span class="s2">&quot;|awk -F&#39;&quot;</span><span class="s1">&#39; &#39;</span><span class="o">{</span>print <span class="nv">$2</span><span class="o">}</span><span class="s1">&#39;&gt;url</span>
-<span class="s1">for j in `cat url`;do</span>
-<span class="s1"> for i in `cat ip`;do</span>
-<span class="s1">  curl -x $i:80 $j|awk -F&#39;</span><span class="s2">&quot;&#39; &#39;/replace/{print &quot;</span><span class="s1">&#39;$j&#39;</span><span class="s2">&quot;,&quot;</span><span class="s1">&#39;$i&#39;</span><span class="s2">&quot;,$2}&#39;&gt;&gt;golfbox.log</span>
-<span class="s2">#  curl -x $i:80 -I $j|awk &#39;/Age/{print &quot;</span><span class="s1">&#39;$j&#39;</span><span class="s2">&quot;,&quot;</span><span class="s1">&#39;$i&#39;</span><span class="s2">&quot;,$2}&#39;&gt;&gt;age.log</span>
-<span class="s2"> done</span>
-<span class="s2">done</span>
-<span class="s2">cat golfbox.log |awk &#39;{if($1==a){if($3!=b){system(&quot;</span>/home/squid/bin/squidclient -p 80 -h <span class="s2">&quot;$2&quot;</span> -m purge <span class="err">&quot;</span><span class="nv">$1</span><span class="o">)}}</span>;<span class="nv">a</span><span class="o">=</span><span class="nv">$1</span>;<span class="nv">b</span><span class="o">=</span><span class="nv">$3</span><span class="o">}</span><span class="err">&#39;</span>
-</code></pre></div>
-<p>（该脚本有一个问题：如果刚好是第一台的url未更新，结果会反而去刷新那些已经更新了的服务器；所以应该是输出url，然后再用for do done去刷新所有服务器~如果curl可以在获取内容的同时获取Age就好了~所以最后用一个讨巧的办法：在ip列表的最开始放上客户源站的ip，这样就能保证最新了）
+仔细一看，原来主页里的html是这么定义的：
+{% highlight html %}
+<a href="http://msn.golfbox.cn/cache/922/36717.html" target="_blank"><img src="/upload/img/20100410/20100410144202.jpg" width="125" height="80" class="border_blue" /></a>
+{% endhighlight %}
+而http://msn.golfbox.cn/cache/922/36717.html的内容是这样：
+{% highlight html %}
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" /><script language="JavaScript">
+ location.replace("http://msn.golfbox.cn/cache/874/36804.html");
+</script>
+{% endhighlight %}
+于是跟客户交流确认，他们网站的主页框架上比较固定的地方，都是采用这种方式，来提供内容更新的。。。
+他们又不肯给出具体更新了那些跳转页面，只好写个小脚本，去处理比对。如果有相同url的location.replace地址不统一的，就强制更新这些页面。
+{% highlight bash %}
+#!/bin/bash
+curl http://msn.golfbox.cn/ |sed &lsquo;s/\n//g&rsquo;|sed &lsquo;s/href=/\n/g&rsquo;|grep &ldquo;^&rdquo;http://msn.golfbox.cn/cache&rdquo;|awk -F&rsquo;&rdquo;&rsquo; &lsquo;{print $2}&rsquo;&gt;url
+for j in <code>cat url</code>;do
+ for i in <code>cat ip</code>;do
+  curl -x $i:80 $j|awk -F&rsquo;&rdquo;&rsquo; &lsquo;/replace/{print &ldquo;&lsquo;$j&rsquo;&rdquo;,&rdquo;&lsquo;$i&rsquo;&rdquo;,$2}&rsquo;&raquo;golfbox.log
+#  curl -x $i:80 -I $j|awk &lsquo;/Age/{print &ldquo;&lsquo;$j&rsquo;&rdquo;,&rdquo;&lsquo;$i&rsquo;&rdquo;,$2}&rsquo;&raquo;age.log
+ done
+done
+cat golfbox.log |awk &lsquo;{if($1==a){if($3!=b){system(&ldquo;/home/squid/bin/squidclient -p 80 -h &ldquo;$2&rdquo; -m purge &ldquo;$1)}};a=$1;b=$3}&rsquo;
+{% endhighlight %}
+（该脚本有一个问题：如果刚好是第一台的url未更新，结果会反而去刷新那些已经更新了的服务器；所以应该是输出url，然后再用for do done去刷新所有服务器~如果curl可以在获取内容的同时获取Age就好了~所以最后用一个讨巧的办法：在ip列表的最开始放上客户源站的ip，这样就能保证最新了）
 以上是第一个。
 第二个：
 客户首页上还有一个问题：其右下角有跟随悬浮窗口，本来应该可以关闭的。但一点关闭，就提示javascrpt:iclose()错误页面。而用浏览器另存为html到桌面以后，再打开保存下来的页面，点击关闭就正常关闭了！
-经过查找，其中调用的js文件是http://msn.golfbox.cn/js/show.js，内容中关于javascrpt:iclose()的内容如下：</p>
-<div class="highlight"><pre><code class="javascript"><span class="kd">var</span> <span class="nx">sogouTall</span> <span class="o">=</span><span class="s1">&#39;&lt;div style=&quot;z-index:1000;position: absolute;display:none;&quot; id=&quot;sogoubox&quot;&gt;&#39;</span>
-<span class="err">  </span> <span class="o">+</span><span class="s1">&#39;&lt;a href=&quot;javascript:iclose();&quot; style=&quot;float:left; margin-left:190px&quot;&gt;关闭&lt;/a&gt;&#39;</span>
-<span class="err">  </span> <span class="o">+</span><span class="s1">&#39;&lt;div style=&quot;clear:both&quot;&gt;&#39;</span>
-<span class="err">  </span> <span class="o">+</span><span class="s1">&#39;&lt;a href=&quot;&lt;a href=&quot;http://new.msn.golfbox.cn/wd/&quot;&gt;http://new.msn.golfbox.cn/wd/&quot;&gt;&lt;img&lt;/a&gt; src=&quot;&lt;a href=&quot;http://new.msn.golfbox.cn/wd/dbtt.jpg&quot;&gt;http://new.msn.golfbox.cn/wd/dbtt.jpg&lt;/a&gt;&quot; style=&quot;width:220px;height:160px&quot;/&gt;&lt;/a&gt;&#39;</span>
-<span class="err">     </span> <span class="o">+</span> <span class="s1">&#39;&lt;input type=hidden name=&quot;sogouAccountId&quot; value=&quot;202014&quot;&gt;&#39;</span>
-<span class="err">  </span> <span class="o">+</span> <span class="s1">&#39;&#39;</span>
-<span class="err"> </span><span class="kd">function</span> <span class="nx">iclose</span><span class="p">()</span>
-<span class="err"> </span><span class="p">{</span>
-<span class="err">  </span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s1">&#39;sogoubox&#39;</span><span class="p">).</span><span class="nx">style</span><span class="p">.</span><span class="nx">display</span><span class="o">=</span><span class="s1">&#39;none&#39;</span><span class="p">;</span>
-<span class="err"> </span><span class="p">}</span>
-</code></pre></div>
-<p>以我浅薄的web知识，是没看出来什么问题~~客户也莫名其妙，最好撤销掉这个窗口了</p>
+经过查找，其中调用的js文件是http://msn.golfbox.cn/js/show.js，内容中关于javascrpt:iclose()的内容如下：
+{% highlight javascript %}
+var sogouTall =&rsquo;&lt;div style="z-index:1000;position: absolute;display:none;" id="sogoubox"&gt;&rsquo;
+   +&rsquo;<a href="javascript:iclose();" style="float:left; margin-left:190px">关闭</a>&rsquo;
+   +&rsquo;&lt;div style="clear:both"&gt;&rsquo;
+   +&rsquo;&lt;a href=&rdquo;<a href="http://new.msn.golfbox.cn/wd/">http://new.msn.golfbox.cn/wd/&rdquo;&gt;&lt;img</a> src=&rdquo;<a href="http://new.msn.golfbox.cn/wd/dbtt.jpg">http://new.msn.golfbox.cn/wd/dbtt.jpg</a>&rdquo; style=&rdquo;width:220px;height:160px&rdquo;/&gt;&lt;/a&gt;&rsquo;
+      + &lsquo;&lt;input type=hidden name=&rdquo;sogouAccountId&rdquo; value=&rdquo;202014&rdquo;&gt;&rsquo;
+   + &lsquo;&rsquo;
+ function iclose()
+ {
+  document.getElementById(&lsquo;sogoubox&rsquo;).style.display=&rsquo;none&rsquo;;
+ }
+{% endhighlight %}
+以我浅薄的web知识，是没看出来什么问题~~客户也莫名其妙，最好撤销掉这个窗口了</p>
       <a href="/2010/04/10/refresh-problem-of-js-location_replace" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1303,9 +680,9 @@ curl http://msn.golfbox.cn/ |sed <span class="s1">&#39;s/\n//g&#39;</span>|sed <
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/08/url_rewrite_concurrency" title="url_rewrite_concurrency" rel="bookmark">url_rewrite_concurrency</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-08 00:00:00 +0800">08 Apr 2010</abbr>
@@ -1317,30 +694,6 @@ curl http://msn.golfbox.cn/ |sed <span class="s1">&#39;s/\n//g&#39;</span>|sed <
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>squid的重定向，我看网上一般都采用 <code>redirect_children</code> (即 <code>url_rewrite_children</code>)。估计是因为中文权威指南的原因吧。不过中文权威指南还是2.5版的时候出的。有些新东西没有。比如 <code>squid.conf.default</code> 中提供的另一种 <code>url_rewrite_concurrency</code>。</p>
-<p>官方使用说明如右：<a href="http://wiki.squid-cache.org/Features/Redirectors#How_do_I_make_it_concurrent.3F">http://wiki.squid-cache.org/Features/Redirectors#How_do_I_make_it_concurrent.3F</a></p>
-<p>简单的说，就是开启 <code>url_rewrite_concurrency</code> 后，squid传递给rewriter的流由四个域增加为五个——最前头多了一个ID。然后rewriter返回的，也就有两个域，ID和uri。</p>
-<p>简单修改一下原来的脚本如下即可：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/perl -wl</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="vg">$|</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span>
-<span class="k">while</span> <span class="p">()</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$id</span><span class="p">,</span><span class="nv">$url</span><span class="p">,</span><span class="nv">$client</span><span class="p">,</span><span class="nv">$ident</span><span class="p">,</span><span class="nv">$method</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span> <span class="p">);</span>
-    <span class="p">(</span><span class="nv">$id</span><span class="p">,</span> <span class="nv">$url</span><span class="p">,</span> <span class="nv">$client</span><span class="p">,</span> <span class="nv">$ident</span><span class="p">,</span> <span class="nv">$method</span><span class="p">)</span> <span class="o">=</span> <span class="nb">split</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span><span class="nv">$url</span> <span class="o">=~</span><span class="n">m</span><span class="c1">#^(.*)(?.*)#i) {</span>
-        <span class="k">my</span> <span class="p">(</span><span class="nv">$domain</span><span class="p">,</span><span class="nv">$option</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$1</span><span class="p">,</span><span class="nv">$2</span><span class="p">);</span>
-        <span class="k">print</span> <span class="s">&quot;$id $domain\n&quot;</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-        <span class="k">print</span> <span class="s">&quot;$id\n&quot;</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>然后squid.conf里修改如下：</p>
-<div class="highlight"><pre><code class="squid"><span class="k">acl</span><span class="w"> </span>rewriteurl<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^http://drag.g1d.net/.*.mp40drag?<span class="w"></span>
-url_rewrite_access<span class="w"> </span><span class="no">deny</span><span class="w"> </span>!rewriteurl<span class="w"></span>
-url_rewrite_program<span class="w"> </span>/home/squid/etc/redirect.pl<span class="w"></span>
-<span class="c">#url_rewrite_children 10</span><span class="w"></span>
-url_rewrite_concurrency<span class="w"> </span><span class="m">10</span><span class="w"></span>
-</code></pre></div>
       <a href="/2010/04/08/url_rewrite_concurrency" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1348,9 +701,9 @@ url_rewrite_concurrency<span class="w"> </span><span class="m">10</span><span cl
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/03/a-unfound-option-of-date-command" title="date的一个怪问题" rel="bookmark">date的一个怪问题</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-03 00:00:00 +0800">03 Apr 2010</abbr>
@@ -1362,11 +715,6 @@ url_rewrite_concurrency<span class="w"> </span><span class="m">10</span><span cl
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>今天看同事的一个备份脚本，在取昨天的日期时，采用了YESTERDAY_NAME=<code>date -I -d'-1 day' +"%Y-%m-%d"</code>的方法。</p>
-<p>我对这个方法比较感兴趣，赶紧试试，结果赫然返回“date: multiple output formats specified”的报错来！</p>
-<p>而单独采用date -I -d&rsquo;-1 day&rsquo;或者date -d&rsquo;-1 day&rsquo; +&rdquo;%Y-%m-%d&rdquo;这两种方法，都能返回正确结果。</p>
-<p>返回同事的机器上，运行原命令确实没有问题。于是开始查版本，我的机器bash是3.2.25，date是5.97；他的bash是3.0.0.9，date是5.2.1。</p>
-<p>不过在date -help中，不论是我的，还是他的机器上，都没发现-I这个option！！</p>
-<p>为了移植性，同事也更改脚本删除了-I。不过之前脚本中为什么有这个，为什么还就真能跑，真是怪事~~</p>
       <a href="/2010/04/03/a-unfound-option-of-date-command" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1374,9 +722,9 @@ url_rewrite_concurrency<span class="w"> </span><span class="m">10</span><span cl
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2010/04/02/diff-between-lvs-active_conn-and-netstat-conn" title="lvs的activeconn与netstat的conn" rel="bookmark">lvs的activeconn与netstat的conn</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2010-04-02 00:00:00 +0800">02 Apr 2010</abbr>
@@ -1388,26 +736,6 @@ url_rewrite_concurrency<span class="w"> </span><span class="m">10</span><span cl
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>曾经有过一组高并发请求的服务器，在lvs上看到单台 activeconn 约等于 220000；同时，在RS上执行 <code>netstat -s -t|grep "connections established"</code> 结果大概是 65000，而 <code>squidclient mgr:5min|grep client_http.requests</code> 结果却只有 180。后来说起并发数的时候，有些茫然，到底哪个才算是呢？</p>
-<p>今天在squid-user里问起，居然有幸碰见另一位中国订阅者，夏兄随后提供给我一个06年的帖子，所述甚详。算是解惑了~
-<a href="http://www.linuxsir.org/bbs/showthread.php?t=248500">http://www.linuxsir.org/bbs/showthread.php?t=248500</a></p>
-<p>原来 lvs 默认有个超时时间，可以用 <code>ipvsadm -L --timeout</code> 查看，默认是 <code>900 120 300</code> ，分别是 <code>TCP TCPFIN UDP</code> 的时间。</p>
-<p>而RS上参数如下：</p>
-<div class="highlight"><pre><code class="bash">net.ipv4.tcp_keepalive_time <span class="o">=</span> 600
-net.ipv4.route.gc_timeout <span class="o">=</span> 100
-net.ipv4.tcp_fin_timeout <span class="o">=</span> 30
-net.ipv4.netfilter.ip_conntrack_tcp_timeout_close <span class="o">=</span> 10
-net.ipv4.netfilter.ip_conntrack_tcp_timeout_max_retrans <span class="o">=</span> 300
-net.ipv4.netfilter.ip_conntrack_tcp_timeout_time_wait <span class="o">=</span> 120
-net.ipv4.netfilter.ip_conntrack_tcp_timeout_last_ack <span class="o">=</span> 30
-net.ipv4.netfilter.ip_conntrack_tcp_timeout_close_wait <span class="o">=</span> 60
-net.ipv4.netfilter.ip_conntrack_tcp_timeout_fin_wait <span class="o">=</span> 120
-net.ipv4.netfilter.ip_conntrack_tcp_timeout_established <span class="o">=</span> 300
-net.ipv4.netfilter.ip_conntrack_tcp_timeout_syn_recv <span class="o">=</span> 60
-net.ipv4.netfilter.ip_conntrack_tcp_timeout_syn_sent <span class="o">=</span> 120
-net.ipv4.netfilter.ip_conntrack_udp_timeout_stream <span class="o">=</span> 180
-net.ipv4.netfilter.ip_conntrack_udp_timeout <span class="o">=</span> 30
-</code></pre></div>
-<p>可见 RS 的超时时间（仅指 <code>ESTABLISHED</code> ）比 LVS 小了 3 倍。再加上 <code>WAIT</code> 和 <code>SYN_RECV</code> 等状态，差不多就是 220000/65000 的比例了。而 squid 的 RPS 是按秒计算的，<code>180*300=~55000</code> ，在数量级上和 netstat 的结果也就差不多了~ </p>
       <a href="/2010/04/02/diff-between-lvs-active_conn-and-netstat-conn" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>

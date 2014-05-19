@@ -43,9 +43,9 @@
       <div class="span7">
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/05/17/implement-percentiles-aggregation-on-kibana" title="给 Kibana 实现百分比统计图表" rel="bookmark">给 Kibana 实现百分比统计图表</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-05-17 00:00:00 +0800">17 May 2014</abbr>
@@ -57,34 +57,6 @@
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>kibana 图表类型中有个 stats 类型，返回对应请求的某指定数值字段的数学统计值，包括最大值、最小值、平均值、方差和标准差(当前通过 logstash-1.4.1 分发的 kibana 版本还只支持单列显示，前天，即 5 月 15 日刚<a href="http://www.elasticsearch.org/blog/kibana-3-1/">更新了 Kibana 3.1 版</a>，支持多列同时显示)。这个 stats 图表是利用 Elasticsearch 的 facets 功能来实现的。而在 Elasticsearch 1.0 版本以后，新出现了一个更细致的功能叫 aggregation，按照官方文档所说，会慢慢的彻底替代掉 facets。具体到 1.1 版本的时候， aggregation 里多了一项 percentile，可以具体返回某指定数值字段的区间分布情况。这对日志分析可是大有帮助。对这项功能，Elasticsearch 官方也很得意的专门在博客上写了一篇报道：<a href="http://www.elasticsearch.org/blog/averages-can-dangerous-use-percentile/">Averages can be misleading: try a percentile</a>。</p>
-<p>周五晚上下班前，我突然决定试试给 Kibana 加上 percentile 图表类型。因为群里正好携程的同学说到他们仿造 trend 类型做了 stat_trend 图表，我想 percentile 从数据结构到展示方法跟 stats 都很像，应该难度不大，正好作为学习 angularjs 的入手点好了。</p>
-<p>花了半天多的时间，基本搞定这件事情，中间几度碰到难题，这里记录一下：</p>
-<h1 id="kibana-31--elasticjs-">kibana 3.1 中的 elasticjs 版本</h1>
-<p>这是一个非常非常坑爹的地方，kibana/src/vendor/elasticjs/elastic.js 文件开头写着版本号是 <code>v1.1.1</code>，但是其实它是大半年前(2013-08-14)的。而实际它加上 aggregation 支持的时间是今年的 3 月 16 号，最近版本是 3 月 21 号发布的 ——但是版本号依然是 <code>v1.1.1</code>！！</p>
-<p>我在昨天晚上花了一个多小时慢慢看完了 elasticjs 官网上 v1.1.1 的<a href="http://docs.fullscale.co/elasticjs/ejs.FilterAggregation.html">接口说明</a>，结果其实在 kibana3.1 自带的 elasticjs 上完全不可用。</p>
-<h1 id="elasticjs-">elasticjs 新版用法</h1>
-<p>随后我替换成了最新的 elasticjs 文件，结果依然不可用，仔细看过文档后发现，新的 elasticjs 只专心处理请求的 DSL，把客户端初始化、配置、收发等事情都交给了 Elasticsearch 官方发布的 elasticsearch.js 来完成。原先版本自带的 elastic-angular-client.js 压根就没用了。</p>
-<p>变动大成这样了，居然还不改版本号！？！？</p>
-<h1 id="elasticsearchjs-">elasticsearch.js 的多层目录</h1>
-<p>下载了 elasticsearch.js 源码后，发现目录里有一个 elasticsearch.angular.client.js 文件，于是我很开心的想，官方考虑的还是很周全的嘛！然后花了一阵功夫在 kibana/src/app/app.js、kibana/src/app/components/require.config.js 等各处添加上了这个 elasticsearch 模块。结果依然不可用。</p>
-<p>原来整个 elasticsearch.js 把功能模块化拆分到了很多个不同的多层次的目录里，然后相互之间广泛采用类似 <code>require('../lib/util/')</code> 这样的语句进行加载。</p>
-<p>但是：Kibana 采用的是 requirejs 和 angularjs 合作的模式，整个 js 库的加载过程完全在 kibana/src/app/components/require.config.js 一个文件里定义，你可以看到这个文件里就写了很多 jquery 的子项目文件，但是这些文件都是平铺在 kibana/src/vendor/jquery/ 这个目录里的。</p>
-<p>所以，即便在 require.config.js 里写了 elasticsearh 也没用，文件里的 require 语句依然是报错的。而且再往下的压根没法继续添加到 require.config.js 里了，因为太复杂了，肯定得修改 elasticsearch.js 源码的各个文件。</p>
-<p>总的来说，就是 elasticsearch.js 不适合跟 requirejs 一起工作。</p>
-<hr />
-<p>至此，简单更新 js 库然后调用现成接口的计划完全破产。</p>
-<p>感谢 Elasticsearch 本身就是一个 RESTful 接口，所以还剩下一个不太漂亮但是确实好用的办法，那就是自己组装请求数据，直接通过 angularjs 内置的 <code>$http</code> 收发。</p>
-<h1 id="aggregationname-">aggregation_name 的限制</h1>
-<p>angularjs 的 <code>$http.post</code> 使用跟 jquery 的 <code>$.post</code> 非常类似，所以写起来难度不大，确定这个思路之后唯一碰到的问题却是 Elasticsearch 本身的新限制。</p>
-<p>目前 Kibana 里都是以 alias 形式来区分每一个子请求的，具体内容是 <code>var alias = q.alias || q.query;</code>，即在页面上搜索框里写的查询语句或者是搜索框左侧色彩设置菜单里的 <code>Legend value</code>。</p>
-<p>比如我的场景下，<code>q.query</code> 是 &ldquo;xff:10.5.16.*&ldquo;，<code>q.alias</code> 是&rdquo;教育网访问&rdquo;。那么最后发送的请求里这条过滤项的 <code>facets_name</code> 就叫 &ldquo;stats_教育网访问&rdquo;。</p>
-<p>同样的写法迁移到 aggregation 上就完全不可解析了。<strong>服务器会返回一条报错说：<code>aggregation_name</code> 只能是字母、数字、<code>_</code> 或者 <code>-</code> 四种。</strong></p>
-<p>(这里比较怪的是抓包看到 facets 其实也报错说请求内容解析失败，但是居然同时也返回了结果，只能猜测目前是处在一种兼容状态？)</p>
-<p>于是这里稍微修改了一下逻辑，把 <code>queries</code> 数组的 <code>_.each</code> 改用 <code>$.each</code> 来做，这样回调函数里不单返回数组元素，还返回数组下标，下标是一定为数字的，就可以以数组下标作为 <code>aggregation_name</code> 了。后面处理结果的 <code>queries.map</code> 同样以下标来获取即可。</p>
-<p>目前效果图如下：</p>
-<p><img src="/images/uploads/kibana-percentile.png" alt="" /></p>
-<p>我的改动已经上传到 <a href="https://github.com/chenryn/kibana/commit/c27b44996bff575886041e0f4f800fda04fbdbde">github</a> 上，欢迎大家一起改进。</p>
-<p>目前的问题有两个：图表里的列排序功能不可用，还没找到原因；percents 值还没在 editor.html 里提供自定义办法。</p>
       <a href="/2014/05/17/implement-percentiles-aggregation-on-kibana" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -92,9 +64,9 @@
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/05/10/graphite-grafana-on-nagios" title="Graphite Grafana On Nagios" rel="bookmark">Graphite Grafana On Nagios</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-05-10 00:00:00 +0800">10 May 2014</abbr>
@@ -106,15 +78,6 @@
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>我们都知道 nagios 上可以用 pnp4nagios 来转换 perfdata 成 rrd 图。不过 graphite 以其扩展性及更好的 HTTP 接口目前越来越受欢迎，加上最近刚出来的 grafana 项目(从 LEK 的 Kibana 转化来的)，更是让 graphite 的可视化效果也上了一个台阶。</p>
-<p>那么怎么用 grafana 来查看我们用 nagios 收集来的监控数据呢？</p>
-<p>我在 github 上看到有一个叫 graphios 的项目。不过上面介绍的方法已经比较老了，目前 omd 使用的是 npcmod 的 bulk mode，并不会分别产生 <code>host-perfdata.$TIMET$</code> 和 <code>service-perfdata.$TIMET$</code> 文件。所以照着 README 做是没效果的。</p>
-<p>最好的办法就是利用 <a href="https://metacpan.org/pod/Net::Graphite">Net::Graphite</a> 模块自己改写 <code>process-perfdata.pl</code>，把数据直接发给 carbon 进程。不过我懒得动手，目前只是写了几行 perl ，在调用 <code>process-perfdata.pl</code> 之前，先过一遍 <code>perfdata.$TIMET</code> 文件，分离出来 host 和 service 两个文件放到新目录里，这样就可以继续走通 graphios 的流程了。(当然性能上比较烂，因为磁盘 IO 翻倍了)</p>
-<p>然后是 grafana 部分。grafana 本身基于 kibana 改造而来，所以也是一个纯 js 应用，不过请求 graphite 数据可能涉及跨域 ajax，要求 graphite 的 apache 配置加上几个 Header，这个照着 README 做就可以了。然后不要忘了修改 config.js 里对应的 es 和 graphite 两个服务器地址。</p>
-<p>graphite 毕竟数据是以 tree 的唯一格式存在，所以在 grafana 上创建图形时的操作跟 kibana 上不太一样。添加 panel 后，默认是空数据的，然后要在 panel正上方的标题上点击鼠标，选择 <code>edit</code>，就会出现配置框。</p>
-<p>在配置框的 <code>Metrics</code> 栏选择 <code>Add query</code>，然后 <code>select metric</code> 一路选择下去到你想到添加的数值。数值之后点 <code>+</code> 号还可以添加一些 graphite 计算的值，像平均数啊之类的。这些可以参考 graphite 接口文档。</p>
-<p><img src="/images/uploads/add-metric.png" alt="" /></p>
-<p>一个简单的效果图如下：</p>
-<p><img src="/images/uploads/grafana.png" alt="" /></p>
       <a href="/2014/05/10/graphite-grafana-on-nagios" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -122,9 +85,9 @@
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/05/04/openssh-perl6" title="在 Perl6 脚本中并发执行 ssh 命令" rel="bookmark">在 Perl6 脚本中并发执行 ssh 命令</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-05-04 00:00:00 +0800">04 May 2014</abbr>
@@ -136,108 +99,6 @@
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>前几天翻 Perl6 模块清单，发现没有用作 SSH 的。虽说 Perl6 里可以很方便的用 NativeCall 包装 C/C++ 库，但是 libssh2 本身就不支持我的 kerberos5 认证环境，所以还是只能通过调用系统命令的方式来完成。</p>
-<h1 id="thread-">Thread 示例</h1>
-<p>说起来 Perl6 近年一直在宣传 Promise 啊，Supply 啊并发编程，但是 API 变化太快，2013 年中期 jnthn 演讲里演示的 <code>async</code> 用法，现在就直接报这个函数不存在了，似乎改成 <code>start</code> 了？天知道什么时候又变。所以还是用底层的 Thread 和 Channel 来写。话说其实这还是我第一次写 Thread 呢。</p>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="n">v6</span><span class="p">;</span>
-<span class="n">class</span> <span class="n">OpenSSH</span> <span class="p">{</span>
-    <span class="n">has</span> <span class="nv">$</span><span class="err">!</span><span class="nv">user</span> <span class="o">=</span> <span class="s">&#39;root&#39;</span><span class="p">;</span>
-    <span class="n">has</span> <span class="nv">$</span><span class="err">!</span><span class="nv">port</span> <span class="o">=</span> <span class="mi">22</span><span class="p">;</span>
-    <span class="n">has</span> <span class="nv">$</span><span class="err">!</span><span class="nv">ssh</span>  <span class="o">=</span> <span class="s">&quot;ssh -oStrictHostKeyChecking=no -l{$!user} -p{$!port} &quot;</span><span class="p">;</span>
-    <span class="n">multi</span> <span class="n">method</span> <span class="nb">exec</span><span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$cmd</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$out</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$shell</span> <span class="o">=</span> <span class="nv">$</span><span class="err">!</span><span class="nv">ssh</span> <span class="o">~</span> <span class="nv">$host</span> <span class="o">~</span> <span class="s">&#39; &#39;</span> <span class="o">~</span> <span class="nv">$cmd</span><span class="p">;</span>
-        <span class="n">try</span> <span class="p">{</span> <span class="nv">$out</span> <span class="o">=</span> <span class="n">qqx</span><span class="p">{</span> <span class="nv">$shell</span> <span class="p">}</span><span class="o">.</span><span class="nb">chomp</span> <span class="p">}</span>
-        <span class="n">CATCH</span> <span class="p">{</span> <span class="n">note</span><span class="p">(</span><span class="s">&quot;Failed: $!&quot;</span><span class="p">)</span> <span class="p">};</span>
-        <span class="k">return</span> <span class="nv">$out</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="n">multi</span> <span class="n">method</span> <span class="nb">exec</span><span class="p">(</span><span class="nv">@hosts</span><span class="p">,</span> <span class="nv">$cmd</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$c</span> <span class="o">=</span> <span class="n">Channel</span><span class="o">.</span><span class="k">new</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">@t</span> <span class="o">=</span> <span class="nv">@hosts</span><span class="o">.</span><span class="nb">map</span><span class="p">({</span>
-            <span class="n">Thread</span><span class="o">.</span><span class="n">start</span><span class="p">({</span>
-                <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nv">$</span><span class="err">.</span><span class="nv">exec</span><span class="p">(</span><span class="nv">$_</span><span class="p">,</span> <span class="nv">$cmd</span><span class="p">);</span>
-                <span class="nv">$c</span><span class="o">.</span><span class="nb">send</span><span class="p">(</span><span class="nv">$r</span><span class="p">);</span>
-            <span class="p">})</span>
-        <span class="p">});</span>
-        <span class="nv">@t</span><span class="o">&gt;&gt;.</span><span class="n">finish</span><span class="p">;</span>
-        <span class="k">return</span> <span class="nv">@hosts</span><span class="o">.</span><span class="nb">map</span><span class="p">:</span> <span class="p">{</span> <span class="nv">$c</span><span class="o">.</span><span class="n">receive</span> <span class="p">};</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-<span class="k">my</span> <span class="nv">$ssh</span> <span class="o">=</span> <span class="n">OpenSSH</span><span class="o">.</span><span class="k">new</span><span class="p">(</span><span class="n">user</span> <span class="o">=&gt;</span> <span class="s">&#39;root&#39;</span><span class="p">);</span>
-<span class="n">say</span> <span class="nv">$ssh</span><span class="o">.</span><span class="nb">exec</span><span class="p">(</span><span class="s">&#39;10.4.1.21&#39;</span><span class="p">,</span> <span class="s">&#39;uptime&#39;</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">@hosts</span> <span class="o">=</span> <span class="s">&#39;10.4.1.21&#39;</span> <span class="n">xx</span> <span class="mi">5</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">@ret</span> <span class="o">=</span> <span class="nv">$ssh</span><span class="o">.</span><span class="nb">exec</span><span class="p">(</span><span class="nv">@hosts</span><span class="p">,</span> <span class="s">&#39;sleep 3;echo $$&#39;</span><span class="p">);</span>
-<span class="n">say</span> <span class="nv">@ret</span><span class="o">.</span><span class="n">perl</span><span class="p">;</span>
-</code></pre></div>
-<p>很简陋的代码。首先一个是要确认 ssh 不用密码登陆，因为没有写 Expect；其次是没用 ThreadPool，所以并发操作不能太猛，会扭着腰的。</p>
-<p>这里演示了几个地方：</p>
-<ul>
-  <li>class 的定义和 attr 的定义和<a href="http://doc.perl6.org/language/classtut">用法</a></li>
-  <li>
-    <p>try-catch 的用法</p>
-    <p>也可以不写 try，直接 <code>CATCH {}</code> </p>
-  </li>
-  <li>
-    <p>qqx{} 的用法</p>
-    <p>这是变动比较大的地方，<code>qqx</code> 后面只能用 <code>{}</code> 不能用其他字符对了。Perl6 提供另外的 <code>shell()</code> 指令，返回 <code>Proc::Status</code> 对象。
-  不过这个对象其实也就是个状态码，不包括标准输出、错误输出什么的。</p>
-  </li>
-  <li>字符串连接符 ~ 的用法</li>
-  <li>multi method 的定义和用法</li>
-  <li><a href="http://doc.perl6.org/type/Method#signature">函数 signature</a> 的定义和用法，可选参数和命名参数的定义和用法见下一小节。</li>
-  <li>
-    <p><code>&gt;&gt;</code> 操作符的用法</p>
-    <p>这里其实相当于是 <code>.finish for @t</code>。这个怪怪的操作符据说可以在可能的时候自动线程化数组操作，所以返回顺序不会跟<code>.map</code>一样。</p>
-  </li>
-  <li>
-    <p>xx 操作符的用法</p>
-    <p>Perl5 里有 <code>x</code> 操作符，Perl6 里又增加了 <code>xx</code>、 <code>X</code> 和 <code>Z</code> 等操作符。
-  分别是<a href="http://doc.perl6.org/language/operators#infix_xx">字符扩展成数组</a>、<a href="http://doc.perl6.org/language/operators#infix_X">数组扩展成多维数组</a>和<a href="http://doc.perl6.org/language/operators#infix_Z">多数组压缩单个数组</a>(也就是zip操作)。</p>
-  </li>
-  <li>
-    <p>Channel 和 Thread 对象的用法</p>
-    <p>在 roast 测试集里，只有 thread 和 lock 的<a href="https://github.com/perl6/roast/blob/master/S17-lowlevel/lock.t">测试用例</a>。
-  semaphore 其实也支持(因为 MoarVM 是基于 libuv 的嘛，libuv 支持它当然也支持)，但是连测试用例都没写……</p>
-  </li>
-</ul>
-<p>默认的并发编程会采用 <code>ThreadPoolScheduler</code> 类，稍微看了一下，默认设置的线程数是 16。考虑下一步是仿照该类完善我的小脚本呢，还是重新学习一下 <code>Supply</code> 或者 <code>Promise</code> 看看到底怎么用。</p>
-<p>有兴趣用 libssh2 的童鞋，可以学习一下 <a href="https://github.com/jnthn/zavolaj">NativeCall</a> 的用法。</p>
-<h1 id="threadpoolscheduler-">ThreadPoolScheduler 示例</h1>
-<p>根据 <a href="https://github.com/perl6/specs/blob/master/S17-concurrency.pod">S17-concurrency 文档</a> 的内容，改写了几行脚本，实现了 ThreadPool 的效果：</p>
-<div class="highlight"><pre><code class="perl">    <span class="n">multi</span> <span class="n">method</span> <span class="nb">exec</span><span class="p">(</span><span class="nv">@hosts</span><span class="p">,</span> <span class="nv">$cmd</span><span class="p">,</span> <span class="p">:</span><span class="nv">$parallel</span> <span class="o">=</span> <span class="mi">16</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$c</span> <span class="o">=</span> <span class="n">Channel</span><span class="o">.</span><span class="k">new</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="n">ThreadPoolScheduler</span><span class="o">.</span><span class="k">new</span><span class="p">(</span><span class="n">max_threads</span> <span class="o">=&gt;</span> <span class="nv">$parallel</span><span class="p">);</span>
-        <span class="nv">@hosts</span><span class="o">.</span><span class="nb">map</span><span class="p">({</span>
-            <span class="nv">$s</span><span class="o">.</span><span class="n">cue</span><span class="p">({</span>
-                <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nv">$</span><span class="err">.</span><span class="nv">exec</span><span class="p">(</span><span class="nv">$_</span><span class="p">,</span> <span class="nv">$cmd</span><span class="p">);</span>
-                <span class="nv">$c</span><span class="o">.</span><span class="nb">send</span><span class="p">(</span><span class="nv">$r</span><span class="p">);</span>
-            <span class="p">})</span>
-        <span class="p">});</span>
-        <span class="k">return</span> <span class="nv">@hosts</span><span class="o">.</span><span class="nb">map</span><span class="p">:</span> <span class="p">{</span> <span class="nv">$c</span><span class="o">.</span><span class="n">receive</span> <span class="p">};</span>
-    <span class="p">}</span>
-</code></pre></div>
-<p>这里把默认并发值改成了 16，跟 Rakudo 保持一致。如果不需要可调的话，这里其实可以直接写成 <code>$*SCHEDULER.cue({})</code>。</p>
-<p>然后调用方法也对应修改一下，考虑到辨识度，把并发值改成了命名参数。调用方法如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="k">my</span> <span class="nv">@hosts</span> <span class="o">=</span> <span class="n">slurp</span><span class="p">(</span><span class="s">&#39;iplist.txt&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lines</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">@ret</span> <span class="o">=</span> <span class="nv">$ssh</span><span class="o">.</span><span class="nb">exec</span><span class="p">(</span><span class="nv">@hosts</span><span class="p">,</span> <span class="s">&#39;sleep 3;echo $$&#39;</span><span class="p">,</span> <span class="p">:</span><span class="n">parallel</span><span class="p">(</span><span class="mi">5</span><span class="p">));</span>
-</code></pre></div>
-<p>运行可以看到，虽然 iplist.txt 里放了 40 个ip，但是并发的 ssh 只有 5 个。</p>
-<h1 id="promise-">Promise 示例</h1>
-<p>继续，S17 内容下一节是 Promise，之前博客里已经提过几次 Perl5 的 <a href="https://metacpan.org/pod/Promises">Promises 模块</a> 或者类似的东西(比如 <a href="/2014/01/22/explain-mojo-ioloop-delay-testing">Mojo::IOLoop::Delay</a> )，包括 JavaScript 等也有一样的名字。</p>
-<p>不过 Perl5 的 Promises 思路参照的是 Scala，语法则偏向 nodejs 和 golang(都用一个叫 <code>defer</code> 的指令来创建 Promises 对象)，写起来跟 Perl6 的原生 Promise 差距较大。</p>
-<p>考虑 ssh 这个场景可能不太用的上 Promise 的 <code>.in</code>、<code>.then</code>、<code>.anyof</code> 之类的流程控制(尤其 <code>.in</code> 这个还不一定能用，因为 Promise 底层也是用的 <code>$*SCHEDULER.cue()</code>，而这个在 MoarVM 上目前还不支持 :in/:at/:every 等参数)，就直接展示最简单的并发了：</p>
-<div class="highlight"><pre><code class="perl">    <span class="n">multi</span> <span class="n">method</span> <span class="nb">exec</span><span class="p">(</span><span class="nv">@hosts</span><span class="p">,</span> <span class="nv">$cmd</span><span class="p">,</span> <span class="p">:</span><span class="nv">$parallel</span> <span class="o">=</span> <span class="mi">16</span><span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$</span><span class="err">*</span><span class="nv">SCHEDULER</span> <span class="o">=</span> <span class="n">ThreadPoolScheduler</span><span class="o">.</span><span class="k">new</span><span class="p">(</span><span class="n">max_threads</span> <span class="o">=&gt;</span> <span class="nv">$parallel</span><span class="p">);</span>
-        <span class="n">await</span> <span class="nv">@hosts</span><span class="o">.</span><span class="nb">map</span><span class="p">:</span> <span class="p">{</span>
-            <span class="n">start</span> <span class="p">{</span>
-                <span class="nv">$</span><span class="err">.</span><span class="nv">exec</span><span class="p">(</span><span class="nv">$_</span><span class="p">,</span> <span class="nv">$cmd</span><span class="p">);</span>
-            <span class="p">};</span>
-        <span class="p">};</span>
-    <span class="p">}</span>
-</code></pre></div>
-<p>简单来说，就是每个 <code>start {&amp;c}</code> 创建一个 Promise 对象，根据 &amp;c 的返回值自动作 <code>$p.keep($result)</code> 或  <code>$p.break(Exception)</code>。然后 <code>await(*@p)</code> 回收全部 Promise 的结果。</p>
-<p>这里直接修改了 <code>$*SCHEDULER</code> ，这是一个全局变量，即当前进程的调度方式。Promise 类默认就采用这个变量。如果想跟上一小节一样使用 <code>$s</code>，那这里就不能用 <code>start {}</code> 而是要用 <code>Promise.start({}, $s)</code>。显然写起来不怎么漂亮。</p>
-<h1 id="supply-">Supply 示例</h1>
-<p>Supply 是响应式编程，类似 Java 里的 Reactive 概念。应该适合的是一件事情多个进程重复做。场景不太对，二来目前 S17 也不全，就不写了。</p>
       <a href="/2014/05/04/openssh-perl6" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -245,9 +106,9 @@
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/04/24/yaml-dump-pm6" title="Perl6 的 YAML::Dumper 模块" rel="bookmark">Perl6 的 YAML::Dumper 模块</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-04-24 00:00:00 +0800">24 Apr 2014</abbr>
@@ -259,136 +120,6 @@
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>这两天决定试一把 Perl6，因为<a href="http://www.php-oa.com">扶凯</a>兄已经把还没有正式发行 Rakudo Star 包的 MoarVM 编译打包好了，所以可以跳过这步直接进入模块安装。当然，源码编译本身也没有太大难度，只不过从 github 下源码本身耗时间比较久而已。</p>
-<p>既然木有 Star 包，那么安装好 MoarVM 上的 Rakudo 后我们就有必要先自己把 panda 之类的工具编译出来。这一步需要注意一下你的 <code>@*INC</code> 路径和实际的 <code>$PERL6LIB</code> 路径，已经编译之后的 panda 存在的 <code>$PATH</code> 是不是都正确，如果不对的修改一下 <code>~/.bashrc</code> 就好了。</p>
-<p>我的尝试迁移对象是一个很简单的 Puppet 的 ENC 脚本，只涉及 SQLite 的读取，以及 YAML 格式的输出。通过 <code>panda install DBIish</code> 命令即可安装好 DBIish 模块。</p>
-<p>脚本本身修改起来难度不大，结果如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/usr/bin/env perl6</span>
-<span class="k">use</span> <span class="n">v6</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">DBIish</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">YAML</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$base_dir</span> <span class="o">=</span> <span class="s">&quot;/etc/puppet/webui&quot;</span><span class="p">;</span>
-<span class="c1"># 函数在 Perl6 中依然使用 sub 关键字定义，不过有个超酷的特性是 multi sub</span>
-<span class="c1"># 脚本中没有用到，但是在 YAML::Dumper 中遍地都是，这里也提一句。</span>
-<span class="c1"># MAIN 函数在 Perl6 里可以直接用 :$opt 命令参数起 getopt 的作用</span>
-<span class="c1"># 不过 ENC 脚本就是直接传一个主机名，用不上这个超酷的特性</span>
-<span class="k">sub </span><span class="nf">MAIN</span><span class="p">($node) {</span>
-<span class="c1"># connect 方法接收参数选项是 |%opts，所以可以把哈希直接平铺写</span>
-<span class="c1"># 这个 | 的用法一个月前在《Using Perl6》里看到过</span>
-    <span class="k">my</span> <span class="nv">$dbh</span> <span class="o">=</span> <span class="n">DBIish</span><span class="o">.</span><span class="nb">connect</span><span class="p">(</span> <span class="s">&#39;SQLite&#39;</span><span class="p">,</span> <span class="n">database</span> <span class="o">=&gt;</span> <span class="s">&quot;{$base_dir}/node_info.db&quot;</span> <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="nv">$dbh</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="s">&quot;select * from node_info where node_fqdn = ?&quot;</span><span class="p">);</span>
-    <span class="nv">$sth</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&quot;$node&quot;</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">.</span><span class="n">fetchrow_hashref</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$res</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="o">!</span><span class="nv">$ret</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$res</span> <span class="o">=</span> <span class="p">{</span>
-<span class="c1"># Perl5 的 qw() 在 Perl6 里直接写成 &lt;&gt; 。也不用再通过 [] 来指明是引用</span>
-            <span class="n">classes</span>     <span class="o">=&gt;</span> <span class="o">&lt;</span><span class="n">puppetd</span> <span class="n">repos</span><span class="o">&gt;</span><span class="p">,</span>
-            <span class="n">environment</span> <span class="o">=&gt;</span> <span class="s">&#39;testing&#39;</span><span class="p">,</span>
-        <span class="p">};</span>
-    <span class="p">}</span>
-    <span class="k">else</span> <span class="p">{</span>
-        <span class="nv">$res</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">environment</span> <span class="o">=&gt;</span> <span class="nv">$ret</span><span class="p">{</span><span class="s">&#39;environment&#39;</span><span class="p">},</span>
-            <span class="n">parameters</span>  <span class="o">=&gt;</span> <span class="p">{</span> <span class="n">role</span> <span class="o">=&gt;</span> <span class="nv">$ret</span><span class="p">{</span><span class="s">&#39;role&#39;</span><span class="p">}</span> <span class="p">},</span>
-            <span class="n">classes</span>     <span class="o">=&gt;</span> <span class="p">{},</span>
-        <span class="p">};</span>
-<span class="c1"># 这个 for 的用法，在 Perl5 的 Text::Xslate 模板里就用过</span>
-        <span class="k">for</span> <span class="nb">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">,</span> <span class="nv">$ret</span><span class="p">{</span><span class="s">&#39;classes&#39;</span><span class="p">})</span> <span class="o">-&gt;</span> <span class="nv">$class</span> <span class="p">{</span>
-            <span class="k">if</span> <span class="p">(</span> <span class="nv">$class</span> <span class="ow">eq</span> <span class="s">&#39;nginx&#39;</span> <span class="p">)</span> <span class="p">{</span>
-<span class="c1"># 这个 &lt;== 符号指明数据流方向，完全可以把数组倒过来，然后用 ==&gt; 写这行</span>
-<span class="c1"># 如果不习惯这种流向操作符的，可以用,号，反正不能跟 Perl5 那样啥都不写</span>
-<span class="c1"># 这里比较怪的一点是我试图把这么长的一句分成多行写，包括每行后面加\，我看到 YAML 代码里就用\分行了，但是我这就会报错</span>
-<span class="c1"># Perl6 的正则变化较大，这里 /^#/ 要写成 /^&#39;#&#39;/ 或者 /^\x23/</span>
-<span class="c1"># 正则 // 前面不加 m// 不会立刻开始匹配</span>
-<span class="c1"># 原先的 s///g 可以写作 s:g///，也可以写作对象式的 .subst(m//, &#39;&#39;, :g)，. 前面为空就是默认的 $_</span>
-<span class="c1"># 捕获的数据存在 @() 数组里，也可以用 $/[i] 的形式获取</span>
-<span class="c1"># 字符串内插时，不再写作 ${*}，而是 {$*} 的形式</span>
-<span class="c1"># 命名捕获这里没用上，写个示例：</span>
-<span class="c1">#     $str ~~ /^(\w+?)$&lt;laststr&gt;=(\w ** 4)\w$/;</span>
-<span class="c1">#     $/&lt;laststr&gt;.chomp.say;</span>
-<span class="c1"># 注意里面的 \w{4} 变成了 \w ** 4</span>
-                <span class="k">my</span> <span class="nv">@needs</span> <span class="o">&lt;==</span> <span class="nb">map</span> <span class="p">{</span> <span class="o">.</span><span class="n">subst</span><span class="p">(</span><span class="sr">m/^(.+)\:(\d+)$/</span><span class="p">,</span> <span class="s">&quot;{$/[0]} max_fails=30 weight={$/[1]}&quot;</span><span class="p">,</span> <span class="p">:</span><span class="n">g</span><span class="p">)</span> <span class="p">}</span> <span class="o">&lt;==</span> <span class="nb">grep</span> <span class="p">{</span> <span class="o">!</span><span class="sr">m/^\x23/</span> <span class="p">}</span> <span class="o">&lt;==</span> <span class="nb">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">,</span> <span class="nv">$ret</span><span class="p">{</span><span class="s">&#39;extstr&#39;</span><span class="p">});</span>
-                <span class="nv">$res</span><span class="p">{</span><span class="s">&#39;classes&#39;</span><span class="p">}{</span><span class="s">&#39;nginx&#39;</span><span class="p">}{</span><span class="s">&#39;iplist&#39;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">@needs</span><span class="p">;</span>
-            <span class="p">}</span>
-            <span class="k">else</span> <span class="p">{</span>
-<span class="c1"># Perl5 的 undef 不再使用，可以使用 Nil 或者 Any 对象</span>
-                <span class="nv">$res</span><span class="p">{</span><span class="s">&#39;classes&#39;</span><span class="p">}{</span><span class="nv">$class</span><span class="p">}</span> <span class="o">=</span> <span class="n">Nil</span><span class="p">;</span>
-            <span class="p">}</span>
-        <span class="p">}</span>
-    <span class="p">};</span>
-    <span class="nv">$dbh</span><span class="o">.</span><span class="n">disconnect</span><span class="p">();</span>
-<span class="c1"># 这个 dump 就是 YAML 模块导出的函数</span>
-<span class="c1"># Perl6 的模块要导出函数不再需要 Exporter 那样，直接用 our sub dump($obj) {} 就可以了</span>
-    <span class="n">say</span> <span class="nb">dump</span><span class="p">(</span><span class="nv">$res</span><span class="p">);</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>但是麻烦的是 YAML 模块本身，这个模块是 ingydotnet 在好几年前草就，后来就没管了，实际现在压根跑不起来。花了半天时间，一边学习一边修改，总算修改正常了。主要涉及了 <code>Attribute</code> 对象，<code>Nil</code> 对象，<code>twigls</code> 前缀符，<code>:exists</code> 定义几个概念，以及 YAML 格式本身的处理逻辑。</p>
-<p>YAML 模块修改对比如下：</p>
-<pre><code>diff --git a/lib/YAML/Dumper.pm b/lib/YAML/Dumper.pm
-index d7a7981..ec47341 100644
---- a/lib/YAML/Dumper.pm
-+++ b/lib/YAML/Dumper.pm
-@@ -2,16 +2,16 @@ use v6;
- class YAML::Dumper;
- has $.out = [];
--has $.seen is rw = {};
-+has $.seen = {};
- has $.tags = {};
- has $.anchors = {};
- has $.level is rw = 0;
--has $.id is rw = 1;
-+has $.id = 1;
- has $.info = [];
- method dump($object) {
-     $.prewalk($object);
--    $.seen = {};
-+    $!seen = {};
-     $.dump_document($object);
-     return $.out.join('');
- }
-@@ -45,11 +45,11 @@ method dump_collection($node, $kind, $function) {
- method check_special($node) {
-     my $first = 1;
--    if $.anchors.exists($node.WHICH) {
--    if $.anchors.exists($node.WHICH) {
-+    if $.anchors{$node.WHICH}:exists {
-         push $.out, ' ', '&amp;' ~ $.anchors{$node.WHICH};
-         $first = 0;
-     }
--    if $.tags.exists($node.WHICH) {
-+    if $.tags{$node.WHICH}:exists {
-         push $.out, ' ', '!' ~ $.tags{$node.WHICH};
-         $first = 0;
-     }
-@@ -64,7 +64,7 @@ method indent($first) {
-             return;
-         }
-         if $.info[*-1]&lt;kind&gt; eq 'seq' &amp;&amp; $.info[*-2]&lt;kind&gt; eq 'map' {
--            $seq_in_map = 1;
-+            $seq_in_map = 0;
-         }
-     }
-     push $.out, "\n";
-@@ -155,7 +155,8 @@ method dump_object($node, $type) {
-     $.tags{$repr.WHICH} = $type;
-     for $node.^attributes -&gt; $a {
-         my $name = $a.name.substr(2);
--        my $value = pir::getattribute__PPs($node, $a.name);     #RAKUDO
-+        #my $value = pir::getattribute__PPs($node, $a.name);     #RAKUDO
-+        my $value = $a.get_value($node);                         #for non-parrot
-         $repr{$name} = $value;
-     }
-     $.dump_node($repr);
-</code></pre>
-<p>这里的 <code>$.seen</code> 和 <code>$!seen</code> 是不是晕掉了？其实 <code>$.seen</code> 就相当于先声明了 <code>$!seen</code> 后再自动创建一个 <code>method seen() { return $!seen }</code>。</p>
-<p>另一处是 <code>pir::getattribute__PPs()</code> 函数，pir 是 parrot 上的语言，而 MoarVM 和 JVM 上都是先实现了一个 nqp 再用 nqp 写 Perl6，不巧的是这个 pir 里的 <code>getattribute__PPs()</code> 刚好至今还没有对应的 nqp 方法。(在 pir2nqp.todo 文件里可见)</p>
-<p>所以只能用高级的 Perl6 语言来做了。</p>
-<p>总的来说，这个 yaml-pm6 代码里很多地方都是试来试去，同样的效果不同的写法，又比如 <code>.WHICH</code> 和 <code>.WHAT.perl</code> 也是混用。
-而且我随手测试了一下，即使在 parrot 上，用 <code>pir::getattribute__PPs</code> 的速度也比 <code>Attribute.get_value</code> 还差点点。</p>
-<hr />
-<p>最后提一句，目前 ENC 脚本在 perl5、perl6-m、perl6-p、perl6-j 上的运行时间大概分别是 0.13、1.5、2.8、12s。MoarVM 还差 Perl5 十倍，领先 parrot 一倍。不过 JVM 本身启动时间很长，这里不好因为一个短时间脚本说它太慢。</p>
-<p>另外还试了一下如果把我修改过的 YAML::Dumper 类直接写在脚本里运行，也就是不编译成 moarvm 模块，时间大概是 2.5s，比 parrot 模块还快点点。</p>
-<p>不过如何把 perl6 脚本本身编译成 moarvm 的 bytecode 格式运行还没有研究出来，直接 <code>perl6-m --target=mbc --output=name.moarvm name.pl6</code> 得到的文件运行 <code>moar name.moarvm</code> 的结果运行会内存报错。</p>
       <a href="/2014/04/24/yaml-dump-pm6" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -396,9 +127,9 @@ index d7a7981..ec47341 100644
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/04/21/tcp-fastopen-2" title="TCP Fast Open 测试(2)" rel="bookmark">TCP Fast Open 测试(2)</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-04-21 00:00:00 +0800">21 Apr 2014</abbr>
@@ -410,63 +141,6 @@ index d7a7981..ec47341 100644
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>接上篇。</p>
-<p>18 日提到采用 wireshark 而不是 tcpdump 来抓取数据。wireshark 会自动把一些数据解释成可读的内容，于是看到其实在每次 httping 发出请求的时候，第一个 SYN 包后面都有附加了 TCP FASTOPEN COOKIE 请求：</p>
-<p><img src="/images/uploads/foc-req.png" alt="" /></p>
-<p>于是回头重新好好读了一下 TFO 的原理，发现自己对 TFO 的理解是有问题的 - 原先我以为在 SYN 里是可以直接带上请求数据的 - 而这很容易被攻击。实际上的流程应该是：</p>
-<ol>
-  <li>客户端发送 SYN 包，包尾加的是一个 FOC 请求，只有 4 字节。</li>
-  <li>服务器端收到 FOC 请求，验证后根据来源 IP 地址生成 COOKIE(8 字节)，将这个 COOKIE 加载 SYN+ACK 包的末尾发送回去。</li>
-  <li>客户端缓存住获取到的 COOKIE 可以给下一次使用。</li>
-  <li>下一次请求开始，客户端发送 SYN 包，这时候包后面带上缓存的 COOKIE，然后就是要正式发送的数据。</li>
-  <li>服务器端验证 COOKIE 正确，将数据交给上层应用处理得到响应结果，然后在发送 SYN+ACK 时，不再等待客户端的 ACK 确认，即开始发送响应数据。</li>
-</ol>
-<p>示图如下：</p>
-<p><img src="/images/uploads/tfo.jpg" alt="" /></p>
-<p>所以可以总结两点：</p>
-<ol>
-  <li>第一次请求是不会有时间节约的效果的，测试至少要 <code>httping -F -c 2</code>。</li>
-  <li>从第二次开始节约的时间可以认为是第一个来回，httping 本身是个 HEAD 请求，可以认为是 50% 的节约。</li>
-</ol>
-<p>但是用 <code>-c 2</code> 运行依然没有看到 RTT 变化。这时候用<code>stap 'probe kernel.function("tcp_fastopen_cookie_gen") {printf("%d\n", $foc-&gt;len)}'</code> 命令发现这个最重要的生成 COOKIE 的函数(net/ipv4/tcp_fastopen.c里)居然一直没有被触发！</p>
-<p>认真阅读了一下调用这个函数的 <code>tcp_fastopen_check</code> 函数(net/ipv4/tcp_ipv4.c里)，原来前面首先有一步检查 sysctl 的逻辑：</p>
-<div class="highlight"><pre><code class="c">    <span class="k">if</span> <span class="p">((</span><span class="n">sysctl_tcp_fastopen</span> <span class="o">&amp;</span> <span class="n">TFO_SERVER_ENABLE</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">||</span>
-        <span class="n">fastopenq</span> <span class="o">==</span> <span class="nb">NULL</span> <span class="o">||</span> <span class="n">fastopenq</span><span class="o">-&gt;</span><span class="n">max_qlen</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
-</code></pre></div>
-<p>这个 <code>TFO_SERVER_ENABLE</code> 常量是 2。而我电脑默认的 <code>net.ipv4.tcp_fastopen</code> 值是 1。1 只开启客户端支持 TFO，所以这里要改成 2(或者 3，如果你不打算把客户端搬到别的主机上测试的话)。</p>
-<p>重新开始 httping 测试，RTT 依然没有缩短。这时候的 stap 命令发现 <code>tcp_fastopen_cookie_gen</code> 函数虽然触发了，但是函数里真正干活的这段逻辑依然没有触发(即 <code>crypto_cipher_encrypt_one</code>)：</p>
-<div class="highlight"><pre><code class="c"><span class="kt">void</span> <span class="nf">tcp_fastopen_cookie_gen</span><span class="p">(</span><span class="n">__be32</span> <span class="n">addr</span><span class="p">,</span> <span class="k">struct</span> <span class="n">tcp_fastopen_cookie</span> <span class="o">*</span><span class="n">foc</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="n">__be32</span> <span class="n">peer_addr</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span> <span class="n">addr</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span> <span class="p">};</span>
-    <span class="k">struct</span> <span class="n">tcp_fastopen_context</span> <span class="o">*</span><span class="n">ctx</span><span class="p">;</span>
-    <span class="n">rcu_read_lock</span><span class="p">();</span>
-    <span class="n">ctx</span> <span class="o">=</span> <span class="n">rcu_dereference</span><span class="p">(</span><span class="n">tcp_fastopen_ctx</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">ctx</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">crypto_cipher_encrypt_one</span><span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">tfm</span><span class="p">,</span>
-                      <span class="n">foc</span><span class="o">-&gt;</span><span class="n">val</span><span class="p">,</span>
-                      <span class="p">(</span><span class="n">__u8</span> <span class="o">*</span><span class="p">)</span><span class="n">peer_addr</span><span class="p">);</span>
-        <span class="n">foc</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">=</span> <span class="n">TCP_FASTOPEN_COOKIE_SIZE</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="n">rcu_read_unlock</span><span class="p">();</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>我试图通过 <code>stap 'probe kernel.function("tcp_fastopen_cookie_gen"){printf("%s\n", $$locals$$)}'</code> 来查看这个 <code>ctx</code> 是什么内容。输出显示 ctx 结构里的元素值都是问号。</p>
-<p>目前就卡在这里。</p>
-<p>为了验证除了这步没有其他问题，我&rdquo;野蛮&rdquo;的通过 systemtap 修改了一下 <code>tcp_fastopen_cookie_gen</code> 里的变量。命令如下：</p>
-<p><code>
-stap 'probe kernel.function("tcp_fastopen_cookie_gen") { $foc-&gt;len = 8 }'
-</code></p>
-<p>赋值为 8，就是 <code>TCP_FASTOPEN_COOKIE_SIZE</code> 常量的值。</p>
-<p>然后再运行测试，就发现 httping 的第二次运行的 RTT 时间减半了(最后那个 F 应该就是标记为 Fastopen 的意思吧)！可见目前问题就出在这里。</p>
-<pre><code>$ httping -F -g http://192.168.0.100 -c 2
-PING 192.168.0.100:80 (/url):
-connected to 192.168.0.100:80 (154 bytes), seq=0 time= 45.60 ms 
-connected to 192.168.0.100:80 (154 bytes), seq=1 time= 23.43 ms  F
---- http://192.168.0.100/url ping statistics ---
-2 connects, 2 ok, 0.00% failed, time 2069ms
-round-trip min/avg/max = 23.4/34.5/45.6 ms
-</code></pre>
-<p><strong>注：上面这个强制赋值 <code>foc-&gt;len</code> 没有改变其实 <code>foc-&gt;val</code> 是空的事实，所以只能是测试验证一下想法，真用的话多客户端之间会乱套的。</strong></p>
       <a href="/2014/04/21/tcp-fastopen-2" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -474,9 +148,9 @@ round-trip min/avg/max = 23.4/34.5/45.6 ms
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/04/16/tcp-fastopen-1" title="TCP Fast Open 测试(1)" rel="bookmark">TCP Fast Open 测试(1)</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-04-16 00:00:00 +0800">16 Apr 2014</abbr>
@@ -488,96 +162,6 @@ round-trip min/avg/max = 23.4/34.5/45.6 ms
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p><strong>首先，这是一个未完成的测试。</strong></p>
-<p>新闻上大家都知道，Nginx从1.5.8开始支持fastopen参数，Linux从3.5开始支持fastopen特性，并在3.10开始默认开启。</p>
-<p>httping是一个模拟ping输出的http请求客户端。从1.5开始支持发送fastopen请求，目前版本是2.3.4。</p>
-<p>我在 fedora 20 (内核3.13版) 上编译了 nginx 1.5.13，yum 安装了 httping 2.3.3版。</p>
-<p>开两个终端，一个运行tcpdump，然后另一个运行httping如下：</p>
-<pre><code>httping -F -g http://www.google.com.hk/url -c 1
-</code></pre>
-<p>这时候看到前一个终端的输出是这样的：</p>
-<pre><code>[chenlin.rao@com21-100 tfo]$ sudo tcpdump -i p5p1 -vvnxXs 0 tcp port 80
-tcpdump: listening on p5p1, link-type EN10MB (Ethernet), capture size 65535 bytes
-20:40:15.034486 IP (tos 0x0, ttl 64, id 52862, offset 0, flags [DF], proto TCP (6), length 147)
-    10.2.5.100.40699 &gt; 74.125.128.199.http: Flags [S], cksum 0xbb34 (correct), seq 3616187260:3616187335, win 29200, options [mss 1460,sackOK,TS val 31091970 ecr 0,nop,wscale 7,exp-tfo cookie 9a8e5a15f1deab96], length 75
-	0x0000:  4500 0093 ce7e 4000 4006 913c 0a02 0564  E....~@.@..&lt;...d
-	0x0010:  4a7d 80c7 9efb 0050 d78a a37c 0000 0000  J}.....P...|....
-	0x0020:  d002 7210 bb34 0000 0204 05b4 0402 080a  ..r..4..........
-	0x0030:  01da 6d02 0000 0000 0103 0307 fe0c f989  ..m.............
-	0x0040:  9a8e 5a15 f1de ab96 4845 4144 202f 7572  ..Z.....HEAD./ur
-	0x0050:  6c20 4854 5450 2f31 2e30 0d0a 486f 7374  l.HTTP/1.0..Host
-	0x0060:  3a20 7777 772e 676f 6f67 6c65 2e63 6f6d  :.www.google.com
-	0x0070:  2e68 6b0d 0a55 7365 722d 4167 656e 743a  .hk..User-Agent:
-	0x0080:  2048 5454 5069 6e67 2076 322e 332e 330d  .HTTPing.v2.3.3.
-	0x0090:  0a0d 0a                                  ...
-20:40:15.295644 IP (tos 0x0, ttl 30, id 42640, offset 0, flags [none], proto TCP (6), length 52)
-    74.125.128.199.http &gt; 10.2.5.100.40699: Flags [S.], cksum 0x71c1 (correct), seq 1878126810, ack 3616187261, win 42900, options [mss 1430,nop,nop,sackOK,nop,wscale 6], length 0
-	0x0000:  4500 0034 a690 0000 1e06 1b8a 4a7d 80c7  E..4........J}..
-	0x0010:  0a02 0564 0050 9efb 6ff1 f0da d78a a37d  ...d.P..o......}
-	0x0020:  8012 a794 71c1 0000 0204 0596 0101 0402  ....q...........
-	0x0030:  0103 0306                                ....
-20:40:15.295694 IP (tos 0x0, ttl 64, id 52863, offset 0, flags [DF], proto TCP (6), length 115)
-    10.2.5.100.40699 &gt; 74.125.128.199.http: Flags [P.], cksum 0x5bf7 (correct), seq 1:76, ack 1, win 229, length 75
-	0x0000:  4500 0073 ce7f 4000 4006 915b 0a02 0564  E..s..@.@..[...d
-	0x0010:  4a7d 80c7 9efb 0050 d78a a37d 6ff1 f0db  J}.....P...}o...
-	0x0020:  5018 00e5 5bf7 0000 4845 4144 202f 7572  P...[...HEAD./ur
-	0x0030:  6c20 4854 5450 2f31 2e30 0d0a 486f 7374  l.HTTP/1.0..Host
-	0x0040:  3a20 7777 772e 676f 6f67 6c65 2e63 6f6d  :.www.google.com
-	0x0050:  2e68 6b0d 0a55 7365 722d 4167 656e 743a  .hk..User-Agent:
-	0x0060:  2048 5454 5069 6e67 2076 322e 332e 330d  .HTTPing.v2.3.3.
-	0x0070:  0a0d 0a                                  ...
-20:40:15.560807 IP (tos 0x0, ttl 30, id 42641, offset 0, flags [none], proto TCP (6), length 40)
-    74.125.128.199.http &gt; 10.2.5.100.40699: Flags [.], cksum 0x5720 (correct), seq 1, ack 76, win 670, length 0
-	0x0000:  4500 0028 a691 0000 1e06 1b95 4a7d 80c7  E..(........J}..
-	0x0010:  0a02 0564 0050 9efb 6ff1 f0db d78a a3c8  ...d.P..o.......
-	0x0020:  5010 029e 5720 0000 0000 0000 0000       P...W.........
-20:40:15.568068 IP (tos 0x0, ttl 30, id 42642, offset 0, flags [none], proto TCP (6), length 269)
-    74.125.128.199.http &gt; 10.2.5.100.40699: Flags [P.], cksum 0x85ae (correct), seq 1:230, ack 76, win 670, length 229
-	0x0000:  4500 010d a692 0000 1e06 1aaf 4a7d 80c7  E...........J}..
-	0x0010:  0a02 0564 0050 9efb 6ff1 f0db d78a a3c8  ...d.P..o.......
-	0x0020:  5018 029e 85ae 0000 4854 5450 2f31 2e30  P.......HTTP/1.0
-	0x0030:  2034 3034 204e 6f74 2046 6f75 6e64 0d0a  .404.Not.Found..
-	0x0040:  436f 6e74 656e 742d 5479 7065 3a20 7465  Content-Type:.te
-	0x0050:  7874 2f68 746d 6c3b 2063 6861 7273 6574  xt/html;.charset
-	0x0060:  3d55 5446 2d38 0d0a 4461 7465 3a20 5765  =UTF-8..Date:.We
-	0x0070:  642c 2031 3620 4170 7220 3230 3134 2031  d,.16.Apr.2014.1
-	0x0080:  323a 3430 3a31 3520 474d 540d 0a53 6572  2:40:15.GMT..Ser
-	0x0090:  7665 723a 2067 7773 0d0a 436f 6e74 656e  ver:.gws..Conten
-	0x00a0:  742d 4c65 6e67 7468 3a20 3134 3238 0d0a  t-Length:.1428..
-	0x00b0:  582d 5853 532d 5072 6f74 6563 7469 6f6e  X-XSS-Protection
-	0x00c0:  3a20 313b 206d 6f64 653d 626c 6f63 6b0d  :.1;.mode=block.
-	0x00d0:  0a58 2d46 7261 6d65 2d4f 7074 696f 6e73  .X-Frame-Options
-	0x00e0:  3a20 5341 4d45 4f52 4947 494e 0d0a 416c  :.SAMEORIGIN..Al
-	0x00f0:  7465 726e 6174 652d 5072 6f74 6f63 6f6c  ternate-Protocol
-	0x0100:  3a20 3830 3a71 7569 630d 0a0d 0a         :.80:quic....
-</code></pre>
-<p>没错，在第一个 SYN 包的时候就把 HEAD 请求带过去了。</p>
-<p>但是发现比较奇怪的是很多时候一模一样的命令，SYN 包上就没带数据。</p>
-<p>按我的想法，既然还是第一个 SYN 包，客户端这边压根不知道服务器端的情况，那么应该不管服务器端如何 SYN 里都带有 HEAD 请求啊？</p>
-<hr />
-<p>另外，用 <code>httping -F</code> 命令测试自己编译的 nginx 的时候，一直都没看到正确的抓包结果，HEAD 请求一直都是在三次握手后发送的。</p>
-<p>试图用 systemtap 来追踪一些问题。</p>
-<h3 id="nginx--socket--fastopen">第一步确认我的 nginx 的 socket 是不是真的开了 fastopen：</h3>
-<p>一个终端运行如下命令：</p>
-<pre><code>stap -e 'probe kernel.function("do_tcp_setsockopt") {printf("%d\n", $optname)}'
-</code></pre>
-<p>另一个终端启动nginx，看到前一个终端输出结果为<code>23</code>，查 <code>tcp.h</code> 可以看到 23 正是 <code>TCP_FASTOPEN</code> 没错！</p>
-<h3 id="httping--fastopen">第二步确认 httping 发送的时候是不是开了 fastopen：</h3>
-<p>一个终端运行如下命令：</p>
-<pre><code>stap -e 'probe kernel.function("tcp_sendmsg") {printf("%d %x\n",$msg-&gt;msg_namelen,$msg-&gt;msg_flags)}'
-</code></pre>
-<p>另一个终端运行最开始提到的 <code>httping -F</code> 命令，看到前一个终端输出结果为 <code>16 20000040</code>，查 <code>socket.h</code> 可以看到 <code>MSG_FASTOPEN</code> 是 <code>0x20000000</code>，<code>MSG_DONTWAIT</code> 是 <code>0x40</code>，也就是说 httping 也没问题。</p>
-<p>现在比较郁闷的一点是：在 <code>net/ipv4/tcp.c</code> 里，<code>tcp_sendmsg()</code> 函数会判断 <code>if ((flags &amp; MSG_FASTOPEN))</code>，就调用 <code>tcp_sendmsg_fastopen()</code> 函数来处理。但是试图用 systemtap 来调查这个函数的时候，会报一个错：</p>
-<pre><code>WARNING: probe kernel.function("tcp_sendmsg_fastopen@net/ipv4/tcp.c:1005") (address 0xffffffff815cca08) registration error (rc -22)
-</code></pre>
-<p>原因还未知。</p>
-<p>留记，继续研究。</p>
-<hr />
-<p>注1：发现 chrome 即使在 <code>about:flags</code> 里启用了 fastopen 好像也不行，必须命令行 <code>google-chrome --enable-tcp-fastopen</code> 这样打开才行。</p>
-<p>注2：网上看到有人写server和client的demo演示fastopen，但其实不对，demo代码里print的数据是正常三次握手以后socket收到的。这点开tcpdump才能确认到底是什么时候发送的数据。</p>
-<hr />
-<p><strong>2014 年 04 月 18 日更新：</strong></p>
-<p>今天改用 wireshark 看了一下数据包，在第一个 SYN 包没有带请求数据的时候，其实最末尾可选项里是有 fastopen 的，截图如下。看来还是服务器端的问题。下一步研究 <code>tcp_recvmsg()</code> 函数去。</p>
-<p><img src="/images/uploads/wireshark-fastopen.png" alt="" /></p>
       <a href="/2014/04/16/tcp-fastopen-1" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -585,9 +169,9 @@ tcpdump: listening on p5p1, link-type EN10MB (Ethernet), capture size 65535 byte
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/04/07/perlchina-mini-workshop-with-larry-wall" title="Larry Wall 来中国参加 OSTC 和 PerlChina Workshop" rel="bookmark">Larry Wall 来中国参加 OSTC 和 PerlChina Workshop</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-04-07 00:00:00 +0800">07 Apr 2014</abbr>
@@ -599,26 +183,6 @@ tcpdump: listening on p5p1, link-type EN10MB (Ethernet), capture size 65535 byte
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>见到教主真身真的很让人兴奋。在 OSTC 会场外的茶座抓住机会完成了签名跟合影。</p>
-<p>书是从同事那搜刮来的大骆驼，自己的 Perl 书不好意思拿，因为不是教主亲著，不过后来发现绝大多数人都没大骆驼……</p>
-<p>穿上了 PerlChina Workshop 2013 的 T恤，教主夫人帮忙在后面扯直了也让教主签名了。</p>
-<p>OSTC 上教主讲的是自己跟开源社区的联系和小故事，以他自己最早期的时候的一个小程序 rn (read news) 的开发过程做了示例。</p>
-<p>接着一星期后又单独举办了 PerlChina 的 Workshop，场地是一家叫 Happylatte 的手游公司的作坊，很有氛围。作坊环境的图片大家可以进 Linux Deepin 的王勇写的文章里面去看，他拍了超多图片：<a href="http://planet.linuxdeepin.com/archives/5688">http://planet.linuxdeepin.com/archives/5688</a></p>
-<p>PerlChina 送给教主一本全员签名的新华大字典，一个 3D 打印的教主头像。</p>
-<p><img src="/images/uploads/mysign.jpg" alt="我在字典上签名" /></p>
-<p>Linux Deepin的王勇从武汉过来送给教主一个新的笔记本电脑，教主自己那台太老了……</p>
-<p><img src="/images/uploads/deepin.jpg" alt="深度的帅小伙" /></p>
-<p>教主首先分享，讲述了一些 Perl 语言的设计思想，跟其他语言的思想上的对比。然后现场演示了一个 Perl6 写的小程序，分别用 MoarVM、JVM 和 Parrot 三种虚拟机上的 Rakudo 实现跑了一下给我们看效果。然后基础语法什么的。</p>
-<p>时不时还切换到 Perl6 的 IRC 频道上给外国朋友打个招呼，跑个单行命令让 rakudorobot 自动返回结果什么的：</p>
-<p><img src="/images/uploads/sayhi.jpg" alt="irc" /></p>
-<p>为了演示 Unicode 支持，教主还联系中文环境，直接从字库里搜索了&rdquo;<img src="/images/uploads/long.png" alt="从一个龙到四个龙，不过后面几个都是Unicode扩展字库里的字，UTF8都不支持，我好不容易找到却没法通过jekyll build编译，只好截图了" />&ldquo;出来，然后问：为什么没有五个龙叠在一起的字呢？哈哈，看来他是把汉字当做纯象形文字来学习了。于是就少不了著名的&rdquo;biangbiang面&rdquo;啦：</p>
-<p><img src="/images/uploads/biang.jpg" alt="" /></p>
-<p>最后教主也稍微回答了几个我们提前准备的疑问，其中一个是我问的关于 Perl6 是否会去支持直接开发安卓应用的问题，因为有 JVM 实现了嘛。教主意思是&rdquo;是的，理论上可以。不过实际上现在你要是写肯定会有问题跑不起来的，留作未来吧。&rdquo;另一个大家都很关心的问题是核心库的问题，一来是 Perl5 的核心库比起 Python 来说少很多，二来是 Perl6 的 Rakudo Star 也要面临这这个第三方模块打包问题了，大家都想知道核心库是怎么选择的，为什么只选择这么多，未来 Perl6 会怎么选？不过教主回答说，核心库这个概念就不该有。语言设计和开发者做好核心，第三方库是发行版的打包者去选择的事情。回答很出乎意料之外，不过想想教主对 Perl6 只写启示录，留给别人做出多种实现，思路似乎是一脉相承的吧。</p>
-<p>接着是我们几个人的小分享，本着活泼有趣的原则，都没有讲什么严肃的话题。我讲的是如何操作微博的 API。</p>
-<p>最后的互动，教主让大家都说说自己是怎么开始写 Perl 的。一圈说下来起因还是蛮多的。</p>
-<p>然后又是签名合影环节。不过这次我就没再去凑热闹了，教主很口耐的估计学每个合影的人的动作搞&rdquo;镜像&rdquo;~哈哈</p>
-<p><img src="/images/uploads/signtool.jpg" alt="签名必备的印章" /></p>
-<p>最后照全家福，大家一起说好不喊茄子喊Wall~~</p>
-<p><img src="/images/uploads/quanjiafu.jpg" alt="all" /></p>
       <a href="/2014/04/07/perlchina-mini-workshop-with-larry-wall" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -626,9 +190,9 @@ tcpdump: listening on p5p1, link-type EN10MB (Ethernet), capture size 65535 byte
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/03/30/qcloud-tech" title="腾讯云技术沙龙笔记" rel="bookmark">腾讯云技术沙龙笔记</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-03-30 00:00:00 +0800">30 Mar 2014</abbr>
@@ -640,81 +204,6 @@ tcpdump: listening on p5p1, link-type EN10MB (Ethernet), capture size 65535 byte
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>昨天去车库咖啡听了 InfoQ 办的腾讯云图技术沙龙，今天又听了 CSDN 办的开源技术大会上腾讯云的宣讲(没错，就是那个发明了&rdquo;内部开源&rdquo;概念的意思)，总的来说，幸亏去了昨天的！</p>
-<p>沙龙包括三个主题：</p>
-<h1 id="section">手机推送服务</h1>
-<p>手机推送其实是一个很难有亮点的服务，我之前试用过免费的 JPush 极光推送服务，应该说大家都差不多——引用SDK，通过 RESTful 接口或者网页后台发布通知。</p>
-<p>从业务上说，腾讯云提出一个精准投放的推送概念。
-这其实跟后面的多维度数据是联系在一起的，腾讯因为本身(可怕)的数据收集能力，可以很容易的区分几个基础维度——年龄、性别、地域。
-(今天午饭跟<a href="http://weibo.com/turingbook">@刘江总编</a>在一起，他谈到CSDN如何跟技术社区、出版社一起做技术书籍时，提到类似问题，CSDN 上也有千万级的用户，但是怎么高质量的做推荐才不透支信誉或者徒劳无功呢？)</p>
-<p>不过在技术周边介绍中，还是聊到了腾讯的 L5 里的技术点，在这记录一下：</p>
-<p>起因是说到<strong>服务扩容，新服务器上线时会自动根据响应质量动态调整其在集群中的权重</strong>。</p>
-<p>这里我跟<a href="http://weibo.com/liucy1983">@liu点cy</a>、<a href="http://weibo.com/opendoc">@守住每一天</a>先后猜测并推论了几种在 Nginx 的 upstream 上的实现方式及相关技术。</p>
-<ul>
-  <li><a href="https://github.com/yzprofile/ngx_http_dyups_module">ngx_dyups_module</a></li>
-  <li><a href="https://github.com/agentzh/lua-upstream-nginx-module">ngx_lua_upstream_module</a></li>
-  <li><a href="http://www.centurylinklabs.com/auto-loadbalancing-with-fig-haproxy-and-serf/">Serf + Shell + Haproxy</a></li>
-</ul>
-<p>不过这几种方案一般常见的用途都是上下线而不是权重调整(另一个需要注意的就是在线修改upstream不会同步到nginx.conf文本文件里)。</p>
-<p>那么就涉及到下一步问题：<strong>怎么评定响应质量</strong>？</p>
-<p>Nginx 里是有个 <a href="https://github.com/cep21/healthcheck_nginx_upstreams">HealthCheck</a> 模块，不过还很基础。
-于是联想到 LVS 项目中的调度算法，常见的RR、LC、LBLC和LBLCR，少见的还有NQ、SED。这都算是根据 RS 的情况智能调整流量导向。</p>
-<p>后来跟讲师交流，稍微了解到了 L5 内部的一点信息。</p>
-<ol>
-  <li>流量到应用服务之前会经过两层调度(暂称为DNS agent和local agent)；</li>
-  <li>DNS agent 负责多个 local agent 之间的流量调度；</li>
-  <li>local agent 只负责本组(原话是本机)的应用服务的流量权重调整；</li>
-  <li>一个新服务器上线，首先要经过一次镜像流量的试运行，达到5个9后才正式上线；</li>
-  <li>local agent将收到的每秒10万个请求分配 1% 给新服务器，根据平均响应延时和成功率，判定是否合格，合格就继续加流量；</li>
-  <li>如果某个服务器被判定不合格了，比如低于5个9了，也并不是直接剔除，而是减流量；除非直接成功率只有85%这样，那就是直接踢。</li>
-</ol>
-<p>从流程里&rdquo;本机&rdquo;还是&rdquo;本组&rdquo;的用词，很容易让我联想到类似 docker 或者说 PAAS 平台的做法。
-我个人猜测确实有可能就是一组服务器，但是同时也是在一台真实主机上的多个容器。</p>
-<p><em>这种做法应该适合业务运维尝试；CDN 方面，upstream 列表每次变动都会带来巨大的回源压力，反而是越少变动越好</em></p>
-<h1 id="section-1">多维度数据分析</h1>
-<p>前面提到了腾讯数据分析上最常用的几个维度就是年龄、性别和地域。但其实做数据挖掘维度是超级多的，讲师举了不少例子。</p>
-<p>从腾讯云的概念上来说，这个数据分析主要是几个层次。</p>
-<ol>
-  <li>基础的经过整理和运算得到的 TopView。这个应该就是 Hive 里的表，按照讲师所说，TopView 里有 30 个左右的维度。
-从交流来看，这个 Hive 表内容应该就是以 QQ 号为中心的用户行为数据。每天从原始数据里花点时间更新这个表。</li>
-  <li>选取需要的维度信息做 RollUp。也就是从 TopView 的30个维度数据中选取几个维度做统计分析。这个就是排列组合问题，挨个硬算了。</li>
-  <li>合作用户如果有自定义维度，并且勾选这个维度做统计分析，就要先退回到计算 TopView 这步，把自定义维度按照 TopView 的处理方式来做。</li>
-</ol>
-<p>因为对 Hadoop 的 Map/Reduce 稍有了解，也用过 Hive，所以这里的东西不算太难理解。
-其实整个重点是在如何用用户行为日志整理得到 TopView 这块，从讲师透露信息看，全腾讯的日志提前清洗过滤到一天只有几个 TB ，不到一百台的小集群几个小时就可以完成全部分析任务。但是这块属于纯 coding 问题，没什么太多可讲的。</p>
-<p>在边听演讲的时候我也边思考了一下如果这个问题用 Elasticsearch 做，会怎么样？</p>
-<p>由于ES不需要定义 schema，所以类似 TopView 整理这段应该更轻松一些；
-RollUp 计算就是写 <a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html">bool query</a>。
-这个效率如何我不太了解。</p>
-<p>(今天的会场上有介绍腾讯大数据平台的，应该跟这个多维度分析不是一个平台，今天的讲师说到他们的平台除了Hadoop这套还用到了pgsql)</p>
-<h1 id="section-2">移动动态加速</h1>
-<p>这一部分是个人比较关心的部分。移动来源占比越来越大，移动网络质量却一如既往的复杂和烂。如何有效提高移动访问质量现在也是大家都关心的问题，本周网宿也刚发布了他们的私有协议加速产品。</p>
-<p>腾讯的做法是也提供了 SDK，但本质上没有做完全的私有协议优化而是尽量利用可靠的自建私有网络，软件的部分应该是今天宣布开源了，地址在：<a href="https://code.csdn.net/Tencent/mna">https://code.csdn.net/Tencent/mna</a>。</p>
-<p>SDK 的主要工作流程如下：</p>
-<ol>
-  <li>APP 初次运行，正常访问流程的同时，调用 SDK 开始运作；</li>
-  <li>SDK 内置有 3 个主要运营商一共 9 个默认 ANS(应该是 application name service 的意思吧)的 IP 地址，同时向这 9 个地址发送 HTTP 请求；
-请求内容包括应用使用的域名、 SDK 获取到的本机 IP 和接入运营商(后二者如果获取不到，其实 ANS 通过 HTTP 本身也没问题)；</li>
-  <li>ANS 根据请求，返回尽量近的 OC、RS 和 TEST 三个 IP 地址信息；</li>
-  <li>SDK 根据最快返回的那个 ANS 的响应结果，开始并发测试本机到 OC 和 TEST 地址的链路情况；
-其中，OC 应该是跟 SDK 地址在同省同运营商，并且是负载最低的；TEST 应该是跟 RS 在同机房，作为 RS 的替身来参加链路测试工作；</li>
-  <li>如果 TEST 测试结果占优，那 APP 继续直连 RS，走正常访问流程就可以了；
-如果 OC 测试结果占优，那么 APP 之后的请求，将改为发往 OC 的地址，由 OC 转发给 RS；</li>
-  <li>在 APP 运行过程中，链路测试是定时每十分钟做一次；当然类似推送这样的长连接服务，不会因为链路测试结果切换而被主动断开。</li>
-</ol>
-<p>OC 方面的主要工作包括：</p>
-<h3 id="tcp-">TCP 代理</h3>
-<ul>
-  <li>TCP 代理就是 sock5 代理。不过针对移动环境做了一些优化，去除了sock5里的一些验证算法；</li>
-  <li>在 TCP 方面，去掉了 nagle 算法，也就是打开了 TCP_NODELAY 参数。
-nagle 算法本身是做小包合大包，提高传输效率的；不过在移动环境下，某个包的丢失或者延迟是个很常态的情况，而 nagle 算法中一个包延迟，所有包都要等在后面的情况就会被放大了，所以打开 TCP_NODELAY 应该可以避免这个情况(个人尚未测试验证过，或许可以相信腾讯)。</li>
-</ul>
-<h3 id="http-">HTTP 代理</h3>
-<p>没细说，应该就是 squid 或者 nginx 之类的。</p>
-<h3 id="section-3">集群层面</h3>
-<p>每个机房都做了集群，通过 VIP 统一发布。这方面跟<a href="http://weibo.com/opendoc">@守住每一天</a>浅聊了一下通过 MPLS 协议实现 Anycast 来在多机房间维护统一的 VIP。不过看起来大家系统运维跟精通 BGP 的网络专家联系都比较远，这方面还处于有所耳闻的状态。</p>
-<p>最后还有一个小问题，就是上面我们看到过好几处，提到&rdquo;并发&rdquo;、&rdquo;同时&rdquo;这样的字眼，于是当时产生一个疑问：<em>“三个演讲中，都反复强调为了手机省电我们做了这做了那的，为什么为了优化级别的测试工作，却这么频繁和高密度的做并发请求呢？比如 ANS 请求，我只给本运营商的2个ip发请求也可以接受啊？”</em></p>
-<p>这个问题正好被旁边围观的另一位听众解答了：手机内的 3G 通信模块，一次大批量的数据发送跟几次小批量的数据发送相比其实更省电。</p>
-<p>讲师则从实际效果角度证明，目前的频率和策略，从使用上看，确实看不出来对电量的影响。</p>
       <a href="/2014/03/30/qcloud-tech" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -722,9 +211,9 @@ nagle 算法本身是做小包合大包，提高传输效率的；不过在移�
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/03/10/source-filter-in-perl5" title="Perl5 的 Source Filter 功能" rel="bookmark">Perl5 的 Source Filter 功能</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-03-10 00:00:00 +0800">10 Mar 2014</abbr>
@@ -736,37 +225,6 @@ nagle 算法本身是做小包合大包，提高传输效率的；不过在移�
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>去年在 <a href="https://github.com/stevan/p5-mop-redux">p5-mop-redux</a> 项目里看到他们在 Perl5 里实现了 Perl6 的面向对象设计的很多想法，尤其下面这段示例让人印象深刻：</p>
-<div class="highlight"><pre><code class="perl">    <span class="k">use</span> <span class="n">mop</span><span class="p">;</span>
-    <span class="n">class</span> <span class="n">Point</span> <span class="p">{</span>
-        <span class="n">has</span> <span class="nv">$</span><span class="err">!</span><span class="nv">x</span> <span class="n">is</span> <span class="n">ro</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-        <span class="n">has</span> <span class="nv">$</span><span class="err">!</span><span class="nv">y</span> <span class="n">is</span> <span class="n">ro</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-        <span class="n">method</span> <span class="n">clear</span> <span class="p">{</span>
-            <span class="p">(</span><span class="nv">$</span><span class="err">!</span><span class="nv">x</span><span class="p">,</span> <span class="nv">$</span><span class="err">!</span><span class="nv">y</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-    <span class="n">class</span> <span class="n">Point3D</span> <span class="n">extends</span> <span class="n">Point</span> <span class="p">{</span>
-        <span class="n">has</span> <span class="nv">$</span><span class="err">!</span><span class="nv">z</span> <span class="n">is</span> <span class="n">ro</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-        <span class="n">method</span> <span class="n">clear</span> <span class="p">{</span>
-            <span class="nv">$self</span><span class="o">-&gt;</span><span class="k">next</span><span class="o">::</span><span class="n">method</span><span class="p">;</span>
-            <span class="nv">$</span><span class="err">!</span><span class="nv">z</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-    <span class="k">my</span> <span class="nv">$p</span> <span class="o">=</span> <span class="n">Point3D</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="n">x</span> <span class="o">=&gt;</span> <span class="mi">4</span><span class="p">,</span> <span class="n">y</span> <span class="o">=&gt;</span> <span class="mi">2</span><span class="p">,</span> <span class="n">z</span> <span class="o">=&gt;</span> <span class="mi">8</span><span class="p">);</span>
-    <span class="nb">printf</span><span class="p">(</span><span class="s">&quot;x: %d, y: %d, z: %d\n&quot;</span><span class="p">,</span> <span class="nv">$p</span><span class="o">-&gt;</span><span class="n">x</span><span class="p">,</span> <span class="nv">$p</span><span class="o">-&gt;</span><span class="n">y</span><span class="p">,</span> <span class="nv">$p</span><span class="o">-&gt;</span><span class="n">z</span><span class="p">);</span>
-</code></pre></div>
-<p>这种 <code>$!x</code> 的变量是怎么实现的？最近几天，又在 CPAN 上看到另一个模块叫 <a href="https://metacpan.org/pod/Perl6::Attributes">Perl6::Attributes</a>，实现了类似的语法。于是点进去一看，实现原来如此简单！</p>
-<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="nn">Perl6::</span><span class="n">Attributes</span><span class="p">;</span>
-<span class="k">use</span> <span class="mf">5.006001</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="nb">no</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">our</span> <span class="nv">$VERSION</span> <span class="o">=</span> <span class="s">&#39;0.04&#39;</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Filter::</span><span class="n">Simple</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="sr">s/([\$@%&amp;])\.(\w+)/</span>
-<span class="sr">        $1 eq &#39;$&#39; ? &quot;\$self-&gt;{&#39;$2&#39;}&quot; : &quot;$1\{\$self-&gt;{&#39;$2&#39;}\}&quot;/ge</span><span class="p">;</span>
-    <span class="sr">s[\./(\w+)][\$self-&gt;$1]g</span><span class="p">;</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>原来这里用到了 Perl5.7.1 以后提供的一个新特性，叫做 <a href="https://metacpan.org/pod/distribution/Filter/perlfilter.pod">Source Filters</a> 。在解释器把 file 变成 parser 的时候加一层 filter。</p>
       <a href="/2014/03/10/source-filter-in-perl5" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -774,9 +232,9 @@ nagle 算法本身是做小包合大包，提高传输效率的；不过在移�
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/03/09/thoughts-after-docker-meetup" title="Docker Meetup 参会总结" rel="bookmark">Docker Meetup 参会总结</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-03-09 00:00:00 +0800">09 Mar 2014</abbr>
@@ -788,48 +246,6 @@ nagle 算法本身是做小包合大包，提高传输效率的；不过在移�
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>昨天去车库咖啡参加了 Docker Meetup，一共有三位做了分享。</p>
-<p>第一位主要演示用法，这个基本都了解；
-第二位描述了一下相关生态圈，我自认算是对DevOps工具和动态了解比较多的人了，听完后对这位自称10年前作为运维的Rails开发者不得不说个佩服，知道的真广泛；
-第三位是BAE的技术负责人，很诚恳的介绍了自己是怎么从一抹黑的环境开始摸索着搞 PAAS 平台的，波折的选型中一些想法和顾虑也都很坦白。</p>
-<p>问答聊天过程中，大家主要纠结两个疑难：</p>
-<ol>
-  <li>docker 和 puppet 会是什么关系？</li>
-  <li>docker 和 kvm 会是什么关系？</li>
-</ol>
-<p>这里我个人也稍微写几句我的想法：</p>
-<h1 id="docker--puppet">docker 和 puppet</h1>
-<p>docker 无疑是一种非常干净的大规模部署方案。而 puppet 本质是一个配置管理工具（官网说法是通过简洁易懂的DSL描述服务器配置），注意：<strong>这里并没有提到是大规模部署</strong>，事实上 puppet 自己就有好几种完全不同架构设计的部署运行方式。</p>
-<p>所以，从概念定义上来说，我不觉得这两者会是一个替代关系。</p>
-<p>那么，puppet 目前的用法，如何跟 docker 一起工作呢？从当前技术点上来说有两个不适应：</p>
-<ol>
-  <li>
-    <p>puppet 非常强大的一件事情是 template 系统和 Facts 变量配合达到的灵活性。但是<strong>在 docker 容器里，Facts 变量是不可信的！</strong>
-刚才测试了一下，以 <code>docker -m 56m run ubuntu facter | grep memorysize</code> 得到的结果是主机原始大小512m。所以，我们原先习惯的通过 Facts 变量来自动生成最佳配置的方法失效了。
-事实上， docker 官博上关于 metrics 的获取有好几篇文章，也都很明确是从主机上来获取而不是容器内部。</p>
-  </li>
-  <li>
-    <p>puppet 的通用运行方式，是 agent 和 master 通过 SSL 加密交互，根据 agent 的 hostname 来查询对应配置。但是目前的 docker 里，hostname 设置(<code>docker run -h</code> 参数)是只对容器内部生效的，在容器外部显然无法通过 DNS 反查。
-以 docker 的愿景，一台主机上就应该运行几百个容器，在某个 master 里维护 hosts 列表显然不现实。
-而且从目前看， docker 对容器间更偏向采用 IP 的方式。比如 <code>-link</code> 设置的主机，就是在环境变量里提供对方主机 IP。</p>
-  </li>
-</ol>
-<p>这两个问题可能更多的不是从技术方面来追求解决它，而是在用法上规避它或者说无视它。</p>
-<p>首先，要习惯横向扩展而不是单机提升。
-应用压力上来了，第一反应不是“申请提高容器的 memory 限额”这样，而是“再开两个完全一样的容器加入负载均衡”。这就是 fip 工具提供 <code>fip scale web=2</code>这种命令的场景吧。
-这样就规避了 Facts 变量的问题，反正你只会有一种系统一种配置文件，压根用不上异构和模板技术。</p>
-<p>其次，从 Vagrant 的 provision 里学用法。
-目前 Dockerfile 的 <code>RUN</code> 指令其实很类似 Vagrant 的 provision 中的 shell 实现。而 Vagrant 的 provision 实现还包括 puppet、chef等等。所以我们或许能琢磨一种替代 RUN 的优雅的 docker 镜像构建方式。
-比如 <a href="http://librarian-puppet.com/">puppet-librarian</a> 的做法或许就是一个思路。Dockerfile 里 只需要 <code>ADD</code> 一个 Puppetfile，然后 <code>RUN</code> 一个 librarian-puppet 命令完成容器内一切配置。</p>
-<h1 id="docker--kvm">docker 和 kvm</h1>
-<p>前面提到了 docker 中系统性能数据的采集问题。这或许就是容器和虚拟化一个差别问题，即便未来大家越来越普遍采购 ops 产品而不是自己搭建监控系统，也不会完全放心的认可主机提供商的系统性能数据，至少也还有一个核算和度量问题。</p>
-<p>此外，容器目前比较普遍的一个用法，是一个容器里只跑一个业务进程。一个完整的业务系统的每个部分，都通过分散的各种服务相互走 API 来调用。迁移到这种环境，对传统业务显然是有重构压力的。而 kvm 虚拟机则基本没有这个问题。
-当然，最近也已经看到文章在讨论单个 docker 容器里运行多个不同业务进程的问题。这方面，如果 docker 真有心往替代 kvm 努力，除了网络方面的硬技术外，这个 PAAS 层已经养成的思维逻辑也需要改变。</p>
-<p>OK，说到网络问题。目前 docker 的运用，通过 <code>-link</code> 来连接，或者通过 etcd、serf 这类工具来获取想要连接的其他服务器的 IP，都是一种在相同主机上的应用。
-看 <code>pipework</code> 和相关文章，似乎 <code>openswitch</code> 也只是做单个宿主机之上的 VLAN 划分管理？ SDN 到底是怎么回事，我现在还完全不了解。</p>
-<p>PAAS 层的另一个习惯用法，在第三个演讲中也提到，就是一般对程序的任何更新，都是重新创建一个新容器，然后在中控转发里转移流量导向，然后删除原有容器。这个和现有 kvm 云主机的玩法也是不一样的。
-现在还不好评价哪种做法更优。不过个人有个疑惑： BAE 既然试图做到像 kvm 虚拟机一样，对一个用户长期锁定一个 docker 容器使用而不是随着更新开关新容器，那么整个平台上容器的创建删除频率就大大降低了，针对每个用户，整个生命周期里就只有一次初创建，那么他们为什么同时又还在纠结于容器创建和删除的速度太慢，要在 5s 内完成呢？</p>
-<p><strong>附</strong></p>
-<p>提到的从 warden 学来的 wsh 听起来蛮有趣～</p>
       <a href="/2014/03/09/thoughts-after-docker-meetup" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -837,9 +253,9 @@ nagle 算法本身是做小包合大包，提高传输效率的；不过在移�
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/03/07/howto-search-dynamic-url-in-elasticsearch" title="如何搜索 Elasticsearch 中存储的动态请求 URL" rel="bookmark">如何搜索 Elasticsearch 中存储的动态请求 URL</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-03-07 00:00:00 +0800">07 Mar 2014</abbr>
@@ -851,37 +267,6 @@ nagle 算法本身是做小包合大包，提高传输效率的；不过在移�
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>当我们用 logstash 处理 WEB 服务器访问日志的时候，肯定就涉及到一个后期查询的问题。</p>
-<p>可能一般我们在 Kibana 上更多的是针对响应时间做数值统计，针对来源IP、域名或者客户端情况做分组统计。但是如果碰到这么个问题的时候呢——<strong>过滤所有动态请求的响应时间</strong>。</p>
-<p>这时候你可能会发现一个问题：我们肯定都是用 URL 里带有问号? 来作为过滤条件。但是实际是 Kibana 里一条数据都过滤不出来。</p>
-<p>于是我开测试库模拟了一下：</p>
-<div class="highlight"><pre><code class="bash"><span class="c"># 插入两条数据</span>
-curl http://localhost:9200/test/log/1 -d <span class="s1">&#39;{&quot;url&quot;:&quot;http://locahost/index.html&quot;}&#39;</span>
-curl http://localhost:9200/test/log/2 -d <span class="s1">&#39;{&quot;url&quot;:&quot;http://locahost/index.php?key=value&quot;}&#39;</span>
-<span class="c"># 搜索显示全部数据</span>
-curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span>1 -d <span class="s1">&#39;{&quot;query&quot;:{&quot;regexp&quot;:{&quot;url&quot;:{&quot;value&quot;:&quot;.*&quot;}}}}&#39;</span>
-<span class="c"># 搜索返回请求格式解析失败</span>
-curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span>1 -d <span class="s1">&#39;{&quot;query&quot;:{&quot;regexp&quot;:{&quot;url&quot;:{&quot;value&quot;:&quot;\?.*&quot;}}}}&#39;</span>
-<span class="c"># 搜索返回空数据</span>
-curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span>1 -d <span class="s1">&#39;{&quot;query&quot;:{&quot;regexp&quot;:{&quot;url&quot;:{&quot;value&quot;:&quot;.*\\?.*&quot;}}}}&#39;</span>
-</code></pre></div>
-<p>后来发现问题出在分词上面。</p>
-<div class="highlight"><pre><code class="bash"><span class="c"># 删除之前的测试数据和索引</span>
-curl -XDELETE http://localhost:9200/test/log
-<span class="c"># 预定义索引类型的映射，url字段在索引的时候不分词</span>
-curl http://localhost:9200/test/log/_mapping -d <span class="s1">&#39;{&quot;log&quot;:{&quot;properties&quot;:{&quot;url&quot;:{&quot;index&quot;:&quot;not_analyzed&quot;,&quot;type&quot;:&quot;string&quot;}}}}&#39;</span>
-<span class="c"># 还是插入两条数据</span>
-curl http://localhost:9200/test/log/1 -d <span class="s1">&#39;{&quot;url&quot;:&quot;http://locahost/index.html&quot;}&#39;</span>
-curl http://localhost:9200/test/log/2 -d <span class="s1">&#39;{&quot;url&quot;:&quot;http://locahost/index.php?key=value&quot;}&#39;</span>
-<span class="c"># 同样的搜索请求，返回了一条结果(index.php?这条)</span>
-curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span>1 -d <span class="s1">&#39;{&quot;query&quot;:{&quot;regexp&quot;:{&quot;url&quot;:{&quot;value&quot;:&quot;.*\\?.*&quot;}}}}&#39;</span>
-</code></pre></div>
-<p>上面这个搜索还可以简写成 Query DSL 的样式：</p>
-<p><code>
-curl 'http://localhost:9200/test/log/_search?q=url:/.*\\?.*/&amp;pretty=1'
-</code></p>
-<p>而在 Logstash 比较新的 1.3.3 版本之后，有自带的 template 定义，会对每个 fields 采用 <a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/_multi_fields.html">multi-fields</a> 特性，也就是除了默认分词的 <code>URL</code> 字段以外，还有一个 <code>URL.raw</code> 字段都是不分词的。所以只要过滤这个字段就可以了。</p>
-<p>(<em>注意，ES1.0版的multi-fields的template写法完全不一样了，所以要用这个特性的童鞋还是谨慎测试logstash和es的版本配套</em>)</p>
-<p>Medcl 大神提示我：<strong>不指定 mapping 的情况下，ES 默认采用 unigram 分词</strong>。也就是切成尽可能小的单词。</p>
       <a href="/2014/03/07/howto-search-dynamic-url-in-elasticsearch" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -889,9 +274,9 @@ curl 'http://localhost:9200/test/log/_search?q=url:/.*\\?.*/&amp;pretty=1'
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/03/07/genarate-fig-from-diagramo" title="转换 diagramo 绘制的拓扑图成 fig.yml 格式" rel="bookmark">转换 diagramo 绘制的拓扑图成 fig.yml 格式</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-03-07 00:00:00 +0800">07 Mar 2014</abbr>
@@ -903,77 +288,6 @@ curl 'http://localhost:9200/test/log/_search?q=url:/.*\\?.*/&amp;pretty=1'
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>前几天在微博上跟 <a href="http://weibo.com/panjunyong">@易度-潘俊勇</a> 在评论里提到，已经有了 <a href="http://orchardup.github.io/fig/">Fig</a> 工具可以通过写一个 <code>fig.yml</code> 来快速定义主机上各 docker 容器的配置和角色。如果再进一步，可以通过绘图的方式，直接拖拽生成整个 docker 集群，那就更好了。</p>
-<blockquote>
-  <p>这个FIG挺有趣的，我自己写了一个类似的脚本。
-不过我觉得终极的解决方案是画个关系图，就配置好了。
-这个图的存储形式应该就是这个FIG，或者FIG可以转换为图。然后又可以转换为systemd的配置文件。</p>
-</blockquote>
-<p>画关系图，桌面上肯定是 visio，visio保存成 XML 后分析 XML 就可以了。不过 visio 本身也算笨重的了，如果可以在浏览器中完成这个工作，才算够 cool！</p>
-<p>网页上的 visio 已经有些产品，不过有名的几个都是有限免费试用的。好在找到一个叫做 <a href="http://diagramo.com">diagramo</a> 的项目，虽然提供的元素图表不多，但是也够用了。</p>
-<p>下载源码包，在 LAMP/LEMP 环境下就直接跑起来，首次访问会要求注册一个用户名。环境配置中有一点必须重点点出来的：</p>
-<p><strong>Apache/Nginx 上配置的 <code>server_name</code> 必须跟你浏览器访问的完全一致</strong></p>
-<p>我曾经因为测试，所以写了个 localhost 做 server_name，然后用服务器 IP 地址来访问页面，结果在绘图完成保存的时候会出错！<strong>因为这是一个 HTML5 项目，保存这步是调用的 <code>canvas.toDataURL()</code> 函数，这个函数有强制性安全限定，以保证调用这个函数的页面，跟生成的图片路径必须是同一个域名！否则跨域抓图太方便了。</strong></p>
-<p>(写到这里感慨一下，chrome的调试工具不会用，这问题最后还是在 IE开发者工具的帮助下发现的 ==！)</p>
-<p>然后就可以画关系图了，比如下图这样：</p>
-<p><img src="/images/uploads/dia.png" alt="sample of diagramo" /></p>
-<p>点击保存后，就会在服务器上的 <code>$document_root/editor/data/diagrams</code> 目录下生成对应的 <code>.dia</code> 和 <code>.png</code> 文件。这个所谓的 <code>.dia</code> 文件，其实内容就是 JSON数据。下面我们只要抽取 JSON 里有关的数据就可以了：</p>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">File::</span><span class="n">Slurp</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">JSON</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">YAML</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Test::Deep::</span><span class="n">NoTest</span><span class="p">;</span>
-<span class="k">use</span> <span class="mf">5.010</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$hash</span> <span class="o">=</span> <span class="n">from_json</span><span class="p">(</span> <span class="n">read_file</span><span class="p">(</span> <span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">)</span> <span class="p">);</span>
-<span class="k">my</span> <span class="nv">$hostinfo</span><span class="p">;</span>
-<span class="k">for</span> <span class="k">my</span> <span class="nv">$host</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">s</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">figures</span><span class="p">}</span> <span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-    <span class="nv">$hostinfo</span><span class="o">-&gt;</span><span class="p">{</span> <span class="nv">$host</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">id</span><span class="p">}</span> <span class="p">}</span> <span class="o">=</span> <span class="n">Load</span><span class="p">(</span> <span class="nv">$host</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">primitives</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">str</span><span class="p">}</span> <span class="p">);</span>
-<span class="p">}</span>
-<span class="k">for</span> <span class="k">my</span> <span class="nv">$conn</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">m</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">connectors</span><span class="p">}</span> <span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$connid</span> <span class="o">=</span> <span class="nv">$conn</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">id</span><span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$start</span>  <span class="o">=</span> <span class="nv">$conn</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">turningPoints</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
-    <span class="k">my</span> <span class="nv">$end</span>    <span class="o">=</span> <span class="nv">$conn</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">turningPoints</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nv">$conn</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">endStyle</span><span class="p">}</span> <span class="ow">eq</span> <span class="s">&#39;Normal&#39;</span> <span class="ow">and</span> <span class="nv">$conn</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">startStyle</span><span class="p">}</span> <span class="ow">eq</span> <span class="s">&#39;Arrow&#39;</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="p">(</span> <span class="nv">$start</span><span class="p">,</span> <span class="nv">$end</span> <span class="p">)</span> <span class="o">=</span> <span class="p">(</span> <span class="nv">$end</span><span class="p">,</span> <span class="nv">$start</span> <span class="p">);</span>
-    <span class="p">}</span>
-    <span class="k">my</span> <span class="p">(</span> <span class="nv">$startid</span><span class="p">,</span> <span class="nv">$endid</span> <span class="p">);</span>
-    <span class="k">for</span> <span class="k">my</span> <span class="nv">$point</span> <span class="p">(</span> <span class="nv">@</span><span class="p">{</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">m</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">connectionPoints</span><span class="p">}</span> <span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="k">if</span> <span class="p">(</span>    <span class="n">eq_deeply</span><span class="p">(</span> <span class="nv">$point</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">point</span><span class="p">},</span> <span class="nv">$start</span> <span class="p">)</span>
-            <span class="ow">and</span> <span class="nv">$point</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">parentId</span><span class="p">}</span> <span class="o">!=</span> <span class="nv">$connid</span>
-            <span class="ow">and</span> <span class="nb">exists</span> <span class="nv">$hostinfo</span><span class="o">-&gt;</span><span class="p">{</span> <span class="nv">$point</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">parentId</span><span class="p">}</span> <span class="p">}</span> <span class="p">)</span>
-        <span class="p">{</span>
-            <span class="nv">$startid</span> <span class="o">=</span> <span class="nv">$point</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">parentId</span><span class="p">};</span>
-        <span class="p">}</span>
-        <span class="k">elsif</span> <span class="p">(</span> <span class="n">eq_deeply</span><span class="p">(</span> <span class="nv">$point</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">point</span><span class="p">},</span> <span class="nv">$end</span> <span class="p">)</span>
-            <span class="ow">and</span> <span class="nv">$point</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">parentId</span><span class="p">}</span> <span class="o">!=</span> <span class="nv">$connid</span>
-            <span class="ow">and</span> <span class="nb">exists</span> <span class="nv">$hostinfo</span><span class="o">-&gt;</span><span class="p">{</span> <span class="nv">$point</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">parentId</span><span class="p">}</span> <span class="p">}</span> <span class="p">)</span>
-        <span class="p">{</span>
-            <span class="nv">$endid</span> <span class="o">=</span> <span class="nv">$point</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">parentId</span><span class="p">};</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$startname</span><span class="p">)</span> <span class="o">=</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span> <span class="nv">$hostinfo</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$startid</span><span class="p">}</span> <span class="p">};</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$endname</span><span class="p">)</span> <span class="o">=</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span> <span class="nv">$hostinfo</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$endid</span><span class="p">}</span> <span class="p">};</span>
-    <span class="nb">push</span> <span class="nv">@</span><span class="p">{</span> <span class="nv">$hostinfo</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$startid</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$startname</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nb">link</span><span class="p">}</span> <span class="p">},</span> <span class="nv">$endname</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="n">say</span> <span class="n">Dump</span> <span class="p">{</span> <span class="nb">map</span> <span class="p">{</span> <span class="k">my</span> <span class="p">(</span><span class="nv">$k</span><span class="p">)</span> <span class="o">=</span> <span class="nb">keys</span> <span class="nv">$_</span><span class="p">;</span> <span class="nv">$k</span> <span class="o">=&gt;</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$y</span><span class="p">}</span> <span class="p">}</span> <span class="nb">values</span> <span class="nv">$hostinfo</span><span class="p">};</span>
-</code></pre></div>
-<p>生成的 <code>fig.yml</code> 如下：</p>
-<div class="highlight"><pre><code class="yaml"><span class="nn">---</span>
-<span class="l-Scalar-Plain">Haproxy</span><span class="p-Indicator">:</span>
-  <span class="l-Scalar-Plain">link</span><span class="p-Indicator">:</span>
-   <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">Serf</span>
-<span class="l-Scalar-Plain">Nginx1</span><span class="p-Indicator">:</span>
-  <span class="l-Scalar-Plain">link</span><span class="p-Indicator">:</span>
-   <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">Serf</span>
-<span class="l-Scalar-Plain">Serf</span><span class="p-Indicator">:</span>
-<span class="l-Scalar-Plain">Nginx2</span><span class="p-Indicator">:</span>
-  <span class="l-Scalar-Plain">link</span><span class="p-Indicator">:</span>
-   <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">Serf</span>
-<span class="l-Scalar-Plain">MySQL</span><span class="p-Indicator">:</span>
-  <span class="l-Scalar-Plain">link</span><span class="p-Indicator">:</span>
-   <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">Serf</span>
-</code></pre></div>
-<p>只是根据关系图生成了 link，其他配置都在图里的 Text 里照样写 yaml 格式，会自动带入。当然，示例另一个意思是：大家尽量都只 link 像 serf/etcd 这样的服务自动发现服务器。在 docker 层面就简洁明了。</p>
       <a href="/2014/03/07/genarate-fig-from-diagramo" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -981,9 +295,9 @@ curl 'http://localhost:9200/test/log/_search?q=url:/.*\\?.*/&amp;pretty=1'
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/02/20/gearman-task-priority" title="Gearman 任务的优先级" rel="bookmark">Gearman 任务的优先级</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-02-20 00:00:00 +0800">20 Feb 2014</abbr>
@@ -995,51 +309,6 @@ curl 'http://localhost:9200/test/log/_search?q=url:/.*\\?.*/&amp;pretty=1'
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>今天同事跟我说 Gearman 客户端添加任务的时候似乎设置优先级没有效果，于是去实现了一下，发现 Gearman 的任务优先级只有在任务本身属性完全一致的时候才能起到作用。比如说：新提交的 background 任务优先级虽然是 high，也不会在已经提交的<em>非</em> background、优先级是 low 的任务之前执行。</p>
-<p>考虑到之前没用过优先级，这里贴一下测试代码当做笔记：</p>
-<h1 id="worker">worker</h1>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="n">Worker</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$worker</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">Gearman::XS::</span><span class="n">Worker</span><span class="p">;</span>
-<span class="k">my</span> <span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;10.4.1.21&#39;</span><span class="p">,</span> <span class="mi">4730</span><span class="p">);</span> 
-<span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">add_server</span><span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">add_function</span><span class="p">(</span><span class="s">&quot;reverse&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">\&amp;</span><span class="nb">reverse</span><span class="p">,</span> <span class="nv">$options</span><span class="p">);</span>
-<span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
-  <span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">work</span><span class="p">();</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">reverse</span> <span class="p">{</span>
-  <span class="k">my</span> <span class="nv">$job</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-  <span class="k">my</span> <span class="nv">$workload</span> <span class="o">=</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">workload</span><span class="p">();</span>
-  <span class="k">my</span> <span class="nv">$result</span>   <span class="o">=</span> <span class="nv">$workload</span><span class="p">;</span>
-  <span class="nb">printf</span><span class="p">(</span><span class="s">&quot;Job=%s Function_Name=%s Workload=%s Result=%s\n&quot;</span><span class="p">,</span>
-          <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">handle</span><span class="p">(),</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">function_name</span><span class="p">(),</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">workload</span><span class="p">(),</span> <span class="nv">$result</span><span class="p">);</span>
-  <span class="nb">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>
-  <span class="k">return</span> <span class="nv">$result</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div>
-<h1 id="client">client</h1>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="n">Client</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Time::</span><span class="n">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$client</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">Gearman::XS::</span><span class="n">Client</span><span class="p">;</span>
-<span class="k">my</span> <span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;10.4.1.21&#39;</span><span class="p">,</span> <span class="mi">4730</span><span class="p">);</span> 
-<span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">add_server</span><span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">);</span>
-<span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$ret</span><span class="p">,</span> <span class="nv">$job_handle</span><span class="p">)</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">do_background</span><span class="p">(</span><span class="s">&quot;reverse&quot;</span><span class="p">,</span> <span class="s">&#39;low&#39;</span><span class="o">.</span><span class="nb">time</span><span class="p">()</span> <span class="p">);</span>
-<span class="p">}</span> 
-</code></pre></div>
-<h1 id="high-client">high-client</h1>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="n">Client</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Time::</span><span class="n">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$client</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">Gearman::XS::</span><span class="n">Client</span><span class="p">;</span>
-<span class="k">my</span> <span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;10.4.1.21&#39;</span><span class="p">,</span> <span class="mi">4730</span><span class="p">);</span> 
-<span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">add_server</span><span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">);</span>
-<span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$ret</span><span class="p">,</span> <span class="nv">$job_handle</span><span class="p">)</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">do_high_background</span><span class="p">(</span><span class="s">&quot;reverse&quot;</span><span class="p">,</span> <span class="s">&#39;high&#39;</span><span class="o">.</span><span class="nb">time</span><span class="p">()</span> <span class="p">);</span>
-<span class="p">}</span> 
-</code></pre></div>
-<p>同时运行三个脚本，可以看到 worker 的输出，一直都是这样：</p>
-<p>Job=H:YZSJHL1-21.opi.com:29434227 Function_Name=reverse Workload=high:1392887687.87583 Result=high:1392887687.87583
-Job=H:YZSJHL1-21.opi.com:29434228 Function_Name=reverse Workload=high:1392887687.87594 Result=high:1392887687.87594
-Job=H:YZSJHL1-21.opi.com:29434229 Function_Name=reverse Workload=high:1392887687.87605 Result=high:1392887687.87605</p>
-<p>全都是高优先级的任务</p>
       <a href="/2014/02/20/gearman-task-priority" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1047,9 +316,9 @@ Job=H:YZSJHL1-21.opi.com:29434229 Function_Name=reverse Workload=high:1392887687
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/02/20/diff-between-lsddistid-and-operatingsystem-facts-variables" title="Facts 变量中 lsbdistid 和 operatingsystem 的区别" rel="bookmark">Facts 变量中 lsbdistid 和 operatingsystem 的区别</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-02-20 00:00:00 +0800">20 Feb 2014</abbr>
@@ -1060,15 +329,6 @@ Job=H:YZSJHL1-21.opi.com:29434229 Function_Name=reverse Workload=high:1392887687
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>Facts 变量是 puppet 里广泛使用的东西。在多种操作系统的混合环境中，通过 Facts 变量灵活定义不同的 package 名称、file 路径等应该是非常好用的办法。</p>
-<p>不过关于操作系统，存在两类 Facts 变量，分别是 <code>lsbdistid</code> 和 <code>operatingsystem</code>。一般情况下，这两者结果基本一致，大家(至少我周围是)习惯采用 <code>operatingsystem</code> 这个一目了然的变量。</p>
-<p>但是前两天发现有些机器的 puppet agent 运行失败，debug 后发现，居然是 <code>operatingsystem</code> 变量匹配不上！这台 CentOS 的服务器的 <code>operatingsystem</code> 结果是 OracleLinux！</p>
-<p>翻看这两个变量的获取代码，他们的获取办法并不一致。</p>
-<ul>
-  <li><code>lsbdistid</code> 是通过运行 <code>lsb_release -i -s</code> 命令获取的；</li>
-  <li><code>operatingsystem</code> 是通过一串超长的 if-elif-else 逻辑来判断的。恰好其中探测 <code>/etc/oracle-release</code> 是否存在的步骤优先于探测 <code>/etc/redhat-release</code> 的步骤。</li>
-</ul>
-<p>而这台服务器上，不知道怎么被人安装了一个 <code>oraclelinux-release-5-8.0.2</code> 的软件包，这个包里只有一个文件，就是 <code>/etc/oracle-release</code>！</p>
-<p>这个软件包怎么出现的可以慢慢追查，但是这件事情本身提醒我们，<code>operatingsystem</code> 变量的获取方式过于简单，这些文本文件稍有问题可能就会导致错误。所以在只有 Linux 类服务器的情况，还是尽量确保所有节点都安装有 <code>lsb_release</code> 命令然后使用 <code>lsbdistid</code> 变量吧。</p>
       <a href="/2014/02/20/diff-between-lsddistid-and-operatingsystem-facts-variables" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1076,9 +336,9 @@ Job=H:YZSJHL1-21.opi.com:29434229 Function_Name=reverse Workload=high:1392887687
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/02/19/ngx-accounting-to-logstash" title="用 logstash 统计 Nginx 的 http_accounting 模块输出" rel="bookmark">用 logstash 统计 Nginx 的 http_accounting 模块输出</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-02-19 00:00:00 +0800">19 Feb 2014</abbr>
@@ -1090,84 +350,6 @@ Job=H:YZSJHL1-21.opi.com:29434229 Function_Name=reverse Workload=high:1392887687
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>继续捡宝贝~</p>
-<p>http_accounting 是 Nginx 的一个第三方模块，会每隔5分钟自动统计 Nginx 所服务的流量，然后发送给 syslog。</p>
-<p>流量以 <code>accounting_id</code> 为标签来统计，这个标签可以设置在 <code>server {}</code> 级别，也可以设置在 <code>location /urlpath {}</code> 级别，非常灵活。
-统计的内容包括响应字节数，各种状态码的响应个数。</p>
-<p>公司原先是有一套基于 rrd 的<a href="https://github.com/Lax/ngx_http_accounting_module-utils">系统</a>，来收集处理这些 syslog 数据并作出预警判断、异常报警。不过今天不讨论这个，而是试图用最简单的方式，快速的搞定类似的中心平台。</p>
-<p>这里当然是 logstash 的最佳用武之地。</p>
-<p><code>logstash.conf</code> 示例如下：</p>
-<pre><code>input {
-    syslog {
-        port =&gt; 29124
-    }
-}
-filter {
-    grok {
-        match =&gt; [ "message", "^%{SYSLOGTIMESTAMP:timestamp}\|\| pid:\d+\|from:\d{10}\|to:\d{10}\|accounting_id:%{WORD:accounting}\|requests:%{NUMBER:req:int}\|bytes_out:%{NUMBER:size:int}\|(?:200:%{NUMBER:count.200:int}\|?)?(?:206:%{NUMBER:count.206:int}\|?)?(?:301:%{NUMBER:count.301:int}\|?)?(?:302:%{NUMBER:count.302:int}\|?)?(?:304:%{NUMBER:count.304:int}\|?)?(?:400:%{NUMBER:count.400:int}\|?)?(?:401:%{NUMBER:count.401:int}\|?)?(?:403:%{NUMBER:count.403:int}\|?)?(?:404:%{NUMBER:count.404:int}\|?)?(?:499:%{NUMBER:count.499:int}\|?)?(?:500:%{NUMBER:count.500:int}\|?)?(?:502:%{NUMBER:count.502:int}\|?)?(?:503:%{NUMBER:count.503:int}\|?)?"
-    }
-    date {
-        match =&gt; [ "timestamp", "MMM dd YYY HH:mm:ss", "MMM  d YYY HH:mm:ss", "ISO8601" ]
-    }
-}
-output {
-    elasticsearch {
-        embedded =&gt; true
-    }
-}
-</code></pre>
-<p>然后运行 <code>java -jar logstash-1.3.3-flatjar.jar agent -f logstash.conf</code> 即可完成收集入库！
-再运行 <code>java -jar logstash-1.3.3-flatjar.jar web</code> 即可在9292端口访问到 Kibana 界面。</p>
-<p>然后我们开始配置界面成自己需要的样子：</p>
-<ol>
-  <li>Top-N 的流量图</li>
-</ol>
-<p>点击 Query 搜索栏左边的有色圆点，弹出搜索栏配置框，默认是 <code>lucene</code> 搜索方式，改成 <code>topN</code> 搜索方式。然后填入分析字段为 accounting。</p>
-<p>点击 Event Over Time 柱状图右上角第二个的 <code>Configure</code> 小图标，弹出图表配置框：</p>
-<ul>
-  <li>在 <code>Panel</code> 选项卡中修改 <code>Chart value</code> 的 <code>count</code> 为 <code>total</code>，<code>Value Field</code> 设置为 size；</li>
-  <li>在 <code>Style</code> 选项卡中修改 <code>Chart Options</code> 的 <code>Bars</code> 勾选项为 <code>Lines</code>，<code>Y Format</code> 为 bytes；</li>
-  <li>在 <code>Queries</code> 选项卡中修改 <code>Charted Queries</code> 为 <code>selected</code>，然后点中右侧列出的请求中所需要的那项(当前只有一个，就是<code>*</code>)。</li>
-</ul>
-<p>保存退出配置框，即可看到该图表开始自动更新。</p>
-<ol>
-  <li>50x 错误的技术图</li>
-</ol>
-<p>点击 Query 搜索栏右边的 + 号，添加新的 Query 搜索栏，然后在新搜索栏里输入需要搜索的内容，比如 <code>count.500</code>；</p>
-<p>鼠标移动到流量图最左侧，会移出 Panel 快捷选项，点击最底下的 + 号选项添加新的 Panel：</p>
-<ul>
-  <li>选择 Panel 类型为 <code>histogram</code>；</li>
-  <li>选择 Queries 类型为 <code>selected</code>，然后点中右侧列出的请求中所需要的那项(现在出现两个了，选中我们刚添加的 <code>count.500</code>)。</li>
-</ul>
-<p>保存退出，即可看到新多出来一行，左侧三分之一(默认是span4，添加的时候可以选择)的位置有了一个柱状图。</p>
-<p>重复这个步骤，添加 502/503 的柱状图。</p>
-<ol>
-  <li>仪表盘设置存档</li>
-</ol>
-<p>页面右上角选择 <code>Save</code> 小图标保存即可。之后再上界面后，就可以点击右上角的 <code>Load</code> 小图标自动加载。</p>
-<p><img src="/images/uploads/logstash-ngx-accounting.png" alt="" /></p>
-<p>上面这个 grok 写的很难看，不过似乎也没有更好的办法～下一步会研究在这个基础上合并 skyline 预警。</p>
-<hr />
-<p>2014 年 5 月 10 日更新：</p>
-<p>在 <a href="http://logstash.net/docs/1.4.1/">logstash/docs</a> 上发现一个 filter 叫 kv，很适合这个场景，可以大大简化 grok 工作，新的 filter 配置如下：</p>
-<pre><code>filter {
-    grok {
-        match =&gt; [ "message", "^%{SYSLOGTIMESTAMP:timestamp}\|\| pid:\d+\|from:\d{10}\|to:\d{10}\|accounting_id:%{WORD:accounting}\|requests:%{NUMBER:req:int}\|bytes_out:%{NUMBER:size:int}\|%{DATA:status}"
-    }
-    kv {
-        target =&gt; "code"
-        source =&gt; "status"
-        field_split =&gt; "|"
-        value_split =&gt; ":"
-    }
-    ruby {
-        code =&gt; "n={};event['code'].each_pair{|x,y|n[x]=y.to_i};event['code']=n"
-    }
-    date {
-        match =&gt; [ "timestamp", "MMM dd YYY HH:mm:ss", "MMM  d YYY HH:mm:ss", "ISO8601" ]
-    }
-}
-</code></pre>
-<p>不晓得为什么 filter/mutate 不提供转换 Hash 的功能，所以只能把这行写在 filter/ruby 里面。kv 截出来的 value 默认都是字符串类型。</p>
       <a href="/2014/02/19/ngx-accounting-to-logstash" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1175,9 +357,9 @@ output {
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/02/18/diff-between-squid-ssd-and-ats-interim" title="squid-ssd方案和trafficserver的interim层的异同" rel="bookmark">squid-ssd方案和trafficserver的interim层的异同</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-02-18 00:00:00 +0800">18 Feb 2014</abbr>
@@ -1189,38 +371,6 @@ output {
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>最近重新捡起来两年前做的 cache 软件测试对比，把原先的 trafficserver 淘宝分支升级到了现在的社区主分支，主要区别就是配置文件里不再直接叫 <code>ssd.storage</code>，而是正规化的起了一个名字叫<code>interim cache layer</code>。</p>
-<p>运行结果和当初类似，SATA 盘的 ioutil% 依然是远高于鄙司自创的 squid-ssd 方案。</p>
-<p>于是沉下心来思考了一下为什么会有这么大的差距。</p>
-<p>首先，squid-ssd 的设计其实非常简单，参照 Facebook 的 flashcache 原理扩展了 squid 原有的 COSS 存储引擎而已。所以我们先回忆一下 flashcache 的原理：</p>
-<p>flashcache 是利用了 Linux 的 device-mapper 机制来虚拟逻辑块设备，在 ssd 和 sata 设备之间，flashcache 设计了三种模式：</p>
-<ol>
-  <li>Writethrough 模式，<strong>数据同时写到 ssd 和 sata 硬盘</strong>，官方文档的说明是：</li>
-</ol>
-<blockquote>
-  <p>safest, all writes are cached to ssd but also written to disk
-immediately. If your ssd has slower write performance than your disk (likely
-for early generation SSDs purchased in 2008-2010), this may limit your system
-write performance. All disk reads are cached (tunable).</p>
-</blockquote>
-<ol>
-  <li>Writearound 模式，<strong>数据绕过 ssd，直接写到 sata 设备上</strong>，官方文档的说明是：</li>
-</ol>
-<blockquote>
-  <p>again, very safe, writes are not written to ssd but directly to
-disk. Disk blocks will only be cached after they are read. All disk reads
-are cached (tunable).</p>
-</blockquote>
-<ol>
-  <li>Writeback 模式，<strong>数据一开始只写到 ssd 上，然后根据缓存策略再移到 sata 设备上</strong>，官方文档的说明是：</li>
-</ol>
-<blockquote>
-  <p>fastest but less safe. Writes only go to the ssd initially, and
-based on various policies are written to disk later. All disk reads are
-cached (tunable).</p>
-</blockquote>
-<p>squid-ssd 方案，学习的是 Writeback 模式，这种模式极大的缓解了普通 sata 设备的读写压力，牺牲了一定的数据安全。但是作为 CDN 缓存软件，本身就不需要保证这点 —— 这应该是源站来保证的。</p>
-<p>相反，阅读了 ats 的文档说明后，发现 ats 的 interim 方案学习的是 Writearound 模式，而且默认的 tunable 那点还设的比较高， sata 设备上一个缓存对象要累积 2 次读取请求(最低可以修改到1，不能到0)后，才会缓存到 ssd 设备里去。</p>
-<p>这一点从另一个细节上也可以反映出来：ats 的监控数据中，<code>proxy.process.cache.bytes_total</code> 是只计算了 <code>storage.config</code> 里写的那些 sata 设备容量的，不包括 interim 在的 ssd 设备容量。</p>
       <a href="/2014/02/18/diff-between-squid-ssd-and-ats-interim" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1228,9 +378,9 @@ cached (tunable).</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/02/08/whats-cooking-kibana-20140127" title="【翻译】Kibana 发生什么事了？" rel="bookmark">【翻译】Kibana 发生什么事了？</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-02-08 00:00:00 +0800">08 Feb 2014</abbr>
@@ -1242,26 +392,6 @@ cached (tunable).</p>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>注：本文是 Elasticsearch 官方博客 2014 年 1 月 27 日《what’s cooking in kibana》的翻译，原文地址见：<a href="http://www.elasticsearch.org/blog/whats-cooking-kibana/">http://www.elasticsearch.org/blog/whats-cooking-kibana/</a></p>
-<hr />
-<p>Elasticsearch 1.0 即将发布， Kibana 团队也准备发布自己的新版。除了一些常见的 bug 修复和小调整，下一个版本中还有一些超棒的特性：</p>
-<h1 id="section">面板组</h1>
-<p>面板现在可以组织成组的形式，组内可以容纳你乐意加入的任意多的面板。每行的删减都很干净，隐藏面板也不会消耗任何资源。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2014/01/rows_as_groups.png" alt="" /></p>
-<h1 id="section-1">图表标记</h1>
-<p>变更部署，用户登录以及其他危险性事件导致的流量、内存消耗或者平均负载的变动，图表标记让你可以输入自定义的查询来将这些重要事件标记到时间轴图表上。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2014/01/chart_markers.png" alt="" /></p>
-<h1 id="section-2">即时过滤器</h1>
-<p>创建你自己的请求过滤器然后保存下来以备后用。过滤器将和仪表盘一起保存，而且可以在对比你定义的数据子集的时候菜单式展开或收缩。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2014/01/adhoc_filters.png" alt="" /></p>
-<h1 id="top-n-">top-n 查询</h1>
-<p>单击某个查询旁边的带色的点，就可以设置这个查询的颜色。新版的top-N 查询会找出一个字段 最流行的结果，然后用他们来完成新的查询。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2014/01/top_n_queries.png" alt="" /></p>
-<h1 id="stats-">stats 面板</h1>
-<p>Stats 面板最后都将把搜索归总成一个单独的有意义的数值。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2014/01/stats_panel.png" alt="" /></p>
-<h1 id="termsstats-">terms_stats 模式</h1>
-<p>按国家统计流量？每个用户的收入？每页的内存使用？terms面板的terms_stat模式正是你想要的。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2014/01/Screen-Shot-2014-01-27-at-9.14.42-AM.png" alt="" /></p>
       <a href="/2014/02/08/whats-cooking-kibana-20140127" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1269,9 +399,9 @@ cached (tunable).</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/01/22/explain-mojo-ioloop-delay-testing" title="Mojo::IOLoop::Delay 模块测试代码解释" rel="bookmark">Mojo::IOLoop::Delay 模块测试代码解释</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-01-22 00:00:00 +0800">22 Jan 2014</abbr>
@@ -1283,56 +413,6 @@ cached (tunable).</p>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>昨天有人在群里问起<a href="https://metacpan.org/source/SRI/Mojolicious-4.68/t/mojo/delay.t">Mojolicious/t/mojo/delay.t</a> 中一段代码的执行原理。代码如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Mojo::</span><span class="n">Base</span> <span class="o">-</span><span class="n">strict</span><span class="p">;</span>
-<span class="k">BEGIN</span> <span class="p">{</span>
-  <span class="nv">$ENV</span><span class="p">{</span><span class="n">MOJO_NO_IPV6</span><span class="p">}</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-  <span class="nv">$ENV</span><span class="p">{</span><span class="n">MOJO_REACTOR</span><span class="p">}</span> <span class="o">=</span> <span class="s">&#39;Mojo::Reactor::Poll&#39;</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">use</span> <span class="nn">Test::</span><span class="n">More</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Mojo::</span><span class="n">IOLoop</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Mojo::IOLoop::</span><span class="n">Delay</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$delay</span> <span class="o">=</span> <span class="nn">Mojo::IOLoop::</span><span class="n">Delay</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$finished</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$result</span> <span class="o">=</span> <span class="nb">undef</span><span class="p">;</span>
-<span class="nv">$delay</span><span class="o">-&gt;</span><span class="n">on</span><span class="p">(</span><span class="n">finish</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nv">$finished</span><span class="o">++</span> <span class="p">});</span>
-<span class="nv">$delay</span><span class="o">-&gt;</span><span class="n">steps</span><span class="p">(</span>
-  <span class="k">sub </span><span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$delay</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$end</span>   <span class="o">=</span> <span class="nv">$delay</span><span class="o">-&gt;</span><span class="n">begin</span><span class="p">;</span>
-    <span class="nv">$delay</span><span class="o">-&gt;</span><span class="n">begin</span><span class="o">-&gt;</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
-    <span class="nn">Mojo::</span><span class="n">IOLoop</span><span class="o">-&gt;</span><span class="n">timer</span><span class="p">(</span><span class="mi">0</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nv">$end</span><span class="o">-&gt;</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="p">});</span>
-  <span class="p">},</span>
-  <span class="k">sub </span><span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$delay</span><span class="p">,</span> <span class="nv">@numbers</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$end</span> <span class="o">=</span> <span class="nv">$delay</span><span class="o">-&gt;</span><span class="n">begin</span><span class="p">;</span>
-    <span class="nn">Mojo::</span><span class="n">IOLoop</span><span class="o">-&gt;</span><span class="n">timer</span><span class="p">(</span><span class="mi">0</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nv">$end</span><span class="o">-&gt;</span><span class="p">(</span><span class="nb">undef</span><span class="p">,</span> <span class="nv">@numbers</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="p">});</span>
-  <span class="p">},</span>
-  <span class="k">sub </span><span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$delay</span><span class="p">,</span> <span class="nv">@numbers</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="nv">$result</span> <span class="o">=</span> <span class="o">\</span><span class="nv">@numbers</span><span class="p">;</span>
-  <span class="p">}</span>
-<span class="p">);</span>
-<span class="n">is_deeply</span> <span class="p">[</span><span class="nv">$delay</span><span class="o">-&gt;</span><span class="nb">wait</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="s">&#39;right return values&#39;</span><span class="p">;</span>
-<span class="n">is</span> <span class="nv">$finished</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s">&#39;finish event has been emitted once&#39;</span><span class="p">;</span>
-<span class="n">is_deeply</span> <span class="nv">$result</span><span class="p">,</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="s">&#39;right results&#39;</span><span class="p">;</span>
-<span class="n">done_testing</span><span class="p">();</span>
-</code></pre></div>
-<p>首先介绍一下这个 <code>Mojo::IOLoop::Delay</code> 模块，这是异步编程中很火很实用的一个概念，一般叫 <code>Promise</code> / <code>Deferred</code> 。你可以按照顺序编程的思路组合那些异步函数，比如在这个例子里主要就体现了 <code>steps</code> 方法和 <code>finish</code> 事件。</p>
-<p><code>steps</code> 方法中可以传递任意多个异步函数。第一个函数立刻执行，然后等 <code>$delay</code> 信号量(由 <code>begin</code> 方法控制)释放(即重新等于0)后逐次执行后面的函数，直到碰到一个不调用 <code>begin</code> 控制信号量的函数，或者触发 <code>error</code> 或者 <code>finish</code> 事件。</p>
-<p><code>begin</code> 方法返回的回调函数 <code>$end-&gt;()</code> 用来减信号量。如果传递了参数给这个回调函数，那么第一个参数会被忽略，剩下的参数会 <code>push</code> 进下一个顺序或者事件触发函数的参数列表里，同时推送到 <code>wait</code> 方法。</p>
-<p>所以上面这段测试的数据执行结果是这样的：</p>
-<ol>
-  <li><code>$delay-&gt;wait</code> 开始整个 <code>ioloop</code>, <code>steps</code> 方法首先执行 sub1 ，首先通过 <code>$delay-&gt;begin()</code>给信号量加1；</li>
-  <li>随即触发 <code>timer</code> 事件，<code>$end-&gt;(1, 2, 3)</code> 将 <code>(2, 3)</code> 推入下一个函数 sub2 的 <code>@_</code> 里，同时把信号量减1；</li>
-  <li>信号量变成0，继续执行，这一行 <code>$delay-&gt;begin()-&gt;(3, 2, 1)</code>，将 <code>(2, 1)</code> 推入下一个函数 sub2 的 <code>@_</code> 里，注意这里信号量实际也加减过一次，只是这里的回调函数直接匿名调用了；</li>
-  <li>sub1 执行完成，信号量为0，那么开始下一个sub2，sub2 传入的参数列表其实是 <code>($delay, (2, 3), (2, 1))</code>，也就是说这时候的 <code>@numbers</code> 是 <code>(2, 3, 2, 1)</code>；</li>
-  <li>sub2 执行流程类似 sub1 ，信号量加1，触发 <code>timer</code> 事件，然后 <code>$end-&gt;(undef, @numbers, 4)</code> 把 <code>((2, 3, 2, 1), 4)</code> 推入下一个函数 sub3 的 <code>@_</code> 里，同时信号量减1；</li>
-  <li>sub2 执行完成，信号量为0，那么开始下一个sub3，sub3 传入的参数列表就是 <code>($delay, (2, 3, 2, 1, 4))</code>，也就是说这时候的 <code>@numbers</code> 是 <code>(2, 3, 2, 1, 4)</code>；</li>
-  <li>sub3 将 <code>@numbers</code> 的引用赋值给 <code>$result</code>，因为 sub3 里没有对信号量的操作，而且也是最后一个了，<code>steps</code> 完成，触发 <code>finish</code> 事件；</li>
-  <li>注册的 <code>finish</code> 事件回调函数把 <code>$finish</code> 变量加1；</li>
-  <li><code>$delay-&gt;wait</code> 这时候也收集完毕前面每个 <code>$end-&gt;()</code> 的参数列表，和每步 <code>@numbers</code> 是同步的，同时因为 <code>finish</code> 事件被触发，就此停止 <code>ioloop</code>，程序完成，返回整个列表。</li>
-</ol>
-<p>如上。</p>
       <a href="/2014/01/22/explain-mojo-ioloop-delay-testing" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1340,9 +420,9 @@ cached (tunable).</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/01/15/kibana3-milestone4-20131105" title="【翻译】Kibana3 里程碑 4" rel="bookmark">【翻译】Kibana3 里程碑 4</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-01-15 00:00:00 +0800">15 Jan 2014</abbr>
@@ -1354,43 +434,6 @@ cached (tunable).</p>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>本文来自Elasticsearch官方博客，2013年11月5日的文章<a href="http://www.elasticsearch.org/blog/kibana-3-milestone-4/">Kibana 3: mileston 4</a>，作为kibana3 Milestone 4重要的使用说明，翻译如下：</p>
-<p>Kibana 3: Milestone 4 已经发布，带来了一系列性能、易用性和可视化上的提升。让我们来看看这些重大改变。如果你还在Milestone 3上，先看看之前<a href="http://chenlinux.com/2014/01/14/this-week-in-kibana-20130919">这篇博客</a>里的新特性介绍。</p>
-<h1 id="section">一个全新的界面</h1>
-<p>Kibana 面板改造成了一个标签更突出，按键和链接更易用，风格全新的样子。改造结果提高了可用度，因为有了更高效的空间利用设计，来支持更大的数据密度和更一致的UI。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/11/Screen-Shot-2013-10-31-at-3.45.06-PM.png" alt="Kibana的新界面" /></p>
-<h1 id="section-1">一致性查询和过滤布局</h1>
-<p>为了改善UI，查询和过滤面板现在有自己的可折叠、下拉的区域，具体位置在导航栏的下方。以后不再需要你自己摆放这些基本面板的布局了，它们默认会包含在每一个仪表盘里。和很多Kibana的特性一样，你也可以在仪表盘配置对话框里禁用这个一致性布局。</p>
-<h1 id="section-2">100%全新的时间范围选择器</h1>
-<p>如果你熟悉Kibana这两年来的历史，你可能知道曾经存在过好几个时间选择器方案。新的时间选择器经过了完全的重写，不仅占用空间比原来的小，也更容易使用。把这个重要组件移出主仪表盘后，Kibana 现在有更多空间专注于重要数据和图表。还有，新的过滤格式实现了Elasticsearch的<a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/mapping-date-format.html#date-math">时间运算</a>，所以不用每次重新选择一个时间范围来移动你的时间窗口了，每个搜索都能自动更新这个窗口。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/11/Screen-Shot-2013-10-31-at-3.44.17-PM.png" alt="全新的时间选择器" /></p>
-<h1 id="section-3">可过滤的字段列表</h1>
-<p>利用表格的&rdquo;即输即过滤&rdquo;特性，可以简单而快速的找到字段。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/11/Screen-Shot-2013-10-31-at-3.46.52-PM.png" alt="可过滤的字段列表" /></p>
-<h1 id="ad-hoc-facets">即时(ad-hoc) facets</h1>
-<p>然后，当你找到了这些字段，就可以利用即时 facets 快速分析他们。只需要点击一个字段然后选择可视化即可查看到前10个匹配该字段的term。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/11/Screen-Shot-2013-10-31-at-3.45.42-PM.png" alt="" /></p>
-<p>研究起来也更加简单了</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/11/Screen-Shot-2013-10-31-at-3.45.57-PM.png" alt="" /></p>
-<p>不需要添加面板，饼图可以直接悬浮出现！</p>
-<h1 id="url">动态的仪表盘和url参数</h1>
-<p>Kibana 3: Milestone 4现在可以通过URL参数获取输入！这个备受期待的特性体现为两个方式：模板化的仪表盘和脚本化的仪表盘。Kibana 3: Milestone 4附带两个可以和Logstash完美配合的示例，在此基础上你可以构建自己的仪表盘。模板化仪表盘的创建非常简单，导出当前仪表盘结构成文件，编辑文件然后保存添加进你的 app/dashboards 目录既可以了。比如，从 <a href="https://github.com/elasticsearch/kibana/blob/v3.0.0milestone4/src/app/dashboards/logstash.json">logstash.json</a> 里摘录下面一段：</p>
-<div class="highlight"><pre><code class="json">  <span class="s2">&quot;0&quot;</span><span class="err">:</span> <span class="p">{</span>
-    <span class="nt">&quot;query&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;alias&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;color&quot;</span><span class="p">:</span> <span class="s2">&quot;#7EB26D&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;id&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-    <span class="nt">&quot;pin&quot;</span><span class="p">:</span> <span class="kc">false</span>
-  <span class="p">}</span>
-</code></pre></div>
-<p>模板化仪表盘用&rdquo;handlebar 语法&rdquo;添加动态区段到基于JSON的仪表盘结构里。比如这里我们就用一个表达式替换掉了查询键的内容：<em>使用URL里的请求参数，如果不存在，使用&rsquo;*&lsquo;。</em> 现在我们可以用下面这条URL访问这个仪表盘了：</p>
-<pre><code>http://kibana.example.com/index.html#/dashboard/file/logstash.json?query=extension:zip
-</code></pre>
-<h1 id="section-4">更灵活的脚本化仪表盘</h1>
-<p>脚本化仪表盘在处理URL参数的时候更加强大，它能运用上Javascript的全部威力构建一个完整的仪表盘对象。同样用 app/dashboards 里的 <a href="https://github.com/elasticsearch/kibana/blob/v3.0.0milestone4/src/app/dashboards/logstash.js">logstash.js</a> 举例。因为脚本化仪表盘完全就是javascript，我们可以执行复杂的操作，比如切割URL参数。如下URL中，我们搜索_最近2天内的<code>HTML</code>, <code>CSS</code> 或者 <code>PHP</code>，然后在表格里显示 <code>request</code>, <code>response</code> 和 <code>user agent</code>。_注意URL本身路径从 <strong>file__变成了__script</strong>：</p>
-<pre><code>http://localhost:8000/index.html#/dashboard/script/logstash.js?query=html,css,php&amp;from=2d&amp;fields=request,response,agent
-</code></pre>
-<h1 id="section-5">立刻下载</h1>
-<p>Milestone 4对作者和使用者都是一个飞跃。它功能更强大，当然使用也更简单。Kibana 继续集成在 Logstash 里，最新发布的 <a href="http://logstash.net/docs/1.2.2/">Logstash 1.2.2</a> 中就带有。Kibana现在也可以直接用elasticsearch.org官网下载，地址见：<a href="http://www.elasticsearch.org/overview/kibana/installation/">http://www.elasticsearch.org/overview/kibana/installation/</a>。</p>
       <a href="/2014/01/15/kibana3-milestone4-20131105" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1398,9 +441,9 @@ cached (tunable).</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/01/14/this-week-in-kibana-20130919" title="【翻译】2013 年 9 月的 kibana 周报" rel="bookmark">【翻译】2013 年 9 月的 kibana 周报</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-01-14 00:00:00 +0800">14 Jan 2014</abbr>
@@ -1412,26 +455,6 @@ cached (tunable).</p>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>本文来自Elasticsearch官方博客，2013年9月19日的文章<a href="http://www.elasticsearch.org/blog/this-week-in-kibana/">this week in kibana</a>，作为kibana3 Milestone 3重要的使用说明，翻译如下：</p>
-<h1 id="section">直方图零填充</h1>
-<p>直方图面板经过了一番改造，实现了正确的零填充。也就是说，当一个间隔内查询收到0个结果的时候，就显示为0，而不是绘制一条斜线连接到下一个点。零填充也意味着堆叠式直方图从顶端到底部的次序将保持不变。</p>
-<p>此外，堆叠提示栏现在允许你在累积和个人模式之间自由选择。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/09/Screen-Shot-2013-09-18-at-3.13.27-PM.png" alt="" /></p>
-<h1 id="section-1">数组字段的微分析</h1>
-<p>数组字段现在可以在微分析面板上单独或者分组处理。比如，如果我有一个tags数组，我即可以看到前10个最常见的tags，也可以看到前10个最常见的tags组合。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/09/Screen-Shot-2013-09-18-at-3.16.07-PM.png" alt="" />
-<img src="http://www.elasticsearch.org/content/uploads/2013/09/Screen-Shot-2013-09-18-at-3.16.21-PM.png" alt="" /></p>
-<h1 id="source-"><code>_source</code> 作为默认的表字段</h1>
-<p>如果你没有给你的表选择任何字段，Kibana现在默认会给你显示 <code>_source</code> 里的 json 数据，直到你选择了具体的字段。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/09/Screen-Shot-2013-09-18-at-3.14.00-PM.png" alt="" /></p>
-<h1 id="section-2">可配置的字段截取</h1>
-<p>注意到下面截图中 <code>_source</code> 字段末尾的&rdquo;&hellip;&ldquo;了吗？表格字段能被一个可以配置的&rdquo;因子&rdquo;截断。所谓因子就是，表格的列数除以它，得到一个字段的最大长度，然后各字段会被很好的截断成刚好符合这个长度。比如，如果我的截断因子是300，而表格有3列，那么每个字段会被截断成最大100个字符，然后后面跟上&rsquo;&hellip;&lsquo;。当然，字段的完整内容还是可以在细节扩展视图里看到的。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/09/Screen-Shot-2013-09-18-at-3.17.19-PM.png" alt="" /></p>
-<h1 id="section-3">关于细节视图</h1>
-<p>你可能已经知道单击表格某行后可以看到包含这个事件的字段的表格。现在你可以选择你希望如何观察这个事件的细节了，包括有语法高亮的JSON以及原始的未高亮的JSON。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/09/Screen-Shot-2013-09-18-at-3.17.47-PM.png" alt="" /></p>
-<h1 id="section-4">更轻，更快，更小，更好</h1>
-<p>Kibana有了一个全新的构建系统！新的系统允许我们构建一个优化的，小巧的，漂亮的新Kibana。当你升级的时候它还可以自动清除原来的缓存，定期构建的Kibana发布在 <a href="http://download.elasticsearch.org/kibana/kibana/kibana-latest.zip">http://download.elasticsearch.org/kibana/kibana/kibana-latest.zip</a> ，zip包可以直接解压到你的web服务器里。</p>
-<p>如果愿意，你也可以从 <a href="https://github.com/elasticsearch/kibana">Github repository</a> 开始运行。不用复制整个项目，只需要上传 src/ 目录到服务器就可以了。不过我们强烈建议使用构建好的版本，因为这样性能好很多。</p>
       <a href="/2014/01/14/this-week-in-kibana-20130919" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1439,9 +462,9 @@ cached (tunable).</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/01/14/kibana-what-happened" title="【翻译】kibana发生什么变化了？" rel="bookmark">【翻译】kibana发生什么变化了？</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-01-14 00:00:00 +0800">14 Jan 2014</abbr>
@@ -1453,36 +476,6 @@ cached (tunable).</p>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>本文来自Elasticsearch官方博客，2013年8月21日的文章<a href="http://www.elasticsearch.org/blog/kibana-whats-cooking/">kibana: what’s cooking</a>，作为kibana3重要的使用说明，翻译如下：</p>
-<p>还没有升级Kibana么？那你可错过了一个好技术！Kibana 发生了翻天覆地的变化，新面板只是这个故事中的一部分。整个系统都被重构，给表盘提供统一的颜色和图例方案选择。接口也经过了标准化，很多函数都修改成提供更简单，快速和功能更强大的方式。让我们进一步看看现在的样子。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/08/BQIielHCAAAs2So.png" alt="" /></p>
-<p>Terms 面板；全局色彩；别名和查询；过滤器。</p>
-<h1 id="section">新的查询输入</h1>
-<p>新的查询面板替代了原来的“字符串查询”面板作为你输入查询的方式。每个面板都有自己独立的请求输入。你也还可以为特殊的面板定制请求，不过你要先在这里输入他们，包括可以有别名和颜色设置，然后再在面板编辑器里选取。在没有被激活修改的时候， 查询也可以被固定在一个可折叠的区域。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/08/Screen-Shot-2013-08-20-at-11.48.43-AM.png" alt="" /></p>
-<h1 id="section-1">分配查询到具体面板</h1>
-<p>分配查询到具体面板非常非常简单。面板编辑器里就可以直接打开或关闭查询，哪怕这个查询已经更新或者过滤掉，它的别名是保持全局一致性的。你还会注意到配置窗口被分割成了选项卡形式，已提供更清晰的配置界面。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/08/Screen-Shot-2013-08-20-at-1.34.08-PM.png" alt="" /></p>
-<h1 id="section-2">自定义颜色和别名</h1>
-<p>当你给一个查询分配某个颜色的时候，它会立刻反映到所有的面板上。通常用于做图例值的别名也一样。这样，我们可以很简单的通过在一个逻辑组里分配颜色变化，调节整个仪表盘和数据的意义。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/08/Screen-Shot-2013-07-11-at-5.00.28-PM.png" alt="" /></p>
-<h1 id="terms">你好，terms!</h1>
-<p>引入了一个新的terms面板，可以使用3种不同的格式展示顶层字段数据：饼图、柱状图和表格。而且都可以点击进入新的过滤器面板。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/08/Screen-Shot-2013-08-20-at-1.47.56-PM.png" alt="" /></p>
-<h1 id="section-3">过滤器面板?</h1>
-<p>刚刚提到过滤器面板，对吧？没错，过滤器！过滤器允许你深入分解数据集而不用你去修改查询本身。然后，过滤器也可以被删除、隐藏和编辑。过滤器有三种模式：</p>
-<ul>
-  <li><strong>must</strong>: 记录必须匹配这个过滤器；</li>
-  <li><strong>mustNot</strong>: 记录必须不能匹配这个过滤器；</li>
-  <li><strong>either</strong>: 记录必须匹配这些过滤器中的一个。</li>
-</ul>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/08/Screen-Shot-2013-08-20-at-1.55.54-PM.png" alt="" /></p>
-<h1 id="section-4">字段列表和微面板</h1>
-<p>字段面板集成在表格面板里。字段列表现在会通过访问Elasticsearch的<code>/_mapping</code>API来自动填充。注意你可能需要更新自己的代理服务器配置来适应这个变更。为了节约空间，这个字段列表现在也是可折叠的，而新的图形也添加到了微面板。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/08/Screen-Shot-2013-08-20-at-7.56.02-AM.png" alt="" /></p>
-<h1 id="section-5">嗨，那配色方案呢?!</h1>
-<p>对，你在我解释之前已经发现这个变化了！Kibana现在允许你在黑白两个配色方案之间切换以刚好的匹配你自己的环境和偏好。</p>
-<p><img src="http://www.elasticsearch.org/content/uploads/2013/08/BQjv-50CcAAyazu.png" alt="" /></p>
-<p>汇报完毕！当然kibana一直在更新，注意继续关注这里，给我们的<a href="https://github.com/elasticsearch/kibana/">github项目</a>加星，然后上推特fo <a href="https://twitter.com/rashidkpc/">@rashidkpc</a> 和 <a href="https://twitter.com/elasticsearch/">@elasticsearch</a>。</p>
       <a href="/2014/01/14/kibana-what-happened" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1490,9 +483,9 @@ cached (tunable).</p>
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/01/08/run-docker-registry" title="私有 docker 仓库部署测试" rel="bookmark">私有 docker 仓库部署测试</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-01-08 00:00:00 +0800">08 Jan 2014</abbr>
@@ -1504,37 +497,6 @@ cached (tunable).</p>
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>docker 的官方仓库 CDN 的ip 总是被 GFW 认证。为了更好的使用 docker ，有必要在自己内部搭建一个私有仓库。方法很简单：</p>
-<div class="highlight"><pre><code class="python"><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">dotcloud</span><span class="o">/</span><span class="n">docker</span><span class="o">-</span><span class="n">registry</span><span class="o">.</span><span class="n">git</span>
-<span class="n">cd</span> <span class="n">docker</span><span class="o">-</span><span class="n">registry</span>
-<span class="c"># 安装依赖</span>
-<span class="n">yum</span> <span class="n">install</span> <span class="n">python</span><span class="o">-</span><span class="n">devel</span> <span class="n">libevent</span><span class="o">-</span><span class="n">devel</span> <span class="n">python</span><span class="o">-</span><span class="n">pip</span> <span class="n">openssl</span><span class="o">-</span><span class="n">devel</span> <span class="n">xz</span><span class="o">-</span><span class="n">devel</span> <span class="o">--</span><span class="n">enablerepo</span><span class="o">=</span><span class="n">epel</span>
-<span class="n">python</span><span class="o">-</span><span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">r</span> <span class="n">requirements</span><span class="o">.</span><span class="n">txt</span>
-<span class="c"># 默认读取config/config.yml里的dev配置</span>
-<span class="n">WORKER_SECRET_KEY</span><span class="o">=</span><span class="s">&quot;${WORKER_SECRET_KEY:-$(&lt; /dev/urandom tr -dc A-Za-z0-9 | head -c 32)}&quot;</span>
-<span class="n">cat</span> <span class="o">&gt;</span> <span class="n">config</span><span class="o">/</span><span class="n">config</span><span class="o">.</span><span class="n">yml</span><span class="o">&lt;</span><span class="n">EOF</span>
-<span class="n">dev</span><span class="p">:</span>
-    <span class="n">storage</span><span class="p">:</span> <span class="n">local</span>
-    <span class="n">storage_path</span><span class="p">:</span> <span class="o">/</span><span class="n">tmp</span><span class="o">/</span><span class="n">registry</span>
-    <span class="n">secret_key</span><span class="p">:</span> <span class="err">$</span><span class="p">{</span><span class="n">WORKER_SECRET_KEY</span><span class="p">}</span>
-<span class="n">EOF</span>
-<span class="c"># 默认的镜像存储位置，可以在 config.yml 里更改 storage_path</span>
-<span class="n">mkdir</span> <span class="o">/</span><span class="n">tmp</span><span class="o">/</span><span class="n">registry</span>
-<span class="c"># 默认监听5000端口，前台运行，可以加入daemontools、supervisor、ubic之类的来负责</span>
-<span class="n">sh</span> <span class="n">run</span><span class="o">.</span><span class="n">sh</span>
-</code></pre></div>
-<p>这就完成了。如果想用 nginx 作代理和加速镜像下载性能的，代码里也提供了 nginx.conf 可用。不过注意要求 nginx 版本在 1.3.9 以上，同时编译的时候还要加上 chunkin 模块。否则镜像上传的时候会出错。</p>
-<p>然后就是客户端如何指定镜像推送到私有仓库里：</p>
-<div class="highlight"><pre><code class="bash"><span class="c"># 在私有仓库注册用户</span>
-docker login 127.0.0.1:5000
-<span class="c"># 给要提交的镜像打标签</span>
-docker tag &lt;IMAGE ID&gt; 127.0.0.1:5000/tagname
-<span class="c"># 推送到私有仓库</span>
-docker push 127.0.0.1:5000/tagname
-</code></pre></div>
-<p>注意这里推送的时候使用的是REPOSITORY，也就是说不能是 <code>127.0.0.1:5000/ubuntu:12.04</code> 这样的格式。</p>
-<p>现在就可以在其他地方用了：</p>
-<div class="highlight"><pre><code class="bash">docker pull 192.168.0.2:5000/tagname
-</code></pre></div>
       <a href="/2014/01/08/run-docker-registry" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1542,9 +504,9 @@ docker push 127.0.0.1:5000/tagname
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/01/06/staticperl-and-upx" title="利用 staticperl 和 upx 生成 单个可执行 perl" rel="bookmark">利用 staticperl 和 upx 生成 单个可执行 perl</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-01-06 00:00:00 +0800">06 Jan 2014</abbr>
@@ -1555,32 +517,6 @@ docker push 127.0.0.1:5000/tagname
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>Perl 程序打包的问题由来已久。</p>
-<p>最早是 perlcc，但是从5.10版本以后，B::CC 等一系列模块跟不上开发脚本导致 perlcc 也无法使用。</p>
-<p>然后是PAR::Packer，唐凤大神的作品。</p>
-<p>今天介绍另一个模块，App::Staticperl，同样是大神级作品，作者是Marc Lehmann。他的 AnyEvent、Coro、EV 无不大名鼎鼎。而staticperl，就是他开发出来用以方便自己部署程序的。</p>
-<p>staticperl 官网上有一句很霸气的描述：“perl, libc, 100 modules, all in one standalone 500kb file”。</p>
-<p>不过经我测试，按照官网上的步骤是做不出来这么小的单文件的！幸运的是我在 Perlmonks 上的<a href="http://www.perlmonks.org/?node_id=1065912">发问</a>很快收到了答案，这个还要用上另一个工具：upx。</p>
-<p>测试过程如下：</p>
-<div class="highlight"><pre><code class="bash"><span class="c"># cpanm App::Staticperl</span>
-<span class="c"># staticperl install</span>
-<span class="c"># staticperl instcpan AnyEvent AnyEvent::HTTP</span>
-<span class="c"># staticperl mkperl -MAnyEvent -MAnyEvent::HTTP</span>
-<span class="c"># staticperl mkapp myapp --boot myapp.pl -MAnyEvent -MAnyEvent::HTTP</span>
-</code></pre></div>
-<p>而如果是官网说的 <a href="http://staticperl.schmorp.de/smallperl.html">smallperl</a>，则是采用 <code>mkbundle</code> 的方法。</p>
-<p>除了使用单独的<a href="http://staticperl.schmorp.de/smallperl.bundle">配置文件</a>存放太长的参数，其他和 <code>mkapp</code> / <code>mkperl</code> 一致。</p>
-<p>不过运行结果是：生成的单个文件有3.5MB大小。</p>
-<p>然后使用 upx：</p>
-<div class="highlight"><pre><code class="bash"><span class="c"># apt-get install upx</span>
-<span class="c"># upx --best smallperl.bin</span>
-</code></pre></div>
-<p>就得到压缩后的超小型perl了。这个perl内含了AE、Socket、common::sense、List::Util 等一系列常用模块可以直接使用。不过大小依然有 1.7MB 。看来是 Perl5.14 本身大小也变大了。</p>
-<p><strong>补充</strong></p>
-<p>按照评论里的建议，改用 <code>--lzma</code> 选项再压缩一次：</p>
-<div class="highlight"><pre><code class="bash"><span class="c"># upx -d smallperl.bin</span>
-<span class="c"># upx --lzma smallperl.bin</span>
-</code></pre></div>
-<p>结果到 1.4MB 大小。</p>
       <a href="/2014/01/06/staticperl-and-upx" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1588,9 +524,9 @@ docker push 127.0.0.1:5000/tagname
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/01/05/run-perl-code-from-webpage" title="通过网页运行 Perl 代码的安全实现" rel="bookmark">通过网页运行 Perl 代码的安全实现</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-01-05 00:00:00 +0800">05 Jan 2014</abbr>
@@ -1602,83 +538,6 @@ docker push 127.0.0.1:5000/tagname
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>这几天折腾<a href="http://www.perl-china.com">Perl中国用户组网站</a>，觉得类似 Ruby 的 tryruby，Scala 的 scala-tour 这样的新手入门教程非常好玩。于是准备自己也尝试一下。</p>
-<p>理论上，通过 Ajax 传递代码到服务器上，直接 <code>eval {}</code> 即可。不过这样会导致一个安全问题。如何防止用户执行错误代码导致严重后果呢？</p>
-<p>我想到了最近一直在跟踪看的 Docker 容器。如果我们把代码放在 Docker 里运行，不就不怕了么。</p>
-<p>首先要构建一个可以运行大多数示例代码的 Docker 镜像。</p>
-<h3 id="section">首先打开一个终端运行初始镜像：</h3>
-<div class="highlight"><pre><code class="bash"><span class="c"># docker run -i -t ubuntu /bin/sh</span>
-<span class="c"># apt-get install -y wget gcc make</span>
-<span class="c"># useradd tour</span>
-<span class="c"># echo &#39;tour hard nproc 8&#39; &gt;&gt; /etc/security/limits.conf</span>
-<span class="c"># wget http://cpanmin.us -O bin/cpanm</span>
-<span class="c"># cpanm List::AllUtils Moo Path::Tiny DBD::SQLite AnyEvent::HTTP DateTime</span>
-</code></pre></div>
-<h3 id="section-1">然后打开另一个终端保存前一个终端的变更：</h3>
-<div class="highlight"><pre><code class="bash"><span class="c"># docker ps</span>
-CONTAINER ID ...
-<span class="c"># docker commit &lt;ID&gt; perl-tour</span>
-</code></pre></div>
-<p>注意一定要在之前 <code>cpanm</code> 已经成功执行完毕后保存，但是前面登录进 docker 的会话千万不要退出，否则后面的 <code>docker ps</code> 就查看不到 id 了。退出时这些临时变更都毁掉了。</p>
-<p><strong>2014 年 1 月 7 日补充</strong></p>
-<p>被莫莫用死循环 <code>fork()</code> 轰炸了一回，发现 docker 容器的一个问题，容器技术本身没有对用户最大进程数的限制。因为其实际运行的是 <code>docker -d</code> 服务进程的子进程。</p>
-<p>直接在镜像里编辑 <code>/etc/security/limits.conf</code> 实测没有作用。而主机上限定普通用户的 nproc 也没用(因为普通用户运行不了 docker )。</p>
-<p>最后想到的办法，是启动 <code>docker -d</code> 的时候，先 <code>ulimit -HSu 16</code>，这样这个 docker 下一共也跑不了多少 fork 了。</p>
-<p>顺带提一句，查阅系统日志可以发现，在 fork 的时候，其实触发了主机的 OOM-killer，但是这个机制在死循环这个变态攻击下挽救不了主机……</p>
-<p><strong>END</strong></p>
-<p>现在我们已经有了一个安装好很多常用 CPAN 模块的镜像了。可以取构建网站了。</p>
-<p>网站里添加下面一段：</p>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Dancer::Plugin::</span><span class="n">Ajax</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">File::</span><span class="n">Temp</span> <span class="sx">qw(tempfile)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">IPC::</span><span class="n">Run</span> <span class="sx">qw(start harness timeout)</span><span class="p">;</span>
-<span class="n">ajax</span> <span class="s">&#39;/run&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$code</span> <span class="o">=</span> <span class="n">param</span><span class="p">(</span><span class="s">&#39;code&#39;</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">@cmd</span> <span class="o">=</span> <span class="sx">qw(docker run -m 128m -u tour -v /tmp/:/tmp:ro perl-tour perl)</span><span class="p">;</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$fh</span><span class="p">,</span> <span class="nv">$temp</span><span class="p">)</span> <span class="o">=</span> <span class="n">tempfile</span><span class="p">();</span>
-    <span class="nb">binmode</span><span class="p">(</span><span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;:utf8&#39;</span><span class="p">);</span>
-    <span class="k">print</span> <span class="nv">$fh</span> <span class="nv">$code</span><span class="p">;</span>
-    <span class="nb">push</span> <span class="nv">@cmd</span><span class="p">,</span> <span class="nv">$temp</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$h</span><span class="p">;</span>
-    <span class="nb">eval</span> <span class="p">{</span>
-        <span class="nv">$h</span> <span class="o">=</span> <span class="n">harness</span> <span class="o">\</span><span class="nv">@cmd</span><span class="p">,</span> <span class="o">\</span><span class="nv">$in</span><span class="p">,</span> <span class="o">\</span><span class="nv">$out</span><span class="p">,</span> <span class="o">\</span><span class="nv">$err</span><span class="p">,</span> <span class="n">timeout</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>
-        <span class="n">start</span> <span class="nv">$h</span><span class="p">;</span>
-        <span class="nv">$h</span><span class="o">-&gt;</span><span class="n">finish</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="k">if</span><span class="p">(</span><span class="vg">$@</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$x</span> <span class="o">=</span> <span class="vg">$@</span><span class="p">;</span>
-        <span class="nv">$h</span><span class="o">-&gt;</span><span class="n">kill_kill</span><span class="p">;</span>
-        <span class="k">return</span> <span class="nv">$x</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="nb">unlink</span> <span class="nv">$temp</span><span class="p">;</span>
-    <span class="k">return</span> <span class="n">to_json</span><span class="p">({</span>
-        <span class="n">Errors</span> <span class="o">=&gt;</span> <span class="p">[</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/\n/</span><span class="p">,</span> <span class="nv">$err</span><span class="p">)</span> <span class="p">],</span>
-        <span class="n">Events</span> <span class="o">=&gt;</span> <span class="p">[</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/\n/</span><span class="p">,</span> <span class="nv">$out</span><span class="p">)</span> <span class="p">],</span>
-    <span class="p">});</span>
-<span class="p">};</span>
-</code></pre></div>
-<p>页面上通过 Ajax 请求交互：</p>
-<div class="highlight"><pre><code class="javascript">  <span class="nx">$</span><span class="p">.</span><span class="nx">ajax</span><span class="p">(</span><span class="s2">&quot;/run?code=&quot;</span> <span class="o">+</span> <span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">codeStr</span><span class="p">),</span> <span class="p">{</span>
-    <span class="nx">type</span><span class="o">:</span> <span class="s2">&quot;GET&quot;</span><span class="p">,</span>
-    <span class="nx">dataType</span><span class="o">:</span> <span class="s2">&quot;json&quot;</span><span class="p">,</span>
-    <span class="nx">success</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
-      <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">return</span><span class="p">;</span>
-      <span class="p">}</span>
-      <span class="k">if</span> <span class="p">(</span><span class="nx">data</span><span class="p">.</span><span class="nx">Errors</span> <span class="o">&amp;&amp;</span> <span class="nx">data</span><span class="p">.</span><span class="nx">Errors</span><span class="p">.</span><span class="nx">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
-        <span class="nx">setOutput</span><span class="p">(</span><span class="nx">outputDiv</span><span class="p">,</span> <span class="kc">null</span><span class="p">,</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">data</span><span class="p">.</span><span class="nx">Errors</span><span class="p">);</span>
-        <span class="k">return</span><span class="p">;</span>
-      <span class="p">}</span>
-      <span class="nx">setOutput</span><span class="p">(</span><span class="nx">outputDiv</span><span class="p">,</span> <span class="nx">data</span><span class="p">.</span><span class="nx">Events</span><span class="p">,</span> <span class="nx">data</span><span class="p">.</span><span class="nx">ErrEvents</span><span class="p">,</span> <span class="kc">false</span><span class="p">);</span>
-    <span class="p">},</span>
-    <span class="nx">error</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-      <span class="nx">outputDiv</span><span class="p">.</span><span class="nx">addClass</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">).</span><span class="nx">text</span><span class="p">(</span>
-        <span class="s2">&quot;Error communicating with remote server.&quot;</span><span class="p">);</span>
-    <span class="p">}</span>
-  <span class="p">});</span>
-</code></pre></div>
-<p>静态页面部分严重参考了 Scala 的 Tour 页。趁机学习了 impress.js 制作幻灯片效果、codemirror 实现代码高亮效果。</p>
-<p>最终效果见 <a href="http://www.perl-china.com/tour.html">少年 Perl 的魔法世界</a>。欢迎大家莅临指导~</p>
-<p>最后，阅读了 Golang Tour 关于 <a href="http://play.golang.org">Go Playground</a> 的原理说明，发现它们是在 Google App Engine 上运行实例，然后走消息队列把代码发送给后台实例运行结果。</p>
-<p>当然，Go Playground 不单单是支持 Tour，而且还包括社区各式第三方模块的测试和使用。把角色拆分出来也是正常的。</p>
       <a href="/2014/01/05/run-perl-code-from-webpage" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
@@ -1686,9 +545,9 @@ CONTAINER ID ...
   </div>
   <div class="rule"><hr/></div>
   <div class="full" style='background-color: #FFF;'>
-    <h1 class="entry-title">
+    <h2 class="entry-title">
       <a href="/2014/01/05/future-with-anyevent" title="Future模块和AnyEvent事件驱动的结合" rel="bookmark">Future模块和AnyEvent事件驱动的结合</a>
-    </h1>
+    </h2>
     <p class="alt-font tight">
       <span class="date full-date">
         <abbr class="published" title="2014-01-05 00:00:00 +0800">05 Jan 2014</abbr>
@@ -1700,61 +559,6 @@ CONTAINER ID ...
     </p>
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>上个月的 advent calendar 活动中，有一个新的模块进入我们视野，这就是 IO::Async 模块作者写的 <a href="https://metacpan.org/pod/Future">Future</a> 模块。通过 Future 模块，我们可以做到对异步请求的各种控制，比如：</p>
-<ul>
-  <li><code>needs_all</code> / <code>needs_any</code> / <code>wait_any</code> / <code>wait_all</code></li>
-  <li><code>then</code> / <code>else</code> / <code>and_then</code> / <code>or_else</code> / <code>followed_by</code></li>
-  <li><code>on_ready</code> / <code>on_done</code> / <code>on_fail</code> / <code>on_cancel</code></li>
-</ul>
-<p>目前来说，IO::Async 是原生支持 Future 了的。但是 AnyEvent 框架才是目前 Perl 社区事件驱动编程的主流选择。还好 Future 源码目录下 <a href="https://metacpan.org/source/PEVANS/Future-0.21/examples">examples/</a> 里有关于 AnyEvent 和 POE 如何跟 Future 一起运行的示例。</p>
-<p>示例统一举例的是 timer 事件。而我更看好的是 <a href="https://metacpan.org/pod/Future::Utils">Future::Utils</a> 提供的一些关于循环的函数，比如 <code>fmap</code> 可以很简单的控制住异步的并发数。稍微试验，得到脚本如下：</p>
-<div class="highlight"><pre><code class="perl"><span class="nb">package</span> <span class="nn">Future::</span><span class="n">AnyEvent</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">base</span> <span class="sx">qw( Future )</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">AnyEvent</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">AnyEvent::</span><span class="n">HTTP</span><span class="p">;</span> 
-<span class="k">sub </span><span class="nf">await</span> <span class="p">{</span>
-   <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-   <span class="k">my</span> <span class="nv">$cv</span> <span class="o">=</span> <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">condvar</span><span class="p">;</span>
-   <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">on_ready</span><span class="p">(</span><span class="k">sub </span><span class="p">{</span> <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nb">send</span> <span class="p">});</span>
-   <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nb">recv</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">httpget</span> <span class="p">{</span>
-   <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
-   <span class="n">http_get</span><span class="p">(</span><span class="nb">shift</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
-      <span class="k">my</span> <span class="p">(</span><span class="nv">$content</span><span class="p">,</span> <span class="nv">$headers</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-      <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">done</span><span class="p">(</span><span class="nv">$content</span><span class="p">);</span>
-   <span class="p">});</span>
-   <span class="k">return</span> <span class="nv">$self</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="nb">package</span> <span class="n">main</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Future::</span><span class="n">Utils</span> <span class="sx">qw/fmap/</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">@urls</span> <span class="o">=</span> <span class="sx">qw(</span>
-<span class="sx">    http://www.sina.com.cn</span>
-<span class="sx">    http://www.baidu.com</span>
-<span class="sx">    http://www.sohu.com</span>
-<span class="sx">#    ...</span>
-<span class="sx">)</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$f</span> <span class="o">=</span> <span class="n">fmap</span> <span class="p">{</span>
-    <span class="nn">Future::</span><span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">httpget</span><span class="p">(</span> <span class="nb">shift</span> <span class="p">);</span>
-<span class="p">}</span> <span class="k">foreach</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@urls</span><span class="p">,</span> <span class="n">concurrent</span> <span class="o">=&gt;</span> <span class="mi">5</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">@res</span> <span class="o">=</span> <span class="nv">$f</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">;</span>
-<span class="k">print</span> <span class="nv">@res</span><span class="p">;</span>
-</code></pre></div>
-<p>看起来稍显复杂。这里其实最关键的就是几个接口函数：</p>
-<ul>
-  <li>await / on_ready</li>
-</ul>
-<p>Future 对象到实际执行时(即-&gt;get调用处)，会寻找 <code>await</code> 方法。所以必须给自己选用的事件驱动实现这个 <code>await</code> 方法。</p>
-<p>ready 状态即一个 Future 执行完成，注意执行完成不意味着执行成功，ready 状态包括 success 和 fail 两种，其实是可以分别定义 <code>on_success</code> 和 <code>on_failure</code> 回调的。
-<code>on_ready</code> 回调的作用是：在该 Future 对象达到 ready 状态的时候，执行这步调用。</p>
-<p>在本例使用 AnyEvent 的时候，也就是一般来说都会在每步操作结束的 <code>$cv-&gt;send</code> 改到这里来等待调用。</p>
-<ul>
-  <li>done / done_cb</li>
-</ul>
-<p>那 Future 对象的 ready 状态是怎么来的呢？就是这步了：<code>$f-&gt;done</code> 一旦被调用，就意味着该 Future 对象进入了 ready and success 状态。</p>
-<p>同样，如果你要详细控制 Future 对象进入具体的 ready but failure 状态，就使用 <code>$f-&gt;fail</code> 好了。</p>
-<p>调用 <code>-&gt;done|fail()</code> 的时候，你可以选择传递具体哪些数据。比如本例中，就只传递了抓取的 <code>$content</code> 而没有 <code>$headers</code>。</p>
-<p>Future 提供了 <code>-&gt;done_cb</code> 和 <code>-&gt;fail_cb</code> 两个回调函数，默认传递回当前全部数据。本例如果要传回全部，就可以直接写成<code>http_get shift, $self-&gt;done_cb</code>。</p>
-<p>好了，就到这里。这个例子虽然比 Future 自带的 <code>anyevent.pl</code> 示例稍微复杂一点，但是依然很简单。如果能引起大家的兴趣，请直接阅读官方文档。</p>
       <a href="/2014/01/05/future-with-anyevent" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
