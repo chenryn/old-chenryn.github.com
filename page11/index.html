@@ -44,6 +44,59 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h2 class="entry-title">
+      <a href="/2010/08/24/inotifypurge_cache" title="inotify+purge_cache" rel="bookmark">inotify+purge_cache</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-08-24 00:00:00 +0800">24 Aug 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>linux内核从2.6.13开始，加入了inotify特性。对目录、文件的各种修改，都会发出inotify信号。包括
+    IN_ACCESS
+    IN_MODIFY
+    IN_ATTRIB
+    IN_CLOSE_WRITE
+    IN_CLOSE_NOWRITE
+    IN_OPEN
+    IN_MOVED_FROM
+    IN_MOVED_TO
+    IN_CREATE
+    IN_DELETE
+    IN_DELETE_SELF
+    IN_MOVE_SELF
+    IN_UNMOUNT
+    IN_CLOSE
+    IN_MOVE
+目前最常见的inotify应用，就是和rsync配合进行实时同步。
+而对web发布路径进行inotify监听的话，可以实时PURGE掉前端cache，保证网民访问的实效性。内容更新周期不固定的一些网站，大可以设定长一些的expires（也不要太长，不然浏览器端本身的缓存影响比较大），然后通过inotify监听来强制控制缓存时间，应该是比较有效果的。
+最早的思路，先用perl的Linux::Inotify模块watch目录，read出每次event的name；再用IO::Socket模块向squid发送&rdquo;PURGE $url HTTP/1.0\n\n&rdquo;请求，最后用WWW::Curl::Form模块POST数据到CDN的刷新接口。洋洋洒洒好几十行后，发现利用inotify-tools、curl、squidclient等现成的工具，写成的shell脚本更加简单而且方便。
+先修改squid.conf，添加web服务器ip的purge权限，重读配置；
+在web服务器上，从sourceforge下载inotify-tools源码编译：wget http://github.com/downloads/rvoicilas/inotify-tools/inotify-tools-3.14.tar.gz &amp;&amp; tar zxf inotify-tools-3.14.tar.gz &amp;&amp; cd inotify-tools-3.14 &amp;&amp; ./configure &ndash;prefix=/usr &amp;&amp; make &amp;&amp; make install
+从squid上scp /usr/local/squid/bin/squidclient 到web服务器上；
+要是没有curl的话，yum install一个。
+最后创建inotify-purge.sh脚本如下：
+{% highlight bash %}
+#!/bin/bash
+WEB_DIR=/path/to/example
+IPLIST=&rdquo;1.2.3.4
+1.2.3.5
+1.2.3.6
+1.2.3.7
+1.2.3.8
+&ldquo;</p>
+      <a href="/2010/08/24/inotifypurge_cache" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
       <a href="/2010/08/13/intro-pnp4nagios" title="nagios绘图" rel="bookmark">nagios绘图</a>
     </h2>
     <p class="alt-font tight">
@@ -759,30 +812,6 @@ sub handler {
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>几个跟ctrl有关的操作，很有爱，贴一下：</p>
       <a href="/2010/05/23/intro-bash-usage" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2010/05/22/intro-mod_perl-process-by-image" title="mod_perl处理流程图一张~" rel="bookmark">mod_perl处理流程图一张~</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-05-22 00:00:00 +0800">22 May 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>在<a href="http://www.fayland.org/journal">http://www.fayland.org/journal</a>上看到一张图，感觉很舒服很明白，转帖过来。
-<img alt="" src="http://www.fayland.org/journal/img/http_cycle_all.gif" /></p>
-<hr />
-<p>其实mod_perl官网有也有这个类似的图，不过没这个pp~~</p>
-      <a href="/2010/05/22/intro-mod_perl-process-by-image" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
