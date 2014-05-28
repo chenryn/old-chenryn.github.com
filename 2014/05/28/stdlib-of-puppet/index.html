@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>nagios性能监控</title>
+    <title>巧用 Puppet 的 stdlib 库</title>
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -44,77 +44,62 @@
       <div class="span7">
 <div class="row">
   <div class="page-header">
-    <h1>nagios性能监控 <small></small></h1>
-    <div class="date"><span>19 October 2010</span></div>
+    <h1>巧用 Puppet 的 stdlib 库 <small></small></h1>
+    <div class="date"><span>28 May 2014</span></div>
     <ul class="tag_box pull-right">
-    	<li><a href="/tags.html#nagios-ref">nagios <span>15</span></a></li>
+    	<li><a href="/tags.html#puppet-ref">puppet <span>12</span></a></li>
+    	<li><a href="/tags.html#ruby-ref">ruby <span>14</span></a></li>
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>nagios自带有性能监控工具nagiostats，安装在nagios路径的bin/下。直接运行即可看到主机、服务的检测频率，故障数量及比例等。举例如下：</p>
-<p>Nagios Stats 3.0.3
-Copyright (c) 2003-2008 Ethan Galstad (www.nagios.org)
-Last Modified: 06-25-2008
-License: GPL</p>
-<h2 id="current-status-data">CURRENT STATUS DATA</h2>
-<p>Status File:                            /usr/local/nagios/var/status.dat
-Status File Age:                        0d 0h 0m 9s
-Status File Version:                    3.0.3</p>
-<p>Program Running Time:                   6d 17h 48m 34s
-Nagios PID:                             14400
-Used/High/Total Command Buffers:        0 / 0 / 4096</p>
-<p>Total Services:                         1343
-Services Checked:                       1343
-Services Scheduled:                     1343
-Services Actively Checked:              1343
-Services Passively Checked:             0
-Total Service State Change:             0.000 / 11.580 / 0.009 %
-Active Service Latency:                 0.001 / 4.541 / 0.451 sec
-Active Service Execution Time:          0.007 / 6.723 / 0.202 sec
-Active Service State Change:            0.000 / 11.580 / 0.009 %
-Active Services Last 1/5/15/60 min:     379 / 927 / 1178 / 1343
-Passive Service Latency:                0.000 / 0.000 / 0.000 sec
-Passive Service State Change:           0.000 / 0.000 / 0.000 %
-Passive Services Last 1/5/15/60 min:    0 / 0 / 0 / 0
-Services Ok/Warn/Unk/Crit:              1343 / 0 / 0 / 0
-Services Flapping:                      0
-Services In Downtime:                   0</p>
-<p>Total Hosts:                            239
-Hosts Checked:                          239
-Hosts Scheduled:                        239
-Hosts Actively Checked:                 239
-Host Passively Checked:                 0
-Total Host State Change:                0.000 / 0.000 / 0.000 %
-Active Host Latency:                    0.014 / 5.048 / 2.766 sec
-Active Host Execution Time:             4.006 / 5.095 / 4.018 sec
-Active Host State Change:               0.000 / 0.000 / 0.000 %
-Active Hosts Last 1/5/15/60 min:        223 / 238 / 239 / 239
-Passive Host Latency:                   0.000 / 0.000 / 0.000 sec
-Passive Host State Change:              0.000 / 0.000 / 0.000 %
-Passive Hosts Last 1/5/15/60 min:       0 / 0 / 0 / 0
-Hosts Up/Down/Unreach:                  239 / 0 / 0
-Hosts Flapping:                         0
-Hosts In Downtime:                      0</p>
-<p>Active Host Checks Last 1/5/15 min:     183 / 444 / 1135
-Scheduled:                           183 / 444 / 1133
-On-demand:                           0 / 0 / 2
-Parallel:                            183 / 444 / 1134
-Serial:                              0 / 0 / 0
-Cached:                              0 / 0 / 1
-Passive Host Checks Last 1/5/15 min:    0 / 0 / 0
-Active Service Checks Last 1/5/15 min:  494 / 1082 / 3209
-Scheduled:                           494 / 1082 / 3209
-On-demand:                           0 / 0 / 0
-Cached:                              0 / 0 / 0
-Passive Service Checks Last 1/5/15 min: 0 / 0 / 0</p>
-<p>External Commands Last 1/5/15 min:      0 / 0 / 0</p>
-<p>&nbsp;</p>
+    <p>这几天上线机器给 Elasticsearch 集群扩容，开始撰写 Puppet 的 elasticsearch 类来规范化管理。这里碰到一个小问题，相信在很多大容量集群的机器上都会有。那就是每台机器上都挂载有十几二十块磁盘，怎么用 Puppet 给快速方便的创建各磁盘上的工作目录呢？</p>
+<p>一个一个写 File 资源申明肯定不可取；File 资源申明支持接受数组，但是二十多个元素写一个大数组也没方便到哪里去。有没有比较简单的办法来生成这个大数组，而不是手写呢？</p>
+<p>有，就是使用 Puppet 官方出的这个 stdlib 库 <a href="http://forge.puppetlabs.com/puppetlabs/stdlib">http://forge.puppetlabs.com/puppetlabs/stdlib</a>。</p>
+<p>安装方法很简单，在 Puppet Master 上运行命令 <code>puppet module install puppetlabs-stdlib</code> 即可。</p>
+<p>因为 puppet 默认会分发所有 module 的 lib/ 目录，所以即便你没有在自己的类里 <code>import stdlib</code>，也是可以直接使用它提供的各种函数的。</p>
+<p>下面就是我的 elsticsearch 类配置：</p>
+<div class="highlight"><pre><code class="ruby"><span class="k">class</span> <span class="n">elasticsearch</span> <span class="p">{</span>
+    <span class="vg">$esdatadir</span> <span class="o">=</span> <span class="n">suffix</span><span class="p">(</span> <span class="n">prefix</span><span class="p">(</span> <span class="n">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="vg">$:</span><span class="ss">:datadircount</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="s1">&#39;/data&#39;</span><span class="p">),</span> <span class="s1">&#39;/elasticsearch&#39;</span><span class="p">)</span>
+    <span class="n">package</span> <span class="p">{</span><span class="o">[</span><span class="s1">&#39;java-1.7.0-openjdk&#39;</span><span class="p">,</span> <span class="s1">&#39;elasticsearch&#39;</span><span class="o">]</span><span class="p">:</span>
+        <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="s1">&#39;present&#39;</span><span class="p">,</span>
+        <span class="nb">require</span> <span class="o">=&gt;</span> <span class="no">Class</span><span class="o">[</span><span class="s1">&#39;repos&#39;</span><span class="o">]</span><span class="p">,</span>
+    <span class="p">}</span><span class="o">-&gt;</span>
+    <span class="n">file</span> <span class="p">{</span><span class="vg">$esdatadir</span><span class="p">:</span>
+        <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="s1">&#39;directory&#39;</span><span class="p">,</span>
+        <span class="n">owner</span>   <span class="o">=&gt;</span> <span class="s1">&#39;elasticsearch&#39;</span><span class="p">,</span>
+    <span class="p">}</span><span class="o">-&gt;</span>
+    <span class="n">file</span> <span class="p">{</span><span class="s1">&#39;/etc/elasticsearch/elasticsearch.yml&#39;</span><span class="p">:</span>
+        <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="s1">&#39;file&#39;</span><span class="p">,</span>
+        <span class="n">owner</span>   <span class="o">=&gt;</span> <span class="s1">&#39;elasticsearch&#39;</span><span class="p">,</span>
+        <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s1">&#39;elasticsearch/elasticsearch.yml.erb&#39;</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="p">}</span><span class="o">~&gt;</span>
+    <span class="n">service</span> <span class="p">{</span><span class="s1">&#39;elasticsearch&#39;</span><span class="p">:</span>
+        <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
+        <span class="n">enable</span>  <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>其中 <code>$::datadircount</code> 是我自定义的 Facts 变量，插件代码见两年前的博客<a href="http://chenlinux.com/2012/05/10/quick-start-for-puppet-facter-erb">《puppet安装／Facter插件和puppet模板编写》</a>。</p>
+<p>然后 <code>elasticsearch.yml.erb</code> 里的数据目录配置定义如下：</p>
+<div class="highlight"><pre><code class="ruby"><span class="n">path</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
+<span class="o">&lt;</span><span class="sx">% scope.lookupvar(&quot;elasticsearch::esdatadir&quot;).each </span><span class="k">do</span> <span class="o">|</span><span class="n">dir</span><span class="o">|</span> <span class="o">-</span><span class="sx">%&gt;</span>
+<span class="sx">  - &lt;%= dir %&gt;</span>
+<span class="o">&lt;</span><span class="sx">% end </span><span class="o">%&gt;</span>
+</code></pre></div>
+<p><code>puppetlibs-stdlib</code> 实现了很多对基础类型的扩展函数，比如本例中用到了 <code>range</code>、<code>prefix</code> 和 <code>suffix</code> 三个。依次生成了 1 到 N 的数组，给数组每个元素加上 <code>/data</code> 前缀字符串，再给每个元素加上 <code>/elasticsearch</code> 后缀字符串，最后变成了 <code>/dataN/elasticsearch</code> 这种格式的元素构成的数组。</p>
+<p><code>puppetlibs-stdlib</code> 实现的非常漂亮的地方是，很多函数都根据常见用途提供了不同场景下的不同行为。</p>
+<ul>
+  <li>比如 <code>range</code> 即可以 1 到 N，也可以 01 到 NN，甚至可以先加上 prefix 后再 &lsquo;/data1&rsquo; 到 &lsquo;/dataN&rsquo; 都支持。</li>
+  <li>比如 <code>unique</code> 既可以针对字符串去重，也可以针对数组元素去重。</li>
+</ul>
+<p>更多函数说明，见源码仓库 <a href="https://github.com/puppetlabs/puppetlabs-stdlib/blob/master/README.markdown">README</a> 文档。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/10/13/a-problem-of-php-compiling" title="php编译小问题">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/05/20/my-first-experience-of-perlxs" title="XS 初体验">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/10/20/solution-of-tcp_overflow" title="tcp overflow报错">Next &rarr;</a></li>
+        <li class="next disabled"><a>Next &rarr;</a>
       </ul>
     </div>
     <hr>
@@ -129,7 +114,6 @@ Passive Service Checks Last 1/5/15 min: 0 / 0 / 0</p>
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2014/05/28/stdlib-of-puppet">巧用 Puppet 的 stdlib 库</a></li>
                  <li><a href="/2014/05/20/my-first-experience-of-perlxs">XS 初体验</a></li>
                  <li><a href="/2014/05/17/implement-percentiles-aggregation-on-kibana">给 Kibana 实现百分比统计图表</a></li>
                  <li><a href="/2014/05/10/graphite-grafana-on-nagios">用 Graphite 存储 Nagios 数据</a></li>
@@ -138,6 +122,7 @@ Passive Service Checks Last 1/5/15 min: 0 / 0 / 0</p>
                  <li><a href="/2014/04/21/tcp-fastopen-2">TCP Fast Open 测试(2)</a></li>
                  <li><a href="/2014/04/16/tcp-fastopen-1">TCP Fast Open 测试(1)</a></li>
                  <li><a href="/2014/04/07/perlchina-mini-workshop-with-larry-wall">Larry Wall 来中国参加 OSTC 和 PerlChina Workshop</a></li>
+                 <li><a href="/2014/03/30/qcloud-tech">腾讯云技术沙龙笔记</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">
