@@ -45,6 +45,27 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h2 class="entry-title">
+      <a href="/2011/09/20/get-ip-address-by-perl-on-linux" title="linux上获取本机ip的各种perl写法" rel="bookmark">linux上获取本机ip的各种perl写法</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-09-20 00:00:00 +0800">20 Sep 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>大家讨论使用 Gearman 做分布式处理时，各机需要注册一个独立的 job 作为信息反馈，但是为了方便，<code>Gearman::Worker</code> 脚本 <code>register_function</code> 代码又要通用，于是想到了使用各自的 ip 地址作为 job 命名~</p>
+      <a href="/2011/09/20/get-ip-address-by-perl-on-linux" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
       <a href="/2011/09/16/dancing-website-for-sync-dist-1" title="写个同步分发系统(一)" rel="bookmark">写个同步分发系统(一)</a>
     </h2>
     <p class="alt-font tight">
@@ -1043,124 +1064,6 @@ that instance in a system with many cpus making intensive use of it. linux默认
 另：tail命令有个参数-F/&ndash;follow=name，可以锁定文件名而不是文件描述符，不知道这个功能是怎么做到的？
 一步一步来：</p>
       <a href="/2011/06/03/aggregate-multi-servers-rollback-log-by-gearmand" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2011/06/01/intro-html-template" title="HTML::Template试用" rel="bookmark">HTML::Template试用</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-06-01 00:00:00 +0800">01 Jun 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>给我自己的学习计划做个开头，从html::template开始试用。
-首先利用上上篇的nmap.pl脚本，提取一些数据，然后展示在页面上。
-cgi脚本如下：
-{% highlight perl %}#!/usr/bin/perl -w
-use HTML::Template;
-use XML::Simple;
-use Net::MySQL;
-#定期执行这个
-#system(&ldquo;nmap -n -p 22,5666 10.168.168.0/23 10.168.170.0/24 -oX output.xml&rdquo;);
-my $text = XMLin(&ldquo;output.xml&rdquo;);
-#读取html模版
-my $temp = HTML::Template-&gt;new(filename =&gt; &lsquo;../template/html/server.tmpl&rsquo;);
-my $localhost = &lsquo;127.0.0.1&rsquo;;
-my @array = ();
-my $i = 0;
-my $hash = {};
-while ( $text-&gt;{host}-&gt;[$i] ) {
-#因为新增了ssh端口扫描，所以xml解析和前例稍有不同
-    my $ssh_state = $text-&gt;{host}-&gt;[$i]-&gt;{ports}-&gt;{port}-&gt;[0]-&gt;{state}-&gt;{state};
-    my $nrpe_state = $text-&gt;{host}-&gt;[$i]-&gt;{ports}-&gt;{port}-&gt;[1]-&gt;{state}-&gt;{state};
-    my $ip = ref($text-&gt;{host}-&gt;[$i]-&gt;{address}) eq &lsquo;ARRAY&rsquo; ? $text-&gt;{host}-&gt;[$i]-&gt;{address}-&gt;[0]-&gt;{addr} : $text-&gt;{host}-&gt;[$i]-&gt;{address}-&gt;{addr};
-    my $mac = ref($text-&gt;{host}-&gt;[$i]-&gt;{address}) eq &lsquo;ARRAY&rsquo; ? $text-&gt;{host}-&gt;[$i]-&gt;{address}-&gt;[1]-&gt;{addr} : &lsquo;00:1E:C9:E6:E1:7C&rsquo;;
-    $i++;
-    my $channel = &amp;mysql_query($mac);
-#将ip按照频道排成列表，每个ip存有ssh和nrpe状态
-    if ( exists $hash-&gt;{$channel} ) {
-        push @{$hash-&gt;{$channel}}, { &lsquo;IP&rsquo; =&gt; $ip, &lsquo;SSH&rsquo; =&gt; $ssh_state, &lsquo;NRPE&rsquo; =&gt; $nrpe_state, };
-    } else {
-        $hash-&gt;{$channel}-&gt;[0] = { &lsquo;IP&rsquo; =&gt; $ip, &lsquo;SSH&rsquo; =&gt; $ssh_state, &lsquo;NRPE&rsquo; =&gt; $nrpe_state, };
-    }
-}
-#将上面while生成的hash转成HTML::Template认可的array，不过array的单个元素可以是hash
-foreach my $key( keys %{$hash} ) {
-    my $onechannel = {};
-    $onechannel-&gt;{&ldquo;CHANNEL&rdquo;} = $key;
-    my $j = 0;
-    foreach my $ip( @{$hash-&gt;{$key}} ) {
-        $onechannel-&gt;{&ldquo;IP_LOOP&rdquo;}-&gt;[$j] = $ip;
-        $j++;
-    }
-    push @array, $onechannel;
-}
-#将array传递给之前定义的html模版
-#注意：不管是param还是@array里，所有的key必须都在tmpl里使用，冗余也会报错
-$temp-&gt;param(CHANNEL_LOOP =&gt; \@array);
-#输出成html格式
-print &ldquo;Content-Type: text/html\n\n&rdquo;, $temp-&gt;output;
-#这段没什么说的，根据mac获取频道
-sub mysql_query {
-    my $mac = shift;
-    my $mysql = Net::MySQL-&gt;new( hostname =&gt; $localhost,
-                                 database =&gt; &lsquo;myops&rsquo;,
-                                 user     =&gt; &lsquo;myops&rsquo;,
-                                 password =&gt; &lsquo;myops&rsquo;,
-                               );
-    $mysql-&gt;query(&ldquo;select channel from myhost where mac=&rsquo;$mac&rsquo;&rdquo;);
-    &amp;alert(&ldquo;New server&rdquo;) unless $mysql-&gt;has_selected_record;
-    my $a_record_iterator = $mysql-&gt;create_record_iterator();
-    while (my $record = $a_record_iterator-&gt;each) {
-        return $record-&gt;[0];
-    };
-}
-#留着后续继续处理
-sub alert {
-    print @_,&rdquo;\n&rdquo;;
-}{% endhighlight %}
-然后是template文件server.tmpl：
-{% highlight html %}</p>
-<html>
-<head>
-<title>Server Plate</title>
-</head>
-<body>
-<table width="100%" cellspacing="0" cellpadding="0" border="1">
-<!--TMPL_LOOP循环格式，使用的是array里channel_loop的每个元素-->
-<tmpl_loop name="CHANNEL_LOOP">
-<tr>
-<!--根据本层loop中的某个元素的channel的value开始表格的一行-->
-<th><center><tmpl_var name="CHANNEL">
-<!--本层loop中另一个元素ip_loop，也是array格式，所以继续循环，每个元素使用一列-->
-<tmpl_loop name="IP_LOOP">
-&lt;td valign=top&gt;<center>
-//根据本层loop的ssh情况选择显示哪个图标；TMPL_IF只能判断key的真假，所以用js
-<script type="text/javascript">
-if ('<TMPL_VAR NAME="SSH">' == 'open') {
-    document.write("<img src='../template/images/unlock_server.png'>");
-} else {
-    document.write("<img src='../template/images/desable_server.png'>");
-}
-</script>
-<!--显示第二层loop里元素的几个value-->
-<hr />nrpe:<tmpl_var name="NRPE"><hr />ssh :<tmpl_var name="SSH"><hr /><tmpl_var name="IP">
-<!--结束里层loop，即完成一行表格-->
-<!--结束顶层loop，即完成表格-->
-<br /><br /><br /><center>
-{% endhighlight %}
-用apache分别发布cgi目录和静态目录。然后访问一下；OK。
-</center></tmpl_var></tmpl_var></tmpl_var></center></tmpl_loop></tmpl_var></center></th></tr></tmpl_loop></table></body></html>
-      <a href="/2011/06/01/intro-html-template" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

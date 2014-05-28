@@ -70,7 +70,7 @@ filter {
         match =&gt; [ "message", "^%{SYSLOGTIMESTAMP:timestamp}\|\| pid:\d+\|from:\d{10}\|to:\d{10}\|accounting_id:%{WORD:accounting}\|requests:%{NUMBER:req:int}\|bytes_out:%{NUMBER:size:int}\|(?:200:%{NUMBER:count.200:int}\|?)?(?:206:%{NUMBER:count.206:int}\|?)?(?:301:%{NUMBER:count.301:int}\|?)?(?:302:%{NUMBER:count.302:int}\|?)?(?:304:%{NUMBER:count.304:int}\|?)?(?:400:%{NUMBER:count.400:int}\|?)?(?:401:%{NUMBER:count.401:int}\|?)?(?:403:%{NUMBER:count.403:int}\|?)?(?:404:%{NUMBER:count.404:int}\|?)?(?:499:%{NUMBER:count.499:int}\|?)?(?:500:%{NUMBER:count.500:int}\|?)?(?:502:%{NUMBER:count.502:int}\|?)?(?:503:%{NUMBER:count.503:int}\|?)?"
     }
     date {
-        match =&gt; [ "timestamp", "MMM dd YYY HH:mm:ss", "MMM  d YYY HH:mm:ss", "ISO8601" ]
+        match =&gt; [ "timestamp", "MMM dd HH:mm:ss", "MMM  d HH:mm:ss" ]
     }
 }
 output {
@@ -88,7 +88,7 @@ output {
 <p>点击 Query 搜索栏左边的有色圆点，弹出搜索栏配置框，默认是 <code>lucene</code> 搜索方式，改成 <code>topN</code> 搜索方式。然后填入分析字段为 accounting。</p>
 <p>点击 Event Over Time 柱状图右上角第二个的 <code>Configure</code> 小图标，弹出图表配置框：</p>
 <ul>
-  <li>在 <code>Panel</code> 选项卡中修改 <code>Chart value</code> 的 <code>count</code> 为 <code>total</code>，<code>Value Field</code> 设置为 size；</li>
+  <li>在 <code>Panel</code> 选项卡中修改 <code>Chart value</code> 的 <code>count</code> 为 <code>total</code>，<code>Value Field</code> 设置为 size，<strong>勾选 <code>Seconds</code> 项，转换 size 的累加值成每秒带宽(不然 interval 变化会导致累加值变化)</strong>；</li>
   <li>在 <code>Style</code> 选项卡中修改 <code>Chart Options</code> 的 <code>Bars</code> 勾选项为 <code>Lines</code>，<code>Y Format</code> 为 bytes；</li>
   <li>在 <code>Queries</code> 选项卡中修改 <code>Charted Queries</code> 为 <code>selected</code>，然后点中右侧列出的请求中所需要的那项(当前只有一个，就是<code>*</code>)。</li>
 </ul>
@@ -126,12 +126,32 @@ output {
     ruby {
         code =&gt; "n={};event['code'].each_pair{|x,y|n[x]=y.to_i};event['code']=n"
     }
-    date {
-        match =&gt; [ "timestamp", "MMM dd YYY HH:mm:ss", "MMM  d YYY HH:mm:ss", "ISO8601" ]
-    }
 }
 </code></pre>
 <p>不晓得为什么 filter/mutate 不提供转换 Hash 的功能，所以只能把这行写在 filter/ruby 里面。kv 截出来的 value 默认都是字符串类型。</p>
+<hr />
+<p>2014 年 5 月 28 日更新：</p>
+<p>发现默认的 LVS 检查导致的 400 会记录到默认的 accounting 组(&ldquo;default&rdquo;)里，虽然不占带宽，却占不少请求数。这类日志可以在 logstash层面就干掉：</p>
+<pre><code>filter {
+    grok {
+        match =&gt; [ "message", "^%{SYSLOGTIMESTAMP:timestamp}\|\| pid:\d+\|from:\d{10}\|to:\d{10}\|accounting_id:%{WORD:accounting}\|requests:%{NUMBER:req:int}\|bytes_out:%{NUMBER:size:int}\|%{DATA:status}"
+    }
+    if [accounting] == 'default' {
+        drop { }
+    } else {
+        kv {
+            target =&gt; "code"
+            source =&gt; "status"
+            field_split =&gt; "|"
+            value_split =&gt; ":"
+        }
+        ruby {
+            code =&gt; "n={};event['code'].each_pair{|x,y|n[x]=y.to_i};event['code']=n"
+        }
+    }
+}
+</code></pre>
+<p>另外说明一下，<code>ngx_http_accounting_module</code> 中设定 <code>http_accounting_id</code> 这步是预先处理的，所以只能写固定字符串，不能用 <code>$host</code> 之类的 nginx.conf 变量。</p>
     <hr>
     <div class="pagination">
       <ul>
@@ -152,6 +172,7 @@ output {
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+                 <li><a href="/2014/05/28/stblib-of-puppet">巧用 Puppet 的 stdlib 库</a></li>
                  <li><a href="/2014/05/20/my-first-experience-of-perlxs">XS 初体验</a></li>
                  <li><a href="/2014/05/17/implement-percentiles-aggregation-on-kibana">给 Kibana 实现百分比统计图表</a></li>
                  <li><a href="/2014/05/10/graphite-grafana-on-nagios">用 Graphite 存储 Nagios 数据</a></li>
@@ -160,7 +181,6 @@ output {
                  <li><a href="/2014/04/21/tcp-fastopen-2">TCP Fast Open 测试(2)</a></li>
                  <li><a href="/2014/04/16/tcp-fastopen-1">TCP Fast Open 测试(1)</a></li>
                  <li><a href="/2014/04/07/perlchina-mini-workshop-with-larry-wall">Larry Wall 来中国参加 OSTC 和 PerlChina Workshop</a></li>
-                 <li><a href="/2014/03/30/qcloud-tech">腾讯云技术沙龙笔记</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">
