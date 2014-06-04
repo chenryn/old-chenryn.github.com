@@ -45,6 +45,180 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h2 class="entry-title">
+      <a href="/2011/09/30/dynamic-dns-demo" title="一个ddns的demo" rel="bookmark">一个ddns的demo</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-09-30 00:00:00 +0800">30 Sep 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>上回分析lbnamed的时候，开玩笑说自己也可以试试在模块基础上加点啥功能。国庆节前最后一天，没啥事情做，就写个小demo续貂。代码如下：
+{% highlight perl %}
+#!/usr/bin/perl
+use warnings;
+use strict;
+use autodie;
+use Sys::Hostname;
+use YAML::Syck;
+use Net::IP::Match::Regexp qw( create_iprange_regexp match_ip );
+use Stanford::DNS;
+use Stanford::DNSserver;
+$SIG{&lsquo;HUP&rsquo;} = &lsquo;catch_hup&rsquo;;
+my $need_reload;
+my $hostmaster = &lsquo;domain.chenlinux.com&rsquo;;
+my $soa        = rr_SOA(hostname(), $hostmaster, time(), 3600, 1800, 86400, 0);
+my $ns         = Stanford::DNSserver-&gt;new( listen_on =&gt; [ hostname() ],
+#                                           debug     =&gt; 1,
+                                           loopfunc  =&gt; \&amp;conf_reload,
+#                                           daemon    =&gt; &lsquo;no&rsquo;,
+                                         );
+my $regexp;
+my @domains;
+my $arealist;
+my $templist;
+my $config_path = &lsquo;/data/chenlinux.com/perl/&rsquo;;
+my $ns_domain = &lsquo;test.domain.chenlinux.com&rsquo;;
+$ns-&gt;add_dynamic(&ldquo;$domain&rdquo; =&gt; \&amp;dyn_lb ) foreach my $domain ( @domains );
+$ns-&gt;add_static( &ldquo;$ns_domain&rdquo;, T_SOA, $soa);
+$ns-&gt;add_static( &ldquo;$ns_domain&rdquo;, T_NS, rr_NS($hostmaster));</p>
+      <a href="/2011/09/30/dynamic-dns-demo" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
+      <a href="/2011/09/29/dancing-website-for-sync-dist-3" title="写个同步分发系统(三)" rel="bookmark">写个同步分发系统(三)</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-09-29 00:00:00 +0800">29 Sep 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#dancer-ref" title="dancer" rel="category tag">dancer</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>上篇写的页面上，留下一个超链接，查看每条任务的具体情况。现在完成这部分。
+首先修改数据库结构，上篇已经建了websync.websync_peer表，现在继续：
+{% highlight mysql %}
+create table websync_customer (
+    uid int not null auto_increment primary key,
+    user varchar(20) not null,
+    passwd char(32) not null,
+    custom_info varchar(128),
+    node varchar(128) not null
+) engine=innodb;</p>
+      <a href="/2011/09/29/dancing-website-for-sync-dist-3" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
+      <a href="/2011/09/26/dancing-website-for-sync-dist-2" title="写个同步分发系统(二)" rel="bookmark">写个同步分发系统(二)</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-09-26 00:00:00 +0800">26 Sep 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#dancer-ref" title="dancer" rel="category tag">dancer</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>接上篇，加上分发过程查看的页面。这应该是一个很典型的翻页处理。
+首先创建一个数据库表如下：
+{% highlight mysql %}create table websync_peer (
+    id int not null auto_increment primary key,
+    begin_time timestamp not null default 0,
+    end_time timestamp on update current_timestamp,
+    url varchar(128) not null,
+    customer varchar(20) not null,
+    md5_hex char(32) default null
+) engine=innodb;{% endhighlight %}
+然后把之前的peer_query()函数修改如下：
+{% highlight perl %}sub peer_query {
+    my $url = shift;
+    #这里的database和session都需要其他plugin的配合，见之前博客，不贴重复代码了
+    my $sth = database-&gt;prepare(&lsquo;insert into websync_peer (begin_time, url, customer) value (now(), ?, ?)&rsquo;);
+    $sth-&gt;execute($url, session-&gt;{login});
+};{% endhighlight %}
+然后把gearman::client的功能改到mysql的UDFs内完成，做法见<a href="http://www.php-oa.com/2010/09/20/perl-gearman-server-mysql-udfs.html" title="http://www.php-oa.com/2010/09/20/perl-gearman-server-mysql-udfs.html"></a>。
+然后写翻页函数了~
+{% highlight perl %}get &lsquo;/check&rsquo; =&gt; sub {
+    my $from = params-&gt;{page} || 1;
+    my $user = session-&gt;{login};
+    my @urls;
+    my $count_sql = &lsquo;select count(id) count from websync_peer where customer = ?&rsquo;;
+    my $count_sth = database-&gt;prepare($sql);
+    $count_sth-&gt;execute( $user );
+    my $count = $count_sth-&gt;fetchrow_hashref-&gt;{count};
+    my $total_pages = int( $count / 20 + 1 );
+    return &lsquo;No url has been posted to purge.&rsquo; unless $count;
+    return &lsquo;Selected page number out of range.&rsquo; if $from &gt; $total_pages;
+    my $url_sql = &lsquo;select id,url,begin_time from websync_peer where customer = ? order by id desc limit ?, 20&rsquo;;
+    my $url_sth = database-&gt;prepare($sql);
+    $url_sth-&gt;execute( $user, ($from - 1) * 20 );
+    while ( my $ref = $sth-&gt;fetchrow_hashref ) {
+        push @urls, $ref;
+    };
+    template &lsquo;check&rsquo;, { &lsquo;urls&rsquo; =&gt; \@urls, 
+                        &lsquo;prev&rsquo; =&gt; $from &gt; 1 ? $from - 1 : 1,
+                        &lsquo;next&rsquo; =&gt; $from &lt; $total_pages ? $from + 1 : $total_pages, 
+                        &lsquo;last&rsquo; =&gt; $total_pages, 
+                      };
+};{% endhighlight %}
+对应的check.tt如下：
+{% highlight html %}&lt;html&gt;&lt;head&gt;
+<style type="text/css">
+#main {text-align:center;width:500px;margin-right:auto;margin-left:auto;padding:0px;}
+#url {width:776px;border:1px;}
+#page_link ul {list-style:none;}
+#page_link li {float:left;width:100px;margin-left:3px;line-height:30px;}
+</style>
+&lt;/head&gt;&lt;body&gt;
+&lt;div id="main"&gt;
+&lt;div id="url"&gt;</p>
+<table>
+<tr><th>ID</th><th>URL</th><th>TIME</th><th>MORE</th></tr>
+&lt;% FOREACH ref IN urls %&gt;
+<tr>
+<td>&lt;% ref.id %&gt;</td>
+<td>&lt;% ref.begin_time %&gt;</td>
+<td>&lt;% ref.url %&gt;</td>
+<td><a href="/checkstatus?id=&lt;% ref.id %&gt;">more</a></td>
+</tr>
+&lt;% END %&gt;
+</table>
+<p>&lt;/div&gt;
+&lt;div id="page_link"&gt;&lt;ul&gt;</p>
+<li><a href="/check?page=1">1</a></li>
+<li><a href="/check?page=&lt;% prev %&gt;">&lt;% prev %&gt;</a></li>
+<li><a href="/check?page=&lt;% next %&gt;">&lt;% next %&gt;</a></li>
+<li><a href="/check?page=&lt;% last %&gt;">&lt;% last %&gt;</a></li>
+<p>&lt;/ul&gt;&lt;/div&gt;
+&lt;/div&gt;
+&lt;/body&gt;&lt;/html&gt;{% endhighlight %}
+额，傻乎乎的css，好难看，好难写啊……
+下一步继续修改mysql表结构，然后完成页面里提供的/checkstatus功能。</p>
+      <a href="/2011/09/26/dancing-website-for-sync-dist-2" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
       <a href="/2011/09/20/get-ip-address-by-perl-on-linux" title="linux上获取本机ip的各种perl写法" rel="bookmark">linux上获取本机ip的各种perl写法</a>
     </h2>
     <p class="alt-font tight">
@@ -980,90 +1154,6 @@ foreach my $key (sort keys %{$data}) {
 }{% endhighlight %}
 记住一定要clear，不然的话add_data会接着上一次的加，然后数据就错了。</fh></p>
       <a href="/2011/06/09/statistics-descriptive-module-of-perl" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2011/06/09/intro-spread" title="spread试验" rel="bookmark">spread试验</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-06-09 00:00:00 +0800">09 Jun 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>spread还是半年前的时候偶然看到的，一直没有试过。前段时间用gearman收集集群日志时，发现gearman的方式，worker不会知道client来自哪里，一条job只会一个worker来做，比较适合做分布式计算，但相比我最初设想的实时系统管理需求，还是有一定距离。于是重新翻出来spread，感觉可以根据应用系统设置不同的group，然后统一再由一个回收结果的group即可。于是有了如下试验：</p>
-      <a href="/2011/06/09/intro-spread" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2011/06/09/inode-problem-of-tmpfs" title="tmpfs的inode问题" rel="bookmark">tmpfs的inode问题</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-06-09 00:00:00 +0800">09 Jun 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>一些squid服务器为了强调加速效果，使用tmpfs来做cache_dir。刚开始运行的时候也嗖嗖的，不过没过一两天，mgr:info就看到缓存命中率急剧下降，字节命中率甚至只剩下10%左右！检查了多次配置，绝对没有问题，但同样的url，曾经一分钟几百次的HIT，现在一分钟几百次MISS……
-df看，不管是tmpfs，还是logs所在的目录，都才用了不到30%。最后想起来df -i看了下，果然，tmpfs的inode使用率100%了！
-赶紧remount了一次，解决了问题。但不是根本出路。还是得想办法搞定这个inode。
-在linux代码说明里找到了关于tmpfs的文档（/usr/src/linux/Documentation/filesystems/tmpfs.txt）：
-    tmpfs has three mount options for sizing:
-    ……
-    nr_inodes: The maximum number of inodes for this instance. <strong>The default
-               is half of the number of your physical RAM pages</strong>, or (on a
-               machine with highmem) the number of lowmem RAM pages,
-               whichever is the lower.
-    These parameters accept a suffix k, m or g for kilo, mega and giga and
-    can be changed on remount.  The size parameter also accepts a suffix %
-    to limit this tmpfs instance to that percentage of your physical RAM:
-    <strong>the default, when neither size nor nr_blocks is specified, is size=50%</strong></p>
-<pre><code>If nr_blocks=0 (or size=0), blocks will not be limited in that instance;
-&lt;strong&gt;if nr_inodes=0, inodes will not be limited.&lt;/strong&gt;  It is generally unwise to
-mount with such options, since it allows any user with write access to
-use up all the memory on the machine; but enhances the scalability of
-that instance in a system with many cpus making intensive use of it. linux默认的RAM page大小是4k，好了来计算一下吧。 {% highlight bash %}[root@bbs_squid4 ~]# df -i|awk '/tmpfs/{print $2}' 504912 [root@bbs_squid4 ~]# free -k|awk '/Mem/{print $2/4/2}' 504912{% endhighlight %} 果然如此！ 那么真正的解决办法也就有了： {% highlight bash %}[root@localhost ~]# mount -t tmpfs -o size=2000M,mode=777,nr_inodes=0 tmpfs /tmpfs [root@localhost ~]# df -i|grep tmpfs tmpfs                      0       0       0    -  /tmpfs{% endhighlight %}
-</code></pre>
-      <a href="/2011/06/09/inode-problem-of-tmpfs" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2011/06/03/aggregate-multi-servers-rollback-log-by-gearmand" title="用gearman汇总多台服务器的回滚日志" rel="bookmark">用gearman汇总多台服务器的回滚日志</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-06-03 00:00:00 +0800">03 Jun 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>gearman其实不是重点，因为我就是抄了一遍perldoc的样例而已。关键在服务器上的log4j日志是回滚的，所以需要配合回滚（猜测log4j的DailyRollingFile回滚方式类似mv resin.log resin.log-ymd &amp;&amp; reload，这样在回滚后，FH还在resin.log-ymd上，就读不到新日志了）重启FH。
-另：tail命令有个参数-F/&ndash;follow=name，可以锁定文件名而不是文件描述符，不知道这个功能是怎么做到的？
-一步一步来：</p>
-      <a href="/2011/06/03/aggregate-multi-servers-rollback-log-by-gearmand" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

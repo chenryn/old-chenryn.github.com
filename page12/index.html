@@ -45,6 +45,125 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h2 class="entry-title">
+      <a href="/2010/05/27/a-non-host-error-in-squid" title="一个少见的squid报错" rel="bookmark">一个少见的squid报错</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-05-27 00:00:00 +0800">27 May 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>今天有客户传过来一张报障截图，乍一看很正常的拒绝访问而已。可仔细一看，吓，地址栏里的url和errorpage返回的%U居然不一样！！
+<img src="/images/uploads/e68aa5e99a9ce688aae59bbe.jpg" />
+浏览器中写的是域名，squid却按配置拒绝的是对服务器ip发起的直接请求。
+赶紧去日志服务器上汇总deny信息，终于找到了相关日志。都是一个ip发过来的，大概如下：
+2010-05-25-14:04:13 0 60.209.232.219 TCP_MEM_HIT/200 15555 GET http://jobseeker.zhaopin.com/zhaopin/aboutus/law.html - NONE/- text/html &ldquo;-&ldquo; &ldquo;-&ldquo;
+2010-05-25-14:05:19 2 60.209.232.219 TCP_DENIED/403 1464 GET http://113.6.255.97/zhaopin/aboutus/law.html - NONE/- text/html &ldquo;-&ldquo; &ldquo;-&ldquo;
+2010-05-25-14:06:01 1 60.209.232.219 TCP_DENIED/403 1464 GET http://113.6.255.97/zhaopin/aboutus/law.html - NONE/- text/html &ldquo;-&ldquo; &ldquo;-&ldquo;
+2010-05-25-14:10:00 1 60.209.232.219 TCP_DENIED/403 1464 GET http://113.6.255.97/zhaopin/aboutus/law.html - NONE/- text/html &ldquo;-&ldquo; &ldquo;-&ldquo;
+2010-05-25-14:10:00 0 60.209.232.219 TCP_MEM_HIT/200 679 GET http://jobseeker.zhaopin.com/favicon.ico - NONE/- application/octet-stream &ldquo;-&ldquo; &ldquo;Mozilla/5.0 (Windows; U; Windows NT 5.1; zh-TW; rv:1.9.0.11) Gecko/2009060215 Firefox/3.0.11 (.NET CLR 3.5.30729)&rdquo;
+2010-05-25-14:12:39 2 60.209.232.219 TCP_DENIED/403 1464 GET http://113.6.255.97/zhaopin/aboutus/law.html - NONE/- text/html &ldquo;-&ldquo; &ldquo;-&ldquo;
+2010-05-25-14:12:41 1 60.209.232.219 TCP_DENIED/403 1464 GET http://113.6.255.97/zhaopin/aboutus/law.html - NONE/- text/html &ldquo;http://jobseeker.zhaopin.com/zhaopin/aboutus/law.html&rdquo; &ldquo;Mozilla/5.0 (Windows; U; Windows NT 5.1; zh-TW; rv:1.9.0.11) Gecko/2009060215 Firefox/3.0.11 (.NET CLR 3.5.30729)&rdquo;
+截图的那个时间点，日志中的user-agent居然是空！而且就在短短的一分钟前后，就连续出现正确和错误的反复访问。。。。。。在同事的提醒下，试着扫描了一下这个clientip，发现它还开着80端口：
+{% highlight bash %}
+Starting Nmap 4.11 ( <a href="http://www.insecure.org/nmap/"><u><font color="#0000ff">http://www.insecure.org/nmap/</font></u></a> ) at 2010-05-25 17:22 CST
+Interesting ports on 60.209.232.219:
+Not shown: 1679 filtered ports
+PORT STATE SERVICE
+80/tcp open http
+Nmap finished: 1 IP address (1 host up) scanned in 37.623 seconds
+{% endhighlight %}
+目前只能猜测这个ip应该是一个代理网关服务器，在转发访问请求的时候，把header中的Host信息给弄没了~~</p>
+      <a href="/2010/05/27/a-non-host-error-in-squid" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
+      <a href="/2010/05/26/anti_hotlinking-in-apache-by-mod_perl-2" title="apache防盗链（mod_perl试用二）" rel="bookmark">apache防盗链（mod_perl试用二）</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-05-26 00:00:00 +0800">26 May 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>上回提到的防盗链方式是在strings上加上key和time，uri本身是不变的，这种方式其实现在不是很主流，主流的方式是将计算得出的加密串直接改在uri的路径里。比如下面将要提到的例子。要求其实和早先那个<a href="/2010/01/30/anti-hotlinking-in-nginx-lighttpd-squid">squid防盗链</a>的一模一样，就是改成用apache来跑。
+Test.pm内容如下：
+{% highlight perl %}
+package Test;
+use strict;
+use warnings;
+use Socket qw(inet_aton);
+use POSIX qw(difftime mktime);
+use Digest::MD5 qw(md5_hex);
+use Apache2::RequestRec ();
+use Apache2::Connection ();
+use Apache2::RequestUtil ();
+use Apache2::ServerUtil ();
+use Apache2::Log ();
+use Apache2::Request ();
+use Apache2::Const qw(DECLINED FORBIDDEN);
+sub handler {
+    my $r = shift;
+    my $s = Apache2::ServerUtil-&gt;server;
+    my $secret = $r-&gt;dir_config(&lsquo;Secret&rsquo;) || &lsquo;&rsquo;;
+    my $uri = $r-&gt;uri() || &lsquo;&rsquo;;
+    my $expire = 2 * 3600;
+    if ($uri =~ m#^/(d{4})(d{2})(d{2})(d{2})(d{2})/(w{32})(/S+.mp3)$#oi) {
+        my ($year, $mon, $mday, $hour, $min, $md5, $path) = ($1, $2, $3, $4, $5, $6, $7);
+        my $str = md5_hex($secret . $year . $mon . $mday . $hour . $min . $path);
+        my $reqtime = mktime(00, $min, $hour, $mday, $mon - 1, $year - 1900);
+        my $now = time;
+        if ( $now - $reqtime &lt; $expire){
+            if ($str eq $md5) {
+                $r-&gt;uri(&ldquo;$path&rdquo;);
+                return Apache2::Const::DECLINED;
+            }
+        }
+    }
+}
+1;
+{% endhighlight %}</p>
+      <a href="/2010/05/26/anti_hotlinking-in-apache-by-mod_perl-2" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
+      <a href="/2010/05/23/learning-mtu" title="（读书笔记）网卡调优MTU" rel="bookmark">（读书笔记）网卡调优MTU</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-05-23 00:00:00 +0800">23 May 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>还是那本《linux操作系统之奥秘》，系统管理性能调校章节。7.1.3 Jumbo Frame：</p>
+      <a href="/2010/05/23/learning-mtu" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
       <a href="/2010/05/23/intro-bash-usage" title="bash使用技巧" rel="bookmark">bash使用技巧</a>
     </h2>
     <p class="alt-font tight">
@@ -630,117 +749,6 @@ aspx?文件，url比较长，类似这种：http://ipagent.igalive.com/s.aspx?ad
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>客户需求如下：</p>
       <a href="/2010/04/15/anti_hotlinking-in-apache-by-mod_perl" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2010/04/12/intro-iscsi-1" title="iscsi试验（失败，慎入）" rel="bookmark">iscsi试验（失败，慎入）</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-04-12 00:00:00 +0800">12 Apr 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>聊天时听同事提及iscsi。回来后借助百度和谷歌大概了解了一下是网络存储，就赶紧下了软件包作测试。
-{% highlight bash %}
-wget http://downloads.sourceforge.net/project/iscsitarget/iscsitarget/1.4.19/iscsitarget-1.4.19.tar.gz
-tar zxvf iscsitarget-1.4.19.tar.gz
-cd iscsitarget-1.4.19
-make &amp;&amp; make install
-{% endhighlight %}
-就完成了服务器端的安装，然后修改配置文件/etc/iet/ietd.conf，方便起见，就写最基本的三行：</p>
-      <a href="/2010/04/12/intro-iscsi-1" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2010/04/10/refresh-problem-of-js-location_replace" title="客户页面小故障" rel="bookmark">客户页面小故障</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-04-10 00:00:00 +0800">10 Apr 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天接到客户电话，说，主页已经提交过了刷新任务，上面的图片已经更新，但点击图片后链接到的页面内容还是老的……
-仔细一看，原来主页里的html是这么定义的：
-{% highlight html %}
-<a href="http://msn.golfbox.cn/cache/922/36717.html" target="_blank"><img src="/upload/img/20100410/20100410144202.jpg" width="125" height="80" class="border_blue" /></a>
-{% endhighlight %}
-而http://msn.golfbox.cn/cache/922/36717.html的内容是这样：
-{% highlight html %}
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" /><script language="JavaScript">
- location.replace("http://msn.golfbox.cn/cache/874/36804.html");
-</script>
-{% endhighlight %}
-于是跟客户交流确认，他们网站的主页框架上比较固定的地方，都是采用这种方式，来提供内容更新的。。。
-他们又不肯给出具体更新了那些跳转页面，只好写个小脚本，去处理比对。如果有相同url的location.replace地址不统一的，就强制更新这些页面。
-{% highlight bash %}
-#!/bin/bash
-curl http://msn.golfbox.cn/ |sed &lsquo;s/\n//g&rsquo;|sed &lsquo;s/href=/\n/g&rsquo;|grep &ldquo;^&rdquo;http://msn.golfbox.cn/cache&rdquo;|awk -F&rsquo;&rdquo;&rsquo; &lsquo;{print $2}&rsquo;&gt;url
-for j in <code>cat url</code>;do
- for i in <code>cat ip</code>;do
-  curl -x $i:80 $j|awk -F&rsquo;&rdquo;&rsquo; &lsquo;/replace/{print &ldquo;&lsquo;$j&rsquo;&rdquo;,&rdquo;&lsquo;$i&rsquo;&rdquo;,$2}&rsquo;&raquo;golfbox.log
-#  curl -x $i:80 -I $j|awk &lsquo;/Age/{print &ldquo;&lsquo;$j&rsquo;&rdquo;,&rdquo;&lsquo;$i&rsquo;&rdquo;,$2}&rsquo;&raquo;age.log
- done
-done
-cat golfbox.log |awk &lsquo;{if($1==a){if($3!=b){system(&ldquo;/home/squid/bin/squidclient -p 80 -h &ldquo;$2&rdquo; -m purge &ldquo;$1)}};a=$1;b=$3}&rsquo;
-{% endhighlight %}
-（该脚本有一个问题：如果刚好是第一台的url未更新，结果会反而去刷新那些已经更新了的服务器；所以应该是输出url，然后再用for do done去刷新所有服务器~如果curl可以在获取内容的同时获取Age就好了~所以最后用一个讨巧的办法：在ip列表的最开始放上客户源站的ip，这样就能保证最新了）
-以上是第一个。
-第二个：
-客户首页上还有一个问题：其右下角有跟随悬浮窗口，本来应该可以关闭的。但一点关闭，就提示javascrpt:iclose()错误页面。而用浏览器另存为html到桌面以后，再打开保存下来的页面，点击关闭就正常关闭了！
-经过查找，其中调用的js文件是http://msn.golfbox.cn/js/show.js，内容中关于javascrpt:iclose()的内容如下：
-{% highlight javascript %}
-var sogouTall =&rsquo;&lt;div style="z-index:1000;position: absolute;display:none;" id="sogoubox"&gt;&rsquo;
-   +&rsquo;<a href="javascript:iclose();" style="float:left; margin-left:190px">关闭</a>&rsquo;
-   +&rsquo;&lt;div style="clear:both"&gt;&rsquo;
-   +&rsquo;&lt;a href=&rdquo;<a href="http://new.msn.golfbox.cn/wd/">http://new.msn.golfbox.cn/wd/&rdquo;&gt;&lt;img</a> src=&rdquo;<a href="http://new.msn.golfbox.cn/wd/dbtt.jpg">http://new.msn.golfbox.cn/wd/dbtt.jpg</a>&rdquo; style=&rdquo;width:220px;height:160px&rdquo;/&gt;&lt;/a&gt;&rsquo;
-      + &lsquo;&lt;input type=hidden name=&rdquo;sogouAccountId&rdquo; value=&rdquo;202014&rdquo;&gt;&rsquo;
-   + &lsquo;&rsquo;
- function iclose()
- {
-  document.getElementById(&lsquo;sogoubox&rsquo;).style.display=&rsquo;none&rsquo;;
- }
-{% endhighlight %}
-以我浅薄的web知识，是没看出来什么问题~~客户也莫名其妙，最好撤销掉这个窗口了</p>
-      <a href="/2010/04/10/refresh-problem-of-js-location_replace" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2010/04/08/url_rewrite_concurrency" title="url_rewrite_concurrency" rel="bookmark">url_rewrite_concurrency</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-04-08 00:00:00 +0800">08 Apr 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>squid的重定向，我看网上一般都采用 <code>redirect_children</code> (即 <code>url_rewrite_children</code>)。估计是因为中文权威指南的原因吧。不过中文权威指南还是2.5版的时候出的。有些新东西没有。比如 <code>squid.conf.default</code> 中提供的另一种 <code>url_rewrite_concurrency</code>。</p>
-      <a href="/2010/04/08/url_rewrite_concurrency" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>

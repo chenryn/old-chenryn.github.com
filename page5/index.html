@@ -45,6 +45,132 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h2 class="entry-title">
+      <a href="/2012/09/16/message-passing-agent" title="【Message::Passing系列】客户端收集脚本" rel="bookmark">【Message::Passing系列】客户端收集脚本</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-09-16 00:00:00 +0800">16 Sep 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>最后编写一段日志收集的agent：
+{% highlight perl %}
+    #!/usr/bin/perl
+    package NginxLogCollector;
+    use Moo;
+    use MooX::Options;
+    use Message::Passing::DSL;
+    use MooX::Types::MooseLike::Base qw/ Str /;
+    use namespace::clean -except =&gt; [qw( meta _options_data _options_config )];
+    with &lsquo;Message::Passing::Role::Script&rsquo;;
+    option filename =&gt; (
+        is =&gt; &lsquo;ro&rsquo;,
+        isa =&gt; Str,
+        default =&gt; sub { &lsquo;/data/nginx/logs/access.log&rsquo; },
+    );
+    option rabbitmq =&gt; (
+        is =&gt; &lsquo;ro&rsquo;,
+        isa =&gt; Str,
+        default =&gt; sub { &lsquo;10.3.18.199&rsquo; },
+    );
+    sub build_chain {
+        my $self = shift;
+        message_chain {
+            output rabbitmq =&gt; (
+                class =&gt; &lsquo;AMQP&rsquo;,
+                exchange_name =&gt; &lsquo;logcollect&rsquo;,
+    # 目前测试结果，发现Input::AMQP无法接收到非topic的exchange
+    # CPAN上有关RabbitMQ的模块都是这个哥们写的，POD简略到没有一样，表示无语下
+    #            exchange_type =&gt; &lsquo;direct&rsquo;,
+                hostname =&gt; $self-&gt;rabbitmq,
+                username =&gt; &lsquo;guest&rsquo;,
+                password =&gt; &lsquo;guest&rsquo;,
+            );
+            output debug =&gt; (
+                class =&gt; &lsquo;STDOUT&rsquo;,
+            );
+            encoder(&ldquo;encoder&rdquo;,
+                class =&gt; &lsquo;JSON&rsquo;,
+                output_to =&gt; &lsquo;rabbitmq&rsquo;,
+                output_to =&gt; &lsquo;debug&rsquo;,
+            );
+            filter grok =&gt; (
+                class =&gt; &lsquo;GrokLike&rsquo;,
+                output_to =&gt; &lsquo;encoder&rsquo;,
+            );
+            filter logstash =&gt; (
+                class =&gt; &lsquo;ToLogstash&rsquo;,
+                output_to =&gt; &lsquo;grok&rsquo;,
+            );
+            decoder(&ldquo;decoder&rdquo;,
+                class =&gt; &lsquo;JSON&rsquo;,
+                output_to =&gt; &lsquo;logstash&rsquo;,
+            );
+            input nginxlog =&gt; (
+                class =&gt; &lsquo;FileTail&rsquo;,
+                output_to =&gt; &lsquo;decoder&rsquo;,
+                filename =&gt; $self-&gt;filename,
+           );
+        };
+    }
+    <strong>PACKAGE</strong>-&gt;start unless caller;
+    1;
+{% endhighlight %}
+目前就做到这步，之后从rabbitmq里往elasticsearch写的还没搞。从上面的chain可以很清除的看到和logstash一样的管道思想，input-&gt;decoder-&gt;filter-&gt;encoder-&gt;output。巧的是两种写法中，decode/encode那个写法跟puppet的DSL定义特别的像。哈哈～</p>
+      <a href="/2012/09/16/message-passing-agent" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
+      <a href="/2012/09/16/elasticsearch-bulk-index-speed-testing" title="【Message::Passing系列】ElasticSearch的bulk_index速度测试" rel="bookmark">【Message::Passing系列】ElasticSearch的bulk_index速度测试</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-09-16 00:00:00 +0800">16 Sep 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#logstash-ref" title="logstash" rel="category tag">logstash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>连续尝试了logstash的elasticsearch/elasticsearch_http/elasticsearch_river三个putput模块，发现其index/bulk/river三种插入方式的实际运行效果速度居然没有差异。而使用perl脚本测试，单例下index不到300msg/sec，bulk接近2500msg/sec，几乎翻了10倍。</p>
+      <a href="/2012/09/16/elasticsearch-bulk-index-speed-testing" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
+      <a href="/2012/09/06/intro-rex" title="(R)?ex介绍" rel="bookmark">(R)?ex介绍</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2012-09-06 00:00:00 +0800">06 Sep 2012</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#devops-ref" title="devops" rel="category tag">devops</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>按说这文章好像轮不到我写。几个线上运用着的哥们都不出手，我勉强记录一些<a href="http://rexify.org/">官网</a>上没写example但实际应该蛮常用的功能吧：</p>
+      <a href="/2012/09/06/intro-rex" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
       <a href="/2012/08/26/translate-using-elasticsearch-for-logs" title="【翻译】用ElasticSearch存储日志" rel="bookmark">【翻译】用ElasticSearch存储日志</a>
     </h2>
     <p class="alt-font tight">
@@ -545,77 +671,6 @@ Spork是一个在Sporx基础上构成的工具，可以直接cpan安装，不过
       <p>统计nginx的请求数据，一般有几个办法，一个是logrotate，通过access.log计算，这个很详细，但是实时性差一些；一个是Tengine提供的pipe，这个实时性更好，但是管道如果出现堵塞，麻烦就多了～这两种办法，归根结底都是把日志记录在本地(pipe方式如果要长期保留依然要记磁盘)然后由脚本完成计算。今天这里说另一种方法：在nginx内部，随着每次请求完成一些基础的数据统计，然后输出到存储里供长期调用。  <br />
 代码如下：</p>
       <a href="/2012/05/08/collect-log-variables-by-ngx-lua" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2012/04/30/reading-notes-about-linux-system" title="Linux系统调优读书笔记" rel="bookmark">Linux系统调优读书笔记</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-04-30 00:00:00 +0800">30 Apr 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>今天在图书馆看书，摘抄一些有意思的细节。</p>
-      <a href="/2012/04/30/reading-notes-about-linux-system" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2012/04/21/backup-blog-to-51cto" title="51CTO博客自动发布脚本" rel="bookmark">51CTO博客自动发布脚本</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-04-21 00:00:00 +0800">21 Apr 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>{% highlight perl %}
-#!/bin/env perl
-use warnings;
-use strict;
-use File::Util;
-use YAML::Syck;
-use Perl6::Say;
-use XMLRPC::Lite;
-use Data::Dumper;</p>
-      <a href="/2012/04/21/backup-blog-to-51cto" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2012/04/18/get-location-of-some-companys" title="获取造价百强公司的真实位置" rel="bookmark">获取造价百强公司的真实位置</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2012-04-18 00:00:00 +0800">18 Apr 2012</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>很久没更新，没用技术，今天稍微geek一下下。给老婆搜索她行业百强公司的具体地点，看看如果换单位的话是否方便出行~代码如下：</p>
-      <a href="/2012/04/18/get-location-of-some-companys" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
