@@ -45,6 +45,33 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h2 class="entry-title">
+      <a href="/2010/09/14/intro-snmp-config-and-oids-of-squid" title="squid的snmp配置和部分oid说明" rel="bookmark">squid的snmp配置和部分oid说明</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-09-14 00:00:00 +0800">14 Sep 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>首先配置squid.conf如下：
+{% highlight squid %}
+acl MonitorCenter src 127.0.0.1
+acl snmppublic snmp_community public
+snmp_access allow snmppublic MonitorCenter
+snmp_access deny all
+{% endhighlight %}</p>
+      <a href="/2010/09/14/intro-snmp-config-and-oids-of-squid" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
       <a href="/2010/09/14/an-oid-error-of-snmpwalk" title="snmpwalk的报错一例" rel="bookmark">snmpwalk的报错一例</a>
     </h2>
     <p class="alt-font tight">
@@ -711,63 +738,6 @@ virt-install &ndash;paravirt &ndash;file=/img/test.img &ndash;name=test &ndash;r
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>今天继续查找mod_perl对req_header的处理。</p>
       <a href="/2010/05/27/pod-problem-by-permission-of-tmp" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2010/05/27/anti_hotlinking-in-apache-by-mod_perl-3" title="apache防盗链（mod_perl试用三）" rel="bookmark">apache防盗链（mod_perl试用三）</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-05-27 00:00:00 +0800">27 May 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#web-ref" title="web" rel="category tag">web</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>客户的要求，还剩下最后一步，就是referer限定。对于apache，有Mod_rewrite现成的可用：
-{% highlight apache %}
-RewriteEngine on
-RewriteCond %{HTTP_REFERER} !^http://(www.)?test.com/.*$ [NC]
-RewriteRule .mp3$ http://www.test.com/ [R=301,L]
-{% endhighlight %}
-不过既然之前已经用了perl，这里就一口气把perl写完吧：
-{% highlight perl %}
-sub handler {
-    my $r = shift;
-    my $s = Apache2::ServerUtil-&gt;server;
-    my $secret = $r-&gt;dir_config(&lsquo;Secret&rsquo;) || &lsquo;&rsquo;;#这里可以写成$r-&gt;dir_config-&gt;{Secret}
-    my $uri = $r-&gt;uri() || &lsquo;&rsquo;;
-    my $expire = 2 * 3600;
-+    my $referer = $r-&gt;headers_in-&gt;{Referer} || &lsquo;&rsquo;;#这里却不可以写成$r-&gt;headers_in(Referer)，会报错“argument is not a blessed reference (expecting an APR::Table derived object)，不知道为什么？
-+    if ($referer =~ m#^http://music.test.com#oi){
-    if ($uri =~ m#^/(d{4})(d{2})(d{2})(d{2})(d{2})/(w{32})(/S+.mp3)$#oi){
-        my ($year, $mon, $mday, $hour, $min, $md5, $path) = ($1, $2, $3, $4, $5, $6, $7);
-        my $str = md5_hex($secret . $year . $mon . $mday . $hour . $min . $path);
-        my $reqtime = mktime(00, $min, $hour, $mday, $mon - 1, $year - 1900);
-        my $now = time;
-        if ( $now - $reqtime &lt; $expire){
-                if ($str eq $md5) {
-                    $r-&gt;uri(&ldquo;$path&rdquo;);
-                    return Apache2::Const::DECLINED;
-                }
-        }
-   }
-+}
-}
-{% endhighlight %}
-简单两句话，就ok了。测试如下：
-    [27/May/2010:22:45:00 +0800] &quot;GET /201005272218/ceaf967f6bcf9a185a3287b2e3ff5a02/smg/123.mp3 HTTP/1.0&quot; 200 - <a href="http://music.test.com/">http://music.test.com</a> &quot;Wget/1.10.2 (Red Hat modified)&quot;
-    [27/May/2010:22:45:05 +0800] &quot;GET /201005272218/ceaf967f6bcf9a185a3287b2e3ff5a02/smg/123.mp3 HTTP/1.0&quot; 404 - <a href="http://www.baidu.com/">http://www.baidu.com</a> &quot;Wget/1.10.2 (Red Hat modified)&quot;
-    [27/May/2010:22:45:17 +0800] &quot;GET /201005272218/ceaf967f6bcf9a185a3287b2e3ff5a03/smg/123.mp3 HTTP/1.0&quot; 404 - <a href="http://music.test.com/">http://music.test.com</a> &quot;Wget/1.10.2 (Red Hat modified)&quot;
-对于各种非正常的访问，都返回404 NOT FOUND。
-如果想要返回403 ACCESS DENIED的话，经测试，在前面这些handler是没法做到的，必须在perlaccesshandler里才能return FORBIDDEN。那只能在之前的transhandler里统一改写uri成一个约定字符串，然后在access中再匹配拒绝。很麻烦。。。</p>
-      <a href="/2010/05/27/anti_hotlinking-in-apache-by-mod_perl-3" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
