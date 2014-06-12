@@ -45,6 +45,269 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h2 class="entry-title">
+      <a href="/2011/06/28/a-dancer-demo-of-monitor-squid" title="squid监控+dancer小试验" rel="bookmark">squid监控+dancer小试验</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-06-28 00:00:00 +0800">28 Jun 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#dancer-ref" title="dancer" rel="category tag">dancer</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>squid监控之前有一篇关于snmp的内容，不过这次是真要用上了，所以细细挑出来几个做监控。碰巧凯哥更新了一把modern perl的东西，我亦步亦趋，也试试dancer。不过花了两天时间，DBIx::Class::Schema还是没搞出来，最终还是简单的用DBI跳过了……
+用的database就是之前nmap试验时生成的数据，有application/channel/intranet等column。
+首先安装：
+{% highlight perl %}cpanm Dancer DBI DBD:mysql Template Dancer::Session::YAML
+dancer -a cachemoni
+{% endhighlight %}
+然后修改cachemoni/lib/cachemoni.pm如下：
+{% highlight perl %}
+package cachemoni;
+use Dancer &lsquo;:syntax&rsquo;;
+use Dancer::Plugin::Database;
+use Net::SNMP;
+use Digest::MD5 qw(md5_hex);
+our $VERSION = &lsquo;0.1&rsquo;;</p>
+      <a href="/2011/06/28/a-dancer-demo-of-monitor-squid" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
+      <a href="/2011/06/23/make-patch-of-squid-snmp" title="patch制作和使用" rel="bookmark">patch制作和使用</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-06-23 00:00:00 +0800">23 Jun 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>做运维几年没用过patch，说来也怪了~~趁着上一篇自己的小改动，熟悉一下这个命令的简单用法。
+首先是patch的制作，用diff命令。
+{% highlight bash %}tar zxvf squid-2.7.STABLE9.tar.gz
+cp squid-2.7.STABLE9 squid-2.7.STABLE9-old &amp;&amp; mv squid-2.7.STABLE9 squid-2.7.STABLE9-new
+#然后按照上篇的内容修改squid-2.7.STABLE9-new/里的文件
+diff -uNr squid-2.7.STABLE9-old squid-2.7.STABLE9-new &gt; squid-snmp.patch{% endhighlight %}
+这就完成了，好简单啊~来看看patch文件的内容吧：
+{% highlight c %}diff -uNr squid-2.7.STABLE9-old/include/cache_snmp.h squid-2.7.STABLE9-new/include/cache_snmp.h
+&mdash; squid-2.7.STABLE9-old/include/cache_snmp.h	2006-09-22 10:49:24.000000000 +0800
++++ squid-2.7.STABLE9-new/include/cache_snmp.h	2011-06-23 13:25:04.000000000 +0800
+@@ -125,6 +125,7 @@
+     MESH_PTBL_KEEPAL_S,
+     MESH_PTBL_KEEPAL_R,
+     MESH_PTBL_INDEX,
++    MESH_PTBL_CONN_OPEN,
+     MESH_PTBL_HOST,
+     MESH_PTBL_END
+ };
+diff -uNr squid-2.7.STABLE9-old/src/snmp_agent.c squid-2.7.STABLE9-new/src/snmp_agent.c
+&mdash; squid-2.7.STABLE9-old/src/snmp_agent.c	2009-06-26 06:58:10.000000000 +0800
++++ squid-2.7.STABLE9-new/src/snmp_agent.c	2011-06-23 13:27:31.000000000 +0800
+@@ -264,6 +264,11 @@
+ 	    index,
+ 	    ASN_INTEGER);
+ 	break;
++    case MESH_PTBL_CONN_OPEN:
++        Answer = snmp_var_new_integer(Var-&gt;name, Var-&gt;name_length,
++            p-&gt;stats.conn_open,
++            ASN_INTEGER);
++        break;
+     default:
+ 	*ErrP = SNMP_ERR_NOSUCHNAME;
+ 	break;
+diff -uNr squid-2.7.STABLE9-old/src/snmp_core.c squid-2.7.STABLE9-new/src/snmp_core.c
+&mdash; squid-2.7.STABLE9-old/src/snmp_core.c	2008-05-05 07:23:13.000000000 +0800
++++ squid-2.7.STABLE9-new/src/snmp_core.c	2011-06-23 20:36:54.000000000 +0800
+@@ -321,7 +321,7 @@
+ 						snmpAddNode(snmpCreateOid(LEN_SQ_MESH + 3, SQ_MESH, 1, 1, 15),
+ 						    LEN_SQ_MESH + 3, snmp_meshPtblFn, peer_Inst, 0)),
+ 					    snmpAddNode(snmpCreateOid(LEN_SQ_MESH + 2, SQ_MESH, 1, 2),
+-						LEN_SQ_MESH + 2, NULL, NULL, 15,
++						LEN_SQ_MESH + 2, NULL, NULL, 16,
+ 						snmpAddNode(snmpCreateOid(LEN_SQ_MESH + 3, SQ_MESH, 1, 2, 1),
+ 						    LEN_SQ_MESH + 3, snmp_meshPtblFn, peer_InstIndex, 0),
+ 						snmpAddNode(snmpCreateOid(LEN_SQ_MESH + 3, SQ_MESH, 1, 2, 2),
+@@ -351,6 +351,8 @@
+ 						snmpAddNode(snmpCreateOid(LEN_SQ_MESH + 3, SQ_MESH, 1, 2, 14),
+ 						    LEN_SQ_MESH + 3, snmp_meshPtblFn, peer_InstIndex, 0),
+ 						snmpAddNode(snmpCreateOid(LEN_SQ_MESH + 3, SQ_MESH, 1, 2, 15),
++                                                    LEN_SQ_MESH + 3, snmp_meshPtblFn, peer_InstIndex, 0),
++                                                snmpAddNode(snmpCreateOid(LEN_SQ_MESH + 3, SQ_MESH, 1, 2, 16),
+ 						    LEN_SQ_MESH + 3, snmp_meshPtblFn, peer_InstIndex, 0))),
+ 					snmpAddNode(snmpCreateOid(LEN_SQ_MESH + 1, SQ_MESH, 2),
+ 					    LEN_SQ_MESH + 1, NULL, NULL, 1,{% endhighlight %}
+制作练完了，再练一次使用：
+{% highlight bash %}cd squid-2.7.STABLE9-old
+mv ../squid-snmp.patch .
+patch -p1 &lt; squid-snmp.patch{% endhighlight %}
+-p指定从那层目录开始，因为之前diff的时候顶层目录分别叫old和new，如果在其他地方时候的话，别人的目录肯定不会这么命名的，所以就往里进一层，然后用-p1来patch。
+然后more一下那三个文件，确认都修改了~
+最后回退patch：
+{% highlight bash %}patch -R -p1 &lt; squid-snmp.patch{% endhighlight %}
+完成~</p>
+      <a href="/2011/06/23/make-patch-of-squid-snmp" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
+      <a href="/2011/06/22/extend-open_conn-output-support-to-squid-snmp" title="给squid的snmp增加open_conn输出" rel="bookmark">给squid的snmp增加open_conn输出</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-06-22 00:00:00 +0800">22 Jun 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>做反向代理的squid集群监控，在单机维护时，squidclient mgr:server_list里的OPEN CONNS是经常看的一项数据，不过在开启snmp支持后，在mib里却没有找到相关的数据。还一度怀疑是不是cachePeerKeepAlRecv或者cachePeerKeepSent。今天想起来去src里grep了一把源码，顺利的在squid/src/neighbors.c里看到了OPEN CONNS等数据的来源，如下：
+{% highlight c %}static void
+dump_peers(StoreEntry * sentry, peer * peers)
+{
+    peer <em>e = NULL;
+……
+    for (e = peers; e; e = e-&gt;next) {
+……
+        storeAppendPrintf(sentry, &ldquo;OPEN CONNS : %d\n&rdquo;, e-&gt;stats.conn_open);
+……
+        storeAppendPrintf(sentry, &ldquo;keep-alive ratio: %d%%\n&rdquo;,
+            percent(e-&gt;stats.n_keepalives_recv, e-&gt;stats.n_keepalives_sent));{% endhighlight %}
+然后在squid/src/snmp_agent.c里看到了这些数据的snmp输出，如下：
+{% highlight c %}variable_list *
+snmp_meshPtblFn(variable_list * Var, snint * ErrP)
+{
+    variable_list *Answer = NULL;
+    struct in_addr *laddr;
+    int loop, index = 0;
+    char *cp = NULL;
+    peer *p = NULL;
+    int cnt = 0;
+……
+    switch (Var-&gt;name[LEN_SQ_MESH + 2]) {
+    case MESH_PTBL_NAME:
+        cp = p-&gt;name;
+        Answer = snmp_var_new(Var-&gt;name, Var-&gt;name_length);
+……
+    case MESH_PTBL_KEEPAL_R:
+        Answer = snmp_var_new_integer(Var-&gt;name, Var-&gt;name_length,
+            p-&gt;stats.n_keepalives_recv,
+            SMI_COUNTER32);
+        break;
+    case MESH_PTBL_INDEX:
+        Answer = snmp_var_new_integer(Var-&gt;name, Var-&gt;name_length,
+            index,
+            ASN_INTEGER);
+        break;
+    default:
+        *ErrP = SNMP_ERR_NOSUCHNAME;
+        break;
+    }
+    return Answer;
+}{% endhighlight %}
+一对比，发现确实没有stats.conn_open输出……
+好在这个比较简单，稍微改一下，就能搞出来：
+1、修改squid/include/cache_snmp.h如下：
+{% highlight c %}enum {                          /</em> cachePeerTable <em>/
+……
+    MESH_PTBL_CONN_OPEN,   /</em>新增这个<em>/
+    MESH_PTBL_HOST,
+    MESH_PTBL_END
+};{% endhighlight %}
+2、修改squid/src/snmp_core.c如下：
+{% highlight c %}
+void
+snmpInit(void)
+{
+……
+                                            snmpAddNode(snmpCreateOid(LEN_SQ_MESH + 2, SQ_MESH, 1, 2),
+/</em> LEN_SQ_MESH + 2, NULL, NULL, 15,这里改成16，大概在324行，通过原来的MIB知道有15的地方就两个，peer的是后一个 <em>/
+                                                LEN_SQ_MESH + 2, NULL, NULL, 16,
+……
+                                                snmpAddNode(snmpCreateOid(LEN_SQ_MESH + 3, SQ_MESH, 1, 2, 15),
+                                                    LEN_SQ_MESH + 3, snmp_meshPtblFn, peer_InstIndex, 0),
+                                                snmpAddNode(snmpCreateOid(LEN_SQ_MESH + 3, SQ_MESH, 1, 2, 16), /</em>新增这个16<em>/
+                                                    LEN_SQ_MESH + 3, snmp_meshPtblFn, peer_InstIndex, 0))),{% endhighlight %}
+3、修改squid/src/snmp_agent.c如下：
+{% highlight c %}……
+    case MESH_PTBL_INDEX:
+        Answer = snmp_var_new_integer(Var-&gt;name, Var-&gt;name_length,
+            index,
+            ASN_INTEGER);
+        break;
+/</em>新增下面这段，case的内容在第1步cache_snmp.h里增加了；stats.conn_open由之前grep的结果得知；INTEGER是数值类型，照抄RTT的即可*/
+    case MESH_PTBL_CONN_OPEN:
+        Answer = snmp_var_new_integer(Var-&gt;name, Var-&gt;name_length,
+            p-&gt;stats.conn_open,
+            ASN_INTEGER);
+        break;
+ {% endhighlight %}
+4、重新编译squid，然后用snmpwalk获取数据观察：
+{% highlight bash %}[root@naigos myops]# snmpwalk -v 2c -c cacti_china 10.168.168.69 .1.3.6.1.4.1.3495.1.5.1.2  -Cc  | tail
+SNMPv2-SMI::enterprises.3495.1.5.1.2.13.3 = Counter32: 0
+SNMPv2-SMI::enterprises.3495.1.5.1.2.14.1 = INTEGER: 1
+SNMPv2-SMI::enterprises.3495.1.5.1.2.14.2 = INTEGER: 2
+SNMPv2-SMI::enterprises.3495.1.5.1.2.14.3 = INTEGER: 3
+SNMPv2-SMI::enterprises.3495.1.5.1.2.15.1 = INTEGER: 3
+SNMPv2-SMI::enterprises.3495.1.5.1.2.15.2 = INTEGER: 5
+SNMPv2-SMI::enterprises.3495.1.5.1.2.15.3 = INTEGER: 6
+SNMPv2-SMI::enterprises.3495.1.5.1.2.16.1 = STRING: &ldquo;10.168.170.43&rdquo;
+SNMPv2-SMI::enterprises.3495.1.5.1.2.16.2 = STRING: &ldquo;10.168.168.73&rdquo;
+SNMPv2-SMI::enterprises.3495.1.5.1.2.16.3 = STRING: &ldquo;10.168.168.122&rdquo;{% endhighlight %}
+原来的SNMPv2-SMI::enterprises.3495.1.5.1.2.15.1 = STRING: &ldquo;10.168.170.43&rdquo;变成了SNMPv2-SMI::enterprises.3495.1.5.1.2.16.1 = STRING: &ldquo;10.168.170.43&rdquo;，而SNMPv2-SMI::enterprises.3495.1.5.1.2.15.1 = INTEGER: 3就是需要的open_conn数据了！</p>
+      <a href="/2011/06/22/extend-open_conn-output-support-to-squid-snmp" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
+      <a href="/2011/06/14/intro-mybench" title="mysql测试小工具mybench试用" rel="bookmark">mysql测试小工具mybench试用</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-06-14 00:00:00 +0800">14 Jun 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#testing-ref" title="testing" rel="category tag">testing</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+      <p>小型的mysql测试工具，主要有自带的mysqlslap、super-smack和mybench。嗯，我这里的小型的意思是指工具安装过程简单。
+mysqlslap的使用方法遍地都是，就不先详细写了。根据个人偏好写写mybench吧，毕竟是perl的。
+安装很简单，如下：
+{% highlight bash %}cpanm DBI DBD::mysql Time::HiRes
+wget http://jeremy.zawodny.com/mysql/mybench/mybench-1.0.tar.gz
+tar zxvf mybench-1.0.tar.gz
+cd mybench-1.0
+perl MakeFile.PL &amp;&amp; make &amp;&amp; make install{% endhighlight %}
+但是使用就不是太简单了——mysqlslap会自己生成（-a选项）sql，super-smack则带了一个gen-data程序生成数据然后自动导入，但是mybench没有，所以只能自己搞定数据。
+不过mybench还是自己生成了一个测试模版的脚本在/usr/bin/bench_example，很简单的就知道怎么做了。
+example如下：
+{% highlight perl %}#!/usr/bin/perl -w</p>
+      <a href="/2011/06/14/intro-mybench" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
       <a href="/2011/06/10/java-chinese-support" title="java的中文支持" rel="bookmark">java的中文支持</a>
     </h2>
     <p class="alt-font tight">
@@ -1069,163 +1332,6 @@ linux上另一种获取网卡总流量的方法是ifconfig命令，这个命令�
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
       <p>想把前端缓存几十台服务器的访问日志数据计入数据库中，以便核算各频道带宽。按照一般流量统计的惯例，在服务器上设定crontab每5分钟rotate一次access.log。但是想到一个问题——当A服务器select了数据库里的数据但还没来得及update时，B服务器也开始执行任务select数据来了，最后的结果就不准确了——我相信这个问题对coder来说很低级，不过我是op，搞不来……</p>
       <a href="/2011/03/18/gearmand-test-on-single-server" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2011/03/17/initctl-error" title="linux小报错一例" rel="bookmark">linux小报错一例</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-03-17 00:00:00 +0800">17 Mar 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>需要给某台服务器加内存，准备关机的时候，却一直报错。考虑直接断电危害比较大，还是找找原因，报错如下：
-shutdown: timeout opening/writing control channel /dev/initctl 
-init: timeout opening/writing control channel /dev/initctl 
-从messages日志里没有发现任何附加信息。只能求助百度。好在解答很多：
-是原有的initscripts和SysVinit找不到了导致的。
-传上去initscripts-8.45.19.EL-1.x86<em>64.rpm和SysVinit-2.86-14.x86</em>64.rpm两个包，rpm -ivh安装。
-重新poweroff还是报错；但强制-f跳过shutdown过程后，成功了。稍后再启动设备，试着再敲一次poweroff，这次就不报错，成功关机了。</p>
-      <a href="/2011/03/17/initctl-error" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2011/03/15/simple-test-between-squid-varnish-ats" title="squid/varnish/ats简单测试" rel="bookmark">squid/varnish/ats简单测试</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-03-15 00:00:00 +0800">15 Mar 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>简单的试试varnish和apache traffic server。跟squid进行一下对比。
-介于varnish和ats都是出现不太久的东西（至少是开源流行不长），选择其最新开发版本测试，正巧都是2.15版。呵呵~
-varnish配置文件，只修改了backend到具体某台nginx发布点上。其他都是反向代理缓存的标配。（可参考张宴博客http://blog.s135.com和varnish权威指南http://linuxguest.blog.51cto.com/195664/354889）
-ats说明更少，从目前的资料看，修改了records.config中的监听，cache.config遵循源站未改，remap.config添加了map一条，绑定域名到同一台nginx上。
-注：varnish和ats都没有修改缓存路径，即分别为var/varnish/varnish.cache和var/trafficserver，都是磁盘。</p>
-      <a href="/2011/03/15/simple-test-between-squid-varnish-ats" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2011/03/03/zz-a-day-in-the-life-of-facebook-operations" title="Facebook运维工程师的一天" rel="bookmark">Facebook运维工程师的一天</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-03-03 00:00:00 +0800">03 Mar 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>原文地址：http://linuxsysadminblog.com/2010/09/a-day-in-the-life-of-facebook-operations/
-顺便说一句，这个linuxsysadminblog.com确实不错。
-文章是笔者在现场听Facebook系统工程师汤姆·库克在2010年的surge可扩展和性能大会上的讲演时记录下来的——
-这是到目前为止最火爆的讲座了，还没开始就只剩下点站着的空间……
-Facebook运维需要支持多大的应用环境：
-1、在facebook花上每个月7亿分钟（不太明白这个意思，一个月明明只有43200分钟）
-2、60亿次内容更新；
-3、30亿张图片；
-4、实现100万连接；
-5、5亿活跃用户。
-基础设施建设的发展：
-1、租用IDC达到瓶颈；
-2、开始自建；
-3、目前已为加利福尼亚和弗吉尼亚两州服务。
-发展历程：
-从LAMP起步，然后拆分负载均衡，web服务器，app服务器，memcached，数据库。
-最早的Facebook是一个单纯的发布在apache上的php站点。但后来php不足以支持Facebook的访问了，现在，Facebook已经开始编译一些php功能成C++程序，这就是业界闻名的HipHop。
-Facebook大概拥有世上最大的memcached集群，超过300TB的数据存储在memcached内存中。
-使用flashcache来改善mysql性能。
-已实现支持的服务：
-新闻feed、搜索、缓存。
-服务使用中的编程语言：
-C++、php（前台）、python、ruby、java、erlang（聊天室）
-各种编程语言间如何交互数据？json？soap？都不是。Facebook专用一个为各编程语言开发服务的软件框架。所有的Facebook系统后面，都是统一的一个平台。
-Facebook每天都在担心：
-开发、监控、数据管理、代码上线。
-Facebook使用centos操作系统！
-系统管理：
-配置管理；
-系统管理——用CFengine；
-按需管理。
-开发：
-前台部分——每天都有新代码上线。代码统一协调，所有人都在IRC的频道里交流。每个人都可以知道发生了什么，而不单单是工程师自己。
-1、程序推送按需分发；
-2、代码分发通过BT的方式；
-3、php是经过编译的，数百MB的二进制文件通过极小的BT种子迅速下发；
-4、完成全网更新只需要1分钟。
-后台部分——只有开发和运维。开发工程师写代码、测试、演示。
-1、这样能迅速得到性能数据；
-2、揭露各环节的真实交互（这里翻译的应该不对，看不懂……）；
-3、没有所谓的“提交、退出”；
-4、全面参与应用变成产品的过程；
-5、运维被“嵌入”每个开发团队。
-代码的每一处修改和推送，都必须详细记录。
-Facebook的服务器性能指标在线监控
-ganglia监控系统：快速、便捷、超过500万的监控指标、可以通过网格和池的方式进行规划。
-自主的监控系统
-nagios监控系统：用来给各团队发报警，最开始是用的email。
-Scribe高性能日志系统：最开始用的是syslogd，同时在用hadoop和hive。
-怎么运行的呢：
-1、定义要明确的依赖关系；
-2、固定的失败次数；
-3、服务器是第一步，系统架构设计。
-4、现在重点是搞集群。通过功能不同进行逻辑关系划分（web、db、feed等）
-5、下一步是数据中心。尤其是灾备。
-6、不断的沟通——信息永远在共享中。
-7、IRC。
-8、大量的自动化数据获取和设置。
-9、内部新闻更新。
-10、内部工具的&rsquo;headers&rsquo;；
-11、变更日志。
-12、团队要短小精悍。
-一个有趣的数字：平均每台Facebook的服务器8分钟就升级一次。
-一个有趣的事实：Facebook最忙的时候是万圣节后的那天。</p>
-      <a href="/2011/03/03/zz-a-day-in-the-life-of-facebook-operations" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2011/03/01/perl-game-of-chinaunix" title="CU的perl大赛" rel="bookmark">CU的perl大赛</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-03-01 00:00:00 +0800">01 Mar 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#perl-ref" title="perl" rel="category tag">perl</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-      <p>原帖地址：http://bbs.chinaunix.net/thread-1860259-1-1.html
-刚看到帖子，试着自己做做，首先必须承认做的过程是重新去翻过资料了……</p>
-      <a href="/2011/03/01/perl-game-of-chinaunix" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
