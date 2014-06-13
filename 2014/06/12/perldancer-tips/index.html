@@ -51,10 +51,8 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <h2 id="section">简介</h2>
-<p>Dancer 是 Perl 的 web 开发框架，在 metacpan 上有 100 多个 like。其语法结构都起源自 Ruby 的 sinatra 框架，sinatra 曾经在自己官网上悬挂“perldancer is good”标语以示对 perldancer 的支持。</p>
-<p>Dancer 官网见： <a href="http://perldancer.org/">http://perldancer.org/</a></p>
-<h2 id="section-1">简单示例</h2>
+    <p>Dancer 是 Perl 的 web 开发框架，在 metacpan 上有 100 多个 like。其语法结构都起源自 Ruby 的 sinatra 框架，sinatra 曾经在自己官网上悬挂“perldancer is good”标语以示对 perldancer 的支持。Dancer 官网见： <a href="http://perldancer.org/">http://perldancer.org/</a> 本文系本人在部门 Wiki 上稍微写的几行介绍性质的笔记。</p>
+<h2 id="section">简单示例</h2>
 <p>Dancer 作为微框架，可以直接单文件快速运行简单的 web 功能。示例如下：</p>
 <div class="highlight"><pre><code class="perl">    <span class="k">use</span> <span class="n">Dancer</span><span class="p">;</span>
     <span class="n">get</span> <span class="s">&#39;/&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
@@ -62,9 +60,9 @@
     <span class="p">};</span>
     <span class="n">dance</span><span class="p">;</span>
 </code></pre></div>
-<p>然后直接通过 perl test.pl 命令既可以在 localhost:3000 运行起来一个 hello world 页面了。</p>
-<h2 id="section-2">目录结构</h2>
-<p>完整的 Dancer 应用，可以通过 dancer -a MyApp 命令创建，目录结构如下：</p>
+<p>然后直接通过 <code>perl test.pl</code> 命令既可以在 localhost:3000 运行起来一个 hello world 页面了。</p>
+<h2 id="section-1">目录结构</h2>
+<p>完整的 Dancer 应用，可以通过 <code>dancer -a MyApp</code> 命令创建，目录结构如下：</p>
 <pre><code>MyApp/
 ├── bin
 │   └── app.pl                    # 程序运行入口，可以直接通过./app.pl运行，也可以通过plackup -s Starman app.pl来切换其他高性能服务器
@@ -99,7 +97,7 @@
     └── layouts
         └── main.tt                 # layouts 是页面模板的底层模板，主底层模板可以在 config.yml 里指定
 </code></pre>
-<h2 id="section-3">常用插件</h2>
+<h2 id="section-2">常用插件</h2>
 <p>目前用 Dancer 写的 CdnManage 平台，用到的插件包括：</p>
 <ul>
   <li>Dancer::Template::Xslate</li>
@@ -128,7 +126,12 @@
   <li>Plack::Middleware::Deflater</li>
   <li>Plack::Middleware::ETag</li>
 </ul>
-<p>上面两个作为给 public/ 下文件加缓存和压缩的优化。</p>
+<p>上面两个作为给 public/ 下文件加缓存和压缩的优化。在 config.yml 里添加如下配置即可使用：</p>
+<div class="highlight"><pre><code class="yaml"><span class="l-Scalar-Plain">plack_middlewares</span><span class="p-Indicator">:</span>
+  <span class="p-Indicator">-</span>
+    <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">Plack::Middleware::Deflater</span>
+    <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">Plack::Middleware::ETag</span>
+</code></pre></div>
 <ul>
   <li>Dancer::Plugin::Auth::Extensible</li>
 </ul>
@@ -153,6 +156,22 @@
             <span class="n">person</span> <span class="o">=&gt;</span> <span class="n">database</span><span class="o">-&gt;</span><span class="n">quick_select</span><span class="p">(</span><span class="s">&#39;users&#39;</span><span class="p">,</span> <span class="p">{</span> <span class="n">id</span> <span class="o">=&gt;</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">id</span><span class="p">}</span> <span class="p">}),</span>
         <span class="p">};</span>
     <span class="p">};</span>
+</code></pre></div>
+<p>如果在 config.yml 定义了多个库，则通过 <code>database('name')</code> 的方式来调用。</p>
+<div class="highlight"><pre><code class="yaml">  <span class="l-Scalar-Plain">Database</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">connections</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">puppet</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">driver</span><span class="p-Indicator">:</span> <span class="s">&quot;SQLite&quot;</span>
+        <span class="l-Scalar-Plain">database</span><span class="p-Indicator">:</span> <span class="s">&quot;/etc/puppet/webui/node_info.db&quot;</span>
+      <span class="l-Scalar-Plain">cdnmanage</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">driver</span><span class="p-Indicator">:</span> <span class="s">&quot;mysql&quot;</span>
+        <span class="l-Scalar-Plain">database</span><span class="p-Indicator">:</span> <span class="s">&quot;cdnmanage&quot;</span>
+        <span class="l-Scalar-Plain">host</span><span class="p-Indicator">:</span> <span class="s">&quot;127.0.0.1&quot;</span>
+        <span class="l-Scalar-Plain">port</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">3306</span>
+        <span class="l-Scalar-Plain">username</span><span class="p-Indicator">:</span> <span class="s">&quot;user&quot;</span>
+        <span class="l-Scalar-Plain">password</span><span class="p-Indicator">:</span> <span class="s">&quot;pass&quot;</span>
+        <span class="l-Scalar-Plain">connection_check_threshold</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">10</span>
+        <span class="l-Scalar-Plain">on_connect_do</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="s">&quot;SET</span><span class="nv"> </span><span class="s">NAMES</span><span class="nv"> </span><span class="s">&#39;utf8&#39;&quot;</span><span class="p-Indicator">,</span> <span class="s">&quot;SET</span><span class="nv"> </span><span class="s">CHARACTER</span><span class="nv"> </span><span class="s">SET</span><span class="nv"> </span><span class="s">&#39;utf8&#39;&quot;</span> <span class="p-Indicator">]</span>
 </code></pre></div>
 <p>更完善的 ORM 使用，见 Dancer::Plugin::DBIC 插件，他使用的是 DBIx::Class 框架做 ORM，示例如下：</p>
 <div class="highlight"><pre><code class="perl">    <span class="n">get</span> <span class="s">&#39;/users/:user_id&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
