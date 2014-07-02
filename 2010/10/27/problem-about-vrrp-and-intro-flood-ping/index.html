@@ -1,8 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>集群故障检查记录</title>
+    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -26,12 +28,144 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/tags.html">标签</a></li>
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
       	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
+      	
+      
+    
+  
+    
+      
+      	
       	<li><a href="/categories.html">分类</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
       	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/projects.html">学习记录</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">标签</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -42,58 +176,99 @@
     <div class="container">
     <div class="row">
       <div class="span7">
+        
 <div class="row">
   <div class="page-header">
     <h1>集群故障检查记录 <small></small></h1>
     <div class="date"><span>27 October 2010</span></div>
+    
   </div>
   <div style='background-color: #FFF;'>
     <p>某服务器集群，是双lvs_keepalived+多nginx结构。最近突然发现流量监控出现较大波动，nginx的access.log时常出现持续几十秒的无外来访问情况（即只有LVS的ip过来的400探测）。</p>
+
 <p>在两台lvs设备上的/var/log/messages上都看到大量的VIP切换记录：</p>
-<p>Oct 22 09:47:12 localhost Keepalived_vrrp: VRRP_Instance(VI<em>10) Transition to MASTER STATE
-Oct 22 09:47:13 localhost Keepalived_vrrp: VRRP_Instance(VI</em>10) Entering MASTER STATE
+
+<p>Oct 22 09:47:12 localhost Keepalived_vrrp: VRRP_Instance(VI_10) Transition to MASTER STATE
+Oct 22 09:47:13 localhost Keepalived_vrrp: VRRP_Instance(VI_10) Entering MASTER STATE
 Oct 22 09:47:13 localhost Keepalived_vrrp: VRRP_Instance(VI_10) setting protocol VIPs.</p>
-<p>Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI<em>10) Received higher prio advert
-Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI</em>10) Entering BACKUP STATE
+
+<p>Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI_10) Received higher prio advert
+Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI_10) Entering BACKUP STATE
 Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI_10) removing protocol VIPs.</p>
+
 <p>相互之间ping丢包相当严重，而ping同一网段其他ip都没问题。</p>
+
 <p>学来一个比较直观而且细腻的ping用法：ping -f $IP -c 5000</p>
+
 <p>man上对-f的解释如下：</p>
+
 <p>-f     Flood  ping.  For  every  ECHO_REQUEST  sent  a  period &ldquo;.&rdquo; is printed, while for ever ECHO_REPLY received a backspace is printed.  This provides a rapid display of how many packets are being dropped.  If interval is not given, it sets  interval to zero and outputs packets as fast as they come back or one hundred times per second, whichever is more.  Only the superuser may use this option with zero interval.</p>
+
 <p>-f    洪水ping，每当发送一个ECHO_REQUEST请求时，都在屏幕上打印一个点&rdquo;.&rdquo;，而收到ECHO_REPLY时就退格一次。以此简洁明了的显示出丢了多少个包。如果不明确指定发包间隔，默认间隔时间为0，即收包有多快，发包就有多快，可能每秒100次，或许更快~注意：只有超级用户root才能不设间隔的使用洪水ping参数-f</p>
+
 <p>我们把这个丢包.叫做贪吃蛇，哈哈~~</p>
+
 <p>采用更换服务器网线、强制指定网卡速率等办法，丢包率从近30%下降到了5%，问题依然没有全部解决。最后重启机器，就OK了……真实问题是否和ipvs有关，待查ing</p>
+
     <hr>
     <div class="pagination">
       <ul>
+      
         <li class="prev"><a href="/2010/10/27/intro-myisamchk" title="Myisamchk小工具使用手册(转)">&larr; Previous</a></li>
+      
         <li><a href="/archive.html">Archive</a></li>
+      
         <li class="next"><a href="/2010/11/04/intro-inotify" title="inotify使用一例">Next &rarr;</a></li>
+      
       </ul>
     </div>
     <hr>
+    
+
+
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
+
+
+
+
+
+
   </div>
 </div>
+  
+
+
       </div>
       <div class="span4">
+          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
+               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
+               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
+               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
+               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
+               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
+               
                  <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
+               
                  <li><a href="/2014/06/04/skyline-port-to-perl">用 Perl5 改写 skyline 异常检测算法</a></li>
+               
                  <li><a href="/2014/06/04/record-webqq-logs-by-avbot">用 avbot 机器人记录 QQ 群聊天记录</a></li>
+               
             </ul>
           </div>
+        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -104,51 +279,93 @@ Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI_10) removing protoco
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
+            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
+            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
+            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
+            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
+            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
+            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
+            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
+            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
+            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
+            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -165,6 +382,8 @@ Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI_10) removing protoco
         </p>
       </footer>
     </div> <!-- /container -->
+    
+
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -174,3 +393,4 @@ Oct 22 09:47:14 localhost Keepalived_vrrp: VRRP_Instance(VI_10) removing protoco
     <!-- UJian Button END -->
   </body>
 </html>
+

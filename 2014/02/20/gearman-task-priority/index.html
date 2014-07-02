@@ -1,8 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>Gearman 任务的优先级</title>
+    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -26,12 +28,144 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/tags.html">标签</a></li>
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
       	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
+      	
+      
+    
+  
+    
+      
+      	
       	<li><a href="/categories.html">分类</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
       	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/projects.html">学习记录</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">标签</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -42,92 +176,145 @@
     <div class="container">
     <div class="row">
       <div class="span7">
+        
 <div class="row">
   <div class="page-header">
     <h1>Gearman 任务的优先级 <small></small></h1>
     <div class="date"><span>20 February 2014</span></div>
+  
     <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
     	<li><a href="/tags.html#gearman-ref">gearman <span>6</span></a></li>
+    
+  
+
+
+
     </ul>
+    
   </div>
   <div style='background-color: #FFF;'>
     <p>今天同事跟我说 Gearman 客户端添加任务的时候似乎设置优先级没有效果，于是去实现了一下，发现 Gearman 的任务优先级只有在任务本身属性完全一致的时候才能起到作用。比如说：新提交的 background 任务优先级虽然是 high，也不会在已经提交的<em>非</em> background、优先级是 low 的任务之前执行。</p>
+
 <p>考虑到之前没用过优先级，这里贴一下测试代码当做笔记：</p>
+
 <h1 id="worker">worker</h1>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="n">Worker</span><span class="p">;</span>
+
+<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="n">Worker</span><span class="p">;</span>
 <span class="k">my</span> <span class="nv">$worker</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">Gearman::XS::</span><span class="n">Worker</span><span class="p">;</span>
 <span class="k">my</span> <span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;10.4.1.21&#39;</span><span class="p">,</span> <span class="mi">4730</span><span class="p">);</span> 
 <span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">add_server</span><span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">);</span>
 <span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">add_function</span><span class="p">(</span><span class="s">&quot;reverse&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">\&amp;</span><span class="nb">reverse</span><span class="p">,</span> <span class="nv">$options</span><span class="p">);</span>
+ 
 <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
   <span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">work</span><span class="p">();</span>
 <span class="p">}</span>
+ 
 <span class="k">sub </span><span class="nf">reverse</span> <span class="p">{</span>
   <span class="k">my</span> <span class="nv">$job</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
   <span class="k">my</span> <span class="nv">$workload</span> <span class="o">=</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">workload</span><span class="p">();</span>
   <span class="k">my</span> <span class="nv">$result</span>   <span class="o">=</span> <span class="nv">$workload</span><span class="p">;</span>
   <span class="nb">printf</span><span class="p">(</span><span class="s">&quot;Job=%s Function_Name=%s Workload=%s Result=%s\n&quot;</span><span class="p">,</span>
           <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">handle</span><span class="p">(),</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">function_name</span><span class="p">(),</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">workload</span><span class="p">(),</span> <span class="nv">$result</span><span class="p">);</span>
+ 
   <span class="nb">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>
   <span class="k">return</span> <span class="nv">$result</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div>
+<span class="p">}</span></code></pre></div>
+
 <h1 id="client">client</h1>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="n">Client</span><span class="p">;</span>
+
+<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="n">Client</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">Time::</span><span class="n">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
 <span class="k">my</span> <span class="nv">$client</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">Gearman::XS::</span><span class="n">Client</span><span class="p">;</span>
 <span class="k">my</span> <span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;10.4.1.21&#39;</span><span class="p">,</span> <span class="mi">4730</span><span class="p">);</span> 
 <span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">add_server</span><span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">);</span>
 <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
     <span class="k">my</span> <span class="p">(</span><span class="nv">$ret</span><span class="p">,</span> <span class="nv">$job_handle</span><span class="p">)</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">do_background</span><span class="p">(</span><span class="s">&quot;reverse&quot;</span><span class="p">,</span> <span class="s">&#39;low&#39;</span><span class="o">.</span><span class="nb">time</span><span class="p">()</span> <span class="p">);</span>
-<span class="p">}</span> 
-</code></pre></div>
+<span class="p">}</span></code></pre></div>
+
 <h1 id="high-client">high-client</h1>
-<div class="highlight"><pre><code class="perl"><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="n">Client</span><span class="p">;</span>
+
+<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="n">Client</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">Time::</span><span class="n">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
 <span class="k">my</span> <span class="nv">$client</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">Gearman::XS::</span><span class="n">Client</span><span class="p">;</span>
 <span class="k">my</span> <span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;10.4.1.21&#39;</span><span class="p">,</span> <span class="mi">4730</span><span class="p">);</span> 
 <span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">add_server</span><span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">);</span>
 <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
     <span class="k">my</span> <span class="p">(</span><span class="nv">$ret</span><span class="p">,</span> <span class="nv">$job_handle</span><span class="p">)</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">do_high_background</span><span class="p">(</span><span class="s">&quot;reverse&quot;</span><span class="p">,</span> <span class="s">&#39;high&#39;</span><span class="o">.</span><span class="nb">time</span><span class="p">()</span> <span class="p">);</span>
-<span class="p">}</span> 
-</code></pre></div>
+<span class="p">}</span></code></pre></div>
+
 <p>同时运行三个脚本，可以看到 worker 的输出，一直都是这样：</p>
+
 <p>Job=H:YZSJHL1-21.opi.com:29434227 Function_Name=reverse Workload=high:1392887687.87583 Result=high:1392887687.87583
 Job=H:YZSJHL1-21.opi.com:29434228 Function_Name=reverse Workload=high:1392887687.87594 Result=high:1392887687.87594
 Job=H:YZSJHL1-21.opi.com:29434229 Function_Name=reverse Workload=high:1392887687.87605 Result=high:1392887687.87605</p>
+
 <p>全都是高优先级的任务</p>
+
     <hr>
     <div class="pagination">
       <ul>
+      
         <li class="prev"><a href="/2014/02/20/diff-between-lsddistid-and-operatingsystem-facts-variables" title="Facts 变量中 lsbdistid 和 operatingsystem 的区别">&larr; Previous</a></li>
+      
         <li><a href="/archive.html">Archive</a></li>
+      
         <li class="next"><a href="/2014/03/07/genarate-fig-from-diagramo" title="转换 diagramo 绘制的拓扑图成 fig.yml 格式">Next &rarr;</a></li>
+      
       </ul>
     </div>
     <hr>
+    
+
+
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
+
+
+
+
+
+
   </div>
 </div>
+  
+
+
       </div>
       <div class="span4">
+          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
+               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
+               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
+               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
+               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
+               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
+               
                  <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
+               
                  <li><a href="/2014/06/04/skyline-port-to-perl">用 Perl5 改写 skyline 异常检测算法</a></li>
+               
                  <li><a href="/2014/06/04/record-webqq-logs-by-avbot">用 avbot 机器人记录 QQ 群聊天记录</a></li>
+               
             </ul>
           </div>
+        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -138,51 +325,93 @@ Job=H:YZSJHL1-21.opi.com:29434229 Function_Name=reverse Workload=high:1392887687
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
+            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
+            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
+            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
+            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
+            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
+            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
+            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
+            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
+            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
+            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -199,6 +428,8 @@ Job=H:YZSJHL1-21.opi.com:29434229 Function_Name=reverse Workload=high:1392887687
         </p>
       </footer>
     </div> <!-- /container -->
+    
+
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -208,3 +439,4 @@ Job=H:YZSJHL1-21.opi.com:29434229 Function_Name=reverse Workload=high:1392887687
     <!-- UJian Button END -->
   </body>
 </html>
+

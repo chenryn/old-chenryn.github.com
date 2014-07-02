@@ -1,8 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>读《基于动态内容的缓存加速技术》笔记</title>
+    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -26,12 +28,144 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/tags.html">标签</a></li>
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
       	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
+      	
+      
+    
+  
+    
+      
+      	
       	<li><a href="/categories.html">分类</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
       	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/projects.html">学习记录</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">标签</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -42,15 +176,20 @@
     <div class="container">
     <div class="row">
       <div class="span7">
+        
 <div class="row">
   <div class="page-header">
     <h1>读《基于动态内容的缓存加速技术》笔记 <small></small></h1>
     <div class="date"><span>13 January 2011</span></div>
+    
   </div>
   <div style='background-color: #FFF;'>
     <p>《程序员》2010年11月刊的86-89四页，刊登了F5售前技术顾问，原VIACDN(TOM的CDN部门，后来独立运营)架构师徐超的文章《基于动态内容的缓存加速技术——F5 Web Accelerator产品技术剖析》。</p>
+
 <p>文章的前三分之一内容，主要是讲述RFC2616和一般浏览器、服务器的具体实现。已经比较熟悉了，略过……</p>
+
 <p>然后进入关键内容。</p>
+
 <p>“让浏览器缓存能够为动态页面工作”：
 A. 修改Transfer-Encoding: chunked的内容输出Content-Length。
 这个squid已经做到了。其实质就是在获取url的body时，累加每个chunk的size，直到碰上MSB为0的last-chunk标记。
@@ -60,6 +199,7 @@ C. 删除Expires。
 大概是为了统一成HTTP/1.1的header，所以选择了删除expires？或者就是纯粹了节省代码吧……
 D. 修改Cache-Control。有Expires按这个设定max-age，或者按配置设定；有private的修改成public；添加must-revalidated。
 这个squid用header_access和header_replace就能完成。</p>
+
 <p>“Web Accelerator如何识别动态页面的更新并保持更新”：
 A. 预加载。
 这个通过squid的补丁html prefetching可以完成
@@ -74,44 +214,76 @@ B. 根据上一章节的修改结果，浏览器对&rdquo;动态html&rdquo;每�
 2、用一个版本号/mtime的K-V数据库完成url版本控制；
 3、F5作为特定类型给某些网站使用，就不考虑海量文件的问题。
 最后，我还是觉得url版本控制这种事情，还是由网站开发人员来做CMS比较靠谱。</p>
+
 <p>“反向动态代理”
 上面的方式，确实保证了数据&rdquo;实时&rdquo;性，而且充分利用了浏览器缓存，但一次刷新引发F5和源站之间几十上百次的比对，还是比较郁闷的。所以当网站的&rdquo;动态&rdquo;结构比较清晰时，比如一个论坛，明确知道帖子列表变动就是因为有人发帖了；而且可以从发帖的POST请求url里推导出版面url的，可以采用这种技术。
 一旦接收到POST请求，F5自动根据配置purge版面url的缓存。而不用去比对。</p>
+
 <p>“MultiConnect技术”
 因为浏览器对同一域名并发连接很少，所以F5可以自动替换html里的url，根据配置把image.x.com换成img1.x.com/img2.x.com/img3.x.com……前提是你的DNS上确实有这些解析。
 不过要注意，域名太多也会拖慢浏览器速度的。dns解析需要时间。</p>
+
 <p>总之，个人感觉这些技术还是比较现实的，但都用很强的应用场景针对性。呵呵~</p>
+
     <hr>
     <div class="pagination">
       <ul>
+      
         <li class="prev"><a href="/2011/01/12/resin-status" title="resin-status">&larr; Previous</a></li>
+      
         <li><a href="/archive.html">Archive</a></li>
+      
         <li class="next"><a href="/2011/01/20/awk-efficiency" title="awk的效率">Next &rarr;</a></li>
+      
       </ul>
     </div>
     <hr>
+    
+
+
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
+
+
+
+
+
+
   </div>
 </div>
+  
+
+
       </div>
       <div class="span4">
+          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
+               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
+               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
+               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
+               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
+               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
+               
                  <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
+               
                  <li><a href="/2014/06/04/skyline-port-to-perl">用 Perl5 改写 skyline 异常检测算法</a></li>
+               
                  <li><a href="/2014/06/04/record-webqq-logs-by-avbot">用 avbot 机器人记录 QQ 群聊天记录</a></li>
+               
             </ul>
           </div>
+        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -122,51 +294,93 @@ B. 根据上一章节的修改结果，浏览器对&rdquo;动态html&rdquo;每�
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
+            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
+            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
+            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
+            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
+            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
+            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
+            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
+            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
+            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
+            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -183,6 +397,8 @@ B. 根据上一章节的修改结果，浏览器对&rdquo;动态html&rdquo;每�
         </p>
       </footer>
     </div> <!-- /container -->
+    
+
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -192,3 +408,4 @@ B. 根据上一章节的修改结果，浏览器对&rdquo;动态html&rdquo;每�
     <!-- UJian Button END -->
   </body>
 </html>
+

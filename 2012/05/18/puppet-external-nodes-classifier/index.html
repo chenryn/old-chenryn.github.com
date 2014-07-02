@@ -1,8 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>【puppet系列】puppet使用ENC定义节点</title>
+    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -26,12 +28,144 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/tags.html">标签</a></li>
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
       	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
+      	
+      
+    
+  
+    
+      
+      	
       	<li><a href="/categories.html">分类</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
       	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/projects.html">学习记录</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">标签</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -42,32 +176,56 @@
     <div class="container">
     <div class="row">
       <div class="span7">
+        
 <div class="row">
   <div class="page-header">
     <h1>【puppet系列】puppet使用ENC定义节点 <small></small></h1>
     <div class="date"><span>18 May 2012</span></div>
+  
     <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
     	<li><a href="/tags.html#perl-ref">perl <span>67</span></a></li>
+     
     	<li><a href="/tags.html#puppet-ref">puppet <span>14</span></a></li>
+    
+  
+
+
+
     </ul>
+    
   </div>
   <div style='background-color: #FFF;'>
     <p>今天研究puppet dashboard。主要有ENC和reports两个功能。其中ENC功能相当扯淡，因为你在web上点击添加的class/node/group，是没有任何依赖性检查(比如node命名是否符合fqdn，class是否存在)的，随便咋填绝无报错和拒绝！而且也没有提供类似report的导入工具，一旦启用就要完全重新手工输入所有配置……所以无论是从导入角度还是管理角度，自己实现一个靠谱点的ENC都是有必要的。    </p>
+
 <p>关于puppet的ENC配置，参见<a href="http://docs.puppetlabs.com/guides/external_nodes.html">ENC的文档</a>    </p>
+
 <p>主要就是修改puppet.conf里两个配置：    </p>
+
 <ul>
   <li><code>node_terminus</code>，由plain修改成exec；</li>
   <li><code>external_nodes</code>，由none修改为ENC脚本的路径。    </li>
 </ul>
+
 <p>类似如下：</p>
+
 <pre><code>[master]    
 node_terminus = exec    
 external_nodes = /etc/puppet/webui/external_nodes    
 </code></pre>
+
 <p>脚本输入输出的说明：    </p>
+
 <pre><code>Its only argument is the name of the node to be classified, and it returns a YAML document describing the node.
 </code></pre>
+
 <p>注意到此为止配置修改不算结束！文档中提到，puppet是支持同时开启ENC和site.pp配置的。puppet会自动merge两个配置。但是debug运行时可以看到，这个merge是按照node级别进行的。也就是说：    </p>
+
 <ol>
   <li>puppet master收到一个node的请求，如果 <code>node_terminus</code> 配置为exec，输出node的fqdn给 <code>external_nodes</code>；    </li>
   <li>收到 <code>external_nodes</code> 的返回，为一个yaml体或者空；    </li>
@@ -75,34 +233,43 @@ external_nodes = /etc/puppet/webui/external_nodes
   <li>如果已经存在，检查是全局变量还是类，全局变量的话报错，类的话覆盖为site.pp中最后定义的类。  <br />
 <strong>2013年4月10日更新：感谢<a href="http://weibo.com/liucy1983">@liu.cy</a>指出这里变量和类的区别</strong></li>
 </ol>
+
 <p>所以为了方便起见，请删除掉site.pp中的<code>import "node/*.pp"</code> 这行配置。我在这里就被郁闷了很久。</p>
+
 <p>然后是我这里的想法是尽量不更改pp的语法，只是提供一个把group里的ip到fqdn的转化然后查找cluster配置组合成yaml。  <br />
 也就是说有一个group的配置目录，其配置文件为&rdquo;groupname.pp&rdquo;，内容如下：</p>
-<div class="highlight"><pre><code class="ruby"><span class="n">group</span> <span class="s2">&quot;groupname&quot;</span> <span class="p">{</span>
+
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">group</span> <span class="s2">&quot;groupname&quot;</span> <span class="p">{</span>
     <span class="vg">$string</span> <span class="o">=</span> <span class="s2">&quot;test&quot;</span>
     <span class="vg">$arrays</span> <span class="o">=</span> <span class="o">[</span><span class="mi">123</span><span class="p">,</span> <span class="n">abc</span><span class="o">]</span>
     <span class="kp">include</span> <span class="n">module1</span><span class="p">,</span> <span class="n">module2</span>
-<span class="p">}</span>
-</code></pre></div>
+<span class="p">}</span></code></pre></div>
+
 <p>还有一个iplist的配置目录，其配置文件为“groupname.iplist”，内容如下：</p>
-<div class="highlight"><pre><code class="squid"><span class="mf">1.2.3.4</span><span class="w"></span>
-<span class="mf">2.3.4.5</span><span class="w"></span>
-</code></pre></div>
+
+<div class="highlight"><pre><code class="language-squid" data-lang="squid"><span class="mf">1.2.3.4</span><span class="w"></span>
+<span class="mf">2.3.4.5</span><span class="w"></span></code></pre></div>
+
 <p>那么以后服务器组有啥变更，只需要修改一下iplist就好了，不用重启puppet进程。    </p>
+
 <p>所以有两个脚本，一个是 <code>external_node</code> 脚本：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/bin/env perl</span>
+
+<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/bin/env perl</span>
 <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">autodie</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">DBI</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">YAML::</span><span class="n">Syck</span><span class="p">;</span>
+
 <span class="k">my</span> <span class="nv">$base_dir</span> <span class="o">=</span> <span class="s">&quot;/etc/puppet/webui&quot;</span><span class="p">;</span>
+
 <span class="k">my</span> <span class="nv">$node</span> <span class="o">=</span> <span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
 <span class="k">my</span> <span class="nv">$group</span> <span class="o">=</span> <span class="n">sqlite_select</span><span class="p">(</span><span class="nv">$node</span><span class="p">);</span>
 <span class="k">my</span> <span class="nv">$hash</span> <span class="o">=</span> <span class="n">pp2hashref</span><span class="p">(</span><span class="nv">$group</span><span class="p">);</span>
 <span class="k">print</span> <span class="n">Dump</span><span class="p">(</span><span class="nv">$hash</span><span class="p">);</span>
 <span class="c1"># ENC要求退出值必须为0 </span>
 <span class="nb">exit</span> <span class="mi">0</span><span class="p">;</span>
+
 <span class="k">sub </span><span class="nf">pp2hashref</span> <span class="p">{</span>
     <span class="k">my</span> <span class="nv">$group</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
     <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="p">{};</span>
@@ -131,6 +298,7 @@ external_nodes = /etc/puppet/webui/external_nodes
     <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;environment&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="s">&quot;production&quot;</span><span class="p">;</span>
     <span class="k">return</span> <span class="nv">$data</span><span class="p">;</span>
 <span class="p">}</span>
+
 <span class="k">sub </span><span class="nf">sqlite_select</span> <span class="p">{</span>
     <span class="k">my</span> <span class="nv">$node</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
     <span class="k">my</span> <span class="nv">$dbh</span> <span class="o">=</span> <span class="n">DBI</span><span class="o">-&gt;</span><span class="nb">connect</span><span class="p">(</span><span class="s">&quot;dbi:SQLite:dbname=${base_dir}/node_info.db&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">,{</span><span class="n">RaiseError</span><span class="o">=&gt;</span><span class="mi">1</span><span class="p">,</span><span class="n">AutoCommit</span><span class="o">=&gt;</span><span class="mi">0</span><span class="p">});</span>
@@ -139,23 +307,29 @@ external_nodes = /etc/puppet/webui/external_nodes
     <span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">fetchrow_hashref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;node_group&quot;</span><span class="p">};</span>
     <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">disconnect</span><span class="p">();</span>
     <span class="k">return</span> <span class="nv">$ret</span><span class="p">;</span>
-<span class="p">};</span>
-</code></pre></div>
+<span class="p">};</span></code></pre></div>
+
 <p>一个是维护sqlite的脚本：</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!/bin/env perl</span>
+
+<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/bin/env perl</span>
 <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">autodie</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">DBI</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">Net::</span><span class="n">Nslookup</span><span class="p">;</span>
+
+
 <span class="k">my</span> <span class="nv">$base_dir</span> <span class="o">=</span> <span class="s">&quot;/etc/puppet/webui&quot;</span><span class="p">;</span>
+
 <span class="n">sqlite_update</span><span class="p">();</span>
+
 <span class="k">sub </span><span class="nf">ip_conv</span> <span class="p">{</span>
     <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
     <span class="k">my</span> <span class="nv">$name</span> <span class="o">=</span> <span class="n">nslookup</span><span class="p">(</span><span class="n">host</span> <span class="o">=&gt;</span> <span class="s">&quot;$ip&quot;</span><span class="p">,</span> <span class="n">type</span> <span class="o">=&gt;</span> <span class="s">&quot;PTR&quot;</span><span class="p">);</span>
     <span class="c1"># ENC的输入参数为全小写格式，所以sqlite中也必须存储小写格式的主机名 </span>
     <span class="k">return</span> <span class="nb">lc</span><span class="p">(</span><span class="nv">$name</span><span class="p">);</span>
 <span class="p">};</span>
+
 <span class="k">sub </span><span class="nf">sqlite_rebuild</span> <span class="p">{</span>
     <span class="c1"># 配置系统变动不大，且puppet本身还有一层也是用sqlite的node配置缓存层，</span>
     <span class="c1"># 所以这里不用复杂的select判断再update或者insert，直接重建sqlite </span>
@@ -179,16 +353,18 @@ external_nodes = /etc/puppet/webui/external_nodes
     <span class="p">};</span>
     <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">commit</span><span class="p">();</span>
     <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">disconnect</span><span class="p">();</span>
-<span class="p">};</span>
-</code></pre></div>
+<span class="p">};</span></code></pre></div>
+
 <p>以上是ENC的配置。继续分析puppet dashboard，除了ENC外，另一个功能就是reports，相比ENC来说，reports功能还算稍微靠谱一点，用http方式替换puppet自身的store方式，并存数据在mysql里。目前使用dashboard的人主要也就是在用这个功能。  <br />
 但是我个人认为，一般情况下运维不可能专门开一个页面看着puppet，也不太会有必要按照时间段查看状态报表汇总图这个东东，真正要紧的，是及时接到运行错误的报警以便上机处理。所以这里最后是一个监控reports的脚本，目前还没看到http方式的reports数据格式，所以暂时继续使用store的方式，然后采用Linux文件系统的inotify方式报警。</p>
-<div class="highlight"><pre><code class="perl"><span class="c1">#!env perl</span>
+
+<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!env perl</span>
 <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">YAML::</span><span class="n">Syck</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">AnyEvent::Filesys::</span><span class="n">Notify</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">EV</span><span class="p">;</span>
+
 <span class="c1"># 使用AE的这个扩展而不直接用Linux::Inotify2模块，方便万一之后迁移到BSD主机</span>
 <span class="c1"># 而且异步回调的方式性能更好，在压力较大时不会阻塞丢失事件 </span>
 <span class="k">my</span> <span class="nv">$notifier</span> <span class="o">=</span> <span class="nn">AnyEvent::Filesys::</span><span class="n">Notify</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
@@ -211,46 +387,77 @@ external_nodes = /etc/puppet/webui/external_nodes
         <span class="p">};</span>
     <span class="p">},</span>
 <span class="p">);</span>
+
 <span class="nn">EV::</span><span class="n">loop</span><span class="p">();</span>
+
 <span class="k">sub </span><span class="nf">process</span> <span class="p">{</span>
     <span class="k">my</span> <span class="p">(</span> <span class="nv">$path</span><span class="p">,</span> <span class="nv">$message</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
     <span class="k">if</span> <span class="p">(</span> <span class="nv">$path</span> <span class="o">=~</span> <span class="sr">m/\/([^\/]+)\/\d{12}\.yaml$/</span> <span class="p">)</span> <span class="p">{</span>
         <span class="c1"># 这里用nagios还是email方式处理都可以，代码略</span>
         <span class="k">print</span> <span class="nv">$1</span><span class="p">,</span><span class="s">&quot; has err: &quot;</span><span class="p">,</span><span class="nv">$message</span><span class="p">,</span><span class="s">&quot;\n&quot;</span><span class="p">;</span>
     <span class="p">};</span>
-<span class="p">};</span>
-</code></pre></div>
+<span class="p">};</span></code></pre></div>
+
+
     <hr>
     <div class="pagination">
       <ul>
+      
         <li class="prev"><a href="/2012/05/10/quick-start-for-puppet-facter-erb" title="【puppet系列】puppet安装／Facter插件和puppet模板编写">&larr; Previous</a></li>
+      
         <li><a href="/archive.html">Archive</a></li>
+      
         <li class="next"><a href="/2012/05/22/puppet-reports-analysis-by-web" title="【puppet系列】网页展示puppet的客户端报告">Next &rarr;</a></li>
+      
       </ul>
     </div>
     <hr>
+    
+
+
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
+
+
+
+
+
+
   </div>
 </div>
+  
+
+
       </div>
       <div class="span4">
+          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
+               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
+               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
+               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
+               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
+               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
+               
                  <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
+               
                  <li><a href="/2014/06/04/skyline-port-to-perl">用 Perl5 改写 skyline 异常检测算法</a></li>
+               
                  <li><a href="/2014/06/04/record-webqq-logs-by-avbot">用 avbot 机器人记录 QQ 群聊天记录</a></li>
+               
             </ul>
           </div>
+        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -261,51 +468,93 @@ external_nodes = /etc/puppet/webui/external_nodes
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
+            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
+            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
+            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
+            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
+            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
+            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
+            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
+            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
+            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
+            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -322,6 +571,8 @@ external_nodes = /etc/puppet/webui/external_nodes
         </p>
       </footer>
     </div> <!-- /container -->
+    
+
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -331,3 +582,4 @@ external_nodes = /etc/puppet/webui/external_nodes
     <!-- UJian Button END -->
   </body>
 </html>
+

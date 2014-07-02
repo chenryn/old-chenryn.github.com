@@ -1,8 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>nginx的proxy_cache和cache_purge模块试用记录</title>
+    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -26,12 +28,144 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/tags.html">标签</a></li>
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
       	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
+      	
+      
+    
+  
+    
+      
+      	
       	<li><a href="/categories.html">分类</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
       	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/projects.html">学习记录</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">标签</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -42,54 +176,75 @@
     <div class="container">
     <div class="row">
       <div class="span7">
+        
 <div class="row">
   <div class="page-header">
     <h1>nginx的proxy_cache和cache_purge模块试用记录 <small></small></h1>
     <div class="date"><span>07 March 2010</span></div>
+    
   </div>
   <div style='background-color: #FFF;'>
     <p>nginx的类squid哈希式cache功能，据张宴说是基本稳定可用了，昨天找个机会和时间，试着测用了一把，把要点记录一下：</p>
+
 <p>首先是编译nginx，方便起见，把一些心仪的模块统统加上了，version如下：</p>
+
 <pre><code>built by gcc 4.1.2 20080704 (Red Hat 4.1.2-44)
 TLS SNI support disabled
 configure arguments: --prefix=/home/nginx --with-pcre --add-module=../ngx_http_consistent_hash --add-module=../ngx_max_connections --add-module=../ngx_cache_purge --add-module=../ngx_mp4_streaming_public --with-cc-opt=-O3 --with-http_stub_status_module --with-http_ssl_module --with-http_flv_module --without-http_memcached_module --without-http_fastcgi_module --with-google_perftools_module
 </code></pre>
+
 <p>编译过程中几个注意事项：</p>
+
 <ol>
   <li>必须采用&ndash;with-pcre，而不要偷懒采用&ndash;without-http_rewrite_module，否则配置文件里将不支持if判断；</li>
   <li>加载mp4_streaming，必须采用&ndash;with-cc-opt=-O3方式进行编译。</li>
   <li>max_connections模块默认支持nginx最新版本是0.8.32，需要vi修改其DIR，然后path -p0，但千万不要看见有个Makefile就执行make &amp;&amp; make install了，因为它会毫无道理的把整个nginx安装到当前目录的.nginx下隐藏起来……</li>
 </ol>
+
 <p>话说我add这个max_connections模块能怎么用自己也没想好，反正官方有limit_zone和limit_req限制client，再add个限制nginx2oringin的也不在乎吧……汗~~</p>
+
 <p>比较囧的一点是，经过我折腾的nginx，虽然去除了debug -g模式编译，还是有4M多大……</p>
+
 <p>sina的ncache模块，在我下载的最新的nginx0.8.34src上无法使用，而且ncache作者介绍说ncache的缓存不用内存，且其purge方式为标记为过期但并不更改文件内容直到下次访问请求以节省磁盘IO的负担；但根据我的试验，nginx的cache_purge模块则是采用了删除过期文件的方式进行（当然，proxy_cache的过期还是标记而不删除的，不然太耗IO了……）。</p>
+
 <p>然后贴一下，实验完成后的配置文件：</p>
-<div class="highlight"><pre><code class="nginx"><span class="k">user</span> <span class="s">nobody</span> <span class="s">nobody</span><span class="p">;</span>
+
+<div class="highlight"><pre><code class="language-nginx" data-lang="nginx"><span class="k">user</span> <span class="s">nobody</span> <span class="s">nobody</span><span class="p">;</span>
 <span class="k">worker_processes</span> <span class="mi">1</span><span class="p">;</span>
 <span class="k">google_perftools_profiles</span> <span class="s">/tmp/tcmalloc</span><span class="p">;</span>
 <span class="k">worker_rlimit_nofile</span> <span class="mi">65535</span><span class="p">;</span>
+
 <span class="k">events</span>
 <span class="p">{</span>
     <span class="kn">use</span> <span class="s">epoll</span><span class="p">;</span>
     <span class="kn">worker_connections</span> <span class="mi">65535</span><span class="p">;</span>
 <span class="p">}</span>
+
 <span class="k">http</span>
 <span class="p">{</span>
     <span class="kn">include      </span> <span class="s">mime.types</span><span class="p">;</span>
     <span class="kn">default_type </span> <span class="s">application/octet-stream</span><span class="p">;</span>
+    
     <span class="kn">log_format </span> <span class="s">main </span> <span class="s">&#39;</span><span class="nv">$remote_addr</span> <span class="s">-</span> <span class="nv">$remote_user</span> <span class="s">[</span><span class="nv">$time_local]</span> <span class="s">&quot;</span><span class="nv">$request&quot;</span> <span class="s">&#39;</span>
     <span class="s">&#39;</span><span class="nv">$status</span> <span class="nv">$body_bytes_sent</span> <span class="s">&quot;</span><span class="nv">$http_referer&quot;</span> <span class="s">&#39;</span>
     <span class="s">&#39;&quot;</span><span class="nv">$http_user_agent&quot;</span> <span class="s">&quot;</span><span class="nv">$http_x_forwarded_for&quot;&#39;</span><span class="p">;</span>
+    
     <span class="kn">access_log </span> <span class="s">logs/access.log </span> <span class="s">main</span> <span class="p">;</span>
+    
     <span class="c1">#  charset  utf-8;</span>
+    
     <span class="kn">server_names_hash_bucket_size</span> <span class="mi">128</span><span class="p">;</span>
     <span class="kn">client_header_buffer_size</span> <span class="mi">32k</span><span class="p">;</span>
     <span class="kn">large_client_header_buffers</span> <span class="mi">4</span> <span class="mi">32k</span><span class="p">;</span>
     <span class="kn">client_max_body_size</span> <span class="mi">300m</span><span class="p">;</span>
+    
     <span class="kn">sendfile</span> <span class="no">on</span><span class="p">;</span>
     <span class="kn">tcp_nopush    </span> <span class="no">on</span><span class="p">;</span>
+    
     <span class="kn">keepalive_timeout</span> <span class="mi">60</span><span class="p">;</span>
+    
     <span class="kn">tcp_nodelay</span> <span class="no">on</span><span class="p">;</span>
+    
     <span class="kn">client_body_buffer_size </span> <span class="mi">512k</span><span class="p">;</span>
     <span class="kn">proxy_connect_timeout   </span> <span class="mi">5</span><span class="p">;</span>
     <span class="kn">proxy_read_timeout      </span> <span class="mi">60</span><span class="p">;</span>
@@ -98,6 +253,7 @@ configure arguments: --prefix=/home/nginx --with-pcre --add-module=../ngx_http_c
     <span class="kn">proxy_buffers           </span> <span class="mi">4</span> <span class="mi">64k</span><span class="p">;</span>
     <span class="kn">proxy_busy_buffers_size</span> <span class="mi">128k</span><span class="p">;</span>
     <span class="kn">proxy_temp_file_write_size</span> <span class="mi">128k</span><span class="p">;</span>
+    
     <span class="kn">gzip</span> <span class="no">on</span><span class="p">;</span>
     <span class="kn">gzip_min_length </span> <span class="mi">1k</span><span class="p">;</span>
     <span class="kn">gzip_buffers    </span> <span class="mi">4</span> <span class="mi">16k</span><span class="p">;</span>
@@ -113,6 +269,7 @@ configure arguments: --prefix=/home/nginx --with-pcre --add-module=../ngx_http_c
     <span class="kn">upstream</span> <span class="s">backend</span><span class="p">{</span>
         <span class="kn">server</span> <span class="n">10.10.10.13</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
     <span class="p">}</span>
+    
     <span class="kn">server</span>
     <span class="p">{</span>
         <span class="kn">listen      </span> <span class="mi">80</span><span class="p">;</span>
@@ -160,8 +317,8 @@ configure arguments: --prefix=/home/nginx --with-pcre --add-module=../ngx_http_c
             <span class="kn">proxy_pass</span> <span class="s">http://backend</span><span class="p">;</span>
         <span class="p">}</span>
     <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
+<span class="p">}</span></code></pre></div>
+
 <p>配置完成。测试如下：
 wget http://www.test.com/List/j.Html -S -O /dev/null -e http_proxy=127.0.0.1
     &ndash;13:17:48&ndash;  http://www.test.com/List/j.Html
@@ -182,9 +339,12 @@ wget http://www.test.com/List/j.Html -S -O /dev/null -e http_proxy=127.0.0.1
     Accept-Ranges: bytes
     Length: 25126 (25K) [text/html]
     Saving to: `/dev/null&rsquo;</p>
+
 <pre><code>100%[====================================================================================================================&gt;] 25,126      --.-K/s   in 0s
 </code></pre>
+
 <p>13:17:48 (521 MB/s) - `/dev/null&rsquo; saved [25126/25126]</p>
+
 <p>[root@sdl4 ~ 13:17:48]#
 wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.ASP?KeyWord=整形视频&rdquo;
     &ndash;13:17:50&ndash;  http://www.test.com/Search.ASP?KeyWord=%D5%FB%D0%CE%CA%D3%C6%B5
@@ -203,10 +363,13 @@ wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.A
     X-Cache: MISS from cache_test
     Length: 24987 (24K) [text/html]
     Saving to: `/dev/null&rsquo;</p>
+
 <pre><code>100%[====================================================================================================================&gt;] 24,987      25.6K/s   in 1.0s
+
 13:17:52 (25.6 KB/s) - `/dev/null' saved [24987/24987] 完成。 至于？的问题，目前针对需要，倒有另一个办法： 在location / {}中，根据请求参数判断进行传递。即写成如下：
 </code></pre>
-<div class="highlight"><pre><code class="nginx"><span class="k">location</span> <span class="s">/</span> <span class="p">{</span>
+
+<div class="highlight"><pre><code class="language-nginx" data-lang="nginx"><span class="k">location</span> <span class="s">/</span> <span class="p">{</span>
     <span class="kn">……</span>
     <span class="s">if</span> <span class="s">(</span><span class="nv">$is_args</span><span class="s">)</span><span class="p">{</span>
         <span class="kn">add_header</span> <span class="s">X-Cache</span> <span class="s">&quot;MISS</span> <span class="s">from</span> <span class="s">cache_test&quot;</span><span class="p">;</span>
@@ -219,54 +382,86 @@ wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.A
     <span class="kn">proxy_set_header</span> <span class="s">X-Forwarder-For</span> <span class="nv">$remote_addr</span><span class="p">;</span>
     <span class="kn">add_header</span> <span class="s">X-Cache</span> <span class="s">&quot;MISS</span> <span class="s">from</span> <span class="s">cache_test&quot;</span><span class="p">;</span>
     <span class="kn">proxy_pass</span> <span class="s">http://backend</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div>
+<span class="p">}</span></code></pre></div>
+
 <p>不过依然有问题：</p>
+
 <ol>
   <li>nginx的if不支持&amp;&amp;或者||，万一有些类型（比如htm和jpg）又要求带？的也缓存，显然又和这个$is_args冲突；
 或许采用下面的办法能继续区分？（未试验）</li>
 </ol>
-<div class="highlight"><pre><code class="nginx"><span class="k">set</span> <span class="nv">$yn</span> <span class="nv">$is_args</span><span class="p">;</span>
+
+<div class="highlight"><pre><code class="language-nginx" data-lang="nginx"><span class="k">set</span> <span class="nv">$yn</span> <span class="nv">$is_args</span><span class="p">;</span>
 <span class="k">if</span> <span class="s">(</span><span class="nv">$uri</span> <span class="p">~</span><span class="sr">*</span> <span class="s">.(htm|jpg))</span><span class="p">{</span>
     <span class="kn">set</span> <span class="nv">$yn</span> <span class="s">&quot;&quot;</span><span class="p">;</span>
 <span class="p">}</span>
 <span class="k">if</span> <span class="s">(</span><span class="nv">$yn</span><span class="s">)</span><span class="p">{</span>
     <span class="kn">proxy_pass</span> <span class="s">http://backend</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div>
+<span class="p">}</span></code></pre></div>
+
 <p>；
 2. nginx的if中不单不支持proxy_cache，居然也不支持proxy_set_header等定义，只能单纯的proxy_pass。</p>
+
+
     <hr>
     <div class="pagination">
       <ul>
+      
         <li class="prev"><a href="/2010/03/03/loadbalance-in-nginx-using-consistent_hash-error_page" title="nginx负载均衡（consistent_hash、error_page）进阶">&larr; Previous</a></li>
+      
         <li><a href="/archive.html">Archive</a></li>
+      
         <li class="next"><a href="/2010/03/07/send-and-receive-mail-by-awk" title="awk收发邮件小脚本">Next &rarr;</a></li>
+      
       </ul>
     </div>
     <hr>
+    
+
+
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
+
+
+
+
+
+
   </div>
 </div>
+  
+
+
       </div>
       <div class="span4">
+          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
+               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
+               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
+               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
+               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
+               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
+               
                  <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
+               
                  <li><a href="/2014/06/04/skyline-port-to-perl">用 Perl5 改写 skyline 异常检测算法</a></li>
+               
                  <li><a href="/2014/06/04/record-webqq-logs-by-avbot">用 avbot 机器人记录 QQ 群聊天记录</a></li>
+               
             </ul>
           </div>
+        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -277,51 +472,93 @@ wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.A
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
+            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
+            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
+            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
+            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
+            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
+            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
+            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
+            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
+            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
+            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -338,6 +575,8 @@ wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.A
         </p>
       </footer>
     </div> <!-- /container -->
+    
+
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -347,3 +586,4 @@ wget -S -O /dev/null -e http_proxy=127.0.0.1 &ldquo;http://www.test.com/Search.A
     <!-- UJian Button END -->
   </body>
 </html>
+

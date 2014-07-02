@@ -1,8 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>【翻译】用 elasticsearch 和 logstash 为数十亿次客户搜索提供服务</title>
+    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -26,12 +28,144 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/tags.html">标签</a></li>
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
       	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
+      	
+      
+    
+  
+    
+      
+      	
       	<li><a href="/categories.html">分类</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
       	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/projects.html">学习记录</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">标签</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -42,31 +176,61 @@
     <div class="container">
     <div class="row">
       <div class="span7">
+        
 <div class="row">
   <div class="page-header">
     <h1>【翻译】用 elasticsearch 和 logstash 为数十亿次客户搜索提供服务 <small></small></h1>
     <div class="date"><span>09 October 2013</span></div>
+  
     <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
     	<li><a href="/tags.html#elasticsearch-ref">elasticsearch <span>18</span></a></li>
+    
+  
+
+
+
     </ul>
+    
   </div>
   <div style='background-color: #FFF;'>
     <p>原文地址：<a href="http://www.elasticsearch.org/blog/using-elasticsearch-and-logstash-to-serve-billions-of-searchable-events-for-customers/">http://www.elasticsearch.org/blog/using-elasticsearch-and-logstash-to-serve-billions-of-searchable-events-for-customers/</a></p>
+
 <hr />
+
 <p><em>今天非常高兴的欢迎我们的第一个外来博主，Rackspace软件开发工程师，目前为Mailgun工作的 <a href="https://twitter.com/ralphm">Ralph Meijer</a>。我们在 <a href="http://monitorama.eu/">Monitorama EU</a> 会面后，Ralph 提出可以给我们写一篇 Mailgun 里如何使用 Elasticsearch 的文章。他本人也早就活跃在 Elasticsearch 社区，经常参加我们在荷兰的聚会了。</em></p>
+
 <p><img src="http://www.elasticsearch.org/content/uploads/2013/09/mailgun_150-300x85.png" alt="" /></p>
+
 <p><a href="http://www.mailgun.com/">Mailgun</a> 收发大量电子邮件，我们跟踪和存储每封邮件发生的每个事件。每个月会新增数十亿事件，我们都要展示给我们的客户，方便他们很容易的分析数据，也就是全文搜索。下文是我们利用Elasticsearch和Logstash技术完成这个需求的技术细节（很高兴刚写完这篇文章就听说《<a href="http://elasticsearch.com/blog/welcome-jordan-logstash/">Logstash加入Elasticsearch</a>》了）。</p>
+
 <h1 id="section">事件</h1>
+
 <p>在 Mailgun 里，event可能是如下几种：进来一条信息，可能被接收可能被拒绝；出去一条信息，可能被投递可能被拒绝(垃圾信息或者反弹)；信息是直接打开还是通过链接点击打开；收件人要求退订。所有这些事件，都有一些元信息可以帮助我们客户找出他们的信息什么时候，为什么，发生了什么。这个元信息包括：信息的发送者，收件人地址，信息id，SMTP错误码，链接URL，geo地理位置等等。</p>
+
 <p>每个事件都是由一个时间戳和一系列字段构成的。一个典型的事件就是一个关联数组，或者叫字典、哈希表。</p>
+
 <h1 id="section-1">事件访问设计</h1>
+
 <p>假设我们已经有了各种事件，现在需要一个办法来给客户使用。在Mailgun的控制面板里，有一个日志标签，可以以时间倒序展示事件日志，并且还可以通过域名和级别来过滤日志，示例如下：</p>
+
 <p><img src="http://9791b61a81187466cf77-03e2fb40b56101ddc8886446c68cb0c1.r77.cf2.rackcdn.com/mailgun_log_sample.png" alt="" /></p>
+
 <p>在这个示例里，这个事件的级别是&rdquo;warn&rdquo;，因为SMTP错误码说明这是一个临时性问题，我们稍后会重试投递。这里有两个字段，一个时间戳，一个还没格式化的非结构化文本信息。为了醒目，这里我们会根据级别的不同给事件上不同的底色。</p>
+
 <p>在这个网页之后，我还有一个接收日志的API，一个设置触发报警的hook页面。后面的报警完全是结构化了的带有很多元数据字段的JSON文档。比如，SMTP错误码有自己的字段，收件人地址和邮件标题等也都有。</p>
+
 <p>不幸的是，原有的日志API非常有限。他只能返回邮件投递时间和控制面板里展示的非结构化的文本内容。没办法获取或者搜索多个字段(像报警页面里那样)，更不要说全文搜索了。简单说，就是控制面板缺乏全文搜索。</p>
+
 <h1 id="elasticsearch">用elasticsearch存储和响应请求</h1>
+
 <p>要给控制面板提供API和访问，我们需要一个新的后端来弥补前面提到的短板，包括下面几个新需求：</p>
+
 <ul>
   <li>允许大多数属性的过滤。</li>
   <li>允许全文搜索。</li>
@@ -74,49 +238,89 @@
   <li>添加节点即可轻松扩展。</li>
   <li>节点失效无影响。</li>
 </ul>
+
 <p>而Elasticsearch，是一个可以“准”实时入库、实时请求的搜索引擎。它基于Apache Lucene，由存储索引的节点组成一个分布式高可用的集群。单个节点离线，集群会自动把索引(的分片)均衡到剩余节点上。你可以配置具体每个索引有多少分片，以及这些分片该有多少副本。如果一个主分片离线，就从副本中选一个出来提升为主分片。</p>
+
 <p>Elasticsearch 是面向文档的，某种层度上可以说也是无模式的。这意味着你可以传递任意JSON文档然后就可以索引成字段。对我们的事件来说完全符合要求。</p>
+
 <p>Elasticsearch 同样还有一个非常强大的请求/过滤接口，可以对特定字段搜索，也可以做全文搜索。</p>
+
 <h1 id="elasticsearch-1">事件存入elasticsearch</h1>
+
 <p>有很多工具或者服务可以用来记录事件。我们最终选择了 <a href="http://logstash.net/">Logstash</a>，一个搜集、分析、管理和传输日志的工具。</p>
+
 <p>在内部，通过webhooks推送来的event同时在我们系统的其他部分也有使用，目前我们是用Redis来完成这个功能。Logstash有一个Redis输入插件来从Redis列表里接收日志事件。通过几个小过滤器后，事件通过一个输出插件输出。最常用的输出插件就是 Elasticsearch 插件。</p>
+
 <p>利用 Elasticsearch 丰富的 API 最好的办法就是使用 Kibana，这个工具的口号是“让海量日志有意义”。目前最新的 <a href="http://three.kibana.org/">Kibana 3</a> 是一个纯粹的 JavaScript 客户端版，随后也会成为 Logstash 的默认界面。和之前的版本不同的是，它不在依赖于一个类Logstash模式，而是可以用于任意Elasticsearch索引。</p>
+
 <p><img src="http://9791b61a81187466cf77-03e2fb40b56101ddc8886446c68cb0c1.r77.cf2.rackcdn.com/kibana%20events%202.png" alt="" /></p>
+
 <h1 id="section-2">认证</h1>
+
 <p>到这步，我们已经解决了事件集中的问题，也有了丰富的API来深入解析日志。但是我们不想把所有日志都公开给每个人，所以我们需要一个认证，目前Elasticsearch 和 Kibana 都没提供认证功能，所以寄希望于 Elasticsearch API 是不可能的了。</p>
+
 <p>我们选择了构建双层代理。一层代理用来做认证和流量限速，一层用来转义我们的事件 API 成 Elasticsearch 请求。前面这层代理我们已经以 Apache 2.0 开原协议发布在Github上，叫 <a href="https://github.com/mailgun/vulcan">vulcan</a> 。我们还把我们原来的那套日志 API 也转移到了 Elasticsearch 系统上。</p>
+
 <h1 id="section-3">索引设计</h1>
+
 <p>有很多种方法来确定你如何组织自己的索引，基于文档的数目(每个时间段内)，以及查询模式。</p>
+
 <p>Logstash 默认每天创建一个新索引，包括当天收到的全部时间。你可以通过配置修改这个时间，或者采用其他属性来区分索引，比如每个用户一个，或者用事件类型等等。</p>
+
 <p>我们这里每秒有1500个时间，而且我们希望每个账户的轮转时间段都是可配置的。可选项有：</p>
+
 <ul>
   <li>一个大索引。</li>
   <li>每天一个索引。</li>
   <li>每个用户账户一个索引。</li>
 </ul>
+
 <p>当然，如果需要的话，这些都可以在未来进一步切分，比如根据事件类型。</p>
+
 <p>管理轮滚的一个办法是在 Elasticsearch 中给每个文档设定 <a href="http://www.elasticsearch.org/guide/reference/mapping/ttl-field/">TTLs</a> 。到了时间  Elasticsearch 就会批量删除过期文档。这种做法使得定制每个账户的轮转时间变得很简单，但是也带来了更多的 IO 操作。</p>
+
 <p>另一个轻量级的办法是直接删除整个索引。这也是 Logstash 默认以天创建索引的原因。过了这天你直接通过 crontab 任务删除索引即可。</p>
+
 <p>不过后面这个办法就没法定制轮转了。我们有很多用户账户，给每个用户每天保持一个索引是不切实际的。当然，给所有用户每天存一个索引又意味着我们要把所有数据都存磁盘上。如果一个账户是保持两天数据的轮转，那么在缓存中的数据就是有限的。在查询多天的垃圾邮件时，处理性能也就受限了。所以，我们需要保留更多的日志以供Kibana访问。</p>
+
 <h1 id="section-4">映射</h1>
+
 <p>为了定义文档(中的字段)如何压缩、索引和存储在索引里，Elasticsearch 有一个叫做 <a href="http://www.elasticsearch.org/guide/reference/mapping/">mapping</a> 的概念。所以为每个字段它都定义了类型，定义了如何分析和标记字段的值以便索引和查询，定义了值是否需要存储，以及其他各种设置。默认的情况，mapping是动态的，也就是说 Elasticsearch 会从它获得的第一个值来尝试猜测字段的类型，然后正式应用这个设置到索引。</p>
+
 <p>如果你的数据来源单一，这样就很好了。但实际可能来源很复杂，或者日志类型根本就不一样，比如我们这，同一个名字的字段的数据类型可能都不一样。 Elasticsearch 会拒绝索引一个类型不匹配的文档，所以我们需要自定义 mapping 。</p>
+
 <p>通过我们的 <a href="http://documentation.mailgun.com/api-events.html">Events API</a> ，我给日志事件的类型定义了一个映射。不是所有的事件都有所有这些字段，不过相同名字的字段肯定是一致的。</p>
+
 <h1 id="section-5">分析器</h1>
+
 <p>默认情况下，字段的 mapping 中就带有 标准分析器。简单的说，就是字符串会被转成小写，然后分割成一个一个单词。然后这些标记化的单词再写入银锁，并指向具体的字段。</p>
+
 <p>有些情况，你可能想要些别的东西来完成不同的效果。比如说账户 ID，电子邮件地址或者网页链接 URL之类的，默认标记器会以斜线分割，而不考虑把整个域名作为一个单独的标记。当你通过 facet 统计域名字段的时候，你得到的会是域名中一段一段标签的细分结果。</p>
+
 <p>要解决这个问题，可以设置索引属性，给对应字段设置成 <code>not_analyzed</code>。这样在插入索引的时候，这个字段不再经过映射或者标记器。比如对 <code>domain.name</code> 字段应用这个设置后，每个域名都会完整的作为同一个标签统计 facet 了。</p>
+
 <p>如果你还想在这个字段内通过部分内容查找，你可以使用 <a href="http://www.elasticsearch.org/guide/reference/mapping/multi-field-type/">multi-field type</a>。这个类型可以映射相同的值到不同的核心类型或者属性，然后在不同名称下使用。我们对 IP 地址就使用了这个技术。默认的字段(比如叫<code>sending-ip</code>)的类型就是 ip，而另一个非默认字段(比如叫 <code>sending-ip.untouched</code>)则配置成 <code>not_analyzed</code> 而且类型为字符串。这样，默认字段可以做 IP 地址专有的范围查询，而 <code>.untouched</code> 字段则可以做 facet 查询。</p>
+
 <p>除此以外，绝大多数字段我们都没用分析器和标记器。不过我们正在考虑未来可以结合上面的多字段类型技巧，应用 <a href="http://www.elasticsearch.org/guide/reference/index-modules/analysis/pattern-capture-tokenfilter/">pattern capture tokenfilter</a> 到某些字段(比如电子邮件地址)上。</p>
+
 <h1 id="section-6">监控</h1>
+
 <p>要知道你的集群怎么样，你就必须要监控它。 Elasticsearch 有非常棒的 API 来获取 <a href="http://www.elasticsearch.org/guide/reference/api/admin-cluster-state/">cluster state</a> 和 <a href="http://www.elasticsearch.org/guide/reference/api/admin-cluster-nodes-stats/">node statistics</a>。我们可以用 <a href="http://graphite.wikidot.com/">Graphite</a> 来存储这些指标并且做出综合表盘，下面就是其中一个面板：</p>
+
 <p><img src="http://9791b61a81187466cf77-03e2fb40b56101ddc8886446c68cb0c1.r77.cf2.rackcdn.com/graphite%20monitoring.png" alt="" /></p>
+
 <p>为了收集这些数据并且传输到 Graphite，我创建了 <a href="http://github.com/mochi/vor">Vör</a>，已经在 <a href="http://www.mochimedia.com/">Mochi Media</a> 下用 MIT/X11 协议开源了。另外一个保证 Redis 列表大小的收集器也在开发中。</p>
+
 <p>除此以外，我们还统计很多东西，比如邮件的收发、点击数，API调用和耗时等等，这些是通过 <a href="https://github.com/etsy/statsd">StatsD</a> 收集的，同样也添加到我们的 Graphite 表盘。</p>
+
 <p><img src="http://9791b61a81187466cf77-03e2fb40b56101ddc8886446c68cb0c1.r77.cf2.rackcdn.com/graphite%20events.png" alt="" /></p>
+
 <p>这绝对是好办法来观察发生了什么。Graphite 有一系列函数可以用来在绘图前作处理，也可以直接返回JSON文档。比如，我们可以很容易的创建一个图片展示 API 请求的数量与服务器负载或者索引速度的联系。</p>
+
 <h1 id="section-7">当前状况</h1>
+
 <p>我们的一些数据：</p>
+
 <ul>
   <li>每天大概4kw 到 6kw 个日志事件。</li>
   <li>30天轮转一次日志。</li>
@@ -125,49 +329,87 @@
   <li>每个分片一个1副本。 </li>
   <li>每个索引占 2 * 50 到 80 GB空间(因为有副本所以乘2)。</li>
 </ul>
+
 <p>为此，我们启动了一共 9 台 Rackspace 云主机，具体配置是这样的：</p>
+
 <ul>
   <li>6x 30GB RAM, 8 vCPUs, 1TB disk: Elasticsearch 数据节点。</li>
   <li>2x 8GB RAM, 4 vCPUs: Elasticsearch 代理节点， Logstash， Graphite 和 StatsD。</li>
   <li>2x 4GB RAM, 2 core: Elasticsearch 代理节点， Vulcan 和 API 服务器</li>
 </ul>
+
 <p>大多数主机最终会迁移到专属的平台上，同时保留有扩展新云主机的能力。</p>
+
 <p>Elasticsearch 数据节点都配置了 16GB 内存给 JVM heap。其余都是标准配置。此外还设置了 fieldcache 最大大小为 heap 的 40%，以保证集群不会在 facet 和 sort 内容很多的字段时挂掉。我们同时也增加了一点 <a href="http://www.elasticsearch.org/guide/reference/api/admin-cluster-update-settings/">cluster wide settings</a> 来加速数据恢复和重均衡。另外，相对于我们存储的文档数量来说，<code>indices.recovery.max_bytes_per_sec</code> 的默认设置实在太低了。</p>
+
 <h1 id="section-8">总结</h1>
+
 <p>我们非常高兴用 Elasticsearch 来保存我们的事件，也得到了试用新 API 和新控制面板中新日志页面的客户们非常积极的反馈。任意字段的可搜索对日志挖掘绝对是一种显著的改善，而 Elasticsearch 正提供了这种高效无痛的改进。当然，Logstash，Elasticsearch 和 Kibana 这整条工具链也非常适合内部应用日志处理。</p>
+
 <p>如果你想了解更多详情或者对我们的 API 有什么疑问，尽管留言。也可以在 Mailgun 博客上<a href="http://blog.mailgun.com/post/new-events-api-detailed-email-tracking-and-search/">阅读更多关于事件 API 的细节</a>。</p>
+
 <p>开心处理日志，开心发送邮件！</p>
+
+
     <hr>
     <div class="pagination">
       <ul>
+      
         <li class="prev"><a href="/2013/09/14/elasticsearch-for-rexify-website" title="用 ElasticSearch 支持 Rexify 网站的搜索功能">&larr; Previous</a></li>
+      
         <li><a href="/archive.html">Archive</a></li>
+      
         <li class="next"><a href="/2013/10/16/perl-overload" title="Perl 的 overload 妙用">Next &rarr;</a></li>
+      
       </ul>
     </div>
     <hr>
+    
+
+
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
+
+
+
+
+
+
   </div>
 </div>
+  
+
+
       </div>
       <div class="span4">
+          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
+               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
+               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
+               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
+               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
+               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
+               
                  <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
+               
                  <li><a href="/2014/06/04/skyline-port-to-perl">用 Perl5 改写 skyline 异常检测算法</a></li>
+               
                  <li><a href="/2014/06/04/record-webqq-logs-by-avbot">用 avbot 机器人记录 QQ 群聊天记录</a></li>
+               
             </ul>
           </div>
+        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -178,51 +420,93 @@
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
+            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
+            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
+            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
+            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
+            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
+            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
+            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
+            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
+            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
+            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -239,6 +523,8 @@
         </p>
       </footer>
     </div> <!-- /container -->
+    
+
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -248,3 +534,4 @@
     <!-- UJian Button END -->
   </body>
 </html>
+

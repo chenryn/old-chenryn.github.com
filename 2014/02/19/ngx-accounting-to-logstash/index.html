@@ -1,8 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>用 logstash 统计 Nginx 的 http_accounting 模块输出</title>
+    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -26,12 +28,144 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/tags.html">标签</a></li>
+            
+            
+            
+
+
+  
+    
+      
+    
+  
+    
+      
+      	
       	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
+      	
+      
+    
+  
+    
+      
+      	
       	<li><a href="/categories.html">分类</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
       	<li><a href="/pages.html">Pages</a></li>
+      	
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/projects.html">学习记录</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+      	
+      	<li><a href="/tags.html">标签</a></li>
+      	
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+    
+      
+    
+  
+
+
+
+
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -42,24 +176,46 @@
     <div class="container">
     <div class="row">
       <div class="span7">
+        
 <div class="row">
   <div class="page-header">
     <h1>用 logstash 统计 Nginx 的 http_accounting 模块输出 <small></small></h1>
     <div class="date"><span>19 February 2014</span></div>
+  
     <ul class="tag_box pull-right">
+    
+    
+
+
+  
+     
     	<li><a href="/tags.html#nginx-ref">nginx <span>15</span></a></li>
+     
     	<li><a href="/tags.html#logstash-ref">logstash <span>1</span></a></li>
+     
     	<li><a href="/tags.html#syslog-ref">syslog <span>5</span></a></li>
+    
+  
+
+
+
     </ul>
+    
   </div>
   <div style='background-color: #FFF;'>
     <p>继续捡宝贝~</p>
+
 <p>http_accounting 是 Nginx 的一个第三方模块，会每隔5分钟自动统计 Nginx 所服务的流量，然后发送给 syslog。</p>
+
 <p>流量以 <code>accounting_id</code> 为标签来统计，这个标签可以设置在 <code>server {}</code> 级别，也可以设置在 <code>location /urlpath {}</code> 级别，非常灵活。
 统计的内容包括响应字节数，各种状态码的响应个数。</p>
+
 <p>公司原先是有一套基于 rrd 的<a href="https://github.com/Lax/ngx_http_accounting_module-utils">系统</a>，来收集处理这些 syslog 数据并作出预警判断、异常报警。不过今天不讨论这个，而是试图用最简单的方式，快速的搞定类似的中心平台。</p>
+
 <p>这里当然是 logstash 的最佳用武之地。</p>
+
 <p><code>logstash.conf</code> 示例如下：</p>
+
 <pre><code>input {
     syslog {
         port =&gt; 29124
@@ -79,40 +235,61 @@ output {
     }
 }
 </code></pre>
+
 <p>然后运行 <code>java -jar logstash-1.3.3-flatjar.jar agent -f logstash.conf</code> 即可完成收集入库！
 再运行 <code>java -jar logstash-1.3.3-flatjar.jar web</code> 即可在9292端口访问到 Kibana 界面。</p>
+
 <p>然后我们开始配置界面成自己需要的样子：</p>
+
 <ol>
   <li>Top-N 的流量图</li>
 </ol>
+
 <p>点击 Query 搜索栏左边的有色圆点，弹出搜索栏配置框，默认是 <code>lucene</code> 搜索方式，改成 <code>topN</code> 搜索方式。然后填入分析字段为 accounting。</p>
+
 <p>点击 Event Over Time 柱状图右上角第二个的 <code>Configure</code> 小图标，弹出图表配置框：</p>
+
 <ul>
   <li>在 <code>Panel</code> 选项卡中修改 <code>Chart value</code> 的 <code>count</code> 为 <code>total</code>，<code>Value Field</code> 设置为 size，<strong>勾选 <code>Seconds</code> 项，转换 size 的累加值成每秒带宽(不然 interval 变化会导致累加值变化)</strong>；</li>
   <li>在 <code>Style</code> 选项卡中修改 <code>Chart Options</code> 的 <code>Bars</code> 勾选项为 <code>Lines</code>，<code>Y Format</code> 为 bytes；</li>
   <li>在 <code>Queries</code> 选项卡中修改 <code>Charted Queries</code> 为 <code>selected</code>，然后点中右侧列出的请求中所需要的那项(当前只有一个，就是<code>*</code>)。</li>
 </ul>
+
 <p>保存退出配置框，即可看到该图表开始自动更新。</p>
+
 <ol>
   <li>50x 错误的技术图</li>
 </ol>
+
 <p>点击 Query 搜索栏右边的 + 号，添加新的 Query 搜索栏，然后在新搜索栏里输入需要搜索的内容，比如 <code>count.500</code>；</p>
+
 <p>鼠标移动到流量图最左侧，会移出 Panel 快捷选项，点击最底下的 + 号选项添加新的 Panel：</p>
+
 <ul>
   <li>选择 Panel 类型为 <code>histogram</code>；</li>
   <li>选择 Queries 类型为 <code>selected</code>，然后点中右侧列出的请求中所需要的那项(现在出现两个了，选中我们刚添加的 <code>count.500</code>)。</li>
 </ul>
+
 <p>保存退出，即可看到新多出来一行，左侧三分之一(默认是span4，添加的时候可以选择)的位置有了一个柱状图。</p>
+
 <p>重复这个步骤，添加 502/503 的柱状图。</p>
+
 <ol>
   <li>仪表盘设置存档</li>
 </ol>
+
 <p>页面右上角选择 <code>Save</code> 小图标保存即可。之后再上界面后，就可以点击右上角的 <code>Load</code> 小图标自动加载。</p>
+
 <p><img src="/images/uploads/logstash-ngx-accounting.png" alt="" /></p>
+
 <p>上面这个 grok 写的很难看，不过似乎也没有更好的办法～下一步会研究在这个基础上合并 skyline 预警。</p>
+
 <hr />
+
 <p>2014 年 5 月 10 日更新：</p>
+
 <p>在 <a href="http://logstash.net/docs/1.4.1/">logstash/docs</a> 上发现一个 filter 叫 kv，很适合这个场景，可以大大简化 grok 工作，新的 filter 配置如下：</p>
+
 <pre><code>filter {
     grok {
         match =&gt; [ "message", "^%{SYSLOGTIMESTAMP:timestamp}\|\| pid:\d+\|from:\d{10}\|to:\d{10}\|accounting_id:%{WORD:accounting}\|requests:%{NUMBER:req:int}\|bytes_out:%{NUMBER:size:int}\|%{DATA:status}"
@@ -128,10 +305,15 @@ output {
     }
 }
 </code></pre>
+
 <p>不晓得为什么 filter/mutate 不提供转换 Hash 的功能，所以只能把这行写在 filter/ruby 里面。kv 截出来的 value 默认都是字符串类型。</p>
+
 <hr />
+
 <p>2014 年 5 月 28 日更新：</p>
+
 <p>发现默认的 LVS 检查导致的 400 会记录到默认的 accounting 组(&ldquo;default&rdquo;)里，虽然不占带宽，却占不少请求数。这类日志可以在 logstash层面就干掉：</p>
+
 <pre><code>filter {
     grok {
         match =&gt; [ "message", "^%{SYSLOGTIMESTAMP:timestamp}\|\| pid:\d+\|from:\d{10}\|to:\d{10}\|accounting_id:%{WORD:accounting}\|requests:%{NUMBER:req:int}\|bytes_out:%{NUMBER:size:int}\|%{DATA:status}"
@@ -151,38 +333,69 @@ output {
     }
 }
 </code></pre>
+
 <p>另外说明一下，<code>ngx_http_accounting_module</code> 中设定 <code>http_accounting_id</code> 这步是预先处理的，所以只能写固定字符串，不能用 <code>$host</code> 之类的 nginx.conf 变量。</p>
+
+
     <hr>
     <div class="pagination">
       <ul>
+      
         <li class="prev"><a href="/2014/02/18/diff-between-squid-ssd-and-ats-interim" title="squid-ssd方案和trafficserver的interim层的异同">&larr; Previous</a></li>
+      
         <li><a href="/archive.html">Archive</a></li>
+      
         <li class="next"><a href="/2014/02/20/diff-between-lsddistid-and-operatingsystem-facts-variables" title="Facts 变量中 lsbdistid 和 operatingsystem 的区别">Next &rarr;</a></li>
+      
       </ul>
     </div>
     <hr>
+    
+
+
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
+
+
+
+
+
+
   </div>
 </div>
+  
+
+
       </div>
       <div class="span4">
+          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
+               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
+               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
+               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
+               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
+               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
+               
                  <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
+               
                  <li><a href="/2014/06/04/skyline-port-to-perl">用 Perl5 改写 skyline 异常检测算法</a></li>
+               
                  <li><a href="/2014/06/04/record-webqq-logs-by-avbot">用 avbot 机器人记录 QQ 群聊天记录</a></li>
+               
             </ul>
           </div>
+        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -193,51 +406,93 @@ output {
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
+            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
+            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
+            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
+            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
+            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
+            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
+            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
+            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
+            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
+            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -254,6 +509,8 @@ output {
         </p>
       </footer>
     </div> <!-- /container -->
+    
+
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -263,3 +520,4 @@ output {
     <!-- UJian Button END -->
   </body>
 </html>
+
