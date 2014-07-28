@@ -1,10 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>写个同步分发系统(一)</title>
-    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -28,144 +26,12 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-            
-            
-            
-
-
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/archive.html">归档</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/categories.html">分类</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/pages.html">Pages</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/projects.html">学习记录</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/tags.html">标签</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-
-
-
-
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -176,27 +42,13 @@
     <div class="container">
     <div class="row">
       <div class="span7">
-        
 <div class="row">
   <div class="page-header">
     <h1>写个同步分发系统(一) <small></small></h1>
     <div class="date"><span>16 September 2011</span></div>
-  
     <ul class="tag_box pull-right">
-    
-    
-
-
-  
-     
     	<li><a href="/tags.html#perl-ref">perl <span>67</span></a></li>
-    
-  
-
-
-
     </ul>
-    
   </div>
   <div style='background-color: #FFF;'>
     <p>写程序这个事情，其实规划最麻烦。比方我其实并没留意过一个完整的同步分发系统都有哪些功能。权做练手，想到哪些写哪些好了。
@@ -205,7 +57,6 @@
 再次：系统分用户，不同用户可选节点指定分发，只查看当前用户的报表。
 以上。
 今天先完成最基础的部分。还是用dancer -a websync创建应用。然后创建views/websync.tt如下：</p>
-
 <div class="highlight"><pre><code class="language-html" data-lang="html"><span class="nt">&lt;/head&gt;&lt;body&gt;</span>
 <span class="nt">&lt;form</span> <span class="na">name=</span><span class="s">&#39;urllist&#39;</span> <span class="na">action=</span><span class="s">&#39;/websync&#39;</span> <span class="na">method=</span><span class="s">&#39;post&#39;</span><span class="nt">&gt;</span>
 <span class="nt">&lt;table</span> <span class="na">border=</span><span class="s">&#39;1&#39;</span> <span class="na">align=</span><span class="s">&#39;center&#39;</span><span class="nt">&gt;</span>
@@ -217,20 +68,16 @@
 <span class="nt">&lt;/table&gt;</span>
 <span class="nt">&lt;/form&gt;</span>
 <span class="nt">&lt;/body&gt;&lt;/html&gt;</span></code></pre></div>
-
 <p>一如既往的难看……考虑是不是学下用dreamweaver画个稍微好看点的页面出来做layout啊……
 然后是lib/websync.pm，如下：</p>
-
 <div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="n">websync</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">Dancer</span> <span class="s">&#39;:syntax&#39;</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">Gearman::</span><span class="n">Client</span><span class="p">;</span>
-
 <span class="k">our</span> <span class="nv">$VERSION</span> <span class="o">=</span> <span class="s">&#39;0.1&#39;</span><span class="p">;</span>
 <span class="c1">#Don&#39;t change index because there are so many otherthings to do! </span>
 <span class="n">get</span> <span class="s">&#39;/&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
     <span class="n">template</span> <span class="s">&#39;index&#39;</span><span class="p">;</span>
 <span class="p">};</span>
-
 <span class="n">any</span> <span class="p">[</span><span class="s">&#39;get&#39;</span><span class="p">,</span> <span class="s">&#39;post&#39;</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="s">&#39;/websync&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
     <span class="k">my</span> <span class="nv">@errurls</span><span class="p">;</span>
     <span class="k">my</span> <span class="nv">$message</span> <span class="o">=</span> <span class="s">&#39;Write urllist under here.&lt;br&gt;Attention: The url format must like &quot;http://img.domain.com/path/to/example.flv&quot;&#39;</span><span class="p">;</span>
@@ -247,7 +94,6 @@
                           <span class="s">&#39;errurls&#39;</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@errurls</span><span class="p">,</span> 
                         <span class="p">};</span>
 <span class="p">};</span>
-
 <span class="k">sub </span><span class="nf">peer_query</span> <span class="p">{</span>
     <span class="k">my</span> <span class="nv">$url</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
     <span class="k">my</span> <span class="nv">@job_servers</span> <span class="o">=</span> <span class="sx">qw(127.0.0.1:7003 192.168.0.2:7004)</span><span class="p">;</span>
@@ -255,25 +101,20 @@
     <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">job_servers</span><span class="p">(</span><span class="nv">@job_servers</span><span class="p">);</span>
     <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">dispatch_background</span><span class="p">(</span><span class="s">&#39;websync&#39;</span><span class="p">,</span> <span class="nv">$url</span><span class="p">);</span>
 <span class="p">};</span>
-
 <span class="n">true</span><span class="p">;</span></code></pre></div>
-
 <p>嗯，这里试着用了gearman而不是fork，一个是考虑到可能web系统跟中心存储不在一起；另一个是考虑之后需要用mysql存储分发状态，可以把gearman::client改成mysql的trigger形式。
 然后是worker.pl，运行在中心存储上，接受job，完成下载，然后通知其他节点继续：</p>
-
 <div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
 <span class="k">use</span> <span class="nn">Gearman::</span><span class="n">Worker</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">LWP::</span><span class="n">Simple</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">Net::SSH::</span><span class="n">Perl</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">POSIX</span> <span class="s">&#39;:WNOHANG&#39;</span><span class="p">;</span>
 <span class="nv">$SIG</span><span class="p">{</span><span class="n">CHLD</span><span class="p">}</span> <span class="o">=</span> <span class="k">sub </span><span class="p">{</span><span class="nb">waitpid</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="n">WNOHANG</span><span class="p">)};</span>
-
 <span class="k">my</span> <span class="nv">@job_servers</span> <span class="o">=</span> <span class="sx">qw(127.0.0.1:7003 192.168.0.2)</span><span class="p">;</span>
 <span class="k">my</span> <span class="nv">$worker</span> <span class="o">=</span> <span class="nn">Gearman::</span><span class="n">Worker</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
 <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">job_servers</span><span class="p">(</span><span class="nv">@job_servers</span><span class="p">);</span>
 <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">register_function</span><span class="p">(</span> <span class="n">websync</span> <span class="o">=&gt;</span> <span class="o">\&amp;</span><span class="n">websync</span> <span class="p">);</span>
 <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">work</span> <span class="k">while</span> <span class="mi">1</span><span class="p">;</span>
-
 <span class="k">sub </span><span class="nf">websync</span> <span class="p">{</span>
     <span class="k">my</span> <span class="nv">$job</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
     <span class="k">my</span> <span class="nv">@path</span> <span class="o">=</span> <span class="nb">split</span><span class="p">(</span><span class="s">&#39;/&#39;</span><span class="p">,</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">arg</span><span class="p">);</span>
@@ -284,7 +125,6 @@
     <span class="p">};</span>
     <span class="n">sync_get</span><span class="p">(</span><span class="nv">$job</span><span class="o">-&gt;</span><span class="n">arg</span><span class="p">,</span> <span class="nv">$filepath</span> <span class="o">.</span> <span class="nv">$path</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]);</span>
 <span class="p">};</span>
-
 <span class="k">sub </span><span class="nf">sync_get</span> <span class="p">{</span>
     <span class="k">my</span> <span class="p">(</span> <span class="nv">$url</span><span class="p">,</span> <span class="nv">$file</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
     <span class="k">my</span> <span class="nv">$http_code</span> <span class="o">=</span> <span class="n">getstore</span><span class="p">(</span><span class="nv">$url</span><span class="p">,</span> <span class="nv">$file</span><span class="p">);</span>
@@ -302,28 +142,20 @@
       <span class="p">};</span>
     <span class="p">};</span>
 <span class="p">};</span></code></pre></div>
-
 <p>不过想到，其实可以在remote上设定每15分钟一次rsync。这样节省掉中心的dist功能，改成remote上的rsync后，主动通过mysql汇报更新的list和md5。
 明天开始改这种方式。</p>
 <hr />
-
 <p>晚饭回来，增加dancer在nginx上的部署方式。之前写过apache上用mod_perl的方式，这回因为正好电脑上有nginx，就改用nginx反代了：
 首先安装一个perl的server，命令如下：</p>
-
 <div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c"># cpanm Plack Starman</span></code></pre></div>
-
 <p>Starman是一个提供prefork方式运行的HTTP服务器。另外还有基于AnyEvent的Twiggy和基于Coro的Corona，不够因为我是在本机的colinux上做实验，装的是UBUNTU9.04系统，已经没有apt源装openssl了，所以Net::SSLeay模块无法安装，AnyEvent类型的也就不能用了。
 启动命令如下：</p>
-
 <div class="highlight"><pre><code class="language-bash" data-lang="bash">sudo -u www-data plackup -E production -s Starman --workers<span class="o">=</span><span class="m">2</span> -l /tmp/plack.sock -a /var/www/websync/bin/app.pl <span class="p">&amp;</span></code></pre></div>
-
 <p>该命令指定了运行用户，运行server核心，读取的配置文件，启动的worker进程，提供的socket接口。
 然后就可以利用nginx的upstream功能，pass到这个socket接口上了。nginx.conf相关部分如下：</p>
-
 <div class="highlight"><pre><code class="language-nginx" data-lang="nginx"><span class="k">upstream</span> <span class="s">backendurl</span> <span class="p">{</span>
         <span class="kn">server</span> <span class="s">unix:/tmp/plack.sock</span><span class="p">;</span>
     <span class="p">}</span>
-
     <span class="k">server</span> <span class="p">{</span>
       <span class="kn">listen</span>       <span class="mi">80</span><span class="p">;</span>
       <span class="kn">server_name</span>  <span class="s">dancer.test.com</span><span class="p">;</span>
@@ -335,7 +167,6 @@
         <span class="kn">access_log</span> <span class="no">off</span><span class="p">;</span>
         <span class="kn">expires</span> <span class="s">max</span><span class="p">;</span>
       <span class="p">}</span>
-
       <span class="kn">location</span> <span class="s">@proxy</span> <span class="p">{</span>
             <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="nv">$http_host</span><span class="p">;</span>
             <span class="kn">proxy_set_header</span> <span class="s">X-Forwarded-Host</span> <span class="nv">$host</span><span class="p">;</span>
@@ -344,67 +175,37 @@
             <span class="kn">proxy_pass</span>       <span class="s">http://backendurl</span><span class="p">;</span>
       <span class="p">}</span>
     <span class="p">}</span></code></pre></div>
-
-
     <hr>
     <div class="pagination">
       <ul>
-      
         <li class="prev"><a href="/2011/09/08/lbnamed-code-reading" title="lbnamed代码浅读">&larr; Previous</a></li>
-      
         <li><a href="/archive.html">Archive</a></li>
-      
         <li class="next"><a href="/2011/09/20/get-ip-address-by-perl-on-linux" title="linux上获取本机ip的各种perl写法">Next &rarr;</a></li>
-      
       </ul>
     </div>
     <hr>
-    
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
-  
-
-
       </div>
       <div class="span4">
-          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-               
+                 <li><a href="/2014/07/28/dynamic-dashboard-for-kibana">Kibana 动态仪表板的使用</a></li>
                  <li><a href="/2014/07/27/using-pdl-on-macbook">在 MacBook 上使用 PDL 绘图</a></li>
-               
                  <li><a href="/2014/07/08/rex-test-spec">Rex::Test::Spec 模块</a></li>
-               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
-               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
-               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
-               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
-               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
-               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
-               
-                 <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
-               
             </ul>
           </div>
-        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -415,93 +216,51 @@
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
-            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
-            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
-            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
-            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
-            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
-            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
-            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
-            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
-            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
-            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
-            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
-            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
-            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
-            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
-            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
-            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
-            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
-            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
-            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
-            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
-            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
-            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
-            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
-            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
-            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
-            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
-            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
-            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
-            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
-            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
-            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
-            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
-            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
-            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
-            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
-            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
-            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
-            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
-            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
-            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -518,8 +277,6 @@
         </p>
       </footer>
     </div> <!-- /container -->
-    
-
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -529,4 +286,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

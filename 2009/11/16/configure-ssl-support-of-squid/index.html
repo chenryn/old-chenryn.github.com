@@ -1,10 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>squid的SSL配置</title>
-    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -28,144 +26,12 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-            
-            
-            
-
-
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/archive.html">归档</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/categories.html">分类</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/pages.html">Pages</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/projects.html">学习记录</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/tags.html">标签</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-
-
-
-
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -176,26 +42,21 @@
     <div class="container">
     <div class="row">
       <div class="span7">
-        
 <div class="row">
   <div class="page-header">
     <h1>squid的SSL配置 <small></small></h1>
     <div class="date"><span>16 November 2009</span></div>
-    
   </div>
   <div style='background-color: #FFF;'>
     <p>公司新进客户，要求加速它的论坛，比较奇怪的是，整个论坛居然都是https协议的网页。所以得做443端口的配置。
 如果只是端口，一个https_port 443就够了。麻烦的地方在证书（之前就有客户死活不肯给证书，于是只能给做个端口转发，顶天了算是路由优化，何苦往CDN里投钱……）。
 在拿到证书后，squid.conf里添加这么一句，SSL配置就算是完成了。但测试的时候问题可就多多了</p>
-
 <div class="highlight"><pre><code class="language-squid" data-lang="squid">https_port<span class="w"> </span><span class="m">443</span><span class="w"> </span>cert=/test_ssl/server.cer<span class="w"> </span>key=/test_ssl/server.key<span class="w"> </span>defaultsite=bbs.test.com<span class="w"></span></code></pre></div>
-
 <p>客户源站在江苏电信，之前的普通静态加速时，为了更好的达到回源效果，所有的网通节点服务器都采用了二级代理的方式，通过BGP回源。  <br />
 在按照普通域名走父方式配置完毕后，wget该客户的论坛首页做测试，所有的网通节点返回的状态码倒是200，可首页文件总字节数，只有209！用IE打开一看，赫然是一个“Hello
 World！”暴汗……  <br />
 改为直接回源后，立马恢复正常。实在不知道这个你好页面是哪里蹦出来的！  <br />
 把这个问题交给百哥和谷婶，大家伙都说只要加上一条never_direct allow all就可以强制转发https协议到上级cache服务器就可以了。但我测试的结果很遗憾——209依然——不可行！</p>
-
 <p>和同事讨论没什么办法，大家认为这个应该是父节点要采用的证书应该是另外一种，因为他既要接受子的请求，又要去源站发起请求。目前情况下，只能取消走父配置，统一直接回源而已。然后缓存，刷新时间等等测试一一通过。唉~
 [root@squid1 ~]# wget -S -O /dev/null https://bbs.test.com/attachments/month_0910/20091014_c30caa02ae844a8dbe58M7PIVoPJPjMh.jpg &ndash;no-check-certificate
 &ndash;20:20:28&ndash;
@@ -224,14 +85,10 @@ Saving to: </code>/dev/null&rsquo;
 356K/s   in
 0.3s
 20:20:34 (356 KB/s) - `/dev/null&rsquo; saved [98334/98334]</p>
-
 <p>这里要注意两个地方。</p>
-
 <p>第一，刷新配置的匹配字段不再是^http://bbs.test.com/.<em>而是^https://bbs.test.com/.</em>，不然的话，age值就按之后的默认配置计数了；  <br />
 第二，wget测试的时候，必须使用“&ndash;no-check-certificate”参数，否则没法测试；同理，如果是用curl测试，也必须加上“-k”或者“&ndash;insecure”参数。</p>
-
 <p>curl的结果类似下面这样：</p>
-
 <p>[root@squid1 ~]# curl -I https://bbs.test.com/attachments/month_0910/20091014_c30caa02ae844a8dbe58M7PIVoPJPjMh.jpg -k
 HTTP/1.0 200 OK
 Date: Mon, 16 Nov 2009 09:02:07 GMT
@@ -246,66 +103,37 @@ Content-Type: image/jpeg
 Age: 187
 X-Cache: HIT from cdn.21vianet.com
 Connection: close</p>
-
     <hr>
     <div class="pagination">
       <ul>
-      
         <li class="prev"><a href="/2009/11/14/anti-hotlinking-in-squid" title="squid防盗链配置">&larr; Previous</a></li>
-      
         <li><a href="/archive.html">Archive</a></li>
-      
         <li class="next"><a href="/2009/11/17/a-error-page-problem-of-squid" title="squid的一点小问题">Next &rarr;</a></li>
-      
       </ul>
     </div>
     <hr>
-    
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
-  
-
-
       </div>
       <div class="span4">
-          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-               
+                 <li><a href="/2014/07/28/dynamic-dashboard-for-kibana">Kibana 动态仪表板的使用</a></li>
                  <li><a href="/2014/07/27/using-pdl-on-macbook">在 MacBook 上使用 PDL 绘图</a></li>
-               
                  <li><a href="/2014/07/08/rex-test-spec">Rex::Test::Spec 模块</a></li>
-               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
-               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
-               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
-               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
-               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
-               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
-               
-                 <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
-               
             </ul>
           </div>
-        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -316,93 +144,51 @@ Connection: close</p>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
-            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
-            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
-            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
-            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
-            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
-            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
-            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
-            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
-            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
-            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
-            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
-            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
-            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
-            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
-            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
-            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
-            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
-            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
-            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
-            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
-            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
-            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
-            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
-            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
-            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
-            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
-            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
-            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
-            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
-            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
-            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
-            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
-            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
-            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
-            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
-            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
-            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
-            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
-            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
-            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -419,8 +205,6 @@ Connection: close</p>
         </p>
       </footer>
     </div> <!-- /container -->
-    
-
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -430,4 +214,3 @@ Connection: close</p>
     <!-- UJian Button END -->
   </body>
 </html>
-

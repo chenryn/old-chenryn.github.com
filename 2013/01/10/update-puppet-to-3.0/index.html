@@ -1,10 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>升级 Puppet 到 3.0 及其他附件简介</title>
-    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -28,144 +26,12 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-            
-            
-            
-
-
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/archive.html">归档</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/categories.html">分类</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/pages.html">Pages</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/projects.html">学习记录</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/tags.html">标签</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-
-
-
-
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -176,35 +42,18 @@
     <div class="container">
     <div class="row">
       <div class="span7">
-        
 <div class="row">
   <div class="page-header">
     <h1>升级 Puppet 到 3.0 及其他附件简介 <small></small></h1>
     <div class="date"><span>10 January 2013</span></div>
-  
     <ul class="tag_box pull-right">
-    
-    
-
-
-  
-     
     	<li><a href="/tags.html#puppet-ref">puppet <span>14</span></a></li>
-    
-  
-
-
-
     </ul>
-    
   </div>
   <div style='background-color: #FFF;'>
     <p>今天把 puppet 从2.7 升级到了 3.0。同时放弃了之前通过 ENC 定义所有 top scope variable 的做法，改成只定义一个 role 变量，然后在各个 module 里根据 $role 加载不同的module::role ，把变量都写在 module::role 里。</p>
-
 <p>经历过上次事故后，我对全局变量已经大大的有不安全感，包括 puppet 3.0 新进内核的 hiera (<a href="http://docs.puppetlabs.com/puppet/3/reference/lang_classes.html#using-hierainclude">官网介绍文档</a>中也说是&rdquo;like a lightweight ENC&rdquo;)。虽然 module::role 看起来很多是重复内容，还是让人工的操作多经过一些检测才放心。</p>
-
 <p>从 2.7 升级到 3.0 没有太多的不适应。官网上列了很多<a href="http://docs.puppetlabs.com/puppet/3/reference/release_notes.html">不同</a>。不过实际上基本没改动什么。</p>
-
 <ul>
   <li>运行命令统一成 <code>puppet command</code> 的形式，2.7的时候还保留的一堆命令都没有了。</li>
   <li><code>--apply</code> 改成 <code>--catalog</code>  了。不过这个其实我没用过。</li>
@@ -214,117 +63,68 @@
   <li><code>include</code> 可以传递数组</li>
   <li>agent 的 lockfile 把 fork running 和 disabled 区分成两个文件了。不知道能不能消灭掉原先 agent 跑着跑着僵死的情况。</li>
 </ul>
-
 <p>以上是官网列举的主要内容。以下还有我__实际测试中发现的问题__：</p>
-
 <ul>
   <li>agent 的 puppet.conf 里需要添加一行 <code>preferred_serialization_format = yaml</code>，否则默认使用 pson 会直接报错。</li>
 </ul>
-
 <hr />
-
 <p>今天重温了一下 github 在 puppetconf 上的讲演<a href="https://speakerdeck.com/jnewland/chatops">《chatops》</a>。当然对其中的 hubot 不是重点关注。主要是其中提到的 rodjek 的几个 puppet 相关的项目觉得蛮有用的。</p>
-
 <ul>
   <li>puppet-lint </li>
 </ul>
-
 <p>地址：<a href="https://github.com/rodjek/puppet-lint.git">https://github.com/rodjek/puppet-lint.git</a></p>
-
 <p>这是一个语法格式检查器，如果 ERROR 会 <code>exit 1</code>。之前两天我还刚在 CPAN 上发现过一个 <a href="https://metacpan.org/module/Puppet::Tidy">Puppet::Tidy</a> 模块。不过目前为止，这两个都不是很满意：</p>
-
 <ol>
   <li>puppet-lint 只能检查格式而不会替你修改格式。</li>
   <li>puppet-tidy 可以修改格式但是它对格式的检查太简陋了。</li>
 </ol>
-
 <p>当然比 puppet-tidy 稍微好一些的 puppet-lint 也不是很精准，比如他会对所有用双引号定义的变量报 &ldquo;WARNING: double quoted string containing no variables&rdquo;；而 puppet-tidy 更奇怪的给我 ip 地址的最后一段再加上了一个单引号变成了下面这个样子：</p>
-
 <div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nv">$iplist</span> <span class="o">=</span> <span class="p">[</span><span class="s">&quot;192.168.1.&#39;2&#39;&quot;</span><span class="p">,</span><span class="s">&quot;192.168.1.&#39;3&#39;&quot;</span><span class="p">]</span></code></pre></div>
-
 <p>只能说规范化任重道远。</p>
-
 <ul>
   <li>puppet-profiler</li>
 </ul>
-
 <p>地址：<a href="https://github.com/rodjek/puppet-profiler.git">https://github.com/rodjek/puppet-profiler.git</a></p>
-
 <p>这是一个 agent 执行的调试器，不过至今为止功能也还很简单：就是执行一次 </p>
-
 <div class="highlight"><pre><code class="language-bash" data-lang="bash">puppet agent --test --evaltrace --nocolor</code></pre></div>
-
 <p>排序各个 Resource 的执行耗时，并打印前十名。</p>
-
 <ul>
   <li>rspec-puppet</li>
 </ul>
-
 <p>地址：<a href="https://github.com/rodjek/rspec-puppet">https://github.com/rodjek/rspec-puppet</a></p>
-
 <p>这是一个 puppet 的 rspec 测试工具扩展。注意他依赖于 <code>puppetlabs_spec_helper</code> 但是 gem 里却没写。。。</p>
-
 <p>使用方法看 github 上的说明比较详细了，稍后我再单写一篇介绍。</p>
-
     <hr>
     <div class="pagination">
       <ul>
-      
         <li class="prev"><a href="/2013/01/10/rspec-puppet-intro" title="给 puppet 写 Rspec 测试用例">&larr; Previous</a></li>
-      
         <li><a href="/archive.html">Archive</a></li>
-      
         <li class="next"><a href="/2013/01/11/systemtap-to-debug-kmsg-dump" title="用 systemtap 调试 kmsg dump">Next &rarr;</a></li>
-      
       </ul>
     </div>
     <hr>
-    
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
-  
-
-
       </div>
       <div class="span4">
-          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-               
+                 <li><a href="/2014/07/28/dynamic-dashboard-for-kibana">Kibana 动态仪表板的使用</a></li>
                  <li><a href="/2014/07/27/using-pdl-on-macbook">在 MacBook 上使用 PDL 绘图</a></li>
-               
                  <li><a href="/2014/07/08/rex-test-spec">Rex::Test::Spec 模块</a></li>
-               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
-               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
-               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
-               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
-               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
-               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
-               
-                 <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
-               
             </ul>
           </div>
-        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -335,93 +135,51 @@
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
-            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
-            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
-            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
-            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
-            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
-            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
-            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
-            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
-            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
-            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
-            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
-            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
-            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
-            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
-            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
-            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
-            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
-            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
-            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
-            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
-            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
-            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
-            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
-            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
-            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
-            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
-            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
-            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
-            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
-            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
-            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
-            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
-            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
-            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
-            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
-            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
-            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
-            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
-            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
-            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -438,8 +196,6 @@
         </p>
       </footer>
     </div> <!-- /container -->
-    
-
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -449,4 +205,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

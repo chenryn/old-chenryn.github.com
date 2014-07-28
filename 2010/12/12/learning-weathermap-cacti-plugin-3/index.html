@@ -1,10 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>weathermap-cacti-plugin学习(3)</title>
-    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -28,144 +26,12 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-            
-            
-            
-
-
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/archive.html">归档</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/categories.html">分类</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/pages.html">Pages</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/projects.html">学习记录</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/tags.html">标签</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-
-
-
-
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -176,40 +42,21 @@
     <div class="container">
     <div class="row">
       <div class="span7">
-        
 <div class="row">
   <div class="page-header">
     <h1>weathermap-cacti-plugin学习(3) <small></small></h1>
     <div class="date"><span>12 December 2010</span></div>
-  
     <ul class="tag_box pull-right">
-    
-    
-
-
-  
-     
     	<li><a href="/tags.html#cacti-ref">cacti <span>7</span></a></li>
-     
     	<li><a href="/tags.html#php-ref">php <span>11</span></a></li>
-    
-  
-
-
-
     </ul>
-    
   </div>
   <div style='background-color: #FFF;'>
     <p>今天继续啃weathermap的php代码，因为lib的readdata里return了$inbw和$outbw，尝试在之前理解的ReadConfig()相应match处加上了一段 <code>if($inbw=='0'){$this-&gt;width=0;$linematched++;}elseif</code>……等几分钟后cache过期，一看weathermap效果，所有的链路曲线箭头图都变成了一根直线~~然后仔细看了看这串if之前的while，发现原来weathermap不是每次针对数据进行config匹配，而是统一读取一次config。也就是说ReadConfig()里的任何修改都会对全局起作用。</p>
-
 <p>既然在源头的配置参数无法修改，那么就只能在末端的绘图的时候做出改变了，找到 <code>draw_curve()</code> 函数，这个函数就是画线的。最终由 <code>Draw()</code> 函数分别调用 <code>calc_curve</code> 描点，<code>draw_curve</code> 连线，<code>drawlabel</code> 画框。<code>Draw()</code> 内容是一个顺序处理过程，在最后的 <code>drawlabel()</code> 前面，可以很清晰的看到 <code>$task[*]</code> 是怎么取出的：</p>
-
 <div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$outbound=array($q1_x,$q1_y,0,0,$this-&gt;outpercent,$this-&gt;bandwidth_out,$q1_angle);</span>
 <span class="x">$inbound=array($q3_x,$q3_y,0,0,$this-&gt;inpercent,$this-&gt;bandwidth_in,$q3_angle);</span></code></pre></div>
-
 <p>那么在draw_curve()前面，依葫芦画瓢来上一段就好了：</p>
-
 <div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">if(($this-&gt;bandwidth_out == &#39;0&#39;) &amp;&amp; ($this-&gt;bandwidth_in == &#39;0&#39;))</span>
 <span class="x">{</span>
 <span class="x">    $link_width=&#39;0&#39;;</span>
@@ -219,28 +66,19 @@
 <span class="x">    $link_width=$this-&gt;width;</span>
 <span class="x">}</span>
 <span class="x">draw_curve($im, $this-&gt;curvepoints, $link_width, $outline_colour, $comment_colour, array($link_in_colour, $link_out_colour), $this-&gt;name, $map);</span></code></pre></div>
-
 <p>这个改完当然不能看到效果，看到就该排障去了~不过可以采用一点变通的方法来验证一下，比如某些线路现在比较空闲，我们就把预定的阀值0（断网的流量）改大一些，刚好超过某个空载线路即可了：</p>
-
 <p>比如改成 <code>if ( $this-&gt;bandwidth_out &lt; '1000' )</code> 的话，weathermap效果变成如下：</p>
-
 <p><img src="/images/uploads/qqe688aae59bbee69caae591bde5908d.jpg" alt="wethermap" /></p>
-
 <p>其中两条流量小于1000bits的线路，其width就变成了0，只留下一条直线了~~</p>
-
 <p>至于为了 <code>width==0</code> 却还留下了一条线，这就跟weathermap的绘图方式有关了。<code>draw_curve</code> 中是这么利用gd画图的：</p>
-
 <ol>
   <li>根据node的位置，获取在二维空间上的x轴、y轴坐标，在两个node之间通过打点的方式进行矢量连线；</li>
   <li>获取设定的width，将之前的坐标点平移相应的位置，再次打点；</li>
   <li>在连线的中点处绘制箭头；</li>
   <li>填充颜色。</li>
 </ol>
-
 <p>如果要完全去除掉这根连线，或许可以在 <code>draw_curve</code> 中设定其连线长度为0？在 <code>draw_curve()</code> 中有一个变量叫 <code>$totaldistance</code>，指的是两个node之间的距离，之后包括箭头、文字等，都是以这个变量*50%来计算的。添加 <code>if($this-&gt;bandwidth_out&lt;1000){$totaldistance=0}</code>，等了十分钟再刷新，可图片依然没有更新！</p>
-
 <p>继续看 <code>$totaldistance</code> 是怎么得出的，看到了 <code>$this-&gt;curvepoints</code>，而 <code>$this-&gt;curvepoints</code> 是通过 <code>calc_curve($xpoints, $ypoints)</code> 返回的。那么在 <code>Draw()</code> 中继续修改 <code>$this-&gt;curvepoints</code> 即可。变通一下上面的测试代码如下：</p>
-
 <div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$link_width=$this-&gt;width;</span>
 <span class="x">$this-&gt;curvepoints = calc_curve($xpoints, $ypoints);</span>
 <span class="x">if ( $this-&gt;bandwidth_out &lt; &#39;2000&#39; )</span>
@@ -248,71 +86,39 @@
 <span class="x">    $link_width=0; //没有连线的话，宽度设啥都一样了~</span>
 <span class="x">    $this-&gt;curvepoints = array( );</span>
 <span class="x">}</span></code></pre></div>
-
 <p>稍后刷新页面，看到原来的连线已经不见了~ 不过从效果图来看，少了连线反而不起眼了，还不如留着一根线容易引起警觉……</p>
-
 <p><img src="/images/uploads/qqe688aae59bbee69caae591bde5908d1.jpg" alt="new-weathermap" /></p>
-
-
     <hr>
     <div class="pagination">
       <ul>
-      
         <li class="prev"><a href="/2010/12/12/learning-cache-control-from-mop-com" title="从猫扑论坛看终极页的缓存控制">&larr; Previous</a></li>
-      
         <li><a href="/archive.html">Archive</a></li>
-      
         <li class="next"><a href="/2010/12/16/diff-between-for-while" title="for/while循环的区别">Next &rarr;</a></li>
-      
       </ul>
     </div>
     <hr>
-    
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
-  
-
-
       </div>
       <div class="span4">
-          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-               
+                 <li><a href="/2014/07/28/dynamic-dashboard-for-kibana">Kibana 动态仪表板的使用</a></li>
                  <li><a href="/2014/07/27/using-pdl-on-macbook">在 MacBook 上使用 PDL 绘图</a></li>
-               
                  <li><a href="/2014/07/08/rex-test-spec">Rex::Test::Spec 模块</a></li>
-               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
-               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
-               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
-               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
-               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
-               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
-               
-                 <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
-               
             </ul>
           </div>
-        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -323,93 +129,51 @@
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
-            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
-            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
-            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
-            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
-            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
-            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
-            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
-            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
-            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
-            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
-            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
-            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
-            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
-            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
-            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
-            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
-            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
-            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
-            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
-            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
-            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
-            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
-            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
-            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
-            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
-            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
-            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
-            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
-            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
-            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
-            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
-            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
-            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
-            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
-            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
-            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
-            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
-            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
-            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
-            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -426,8 +190,6 @@
         </p>
       </footer>
     </div> <!-- /container -->
-    
-
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -437,4 +199,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

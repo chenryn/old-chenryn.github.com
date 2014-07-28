@@ -1,10 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>用Juggernaut实时推送syslog分析结果</title>
-    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -28,144 +26,12 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-            
-            
-            
-
-
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/archive.html">归档</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/categories.html">分类</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/pages.html">Pages</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/projects.html">学习记录</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/tags.html">标签</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-
-
-
-
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -176,43 +42,22 @@
     <div class="container">
     <div class="row">
       <div class="span7">
-        
 <div class="row">
   <div class="page-header">
     <h1>用Juggernaut实时推送syslog分析结果 <small></small></h1>
     <div class="date"><span>17 October 2012</span></div>
-  
     <ul class="tag_box pull-right">
-    
-    
-
-
-  
-     
     	<li><a href="/tags.html#syslog-ref">syslog <span>5</span></a></li>
-     
     	<li><a href="/tags.html#javascript-ref">javascript <span>7</span></a></li>
-     
     	<li><a href="/tags.html#websocket-ref">websocket <span>3</span></a></li>
-     
     	<li><a href="/tags.html#redis-ref">redis <span>4</span></a></li>
-     
     	<li><a href="/tags.html#perl-ref">perl <span>67</span></a></li>
-    
-  
-
-
-
     </ul>
-    
   </div>
   <div style='background-color: #FFF;'>
     <p>大家一般都会用rsyslog或者syslog-ng之类的收集系统日志。不过收集之后的处理就各种各样了。这里提供一个简单的处理，按日期保存成文件，然后定时分析新增内容，通过websocket推送到页面报警。这对于像磁盘错误等信息比较有用。因为等nagios之类的监控反应出来，故障可能就已经到你措手不及的地步了。</p>
-
 <p>这里介绍一下Juggernaut项目，作者当初还在上学的时候就开始搞这个项目并最终因为这个项目找到的工作。不过几个月前他宣布不再维护了，因为他觉得html5已经普及，大家直接写websocket就够了。额，在口年的中国，我觉得Juggernaut还是很有意义的。项目地址：<a href="https://github.com/maccman/juggernaut">https://github.com/maccman/juggernaut</a>。</p>
-
 <p>举例中有ruby、js和python的样例，不过既然是用Redis传消息，那么改成perl的代码跟python的比差距也就很小了。</p>
-
 <div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl</span>
 <span class="k">use</span> <span class="n">AnyEvent</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">Getopt::</span><span class="n">Long</span><span class="p">;</span>
@@ -240,7 +85,6 @@
     <span class="n">say</span> <span class="s">&quot;       -i means define a special interval seconds for regexp and submit, default set 300s.&quot;</span><span class="p">;</span>
 <span class="p">};</span>
 <span class="nv">$interval</span> <span class="o">=</span> <span class="mi">300</span> <span class="k">unless</span> <span class="nv">$interval</span><span class="p">;</span>
-
 <span class="k">my</span> <span class="nv">@str</span> <span class="o">=</span> <span class="p">();</span>
 <span class="c1"># syslog的pri，定义见http://www.ietf.org/rfc/rfc3164.txt。因为本例只收集kernel信息，即Facility = 0,所以PRI = 0 * 8 + Severity。这里为了页面好看直接写成bootstrap里button的class了。</span>
 <span class="k">my</span> <span class="nv">@pri</span> <span class="o">=</span> <span class="sx">qw(</span>
@@ -258,7 +102,6 @@
 <span class="k">my</span> <span class="nv">$re</span> <span class="o">=</span> <span class="sx">qr/((?:\d{1,3}\.){3}\d{1,3}) \[(\w+ \d+ \d{2}:\d{2}:\d{2})\] &lt;(\d+)&gt; kernel: (\S.+)/</span><span class="p">;</span>
 <span class="c1"># 目前是直接收集成时间格式命名了，所以每天crond里要restart脚本，如果是日志名不变，crond切割的，那么脚本可以一直跑</span>
 <span class="nb">open</span><span class="p">(</span><span class="k">my</span> <span class="nv">$r</span><span class="p">,</span> <span class="s">&quot;-|&quot;</span><span class="p">,</span> <span class="s">&quot;tail&quot;</span><span class="p">,</span> <span class="s">&quot;-F&quot;</span><span class="p">,</span> <span class="s">&#39;/data1/syslog/kern.&#39;</span> <span class="o">.</span> <span class="n">strftime</span><span class="p">(</span><span class="s">&quot;%Y%m%d&quot;</span><span class="p">,</span> <span class="nb">localtime</span><span class="p">)</span> <span class="o">.</span> <span class="s">&#39;.log&#39;</span> <span class="p">)</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;can&#39;t fork: $!&quot;</span><span class="p">;</span>
-
 <span class="k">my</span> <span class="nv">$io</span> <span class="o">=</span> <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">io</span><span class="p">(</span>
     <span class="n">fh</span> <span class="o">=&gt;</span> <span class="nv">$r</span><span class="p">,</span>
     <span class="n">poll</span> <span class="o">=&gt;</span> <span class="s">&quot;r&quot;</span><span class="p">,</span>
@@ -268,7 +111,6 @@
         <span class="nb">push</span> <span class="nv">@str</span><span class="p">,</span> <span class="nv">$input</span><span class="p">;</span>
     <span class="p">}</span>
 <span class="p">);</span>
-
 <span class="k">my</span> <span class="nv">$w</span> <span class="o">=</span> <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">timer</span><span class="p">(</span>
     <span class="n">after</span> <span class="o">=&gt;</span> <span class="nv">$interval</span><span class="p">,</span>
     <span class="n">interval</span> <span class="o">=&gt;</span> <span class="nv">$interval</span><span class="p">,</span>
@@ -286,7 +128,6 @@
     <span class="p">},</span>
 <span class="p">);</span>
 <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">condvar</span><span class="o">-&gt;</span><span class="nb">recv</span><span class="p">;</span>
-
 <span class="k">sub </span><span class="nf">submit</span> <span class="p">{</span>
     <span class="k">my</span> <span class="nv">@msg</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
     <span class="n">say</span> <span class="nv">@msg</span> <span class="k">if</span> <span class="nv">$debug</span><span class="p">;</span>
@@ -296,7 +137,6 @@
         <span class="n">data</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@msg</span><span class="p">,</span>
     <span class="p">}));</span>
 <span class="p">};</span>
-
 <span class="k">sub </span><span class="nf">classify</span> <span class="p">{</span>
     <span class="k">my</span> <span class="nv">$msg</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
     <span class="k">if</span> <span class="p">(</span> <span class="nv">$msg</span> <span class="o">=~</span><span class="sr"> /TCP|UDP|SYN|socket/</span> <span class="p">)</span> <span class="p">{</span>
@@ -311,9 +151,7 @@
         <span class="s">&#39;unknown&#39;</span><span class="p">;</span>
     <span class="p">};</span>
 <span class="p">};</span></code></pre></div>
-
 <p>然后写html页面来接收。</p>
-
 <div class="highlight"><pre><code class="language-html" data-lang="html"><span class="nt">&lt;html&gt;</span>
 <span class="nt">&lt;head&gt;</span>
   <span class="nt">&lt;meta</span> <span class="na">name=</span><span class="s">&quot;charset&quot;</span> <span class="na">content=</span><span class="s">&quot;utf-8&quot;</span><span class="nt">&gt;</span>
@@ -322,17 +160,13 @@
   <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;/javascripts/jquery-1.7.2.min.js &quot;</span> <span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">charset=</span><span class="s">&quot;utf-8&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
 <span class="nt">&lt;/head&gt;</span>
 <span class="nt">&lt;body&gt;</span>
-  
   <span class="nt">&lt;div</span> <span class="na">id=</span><span class="s">&#39;syslog&#39;</span> <span class="na">style=</span><span class="s">&quot;overflow-y: scroll; border: #999&quot;</span><span class="nt">&gt;</span>
     <span class="nt">&lt;ul</span> <span class="na">class=</span><span class="s">&quot;unstyled&quot;</span> <span class="na">id=</span><span class="s">&#39;msg&#39;</span><span class="nt">&gt;</span>
     <span class="nt">&lt;/ul&gt;</span>
   <span class="nt">&lt;/div&gt;</span>
   <span class="nt">&lt;div&gt;&lt;button</span> <span class="na">class=</span><span class="s">&quot;btn&quot;</span> <span class="na">id=</span><span class="s">&quot;notify-permission-button&quot;</span><span class="nt">&gt;</span>开启桌面通知<span class="nt">&lt;/button&gt;&lt;/div&gt;</span>
-
   <span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">charset=</span><span class="s">&quot;utf-8&quot;</span><span class="nt">&gt;</span>
-    
     <span class="nx">$</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-
       <span class="kd">var</span> <span class="nx">log</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">){</span>
         <span class="kd">var</span> <span class="nx">msg</span><span class="p">;</span>
         <span class="nx">$</span><span class="p">(</span><span class="s1">&#39;#msg li:gt(40)&#39;</span><span class="p">).</span><span class="nx">remove</span><span class="p">();</span>
@@ -348,24 +182,20 @@
         <span class="p">}</span>
         <span class="nx">$</span><span class="p">(</span><span class="s1">&#39;#msg:first-child&#39;</span><span class="p">).</span><span class="nx">prepend</span><span class="p">(</span><span class="s1">&#39;&lt;li&gt;&#39;</span> <span class="o">+</span> <span class="nx">msg</span> <span class="o">+</span> <span class="s1">&#39;&lt;/li&gt;&#39;</span><span class="p">);</span>
       <span class="p">};</span>
-
       <span class="kd">var</span> <span class="nx">jug</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Juggernaut</span><span class="p">({</span>
         <span class="nx">secure</span><span class="o">:</span> <span class="p">(</span><span class="s1">&#39;https:&#39;</span> <span class="o">==</span> <span class="nb">document</span><span class="p">.</span><span class="nx">location</span><span class="p">.</span><span class="nx">protocol</span><span class="p">),</span>
         <span class="nx">host</span><span class="o">:</span> <span class="nb">document</span><span class="p">.</span><span class="nx">location</span><span class="p">.</span><span class="nx">hostname</span><span class="p">,</span>
         <span class="nx">port</span><span class="o">:</span> <span class="mi">8080</span> <span class="o">||</span> <span class="nb">document</span><span class="p">.</span><span class="nx">location</span><span class="p">.</span><span class="nx">port</span>
       <span class="p">});</span>
-      
       <span class="nx">jug</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s2">&quot;connect&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(){</span> <span class="nx">log</span><span class="p">(</span><span class="s2">&quot;&lt;code&gt;Connected&lt;/code&gt;&quot;</span><span class="p">)</span> <span class="p">});</span>
       <span class="nx">jug</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s2">&quot;disconnect&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(){</span> <span class="nx">log</span><span class="p">(</span><span class="s2">&quot;&lt;code&gt;Disconnected&lt;/code&gt;&quot;</span><span class="p">)</span> <span class="p">});</span>
       <span class="nx">jug</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s2">&quot;reconnect&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(){</span> <span class="nx">log</span><span class="p">(</span><span class="s2">&quot;&lt;code&gt;Reconnecting&lt;/code&gt;&quot;</span><span class="p">)</span> <span class="p">});</span>
-      
       <span class="nx">jug</span><span class="p">.</span><span class="nx">subscribe</span><span class="p">(</span><span class="s2">&quot;channel1&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">){</span>
         <span class="nx">log</span><span class="p">(</span><span class="nx">data</span><span class="p">);</span>
         <span class="k">if</span> <span class="p">(</span> <span class="nx">data</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;btn&#39;</span> <span class="p">)</span> <span class="p">{</span>
           <span class="nx">desk_notify</span><span class="p">(</span><span class="nx">data</span><span class="p">);</span>
         <span class="p">};</span>
       <span class="p">});</span>
-
       <span class="kd">var</span> <span class="nx">desk_notify</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
         <span class="k">if</span><span class="p">(</span><span class="nb">window</span><span class="p">.</span><span class="nx">webkitNotifications</span><span class="p">){</span>
           <span class="k">if</span> <span class="p">(</span><span class="nb">window</span><span class="p">.</span><span class="nx">webkitNotifications</span><span class="p">.</span><span class="nx">checkPermission</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
@@ -380,88 +210,52 @@
           <span class="p">}</span>
         <span class="p">}</span>
       <span class="p">}</span>
-
       <span class="kd">function</span> <span class="nx">RequestPermission</span><span class="p">(</span><span class="nx">callback</span><span class="p">)</span> <span class="p">{</span>
         <span class="nb">window</span><span class="p">.</span><span class="nx">webkitNotifications</span><span class="p">.</span><span class="nx">requestPermission</span><span class="p">(</span><span class="nx">callback</span><span class="p">);</span>
       <span class="p">}</span>
-
       <span class="nx">$</span><span class="p">(</span><span class="s1">&#39;#notify-permission-button&#39;</span><span class="p">).</span><span class="nx">click</span><span class="p">(</span><span class="kd">function</span><span class="p">(){</span>
         <span class="nx">$</span><span class="p">(</span><span class="s1">&#39;#notify-permission-button&#39;</span><span class="p">).</span><span class="nx">hide</span><span class="p">();</span>
         <span class="nx">desk_notify</span><span class="p">([</span><span class="s1">&#39;&#39;</span><span class="p">,</span><span class="s1">&#39;syslog realtime push&#39;</span><span class="p">,</span><span class="s1">&#39;&#39;</span><span class="p">,</span><span class="s1">&#39;&#39;</span><span class="p">,</span><span class="s1">&#39;开启&#39;</span><span class="p">]);</span>
       <span class="p">});</span>
     <span class="p">});</span>
-
   <span class="nt">&lt;/script&gt;</span>
 <span class="nt">&lt;/body&gt;</span>
 <span class="nt">&lt;/html&gt;</span></code></pre></div>
-
 <p>这里除了juggernaut的代码以外，还加上了chrome独有的webkitnotification功能，这样使用chrome的话，可以打开桌面通知，监控效果更佳～</p>
-
 <p>注意：chrome桌面通知的权限授予，不能通过页面代码自动触发，必须显式的用button.click来触发。</p>
-
 <p><strong>2013 年 2 月 17 日更新：</strong></p>
-
 <p>我的 Ubuntu 12.10 更新到 firefox 18.0.2 版本后，以上代码也可以出现桌面通知了。不过奇怪的是：第一至今没有看到哪里有这个更新说明；第二我确实没有安装相关的extension，事实上我一共就安装了 firebug/xmarks/adblocks 三个扩展。</p>
-
     <hr>
     <div class="pagination">
       <ul>
-      
         <li class="prev"><a href="/2012/10/02/gather-take-in-perl5" title="Perl5里的gather/take">&larr; Previous</a></li>
-      
         <li><a href="/archive.html">Archive</a></li>
-      
         <li class="next"><a href="/2012/10/21/elasticearch-simple-usage" title="【Logstash系列】ElasticSearch的几点使用事项">Next &rarr;</a></li>
-      
       </ul>
     </div>
     <hr>
-    
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
-  
-
-
       </div>
       <div class="span4">
-          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-               
+                 <li><a href="/2014/07/28/dynamic-dashboard-for-kibana">Kibana 动态仪表板的使用</a></li>
                  <li><a href="/2014/07/27/using-pdl-on-macbook">在 MacBook 上使用 PDL 绘图</a></li>
-               
                  <li><a href="/2014/07/08/rex-test-spec">Rex::Test::Spec 模块</a></li>
-               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
-               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
-               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
-               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
-               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
-               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
-               
-                 <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
-               
             </ul>
           </div>
-        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -472,93 +266,51 @@
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
-            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
-            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
-            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
-            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
-            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
-            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
-            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
-            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
-            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
-            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
-            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
-            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
-            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
-            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
-            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
-            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
-            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
-            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
-            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
-            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
-            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
-            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
-            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
-            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
-            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
-            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
-            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
-            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
-            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
-            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
-            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
-            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
-            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
-            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
-            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
-            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
-            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
-            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
-            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
-            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -575,8 +327,6 @@
         </p>
       </footer>
     </div> <!-- /container -->
-    
-
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -586,4 +336,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

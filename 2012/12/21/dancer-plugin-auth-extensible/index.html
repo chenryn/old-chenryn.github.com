@@ -1,10 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>学习 Dancer::Plugin::Auth::Extensible 模块</title>
-    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -28,144 +26,12 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-            
-            
-            
-
-
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/archive.html">归档</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/categories.html">分类</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/pages.html">Pages</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/projects.html">学习记录</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/tags.html">标签</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-
-
-
-
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -176,28 +42,21 @@
     <div class="container">
     <div class="row">
       <div class="span7">
-        
 <div class="row">
   <div class="page-header">
     <h1>学习 Dancer::Plugin::Auth::Extensible 模块 <small></small></h1>
     <div class="date"><span>21 December 2012</span></div>
-    
   </div>
   <div style='background-color: #FFF;'>
     <p>首先介绍一下 <code>Dancer::Plugin::Auth::Extensible</code> 模块。这是一个认证验证的框架，之前 Dancer 里这方面的框架是 RBAC ，不过 RBAC 是实现的 auth 对象，然后提供 <code>-&gt;asa</code>，<code>-&gt;can</code>，<code>-&gt;roles</code> 等方法。在使用的时候，需要自己在每个 route 里写 if 或者 switch 代码，显得比较繁琐。而 Extensible 模块提供了另一个（或者说是两个）思路。同时借此深入了解 <code>Dancer::Plugin</code> 和 <code>Dancer::Hook</code> 的用法，外加熟悉 perl 的一些不常见的对象使用。收获良多，不可不记。</p>
-
 <p>上面之所以说算是两个思路。是因为在这个模块出来的短短十天内，其 0.001 和 0.010 版本已经完全从实现到使用方法都变了样子。下面先说 0.001 版。</p>
-
 <p>这个原始版本的使用方法大概是这样的：</p>
-
 <div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">get</span> <span class="s">&#39;/secret&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">:RequireRole(God) {</span> <span class="n">DestroyWorld</span><span class="p">();</span> <span class="p">};</span>
     <span class="n">get</span> <span class="s">&#39;/users&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">:RequireLogin {</span>
         <span class="k">my</span> <span class="nv">$user</span> <span class="o">=</span> <span class="n">logged_in_user</span><span class="p">;</span>
         <span class="k">return</span> <span class="s">&quot;Hi there, $user-&gt;{username}&quot;</span><span class="p">;</span>
     <span class="p">};</span></code></pre></div>
-
 <p>哇，我是第一次见到在 <code>sub</code> 后面还可以写这样的东西（好吧，暴露了本人的菜鸟本质）！赶紧打开模块的源代码，然后找到了相关的几行：</p>
-
 <div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="n">attributes</span><span class="p">;</span>
     <span class="k">use</span> <span class="nn">Scalar::</span><span class="n">Util</span><span class="p">;</span>
     <span class="k">use</span> <span class="n">Exporter</span> <span class="s">&#39;import&#39;</span><span class="p">;</span>
@@ -238,25 +97,17 @@
             <span class="p">}</span> <span class="nv">@desired_attribs</span>
         <span class="p">];</span>
     <span class="p">}</span></code></pre></div>
-
 <p>代码中的 <code>$route_handler-&gt;code</code> 就是应用中写的 <code>sub {}</code>。<strong>整个代码中，最关键的部分是这句 <code>attributes::get($coderef)</code> ！</strong></p>
-
 <p>首先有个小问题，因为 Dancer 里，get 是关键词，所以这里写了全路径。<code>attributes::get</code> 的介绍见 <a href="https://metacpan.org/module/attributes#Available-Subroutines">POD</a>，大意是会使用 <code>FETCH_type_ATTRIBUTES</code> 方法获取列表。因为这里 attribute 是 sub 的，所以 type 就是 CODE ，也就是用前面定义的 <code>FETCH_CODE_ATTRIBUTES</code>。<code>FETCH_type_ATTRIBUTES</code> 方法的说明见 <a href="https://metacpan.org/module/attributes#Package-specific-Attribute-Handling">POD</a>。</p>
-
 <p>在<a href="https://metacpan.org/module/perlsub#Subroutine-Attributes">https://metacpan.org/module/perlsub#Subroutine-Attributes</a>中，建议我们看另一个更好用的模块来理解自定义属性的问题，这个模块是<a href="https://metacpan.org/module/Attribute::Handlers">Attribute::Handlers</a>。</p>
-
 <p>然后是 0.010 版：</p>
-
 <p>新版本的使用方法如下：</p>
-
 <div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">get</span> <span class="s">&#39;/secret&#39;</span> <span class="o">=&gt;</span> <span class="n">require_any_role</span> <span class="p">[</span><span class="sx">qw(God Admin)</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="n">DestroyWorld</span><span class="p">();</span> <span class="p">};</span>
     <span class="n">get</span> <span class="s">&#39;/users&#39;</span> <span class="o">=&gt;</span> <span class="n">require_login</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
         <span class="k">my</span> <span class="nv">$user</span> <span class="o">=</span> <span class="n">logged_in_user</span><span class="p">;</span>
         <span class="k">return</span> <span class="s">&quot;Hi there, $user-&gt;{username}&quot;</span><span class="p">;</span>
     <span class="p">};</span></code></pre></div>
-
 <p>这种添加新关键词的写法更加的 dancer。所以能从实现中学到更有普适性的 <code>Dancer::Plugin</code> 开发方法。摘要代码如下：</p>
-
 <div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="nn">Dancer::</span><span class="n">Plugin</span><span class="p">;</span>
     <span class="k">use</span> <span class="n">Dancer</span> <span class="sx">qw(:syntax)</span><span class="p">;</span>
     <span class="k">sub </span><span class="nf">require_any_role</span> <span class="p">{</span>
@@ -301,37 +152,24 @@
         <span class="p">};</span>
     <span class="p">}</span>
     <span class="n">register_hook</span> <span class="sx">qw(login_required permission_denied)</span><span class="p">;</span></code></pre></div>
-
 <p>主要摘要了几个部分：</p>
-
 <ul>
   <li>第一，register</li>
 </ul>
-
 <p>摘要中就是 register 了一个关键词 require_any_role 。这样在启用了本 plugin 的应用里，你可以直接使用这个关键词。至于具体的 sub，没有什么特殊的。看前面的用法举例就知道了，传递一个 roles 的数组引用(或者单个role的话就是字符串，这个在后面有判断)和一个 sub 作为参数，也就是 <code>@_</code>。</p>
-
 <ul>
   <li>第二，register_hook</li>
 </ul>
-
 <p>第一个是 <code>Dancer::Plugin</code> 的部分，第二个是 <code>Dancer::Hook</code> 的功能。注册一个叫 login_required 的 hook，然后在需要的地方运行 <code>execute_hook('login_required', $coderef)</code>。</p>
-
 <p><code>register_hook</code> 接受 <code>$name</code> 和 <code>$coderef</code> 参数。如果只有 name 的话，<code>Dancer::Hook</code> 里也会自动生成一个 <code>$compiled_filter</code> ，作用就是除非你调用 <code>halt</code> 了，不然就输出一条 core 级别的日志(这里其实还用到了 <code>Dancer::Hook::Properties</code>，判断是否需要运行，默认初始化参数空的时候返回真，不运行 app，继续往下到记录日志)。然后，将这个对象传递给 <code>Dancer::Factory::Hook</code>。这里会把前面的生成的 coderef 加入到一个 <code>$class-&gt;hooks-&gt;{$hook_name}</code> 数组，而 name 加入到 <code>$self-&gt;registered_hooks</code> 数组。</p>
-
 <p>在<code>execute_hook</code> 的时候，从前面的 <code>$self-&gt;registered_hooks</code> 判断是否有这个 name，然后从 <code>$class-&gt;hooks-&gt;{$hook_name}</code> 里依次取出全部 coderef 执行。</p>
-
 <ul>
   <li>第三，any</li>
 </ul>
-
 <p>和前面 0.001 类似，这里也有一个关键词冲突的问题，前面的 get 和这里的 any 都是 <code>Dancer</code> 的关键词。不然的话，其实这里使用 <code>Perl6::Junction</code> 或者 <code>Syntax::Keyword::Junction</code> 模块是正当其时啊。我之前都用 <code>Perl6::Junction</code>，不过昨天的 Perl Advent Calendar 文章里推荐了后面这个 <code>Syntax::Keyword::Junction</code>，<a href="https://metacpan.org">meta::cpan</a> 上也都是两个喜欢。另外题外话说一句，那篇文章里推荐的另一个 <a href="https://metacpan.org/module/Function::Parameters">Function::Parameters</a> 可真是好东西，唯一问题是低于 Perl 5.014的版本用不了，因为他不是 source filter 而是 keyword plugin api 的。这是新版本的功能。</p>
-
 <hr />
-
 <p><strong>12 月 30 日附：</strong></p>
-
 <p>在 github 上提交了一个短短的 patch ，给 DPAE 加上了 正则匹配 role 的功能，感谢 Perl5.10的强大，代码其实就修改一行足以实现：</p>
-
 <div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">lib</span><span class="sr">/Dancer/</span><span class="n">Plugin</span><span class="sr">/Auth/</span><span class="n">Extensible</span><span class="o">.</span><span class="n">pm</span> <span class="nv">@</span> <span class="nv">891cd02</span>
     <span class="nv">@@</span> <span class="err">-</span><span class="nv">266</span><span class="p">,</span><span class="mi">7</span> <span class="o">+</span><span class="mi">266</span><span class="p">,</span><span class="mi">9</span> <span class="nv">@@</span> <span class="nv">sub</span> <span class="n">_build_wrapper</span> <span class="p">{</span>
              <span class="k">my</span> <span class="nv">$role_match</span><span class="p">;</span>
@@ -343,24 +181,20 @@
              <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="nv">$mode</span> <span class="ow">eq</span> <span class="s">&#39;any&#39;</span><span class="p">)</span> <span class="p">{</span>
                  <span class="k">my</span> <span class="nv">%role_ok</span> <span class="o">=</span> <span class="nb">map</span> <span class="p">{</span> <span class="nv">$_</span> <span class="o">=&gt;</span> <span class="mi">1</span> <span class="p">}</span> <span class="nv">@role_list</span><span class="p">;</span>
                  <span class="k">for</span> <span class="p">(</span><span class="n">user_roles</span><span class="p">())</span> <span class="p">{</span>
-
     <span class="n">t</span><span class="o">/</span><span class="mo">01</span><span class="o">-</span><span class="n">basic</span><span class="o">.</span><span class="n">t</span> <span class="nv">@</span> <span class="nv">891cd02</span>
     <span class="nv">@@</span> <span class="err">-</span><span class="nv">81</span><span class="p">,</span><span class="mi">6</span> <span class="o">+</span><span class="mi">81</span><span class="p">,</span><span class="mi">9</span> <span class="nv">@@</span> <span class="nv">response_status_is</span> <span class="p">[</span> <span class="n">GET</span> <span class="o">=&gt;</span> <span class="s">&#39;/allroles&#39;</span> <span class="p">],</span> <span class="mi">200</span><span class="p">,</span>
      <span class="n">response_status_is</span> <span class="p">[</span> <span class="n">GET</span> <span class="o">=&gt;</span> <span class="s">&#39;/regex/a&#39;</span> <span class="p">],</span> <span class="mi">200</span><span class="p">,</span>
          <span class="s">&quot;We can request a regex route when logged in&quot;</span><span class="p">;</span>
-     
     <span class="o">+</span><span class="n">response_status_is</span> <span class="p">[</span> <span class="n">GET</span> <span class="o">=&gt;</span> <span class="s">&#39;/piss/regex&#39;</span> <span class="p">],</span> <span class="mi">200</span><span class="p">,</span>
     <span class="o">+</span>    <span class="s">&quot;We can request a route requiring a regex role we have&quot;</span><span class="p">;</span>
     <span class="o">+</span>
      <span class="c1"># ... but can&#39;t request something requiring a role we don&#39;t have</span>
      <span class="n">response_redirect_location_is</span>  <span class="p">[</span> <span class="n">GET</span> <span class="o">=&gt;</span> <span class="s">&#39;/piss&#39;</span> <span class="p">],</span>
          <span class="s">&#39;http://localhost/login/denied?return_url=%2Fpiss&#39;</span><span class="p">,</span>
-
     <span class="n">t</span><span class="sr">/lib/</span><span class="n">TestApp</span><span class="o">.</span><span class="n">pm</span> <span class="nv">@</span> <span class="nv">891cd02</span>
     <span class="nv">@@</span> <span class="err">-</span><span class="nv">39</span><span class="p">,</span><span class="mi">6</span> <span class="o">+</span><span class="mi">39</span><span class="p">,</span><span class="mi">10</span> <span class="nv">@@</span> <span class="nv">get</span> <span class="s">&#39;/piss&#39;</span> <span class="o">=&gt;</span> <span class="n">require_role</span> <span class="n">BearGrylls</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
          <span class="s">&quot;You can drink piss&quot;</span><span class="p">;</span>
      <span class="p">};</span>
-     
     <span class="o">+</span><span class="n">get</span> <span class="s">&#39;/piss/regex&#39;</span> <span class="o">=&gt;</span> <span class="n">require_role</span> <span class="sx">qr/beer/</span><span class="n">i</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
     <span class="o">+</span>    <span class="s">&quot;You can drink piss now&quot;</span><span class="p">;</span>
     <span class="o">+</span><span class="p">};</span>
@@ -368,67 +202,37 @@
      <span class="n">get</span> <span class="s">&#39;/anyrole&#39;</span> <span class="o">=&gt;</span> <span class="n">require_any_role</span> <span class="p">[</span><span class="s">&#39;Foo&#39;</span><span class="p">,</span><span class="s">&#39;BeerDrinker&#39;</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
          <span class="s">&quot;Matching one of multiple roles works&quot;</span><span class="p">;</span>
      <span class="p">};</span></code></pre></div>
-
-
     <hr>
     <div class="pagination">
       <ul>
-      
         <li class="prev"><a href="/2012/12/19/dancer-and-text-xslate" title="Dancer 框架使用 Text::XSlate 模版的注意事项">&larr; Previous</a></li>
-      
         <li><a href="/archive.html">Archive</a></li>
-      
         <li class="next"><a href="/2012/12/22/elasticsearch-amcharts-demo" title="用 Amcharts 和 ElasticSearch 做日志分析">Next &rarr;</a></li>
-      
       </ul>
     </div>
     <hr>
-    
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
-  
-
-
       </div>
       <div class="span4">
-          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-               
+                 <li><a href="/2014/07/28/dynamic-dashboard-for-kibana">Kibana 动态仪表板的使用</a></li>
                  <li><a href="/2014/07/27/using-pdl-on-macbook">在 MacBook 上使用 PDL 绘图</a></li>
-               
                  <li><a href="/2014/07/08/rex-test-spec">Rex::Test::Spec 模块</a></li>
-               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
-               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
-               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
-               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
-               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
-               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
-               
-                 <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
-               
             </ul>
           </div>
-        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -439,93 +243,51 @@
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
-            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
-            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
-            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
-            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
-            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
-            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
-            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
-            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
-            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
-            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
-            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
-            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
-            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
-            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
-            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
-            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
-            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
-            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
-            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
-            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
-            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
-            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
-            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
-            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
-            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
-            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
-            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
-            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
-            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
-            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
-            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
-            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
-            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
-            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
-            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
-            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
-            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
-            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
-            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
-            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -542,8 +304,6 @@
         </p>
       </footer>
     </div> <!-- /container -->
-    
-
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -553,4 +313,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

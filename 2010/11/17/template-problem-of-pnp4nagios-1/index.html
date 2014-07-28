@@ -1,10 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>pnp4nagios的模板问题(1)</title>
-    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -28,144 +26,12 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-            
-            
-            
-
-
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/archive.html">归档</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/categories.html">分类</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/pages.html">Pages</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/projects.html">学习记录</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/tags.html">标签</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-
-
-
-
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -176,39 +42,20 @@
     <div class="container">
     <div class="row">
       <div class="span7">
-        
 <div class="row">
   <div class="page-header">
     <h1>pnp4nagios的模板问题(1) <small></small></h1>
     <div class="date"><span>17 November 2010</span></div>
-  
     <ul class="tag_box pull-right">
-    
-    
-
-
-  
-     
     	<li><a href="/tags.html#nagios-ref">nagios <span>15</span></a></li>
-     
     	<li><a href="/tags.html#rrdtools-ref">rrdtools <span>3</span></a></li>
-     
     	<li><a href="/tags.html#php-ref">php <span>11</span></a></li>
-    
-  
-
-
-
     </ul>
-    
   </div>
   <div style='background-color: #FFF;'>
     <p>实在是看不下去pnp4nagios的丑陋的rrd效果，想着自己修改一下模板。</p>
-
 <p>很容易找到了目前使用的模板：nagios/share/pnp/templates.dist/default.php，不过看到目录下已经有不少其他的模板文件，为啥一个都没用上呢？</p>
-
 <p>从nagios/share/pnp/include/function.inc.php里看到了doFindTemplate()，定义如下：</p>
-
 <div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">if (is_readable($conf[&#39;template_dir&#39;].&#39;/templates/&#39; . $template . &#39;.php&#39;)) {</span>
 <span class="x">$template_file = $conf[&#39;template_dir&#39;].&#39;/templates/&#39; . $template . &#39;.php&#39;;</span>
 <span class="x">}elseif (is_readable($conf[&#39;template_dir&#39;].&#39;/templates.dist/&#39; . $template . &#39;.php&#39;)) {</span>
@@ -218,15 +65,10 @@
 <span class="x">}else {</span>
 <span class="x">$template_file = $conf[&#39;template_dir&#39;].&#39;/templates.dist/default.php&#39;;</span>
 <span class="x">}</span></code></pre></div>
-
 <p>也就是说其实pnp是找不到对应check_command的模板，才使用了最后的default.php！</p>
-
 <p>正巧，default.php里输出了check_command到rra上，可以看到，几乎所有的命令输出都是&rdquo;Check Command check_nrpe&rdquo;。</p>
-
 <p>也就是说，pnp设计者很贴心的设计了自动查找命令模板的功能，却没有考虑到nagios最广泛的应用插件nrpe……</p>
-
 <p>在pnp官网文档<a href="http://docs.pnp4nagios.org/pnp-0.4/tpl?s[]=template">http://docs.pnp4nagios.org/pnp-0.4/tpl?s[]=template</a>上指出，rrd使用模板是读取了perfdata中相应的xml文件，xml内容类似如下几行：</p>
-
 <div class="highlight"><pre><code class="language-xml" data-lang="xml"><span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; standalone=&quot;yes&quot;?&gt;</span>
 <span class="nt">&lt;NAGIOS&gt;</span>
 <span class="nt">&lt;DATASOURCE&gt;</span>
@@ -247,76 +89,43 @@
 <span class="nt">&lt;MIN&gt;</span>0<span class="nt">&lt;/MIN&gt;</span>
 <span class="nt">&lt;MAX&gt;</span>0<span class="nt">&lt;/MAX&gt;</span>
 <span class="nt">&lt;/DATASOURCE&gt;</span></code></pre></div>
-
 <p>这些标签都是给模板使用的，比如default.php中输出命令的那行就是：
 $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo;\r&rdquo; &lsquo;;</p>
-
 <p>如果直接修改xml中的<template>标签内容，确实可以调用成新的模板显示。但间隔时间一过，xml就自动更新成默认配置输出的结果……</template></p>
-
 <p>解决在大规模环境下nrpe监控数据绘图模板的问题~或许还得继续查找xml的定义，待续ing~</p>
-
 <p>补充：看到官网如下网页，似乎是针对这个问题的，英文慢慢啃~
 <a href="http://docs.pnp4nagios.org/pnp-0.4/tpl_custom">http://docs.pnp4nagios.org/pnp-0.4/tpl_custom</a></p>
-
     <hr>
     <div class="pagination">
       <ul>
-      
         <li class="prev"><a href="/2010/11/16/china-internet-sites-performance-industry-reference-data-publiced-by-networkbech" title="基调发布《中国互联网网站性能行业参考数据》">&larr; Previous</a></li>
-      
         <li><a href="/archive.html">Archive</a></li>
-      
         <li class="next"><a href="/2010/11/18/template-problem-of-pnp4nagios-2" title="pnp4nagios的模板问题(2)">Next &rarr;</a></li>
-      
       </ul>
     </div>
     <hr>
-    
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
-  
-
-
       </div>
       <div class="span4">
-          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-               
+                 <li><a href="/2014/07/28/dynamic-dashboard-for-kibana">Kibana 动态仪表板的使用</a></li>
                  <li><a href="/2014/07/27/using-pdl-on-macbook">在 MacBook 上使用 PDL 绘图</a></li>
-               
                  <li><a href="/2014/07/08/rex-test-spec">Rex::Test::Spec 模块</a></li>
-               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
-               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
-               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
-               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
-               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
-               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
-               
-                 <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
-               
             </ul>
           </div>
-        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -327,93 +136,51 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
-            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
-            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
-            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
-            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
-            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
-            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
-            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
-            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
-            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
-            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
-            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
-            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
-            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
-            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
-            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
-            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
-            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
-            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
-            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
-            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
-            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
-            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
-            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
-            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
-            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
-            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
-            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
-            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
-            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
-            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
-            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
-            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
-            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
-            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
-            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
-            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
-            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
-            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
-            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
-            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -430,8 +197,6 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
         </p>
       </footer>
     </div> <!-- /container -->
-    
-
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -441,4 +206,3 @@ $def[$i] .= &lsquo;COMMENT:&rdquo;Check Command &lsquo; . $TEMPLATE[$i] . &lsquo
     <!-- UJian Button END -->
   </body>
 </html>
-

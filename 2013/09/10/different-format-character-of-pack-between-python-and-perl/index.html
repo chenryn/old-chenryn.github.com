@@ -1,10 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>Perl 和 Python 的 pack 函数格式字符的区别</title>
-    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -28,144 +26,12 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-            
-            
-            
-
-
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/archive.html">归档</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/categories.html">分类</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/pages.html">Pages</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/projects.html">学习记录</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/tags.html">标签</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-
-
-
-
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -176,39 +42,20 @@
     <div class="container">
     <div class="row">
       <div class="span7">
-        
 <div class="row">
   <div class="page-header">
     <h1>Perl 和 Python 的 pack 函数格式字符的区别 <small></small></h1>
     <div class="date"><span>10 September 2013</span></div>
-  
     <ul class="tag_box pull-right">
-    
-    
-
-
-  
-     
     	<li><a href="/tags.html#monitor-ref">monitor <span>3</span></a></li>
-     
     	<li><a href="/tags.html#moosefs-ref">moosefs <span>1</span></a></li>
-     
     	<li><a href="/tags.html#python-ref">python <span>10</span></a></li>
-    
-  
-
-
-
     </ul>
-    
   </div>
   <div style='background-color: #FFF;'>
     <p>MooseFS 是运用很广泛的一个分布式文件系统，其自带有一个 python 写的 CGI 页面，可以查看集群状态。不过对于运维来说，这就不太方便纳入 nagios 等其他现有的监控体系中。好在既然它的 CGI 是 python 写的，那么自己照样临摹出一个监控脚本也不是太复杂。</p>
-
 <p>其实整个数据是由 master 的 9421 端口进行 TCP 交互获取的，不过比较麻烦的是并不是普通文本流。CGI 中采用了 pack/unpack 函数来处理 TCP 包。根据数据的前 8 字节确定数据总长度和 MooseFS 的版本，然后依照不同版本的 pack 方式来 unpack 剩余内容。</p>
-
 <p>笔者熟悉 Perl，所以就准备将这个处理流程改用 Perl 完成。结果发现原来 pack/unpack 在 Perl 和 Python 中，写法是不一样的。以 MooseFS 的 info 信息读取代码为例，Python 版如下：</p>
-
 <div class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">s</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">()</span>
 <span class="n">s</span><span class="o">.</span><span class="n">connect</span><span class="p">((</span><span class="n">masterhost</span><span class="p">,</span> <span class="n">masterport</span><span class="p">))</span>
 <span class="n">mysend</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s">&quot;&gt;LL&quot;</span><span class="p">,</span> <span class="mi">510</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
@@ -218,9 +65,7 @@
     <span class="n">data</span> <span class="o">=</span> <span class="n">myrecv</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
     <span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">v3</span><span class="p">,</span> <span class="n">memusage</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">avail</span><span class="p">,</span> <span class="n">trspace</span><span class="p">,</span> <span class="n">trfiles</span><span class="p">,</span> <span class="n">respace</span><span class="p">,</span> <span class="n">refiles</span><span class="p">,</span> <span class="n">nodes</span><span class="p">,</span> <span class="n">dirs</span><span class="p">,</span> <span class="n">files</span><span class="p">,</span> <span class="n">chunks</span><span class="p">,</span> <span class="n">allcopies</span><span class="p">,</span> <span class="n">tdcopies</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s">&quot;&gt;HBBQQQQLQLLLLLLL&quot;</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
     <span class="n">ver</span> <span class="o">=</span> <span class="s">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">v1</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">v2</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">v3</span><span class="p">)])</span></code></pre></div>
-
 <p>而 Perl 版最终写完是这样的：</p>
-
 <div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="nn">IO::Socket::</span><span class="n">INET</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
     <span class="n">PeerAddr</span> <span class="o">=&gt;</span> <span class="nv">$host</span><span class="p">,</span>
     <span class="n">PeerPort</span> <span class="o">=&gt;</span> <span class="nv">$port</span><span class="p">,</span>
@@ -235,84 +80,50 @@
     <span class="k">my</span> <span class="p">(</span><span class="nv">$v1</span><span class="p">,</span> <span class="nv">$v2</span><span class="p">,</span> <span class="nv">$v3</span><span class="p">,</span> <span class="nv">$memusage</span><span class="p">,</span> <span class="nv">$total</span><span class="p">,</span> <span class="nv">$avail</span><span class="p">,</span> <span class="nv">$trspace</span><span class="p">,</span> <span class="nv">$trfiles</span><span class="p">,</span> <span class="nv">$respace</span><span class="p">,</span> <span class="nv">$refiles</span><span class="p">,</span> <span class="nv">$nodes</span><span class="p">,</span> <span class="nv">$dirs</span><span class="p">,</span> <span class="nv">$files</span><span class="p">,</span> <span class="nv">$chunks</span><span class="p">,</span> <span class="nv">$allcopies</span><span class="p">,</span> <span class="nv">$tdcopies</span><span class="p">)</span> <span class="o">=</span> <span class="nb">unpack</span><span class="p">(</span><span class="s">&#39;(SCCQQQQLQLLLLLLL)&gt;&#39;</span><span class="p">,</span> <span class="nv">$data</span><span class="p">);</span>
     <span class="k">my</span> <span class="nv">$ver</span> <span class="o">=</span> <span class="s">&quot;$v1.$v2.$v3&quot;</span><span class="p">;</span>
 <span class="p">};</span></code></pre></div>
-
 <p>不同处主要有两点：</p>
-
 <ol>
   <li>关于 <code>big-endian</code> 定义的 <code>&gt;</code> 符号位置不同，Python 里写在起首一次性全部生效；Perl 里需要每个格式符单独定义，或者采用括号合起来总定义；</li>
   <li>Python 里的 <code>H</code> 格式符表示 <code>unsigned short</code>，在 Perl 里应该是 <code>S</code>；Python 里的 <code>B</code> 格式符表示 <code>unsigned char</code>，在 Perl 里应该是 <code>C</code>。</li>
 </ol>
-
 <p>翻看了一下，在 PHP 和 Ruby 中，格式符定义和 Perl 是一样的，不清楚为什么 Python 这么特殊==!</p>
-
 <p>各语言关于 <code>pack</code> 格式符的文档链接如下：</p>
-
 <ol>
   <li><a href="http://www.w3school.com.cn/php/func_misc_pack.asp">http://www.w3school.com.cn/php/func_misc_pack.asp</a></li>
   <li><a href="http://www.kuqin.com/rubycndocument/man/pack_template_string.html">http://www.kuqin.com/rubycndocument/man/pack_template_string.html</a></li>
   <li><a href="http://docs.python.org/2/library/struct.html">http://docs.python.org/2/library/struct.html</a></li>
   <li><a href="http://perldoc.perl.org/functions/pack.html">http://perldoc.perl.org/functions/pack.html</a></li>
 </ol>
-
     <hr>
     <div class="pagination">
       <ul>
-      
         <li class="prev"><a href="/2013/08/27/using-docker-on-rhel6-the-hard-way" title="编译最新 3.10 内核在 RHEL6 上支持 Docker">&larr; Previous</a></li>
-      
         <li><a href="/archive.html">Archive</a></li>
-      
         <li class="next"><a href="/2013/09/14/elasticsearch-for-rexify-website" title="用 ElasticSearch 支持 Rexify 网站的搜索功能">Next &rarr;</a></li>
-      
       </ul>
     </div>
     <hr>
-    
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
-  
-
-
       </div>
       <div class="span4">
-          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-               
+                 <li><a href="/2014/07/28/dynamic-dashboard-for-kibana">Kibana 动态仪表板的使用</a></li>
                  <li><a href="/2014/07/27/using-pdl-on-macbook">在 MacBook 上使用 PDL 绘图</a></li>
-               
                  <li><a href="/2014/07/08/rex-test-spec">Rex::Test::Spec 模块</a></li>
-               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
-               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
-               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
-               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
-               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
-               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
-               
-                 <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
-               
             </ul>
           </div>
-        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -323,93 +134,51 @@
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
-            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
-            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
-            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
-            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
-            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
-            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
-            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
-            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
-            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
-            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
-            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
-            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
-            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
-            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
-            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
-            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
-            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
-            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
-            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
-            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
-            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
-            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
-            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
-            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
-            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
-            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
-            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
-            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
-            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
-            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
-            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
-            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
-            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
-            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
-            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
-            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
-            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
-            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
-            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
-            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -426,8 +195,6 @@
         </p>
       </footer>
     </div> <!-- /container -->
-    
-
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -437,4 +204,3 @@
     <!-- UJian Button END -->
   </body>
 </html>
-

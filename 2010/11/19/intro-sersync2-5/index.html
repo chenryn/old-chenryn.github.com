@@ -1,10 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>sersync2.5试用~</title>
-    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -28,144 +26,12 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-            
-            
-            
-
-
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/archive.html">归档</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/categories.html">分类</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/pages.html">Pages</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/projects.html">学习记录</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/tags.html">标签</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-
-
-
-
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -176,132 +42,70 @@
     <div class="container">
     <div class="row">
       <div class="span7">
-        
 <div class="row">
   <div class="page-header">
     <h1>sersync2.5试用~ <small></small></h1>
     <div class="date"><span>19 November 2010</span></div>
-  
     <ul class="tag_box pull-right">
-    
-    
-
-
-  
-     
     	<li><a href="/tags.html#inotify-ref">inotify <span>4</span></a></li>
-    
-  
-
-
-
     </ul>
-    
   </div>
   <div style='background-color: #FFF;'>
     <p>之前采用 inotify-tools 来触发 purge，实际运行中碰上一些问题：</p>
-
 <p>1、因为一个文件的更新，可能伴随着 <code>create</code>、<code>modify</code>、<code>close_write</code> 等等过程，而文件稍大一些，甚至就有连续的 <code>modify</code> 出现。于是一个文件的更新，通过管道发送的 purge 请求经常可以看到三四个！如果量不大的情况下，倒也没什么，可如果更新比较频繁的情况下，再翻上三四倍，任务就比较拥挤了。</p>
-
 <p>2、cms 程序通常是通过 ftp 等方式，将页面上传的文件 move 到指定位置。而 ftp 本身在接受过程中也会产生名叫 <code>.pureftpd-upload.****</code> 的临时文件。</p>
-
 <p>第二个倒可以在管道后面再 grep 一次解决，但第一个问题在管道这种流形式的简单处理中就没办法了。预想了几个办法，先一个是记录日志，然后每次管道接受时比对日志中最近十条是否有重复，不过这么频繁的读写日志文件，也会很郁闷~；后一个是把日志文件转进内存去，即管道获取的信息 push 进一个 hash，然后 sleep 后再 poll 这个 hash 出来，不过 shell 没有 hash，就得把简单的 shell 重写成比较复杂的 perl 了……</p>
-
 <p>今天刚想起来半年前曾经看到过金山逍遥运维部开源的一个项目，也是基于 inotify 完成的。去翻来看看，很好很强大，感觉完全能满足我目前的想法。</p>
-
 <p>项目网址：<a href="http://code.google.com/p/sersync/">http://code.google.com/p/sersync/</a></p>
-
 <p>提供了 bin 和 src 两个版本，直接下 bin 来用：</p>
-
 <div class="highlight"><pre><code class="language-bash" data-lang="bash">wget http://sersync.googlecode.com/files/sersync2.5_64bit_binary_stable_final.tar.gz
 tar zxvf sersync2.5_64bit_binary_stable_final.tar.gz
 <span class="nb">cd </span>GNU-Linux-x86/</code></pre></div>
-
 <p>很简单，只有两个文件，一个是程序，一个是 xml 配置文件。配置包括 debug 模式、xfs 支持、过滤器配置（默认已过滤<code>^.</code>和<code>~$</code>）、inotify 监听（推荐是创建目录、完成输入和移动）、本地监听路径和 rsync 远程主机（ip，rsync 模块名、用户名密码）、失败重试及日志、多次失败后的定时任务、插件（通过socket 向远程主机传输 inotify 日志、通过 http 向 cdn 的 api 发送 purge 请求、调用外部命令处理文件）。</p>
-
 <p>本来直接就有 purge 功能，可惜我的环境下域名比较多，目前的功能上只能对 url 做 regex，不能反引用到 domain 上。所以是写个 shell，然后采用 command 插件传递参数~</p>
-
 <p>先最简单的实验，写个write.sh如下：</p>
-
 <div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/bin/sh</span>
 <span class="nb">echo</span> <span class="nv">$1</span> &gt;&gt; <span class="nv">$0</span>.log</code></pre></div>
-
 <p>然后修改xml如下句：</p>
-
 <div class="highlight"><pre><code class="language-xml" data-lang="xml"><span class="nt">&lt;param</span> <span class="na">prefix=</span><span class="s">&quot;GNU-Linux-x86/write.sh&quot;</span> <span class="na">suffix=</span><span class="s">&quot;&quot;</span> <span class="na">ignoreError=</span><span class="s">&quot;true&quot;</span><span class="nt">/&gt;</span></code></pre></div>
-
 <p>运行 <code>GNU-Linux-x86/sersync2 -d -m command</code> 即可后台运行 command 插件且不启用 rsync。</p>
-
 <p>然后 <code>tailf write.sh.log</code> 看，果然每条 url 都不重复了~~</p>
-
 <p>（看了作者周洋的 blog，其中提到文件如果比较大，更新完成时间超过一定值，也会导致队列重复，我猜估计思路和我的第二种想法应该是类似的。）</p>
-
 <p>另，<code>sersync -h</code> 可以看到其固定修改 sysctl 如下：</p>
-
 <div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nb">echo </span><span class="m">50000000</span> &gt; /proc/sys/fs/inotify/max_user_watches
 <span class="nb">echo </span><span class="m">327679</span> &gt; /proc/sys/fs/inotify/max_queued_events</code></pre></div>
-
 <p>据周洋的说法是 inotify 最多只能监听到五千万个文件夹~~在我的环境下，1300 万 inode，add watch 就花了1个多小时……</p>
-
     <hr>
     <div class="pagination">
       <ul>
-      
         <li class="prev"><a href="/2010/11/18/template-problem-of-pnp4nagios-2" title="pnp4nagios的模板问题(2)">&larr; Previous</a></li>
-      
         <li><a href="/archive.html">Archive</a></li>
-      
         <li class="next"><a href="/2010/11/22/pureftpd-problem-about-symbolic-links" title="ftp中的软连接问题">Next &rarr;</a></li>
-      
       </ul>
     </div>
     <hr>
-    
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
-  
-
-
       </div>
       <div class="span4">
-          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-               
+                 <li><a href="/2014/07/28/dynamic-dashboard-for-kibana">Kibana 动态仪表板的使用</a></li>
                  <li><a href="/2014/07/27/using-pdl-on-macbook">在 MacBook 上使用 PDL 绘图</a></li>
-               
                  <li><a href="/2014/07/08/rex-test-spec">Rex::Test::Spec 模块</a></li>
-               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
-               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
-               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
-               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
-               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
-               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
-               
-                 <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
-               
             </ul>
           </div>
-        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -312,93 +116,51 @@ tar zxvf sersync2.5_64bit_binary_stable_final.tar.gz
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
-            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
-            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
-            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
-            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
-            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
-            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
-            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
-            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
-            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
-            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
-            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
-            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
-            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
-            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
-            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
-            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
-            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
-            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
-            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
-            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
-            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
-            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
-            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
-            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
-            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
-            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
-            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
-            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
-            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
-            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
-            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
-            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
-            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
-            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
-            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
-            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
-            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
-            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
-            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
-            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -415,8 +177,6 @@ tar zxvf sersync2.5_64bit_binary_stable_final.tar.gz
         </p>
       </footer>
     </div> <!-- /container -->
-    
-
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -426,4 +186,3 @@ tar zxvf sersync2.5_64bit_binary_stable_final.tar.gz
     <!-- UJian Button END -->
   </body>
 </html>
-

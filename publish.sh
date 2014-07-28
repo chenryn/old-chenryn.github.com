@@ -4,7 +4,7 @@ if [[ "x$msg" == "x" ]];then
     msg="new post"
 fi
 jekyll build
-for i in `find ./_site/ -type f -name '*.html'`;do sed -i '/^\s*$/d' $i;done
+for i in `find ./_site/ -type f -name '*.html'`;do gsed -i '/^\s*$/d' $i;done
 git add .
 git commit -am "$msg"
 git push

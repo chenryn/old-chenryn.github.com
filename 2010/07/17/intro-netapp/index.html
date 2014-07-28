@@ -1,10 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>初识NetApp存储</title>
-    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -28,144 +26,12 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-            
-            
-            
-
-
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/archive.html">归档</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/categories.html">分类</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/pages.html">Pages</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/projects.html">学习记录</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/tags.html">标签</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-
-
-
-
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -176,130 +42,75 @@
     <div class="container">
     <div class="row">
       <div class="span7">
-        
 <div class="row">
   <div class="page-header">
     <h1>初识NetApp存储 <small></small></h1>
     <div class="date"><span>17 July 2010</span></div>
-  
     <ul class="tag_box pull-right">
-    
-    
-
-
-  
-     
     	<li><a href="/tags.html#NetApp-ref">NetApp <span>2</span></a></li>
-    
-  
-
-
-
     </ul>
-    
   </div>
   <div style='background-color: #FFF;'>
     <p>对专门的存储设备实在所知甚少，今天有时间找了找netapp的资料看看，有点基本了解。资料见豆丁：<a href="http://www.docin.com/p-56454923.html">http://www.docin.com/p-56454923.html</a>    </p>
-
 <p>从系统运维角度来说，首先关注的是RAID部分，netapp自定义有RAID-DP。这是一个私有的RAID6解决方案，在RAID4的基础上发展而来的。  <br />
 RAID4即专有一个同位数据校验盘，原始数据以块大小分割存储；  <br />
 RAID5则将同位校验数据和原始数据重新组合，以位大小分割存储；  <br />
 RAID6标准是在存放同位校验数据同时，还增加了针对块的校验数据；  <br />
 RAID-DP，同时拥有两种校验，并把这两种校验都单独存盘。  <br />
 即，RAID-DP，每组至少需要3个盘；而据资料显示，netapp最多支持每组28个盘，默认则是16个。    </p>
-
 <p>多个RAID组组成一个Plex，然后plex组成aggregate。从资料上看，aggr中的plex一般不多。这些硬件上的情况，可以用aggr status -r来查看。  <br />
 在aggr上，再进行逻辑卷volume的划分，一个flexvol最小20MB，最大16T，可以4K大小的加减；最多可以创建500个flexvol。    </p>
-
 <p>然后是使用方式，DAS/NAS/SAN都行，现在在用的是NFS挂载（NAS），以后或许试试iscsi（SAN）。这部分内容看之前相关博文就行。    </p>
-
 <p>IO方式，分file和blockI/O两种。    </p>
-
 <p>监控方式，netapp自带一些性能监控命令，sysstat、nfsstat、netstat等等。    </p>
-
 <hr />
 <p>在存储设备选择比较时，最经常被提及的一个参数是IOPS，即每秒IO操作数。  <br />
 在netapp上运行sysstat命令，看到最前列有个ops/s，峰值高达15k。这个数值被设备方的销售认为是绝对不可能的……    </p>
-
 <p>于是抠字眼吧，iops和ops有什么不同呢？有文档说ops叫每秒并发操作数，并不限定是IO。不过作为专业存储设备，基本除了IO也不会有什么别的操作了吧？    </p>
-
 <p>正好，因为图省事，我比较喜欢看设备的web界面性能监控页自动画出的柱状图。第二个图就是ops/s的图，图左的文字说明是“Network File Operate per second“，即每秒网络文件操作数。而询问销售，IOPS却是指的block的操作数——区别就在这里！    </p>
-
 <p>因为采用NFS挂载存储的方式无法直接观察block的操作监控，最后采用一个估算的办法，统计每秒IO的文件大小，然后除以block的大小，得出每秒IO操作数。  <br />
 还是用systat命令，取max的r/s和w/s（KB）值，相加得32k。  <br />
 然后用aggr status -b命令，取得block值为4KB，估算得IOPS为8k。  <br />
 还是用aggr status -r命令，取得disk的总数为42，估算每块盘的IOPS为180。  <br />
 和网上的评论比较，一般测试在170多的时候性能最好，再高就下降。看来这个设备运行在比较悬的状态了——目前CPU监测使用率在95%左右。    </p>
-
 <p>存储上的磁盘都是15000转的，在IO发生时，磁盘要转动，机头要移动，都需要时间，开始计算：  <br />
 15000/60=250PRS  <br />
 1/250=0.004spr=4mspr  <br />
 4/2=2ms（磁盘转动耗时RD，最多半圈）  <br />
 2+4=6ms（机头寻道时间，百度一下，希捷3.4，日立3.3，都是最快的那种，就按4ms算吧）  <br />
 1000/6=167IOPS（按日立那个最快的算是188）    </p>
-
 <p>写到最后，在CU上看到一个好帖子，链接如右：<a href="http://bbs.chinaunix.net/thread-1607334-1-1.html">http://bbs.chinaunix.net/thread-1607334-1-1.html</a>    </p>
-
-
     <hr>
     <div class="pagination">
       <ul>
-      
         <li class="prev"><a href="/2010/07/06/modify-login-shell" title="login-shell的更改">&larr; Previous</a></li>
-      
         <li><a href="/archive.html">Archive</a></li>
-      
         <li class="next"><a href="/2010/07/17/location-seo" title="域名切换导致的 SEO 问题">Next &rarr;</a></li>
-      
       </ul>
     </div>
     <hr>
-    
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
-  
-
-
       </div>
       <div class="span4">
-          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-               
+                 <li><a href="/2014/07/28/dynamic-dashboard-for-kibana">Kibana 动态仪表板的使用</a></li>
                  <li><a href="/2014/07/27/using-pdl-on-macbook">在 MacBook 上使用 PDL 绘图</a></li>
-               
                  <li><a href="/2014/07/08/rex-test-spec">Rex::Test::Spec 模块</a></li>
-               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
-               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
-               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
-               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
-               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
-               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
-               
-                 <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
-               
             </ul>
           </div>
-        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -310,93 +121,51 @@ RAID-DP，同时拥有两种校验，并把这两种校验都单独存盘。  <b
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
-            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
-            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
-            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
-            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
-            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
-            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
-            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
-            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
-            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
-            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
-            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
-            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
-            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
-            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
-            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
-            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
-            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
-            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
-            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
-            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
-            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
-            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
-            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
-            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
-            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
-            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
-            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
-            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
-            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
-            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
-            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
-            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
-            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
-            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
-            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
-            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
-            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
-            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
-            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
-            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -413,8 +182,6 @@ RAID-DP，同时拥有两种校验，并把这两种校验都单独存盘。  <b
         </p>
       </footer>
     </div> <!-- /container -->
-    
-
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -424,4 +191,3 @@ RAID-DP，同时拥有两种校验，并把这两种校验都单独存盘。  <b
     <!-- UJian Button END -->
   </body>
 </html>
-

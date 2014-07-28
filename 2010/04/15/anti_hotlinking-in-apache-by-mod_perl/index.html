@@ -1,10 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <title>apache防盗链（mod_perl试用）</title>
-    
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -28,144 +26,12 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-            
-            
-            
-
-
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/archive.html">归档</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/categories.html">分类</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/pages.html">Pages</a></li>
-      	
-      
-    
-  
-    
-      
-      	
       	<li><a href="/projects.html">学习记录</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-      	
       	<li><a href="/tags.html">标签</a></li>
-      	
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-    
-      
-    
-  
-
-
-
-
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -176,53 +42,29 @@
     <div class="container">
     <div class="row">
       <div class="span7">
-        
 <div class="row">
   <div class="page-header">
     <h1>apache防盗链（mod_perl试用） <small></small></h1>
     <div class="date"><span>15 April 2010</span></div>
-  
     <ul class="tag_box pull-right">
-    
-    
-
-
-  
-     
     	<li><a href="/tags.html#apache-ref">apache <span>8</span></a></li>
-     
     	<li><a href="/tags.html#perl-ref">perl <span>67</span></a></li>
-    
-  
-
-
-
     </ul>
-    
   </div>
   <div style='background-color: #FFF;'>
     <p>客户需求如下：</p>
-
 <p>在web请求视频时，按算法生成密文和明文串，然后依规则组成最终的url请求；</p>
-
 <p>算法规则：</p>
-
 <p>用如下三个关键词生成 MD5 密文：</p>
-
 <ol>
   <li>自定义密钥：abcde.；</li>
   <li>视频文件真实路径，即/path/to/file.rmvb；</li>
   <li>请求时间，以当前UNIX时间换算为十六进制字符串，并作为明文；</li>
 </ol>
-
 <p>最终url格式是 <code>http://www.test.com/path/to/file.rmvb?key=1234567890abcdefghijklmnopqrstuy&amp;t=1234abcd</code> 这样。</p>
-
 <p>要求失效时间为8小时。</p>
-
 <p>这个需求和之前一次相当类似，不过上回是squid，这次是apache。同样采用perl脚本进行防盗链设置，apache需要使用mod_perl模块。</p>
-
 <p>首先安装perl模块：</p>
-
 <div class="highlight"><pre><code class="language-bash" data-lang="bash">wget http://perl.apache.org/dist/mod_perl-2.0-current.tar.gz
 tar zxvf mod_perl-2.0-current.tar.gz
 <span class="nb">cd </span>mod_perl-2.0-current.tar.gz
@@ -240,20 +82,15 @@ make <span class="o">&amp;&amp;</span> make install
 <span class="nb">exit</span>
 <span class="c">#因为64位系统的libexpat.so有问题，编译libapreq2会出问题，只好如此强制安装</span>
 <span class="nb">echo</span> <span class="s2">&quot;LoadModule apreq_module modules/mod_apreq2.so&quot;</span> &gt;&gt; /home/apache2/conf/httpd.conf</code></pre></div>
-
 <p>因为libapreq2.so安装在/home/apache2/lib/下了，所以需要echo &ldquo;/home/apache2/lib&rdquo; &gt;/etc/lo.so.conf.d/apache.conf，然后ldconfig。</p>
-
 <p>修改httpd.conf，加入如下设置：</p>
-
 <div class="highlight"><pre><code class="language-apache" data-lang="apache"><span class="nb">PerlPostConfigRequire</span> <span class="sx">/home/apache2/perl/start.pl</span>
 <span class="nt">&lt;Location</span> <span class="s">/smg</span><span class="nt">&gt;</span>
 <span class="nb">SetHandler</span> modperl
 <span class="nb">PerlAccessHandler</span> DLAuth
 <span class="nb">PerlSetVar</span> ShareKey abcde.
 <span class="nt">&lt;/Location&gt;</span></code></pre></div>
-
 <p>然后mkdir /home/apache2/perl/，在其中创建start.pl和DLAuth.pm两个文件。start.pl文件内容如下：</p>
-
 <div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="n">strict</span><span class="p">;</span> 
 <span class="k">use</span> <span class="n">lib</span> <span class="sx">qw(/home/apache2/perl)</span><span class="p">;</span>
 <span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestIO</span> <span class="p">();</span>
@@ -264,9 +101,7 @@ make <span class="o">&amp;&amp;</span> make install
 <span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Log</span> <span class="p">();</span>
 <span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Request</span> <span class="p">();</span>
 <span class="mi">1</span><span class="p">;</span></code></pre></div>
-
 <p>DLAuth.pm文件内容如下：</p>
-
 <div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="n">DLAuth</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
 <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
@@ -306,11 +141,8 @@ make <span class="o">&amp;&amp;</span> make install
 <span class="err">   </span> <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">FORBIDDEN</span><span class="p">;</span>
 <span class="p">}</span>
 <span class="mi">1</span><span class="p">;</span></code></pre></div>
-
 <p>就可以了。</p>
-
 <p>apachectl restart。测试一下，先用perl自己生成一个测试链接：</p>
-
 <div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
 <span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
 <span class="k">my</span> <span class="nv">$key</span> <span class="o">=</span> <span class="s">&quot;bestv.&quot;</span><span class="p">;</span>
@@ -319,71 +151,40 @@ make <span class="o">&amp;&amp;</span> make install
 <span class="nv">$result</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$key</span> <span class="o">.</span> <span class="nv">$path</span> <span class="o">.</span> <span class="nv">$date</span><span class="p">);</span>
 <span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="s">&quot;http://127.0.0.1$path?key=$result&amp;t=$date&quot;</span><span class="p">;</span>
 <span class="k">print</span> <span class="nv">$uri</span><span class="p">;</span></code></pre></div>
-
 <p>运行 <code>./url.pl /smg/abc.rmvb</code> 生成 <code>http://127.0.0.1/smg/abc.rmvb?key=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=4bc7dd5a</code>，然后 <code>wget -S -O /dev/null "http://127.0.0.1/smg/abc.rmvb?key=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=4bc7dd5a"</code>，返回 200 OK;任意修改 t 为 12345678，再 wget，返回 403 Forbidden。<code>error_log</code> 显示如下：</p>
-
 <pre><code>[Fri Apr 16 11:47:06 2010] [error] [/smg/abc.rmvbkey=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=12345678 FORBIDDEN] Auth failed
 </code></pre>
-
     <hr>
     <div class="pagination">
       <ul>
-      
         <li class="prev"><a href="/2010/04/12/intro-iscsi-1" title="iscsi试验（失败，慎入）">&larr; Previous</a></li>
-      
         <li><a href="/archive.html">Archive</a></li>
-      
         <li class="next"><a href="/2010/04/15/intro-iscsi-2" title="iscsi试验（读写测试）">Next &rarr;</a></li>
-      
       </ul>
     </div>
     <hr>
-    
-
-
   <!-- UY BEGIN -->
 <div id="uyan_frame"></div>
 <script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
 <!-- UY END -->
-
-
-
-
-
-
   </div>
 </div>
-  
-
-
       </div>
       <div class="span4">
-          
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-               
+                 <li><a href="/2014/07/28/dynamic-dashboard-for-kibana">Kibana 动态仪表板的使用</a></li>
                  <li><a href="/2014/07/27/using-pdl-on-macbook">在 MacBook 上使用 PDL 绘图</a></li>
-               
                  <li><a href="/2014/07/08/rex-test-spec">Rex::Test::Spec 模块</a></li>
-               
                  <li><a href="/2014/06/13/serverspec-intro">Serverspec 工具介绍</a></li>
-               
                  <li><a href="/2014/06/13/anyevent-redis-for-dns-check">用 Redis 做分布式 DNS/HTTP 检测汇总系统</a></li>
-               
                  <li><a href="/2014/06/12/rex-usage">Rex 简明手册</a></li>
-               
                  <li><a href="/2014/06/12/perldancer-tips">PerlDancer 框架笔记</a></li>
-               
                  <li><a href="/2014/06/12/perl-tips">Perl 编程的个人惯例</a></li>
-               
                  <li><a href="/2014/06/11/nginx-access-log-to-elasticsearch">用 LEK 组合处理 Nginx 访问日志</a></li>
-               
-                 <li><a href="/2014/06/08/perl-script-for-avbot">配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本</a></li>
-               
             </ul>
           </div>
-        
         <div class="well sidebar-nav">
           <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
         </div>
@@ -394,93 +195,51 @@ make <span class="o">&amp;&amp;</span> make install
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(英文)</li>
-            
               <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
-            
               <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
-            
               <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
-            
               <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
-            
               <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
-            
               <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
-            
               <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
-            
               <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
-            
               <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
-            
               <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
-            
               <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
-            
               <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
-            
               <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
-            
               <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
-            
               <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
-            
               <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
-            
               <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
-            
               <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
-            
               <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
           <ul id="linklists" class="nav nav-list">
             <li class="nav-header">友情链接(中文)</li>
-            
               <li><a href="http://www.nginxs.com/" title="">eric</a></li>
-            
               <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
-            
               <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
-            
               <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
-            
               <li><a href="http://zauc.wordpress.com/" title="">Timo</a></li>
-            
               <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
-            
               <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
-            
               <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
-            
               <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
-            
               <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
-            
               <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
-            
               <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
-            
               <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
-            
               <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
-            
               <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
-            
               <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
-            
               <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
-            
               <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
-            
               <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
-            
               <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
-            
               <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
-            
           </ul>
         </div>
         <div class="well sidebar-nav">
@@ -497,8 +256,6 @@ make <span class="o">&amp;&amp;</span> make install
         </p>
       </footer>
     </div> <!-- /container -->
-    
-
     <!-- JiaThis Button BEGIN -->
     <script type="text/javascript">var jiathis_config = {data_track_clickback:true};</script>
     <script type="text/javascript" src="http://v3.jiathis.com/code/jiathis_r.js?move=0&amp;uid=1589850" charset="utf-8"></script>
@@ -508,4 +265,3 @@ make <span class="o">&amp;&amp;</span> make install
     <!-- UJian Button END -->
   </body>
 </html>
-
