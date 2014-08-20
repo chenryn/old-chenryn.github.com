@@ -53,7 +53,8 @@
   <div style='background-color: #FFF;'>
     <p>之前已经用很多博文说过了 logstash 如何配合 elasticsearch 以及 kibana 来做日子分析和实时搜索。其实 logstash 上百个插件还有很多其他的玩法，绝不是局限在日志搜索统计方面的。今天就展示另一个做法。根据日志中的异常值出现频率报警。</p>
 <p>在 logstash 的官网上，针对这个问题采用的办法是讲异常值计数 output 到 <code>statsd</code> 中，然后可以用通过观测 <code>graphite</code> 图形变化来判断异常。(或者配合 nagios 的 <code>check_graphite</code> 插件？) 官网说明见：<a href="http://logstash.net/docs/1.1.13/tutorials/metrics-from-logs">http://logstash.net/docs/1.1.13/tutorials/metrics-from-logs</a></p>
-<p>如果不想一直盯着页面看的话，可以利用另外几个插件来实现类似的做法，比如我要监控访问日志，如果其中 504 状态码每分钟超过 100 次，就报警出来。logstash 配置如下：</p>
+<p>如果不想一直盯着页面看的话，可以利用另外几个插件来实现类似的做法，比如我要监控访问日志，如果其中 504 状态码<del>每分钟</del>超过 100 次，就报警出来。logstash 配置如下：</p>
+<p><strong>2014 年 08 月 20 日注：上面说法有误，<code>rate_1m</code> 的含义是：最近 1 分钟内的每秒速率！</strong></p>
 <div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">input</span> <span class="p">{</span>
         <span class="n">stdin</span> <span class="p">{</span>
             <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;apache&quot;</span>
@@ -72,7 +73,9 @@
         <span class="p">}</span>
         <span class="n">ruby</span> <span class="p">{</span>
             <span class="n">tags</span> <span class="o">=&gt;</span> <span class="s2">&quot;metric&quot;</span>
-            <span class="n">code</span> <span class="o">=&gt;</span> <span class="s2">&quot;event.cancel if event[&#39;@fields&#39;][&#39;error.504.rate_1m&#39;] &lt; 100&quot;</span>
+<span class="c1">#            code =&gt; &quot;event.cancel if event[&#39;@fields&#39;][&#39;error.504.rate_1m&#39;] &lt; 100&quot;</span>
+<span class="c1">#           2014/08/20: 每秒速率，所以要乘以60s。另，新版本没有了@fields，都存在顶级field里。</span>
+            <span class="n">code</span> <span class="o">=&gt;</span> <span class="s2">&quot;event.cancel if event[&#39;error.504.rate_1m&#39;]*60 &lt; 100&quot;</span>
         <span class="p">}</span>
     <span class="p">}</span>
     <span class="n">output</span> <span class="p">{</span>
