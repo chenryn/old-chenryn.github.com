@@ -63,14 +63,14 @@ wget http://download.elasticsearch.org/hadoop/elasticsearch-hadoop-2.1.0.Beta1.z
 <p>首先来个最简单的测试，可以展示写入 ES 的用法：</p>
 <div class="highlight"><pre><code class="language-java" data-lang="java"><span class="kn">import</span> <span class="nn">org.apache.spark.SparkConf</span>
 <span class="kn">import</span> <span class="nn">org.elasticsearch.spark._</span>
-<span class="err">#</span> <span class="n">更多</span> <span class="n">ES</span> <span class="n">设置</span><span class="err">，</span><span class="n">见</span><span class="o">&lt;</span><span class="nl">http:</span><span class="c1">//www.elasticsearch.org/guide/en/elasticsearch/hadoop/2.1.Beta/configuration.html&gt;</span>
+<span class="c1">// 更多 ES 设置，见&lt;http://www.elasticsearch.org/guide/en/elasticsearch/hadoop/2.1.Beta/configuration.html&gt;</span>
 <span class="n">val</span> <span class="n">conf</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SparkConf</span><span class="o">()</span>
 <span class="n">conf</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="s">&quot;es.index.auto.create&quot;</span><span class="o">,</span> <span class="s">&quot;true&quot;</span><span class="o">)</span>
 <span class="n">conf</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="s">&quot;es.nodes&quot;</span><span class="o">,</span> <span class="s">&quot;127.0.0.1&quot;</span><span class="o">)</span>
-<span class="err">#</span> <span class="n">在spark</span><span class="o">-</span><span class="n">shell下默认已建立</span>
-<span class="err">#</span><span class="kn">import</span> <span class="nn">org.apache.spark.SparkContext</span>    
-<span class="err">#</span><span class="kn">import</span> <span class="nn">org.apache.spark.SparkContext._</span>
-<span class="err">#</span><span class="n">val</span> <span class="n">sc</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">SparkContext</span><span class="o">(</span><span class="n">conf</span><span class="o">)</span>
+<span class="c1">// 在spark-shell下默认已建立</span>
+<span class="c1">// import org.apache.spark.SparkContext    </span>
+<span class="c1">// import org.apache.spark.SparkContext._</span>
+<span class="c1">// val sc = new SparkContext(conf)</span>
 <span class="n">val</span> <span class="n">numbers</span> <span class="o">=</span> <span class="n">Map</span><span class="o">(</span><span class="s">&quot;one&quot;</span> <span class="o">-&gt;</span> <span class="mi">1</span><span class="o">,</span> <span class="s">&quot;two&quot;</span> <span class="o">-&gt;</span> <span class="mi">2</span><span class="o">,</span> <span class="s">&quot;three&quot;</span> <span class="o">-&gt;</span> <span class="mi">3</span><span class="o">)</span>
 <span class="n">val</span> <span class="n">airports</span> <span class="o">=</span> <span class="n">Map</span><span class="o">(</span><span class="s">&quot;OTP&quot;</span> <span class="o">-&gt;</span> <span class="s">&quot;Otopeni&quot;</span><span class="o">,</span> <span class="s">&quot;SFO&quot;</span> <span class="o">-&gt;</span> <span class="s">&quot;San Fran&quot;</span><span class="o">)</span>
 <span class="n">sc</span><span class="o">.</span><span class="na">makeRDD</span><span class="o">(</span><span class="n">Seq</span><span class="o">(</span><span class="n">numbers</span><span class="o">,</span> <span class="n">airports</span><span class="o">)).</span><span class="na">saveToEs</span><span class="o">(</span><span class="s">&quot;spark/docs&quot;</span><span class="o">)</span></code></pre></div>
@@ -92,6 +92,12 @@ wget http://download.elasticsearch.org/hadoop/elasticsearch-hadoop-2.1.0.Beta1.z
 <p><strong>注意：<code>.textFile</code> 不是 scala 标准的读取文件函数，而是 sparkContext 对象的方法，返回的是 RDD 对象(包括后面的 <code>.map</code> 返回的也是新的 RDD 对象)。所以后面就不用再 <code>.makeRDD</code> 了。</strong></p>
 <h1 id="section-2">网络数据</h1>
 <p>Spark 还有 Spark streaming 子项目，用于从其他网络协议读取数据，比如 flume，kafka，zeromq 等。官网上有一个配合 <code>nc -l</code> 命令的示例程序。</p>
+<div class="highlight"><pre><code class="language-java" data-lang="java"><span class="kn">import</span> <span class="nn">org.apache.spark.streaming._</span>
+<span class="n">val</span> <span class="n">ssc</span> <span class="o">=</span> <span class="k">new</span> <span class="nf">StreamingContext</span><span class="o">(</span><span class="n">sc</span><span class="o">,</span> <span class="n">Seconds</span><span class="o">(</span><span class="mi">1</span><span class="o">))</span>
+<span class="n">val</span> <span class="n">lines</span> <span class="o">=</span> <span class="n">ssc</span><span class="o">.</span><span class="na">socketTextStream</span><span class="o">(</span><span class="s">&quot;localhost&quot;</span><span class="o">,</span> <span class="mi">9999</span><span class="o">)</span>
+<span class="o">...</span>
+<span class="n">ssc</span><span class="o">.</span><span class="na">start</span><span class="o">()</span>
+<span class="n">ssc</span><span class="o">.</span><span class="na">awaitTermination</span><span class="o">()</span></code></pre></div>
 <p>有时间我会继续尝试 Spark 其他功能。</p>
     <hr>
     <div class="pagination">
