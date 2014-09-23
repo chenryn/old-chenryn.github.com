@@ -45,6 +45,65 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h2 class="entry-title">
+      <a href="/2010/02/06/squid-running-analysis" title="squid运行分析" rel="bookmark">squid运行分析</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-02-06 00:00:00 +0800">06 Feb 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+    <p>上回编译加载tcmalloc后，效果各有不同，所以还得细分具体运行情况，以便之后继续优化。
+之前的架构是1个lvs下挂6台leaf+1台parent。现在已经给7台squid都加载tcmalloc了。leaf运行上佳，CPU占用率甚至降到了2%，loadavg也不过0.2。但parent的CPU占用率虽然降低，loadavg却依然在1以上——这对于单核服务器来说，可不是什么好事。分析日志，或者用squidclient分析cache情况，leaf如下：
+cat access.log |awk &lsquo;{if(/NONE/){a[NONE]++}}END{print a[NONE]/NR}&rsquo;
+0.981347
+squidclient -p 80 mgr:info
+    Cache information for squid:
+    Request Hit Ratios: 5min: 97.8%, 60min: 98.3%
+    Byte Hit Ratios: 5min: 97.8%, 60min: 98.2%
+    Request Memory Hit Ratios: 5min: 85.8%, 60min: 86.8%
+    Request Disk Hit Ratios: 5min: 9.8%, 60min: 9.1%
+    Storage Swap size: 19891740 KB
+    Storage Mem size: 1048572 KB
+    Mean Object Size: 9.67 KB
+可以看到缓存文件的平均大小不足10KB，绝大多数的请求都在内存中处理掉了。所以在加载了优化内存反应速度的tcmalloc后，效果那么明显。
+parent如下：
+$ cat access.log |awk &lsquo;{if(/NONE/){a[NONE]++}}END{print a[NONE]/NR}&rsquo;
+0.179209
+$ squidclient -p 80 mgr:info
+    Cache information for squid:
+    Request Hit Ratios: 5min: 31.1%, 60min: 32.3%
+    Byte Hit Ratios: 5min: 38.4%, 60min: 36.9%
+    Request Memory Hit Ratios: 5min: 7.8%, 60min: 12.2%
+    Request Disk Hit Ratios: 5min: 32.7%, 60min: 37.9%
+    Storage Swap size: 40300232 KB
+    Storage Mem size: 524284 KB
+    Mean Object Size: 11.68 KB
+只有30%的缓存命中，而且基本还都是从磁盘读取的（awk结果排除了REFRESH_HIT，所以更低）。难怪上次优化没什么效用了……
+为了保证服务，先给这组服务器加上了round-robin的双parent。新parent的硬件情况和老的一样。而squid配置上，则采用了aufs方式，不再使用diskd方式。运行到现在30个小时，分析如下：
+$ cat /cache/logs/access.log |awk &lsquo;{if(/NONE/){a[NONE]++}}END{print a[NONE]/NR}&rsquo;
+0.238754
+$ squidclient -p 80 mgr:info
+    Cache information for squid:
+    Request Hit Ratios: 5min: 22.7%, 60min: 22.8%
+    Byte Hit Ratios: 5min: 22.9%, 60min: 20.1%
+    Request Memory Hit Ratios: 5min: 22.2%, 60min: 24.3%
+    Request Disk Hit Ratios: 5min: 64.4%, 60min: 65.0%
+    Storage Swap size: 4640308 KB
+    Storage Mem size: 1048588 KB
+    Mean Object Size: 9.08 KB
+      <a href="/2010/02/06/squid-running-analysis" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
       <a href="/2010/02/06/conntrack-of-netfilter" title="netfilter的conntrack优化" rel="bookmark">netfilter的conntrack优化</a>
     </h2>
     <p class="alt-font tight">
@@ -649,27 +708,6 @@ echo &ldquo;xen.independent_wallclock = 1&rdquo;&nbsp;&raquo; /etc/sysctl.conf
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
     <p>今天继续想别的办法，第一，当然还是修改源代码，这个C++可惜俺不懂，只是大略的通过百大哥谷大婶知道了squid的请求处理流程：
       <a href="/2009/12/31/process-of-request-to-squid" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2009/12/30/system-function-in-awk" title="awk中让人郁闷的system()函数" rel="bookmark">awk中让人郁闷的system()函数</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-12-30 00:00:00 +0800">30 Dec 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-    <p>发现一个特尴尬的事实。我辛辛苦苦去百度资料，想用rewrite实现针对不同域名源站故障后的自动跳转功能，但整个思路里遗漏了一个严重的问题。
-      <a href="/2009/12/30/system-function-in-awk" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
