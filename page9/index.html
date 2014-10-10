@@ -45,6 +45,52 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h2 class="entry-title">
+      <a href="/2011/05/27/analyze-the-xml-which-nmap-output" title="nmap扫描结果xml解析脚本" rel="bookmark">nmap扫描结果xml解析脚本</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-05-27 00:00:00 +0800">27 May 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">use</span> <span class="nn">XML::</span><span class="n">Simple</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Net::</span><span class="n">MySQL</span><span class="p">;</span>
+<span class="nb">system</span><span class="p">(</span><span class="s">&quot;nmap -n -p 5666 10.1.1.0/23 10.1.3.0/24 -oX output.xml&quot;</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$text</span> <span class="o">=</span> <span class="n">XMLin</span><span class="p">(</span><span class="s">&quot;output.xml&quot;</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="k">while</span> <span class="p">(</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span> <span class="p">)</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$nrpe</span> <span class="o">=</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">ports</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">port</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">};</span>
+<span class="c1">#因为在扫描到本机的时候，是没有mac的，所以到本机时不是ARRAY而是HASH</span>
+    <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="nb">ref</span><span class="p">(</span><span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">})</span> <span class="ow">eq</span> <span class="s">&#39;ARRAY&#39;</span> <span class="p">?</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">addr</span><span class="p">}</span> <span class="p">:</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">addr</span><span class="p">};</span>
+    <span class="k">my</span> <span class="nv">$mac</span> <span class="o">=</span> <span class="nb">ref</span><span class="p">(</span><span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">})</span> <span class="ow">eq</span> <span class="s">&#39;ARRAY&#39;</span> <span class="p">?</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">addr</span><span class="p">}</span> <span class="p">:</span> <span class="s">&#39;00:1E:C9:E6:E1:7C&#39;</span><span class="p">;</span>
+    <span class="o">&amp;</span><span class="n">mysql_query</span><span class="p">(</span><span class="nv">$ip</span><span class="p">,</span> <span class="nv">$mac</span><span class="p">,</span> <span class="nv">$nrpe</span><span class="p">);</span>
+    <span class="nv">$i</span><span class="o">++</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">sub </span><span class="nf">mysql_query</span> <span class="p">{</span>
+<span class="k">my</span> <span class="p">(</span><span class="nv">$ip</span><span class="p">,</span> <span class="nv">$mac</span><span class="p">,</span> <span class="nv">$nrpe</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$mysql</span> <span class="o">=</span> <span class="nn">Net::</span><span class="n">MySQL</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">hostname</span> <span class="o">=&gt;</span> <span class="s">&#39;10.1.1.25&#39;</span><span class="p">,</span>
+                             <span class="n">database</span> <span class="o">=&gt;</span> <span class="s">&#39;myops&#39;</span><span class="p">,</span>
+                             <span class="n">user</span>     <span class="o">=&gt;</span> <span class="s">&#39;myops&#39;</span><span class="p">,</span>
+                             <span class="n">password</span> <span class="o">=&gt;</span> <span class="s">&#39;myops&#39;</span><span class="p">,</span>
+                           <span class="p">);</span>
+<span class="nv">$mysql</span><span class="o">-&gt;</span><span class="n">query</span><span class="p">(</span>
+<span class="s">&quot;insert into myhost (intranet, mac, monitorstatus) values (&#39;$ip&#39;, &#39;$mac&#39;, &#39;$nrpe&#39;)&quot;</span>
+<span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+<p>小脚本一个，扫描内网网段内存活的机器，获取其MAC地址，以及nrpe端口情况。后期再配合myhost里的system，如果是linux（其实用nmap -O也可以获取system，但是结果不准，耗时还特别长，200台机器花10分钟），但monitorstatus还是closed的，就expect上去安装nrpe，嗯~~
+      <a href="/2011/05/27/analyze-the-xml-which-nmap-output" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
       <a href="/2011/05/20/merge-iplist-of-qqwry" title="续上：合并纯真ip段" rel="bookmark">续上：合并纯真ip段</a>
     </h2>
     <p class="alt-font tight">
@@ -926,27 +972,6 @@ lrwxrwxrwx  1 nobody nobody       59 Dec 27 15:06 10000053.mod -&gt; /var/www/ht
     <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
     <p>一台xen虚拟机，root密码忘记了，必须进入single模式修改root密码。步骤很熟练，xm shutdown domain &amp;&amp; xm create -c domain——但是出问题了——没出现grub的启动界面，直接进入系统启动过程了！
       <a href="/2011/01/26/direct-operate-xen-vm-image" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2011/01/20/problem-about-move-crossing-partition" title="图片分离小故障一例" rel="bookmark">图片分离小故障一例</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-01-20 00:00:00 +0800">20 Jan 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-    <p>有需求对某应用的图片和页面内容进行拆分。计划进行的很顺利，存储设备上成功分成了/vol/html和/vol/image，然后分别挂载在应用服务器上发布为html.domain.com和image.domain.com。但在恢复应用运行后出现一个问题：新图片的上传总是提示失败。
-      <a href="/2011/01/20/problem-about-move-crossing-partition" class="read_more span2 pull-right">继续阅读……</a>
       <div class="clear"></div>
     </div>
     <div class="clear"></div>
