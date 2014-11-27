@@ -80,6 +80,7 @@
     }
 }'
 </code></pre>
+<p><strong>注意这里一定要传递是 &ldquo;not_analyzed&rdquo; 的 字段过去！</strong> ES 流程上是先过分词器再到 scripting 模块的，这里要是切一下，到你脚本里就不知道长啥样了……</p>
 <p>结果如下：</p>
 <div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
   <span class="nt">&quot;took&quot;</span> <span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
@@ -115,19 +116,20 @@
     <span class="n">matcher</span><span class="o">[</span><span class="mi">0</span><span class="o">][</span><span class="mi">1</span><span class="o">]</span>
 <span class="o">}</span></code></pre></div>
 <p>同样等识别编译，然后发送这样的请求：</p>
-<p>curl &lsquo;127.0.0.1:9200/logstash-2014.11.27/_search?pretty&amp;size=0&rsquo; -d &lsquo;{
-    &ldquo;aggs&rdquo; : {
-        &ldquo;ipaddr&rdquo; : {
-            &ldquo;terms&rdquo; : {
-                &ldquo;script&rdquo; : &ldquo;regex&rdquo;,
-                &ldquo;params&rdquo; : {
-                    &ldquo;fieldname&rdquo;: &ldquo;client_ip.raw&rdquo;,
-                    &ldquo;pattern&rdquo;: &ldquo;^((?:\d{1,3}.?){3}).\d{1,3}$&rdquo;
+<pre><code>curl '127.0.0.1:9200/logstash-2014.11.27/_search?pretty&amp;size=0' -d '{
+    "aggs" : {
+        "ipaddr" : {
+            "terms" : {
+                "script" : "regex",
+                "params" : {
+                    "fieldname": "client_ip.raw",
+                    "pattern": "^((?:\d{1,3}\.?){3})\.\d{1,3}$"
                 }
             }
         }
     }
-}&rsquo;</p>
+}'
+</code></pre>
 <p>得到一模一样的结果。</p>
 <p>下一次试验一下在脚本中尝试加载其他库做更复杂处理的话，会如何呢？</p>
     <hr>
