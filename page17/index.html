@@ -45,6 +45,115 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h2 class="entry-title">
+      <a href="/2010/01/05/principle-and-solution-of-the-vm-date-problem" title="虚拟机时间问题的机制原理及解决办法" rel="bookmark">虚拟机时间问题的机制原理及解决办法</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-01-05 00:00:00 +0800">05 Jan 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#cloud-ref" title="cloud" rel="category tag">cloud</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+    <p>对于CDN来说，时间是个非常重要的概念，squid的缓存刷新控制，全都是以服务器时间为基准。在我博客的前不知道几篇的某文中，就提到过因为时间的原因引起的刷新事故。而最新的一次，是公司在日志流量统计时，因为相差太大导致截取失败——这可都是钱呢。
+实际工作中，大多会搭建一个NTP服务器，给应用服务器提供时间同步服务。但虚拟机在这方面有个问题。虚拟机的时间是读取的宿主机的硬件时钟，随便你date
+-s 1234怎么改，下一次date查看，都会恢复成原样。
+这样看起来是个好事，因为这样可以省略掉大批机器的NTP服务器同步时间的压力。但糟糕的事情在后头：一大批重要客户的虚拟机，在运行上半年以上时间后，date都比真实时间超前了（偶然我也看到过一次滞后的）。或许是几分钟，或许是几小时！！
+这一度让我很无奈，因为即使我重启虚拟机，这个诡异的date也依然倔强的按照它自己的时钟前进。看起来办法只有一个：把虚拟平台整个的重启——好在这种试验的结果是有效的，不然真不知道怎么办了。
+从这个无奈的办法中，也应该可以推测出一个结论，虚拟机的时钟，应该是另有文件存储在虚拟平台的某个临时文件里。所以关闭虚拟机，该文件还存在并继续计时；重启动虚拟平台，该文件才会重计。至于这个文件叫什么，存放在哪里，一时半会我就找不到了，或许这个问题不算什么特别大的问题，至少我在linuxsir.org的《xen初学指南》中，没有找到关于时钟的配置说明。
+不过再小的问题也顶不住人的研究。于是我找到了另一篇很对口的文章：《虚拟机中GUEST OS时钟(TIMEKEEP)问题的探讨》。
+文章告诉我们：虚拟机的时钟，与真实机的时钟区别，其一在于其处理不是抢占中断而是延迟处理；其二在于其中断模拟软件可能因资源占用问题被推迟。
+这两点区别，导致的结果却是一个，就是一旦服务器负载变高，时钟中断就被排到后头去了……
+文章也提出了解决办法，一个是编程，让系统补上中断的时间，这个俺就不说了；一个是修改内核，让系统不断修正date；
+进一步问题：不管哪个办法，第一，加重了虚拟机负载；第二，这又依赖与系统去更新date的进程的精准度，而这个进程的中断时钟如果有偏差的话，……
+再进一步方法……有兴趣的还是自己点文章看吧。
+看起来这个问题就要永远终结在此了。
+不过变通的主意及时的出现了——既然虚拟机跟虚拟平台之间的异步时钟同步没法解决，我们就干脆不要虚拟机跟虚拟平台同步了。这样虽然对NTP的压力大了，但毕竟保证了CDN的正常。而且从上头的原理可以知道，能够导致date偏差到这个程度的原因，大概也是因为虚拟机的负载压力太大。事实上，我们为了保证冗余，也是尽量避免这种压力出现的。那么date偏差的服务器，其实也就是少数了。
+顺着这个思路一查，原来办法其实很简单——修改虚拟机的independent_wallclock值即可：
+echo 1 &gt; /proc/sys/xen/independent_wallclock
+或sysctl xen.independent_wallclock=1
+启用虚拟机独立系统时间；
+/etc/init.d/ntpd stop
+ntpdate 192.168.0.1
+就能完成NTP时间同步了；
+再date看看，时间果然就更正了~~
+/proc下的文件都是进程使用中的文件，如果要让虚拟机开机自动读取配置，把这个修改写进/etc/sysctl.conf才行哦：
+echo &ldquo;xen.independent_wallclock = 1&rdquo;&nbsp;&raquo; /etc/sysctl.conf
+就这么简单~~~
+      <a href="/2010/01/05/principle-and-solution-of-the-vm-date-problem" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
+      <a href="/2010/01/01/limit-speed-in-squid" title="squid限速" rel="bookmark">squid限速</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-01-01 00:00:00 +0800">01 Jan 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+    <p>squid有个delay_pool，可以做限速，虽然效果不太准~（嗯，就像限制并发连接数的maxconn一样）
+首先搬个老虎皮做大旗——《Squid: The Definitive Guide》的相关段落：
+      <a href="/2010/01/01/limit-speed-in-squid" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
+      <a href="/2009/12/31/process-of-request-to-squid" title="squid请求处理流程（源站故障转向研究）" rel="bookmark">squid请求处理流程（源站故障转向研究）</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-12-31 00:00:00 +0800">31 Dec 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+    <p>今天继续想别的办法，第一，当然还是修改源代码，这个C++可惜俺不懂，只是大略的通过百大哥谷大婶知道了squid的请求处理流程：
+      <a href="/2009/12/31/process-of-request-to-squid" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
+      <a href="/2009/12/30/system-function-in-awk" title="awk中让人郁闷的system()函数" rel="bookmark">awk中让人郁闷的system()函数</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-12-30 00:00:00 +0800">30 Dec 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+    <p>发现一个特尴尬的事实。我辛辛苦苦去百度资料，想用rewrite实现针对不同域名源站故障后的自动跳转功能，但整个思路里遗漏了一个严重的问题。
+      <a href="/2009/12/30/system-function-in-awk" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
       <a href="/2009/12/30/squid-gzip" title="squid3 的 gzip 支持" rel="bookmark">squid3 的 gzip 支持</a>
     </h2>
     <p class="alt-font tight">
@@ -638,95 +747,6 @@ else{STABLE}
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2009/11/18/guess-the-cdn-accel-for-games" title="游戏CDN加速猜想" rel="bookmark">游戏CDN加速猜想</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-18 00:00:00 +0800">18 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#cdn-ref" title="cdn" rel="category tag">cdn</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-    <p>没事去国内几个主要的CDN商网站看了看各个的CDN产品说明和解决方案，基本上大同小异（其实连小异我都没怎么找到）。唯一让我惊讶的是蓝汛Chinacache——蓝汛在自己网站上写着“游戏应用加速”，内容如下：
-      <a href="/2009/11/18/guess-the-cdn-accel-for-games" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2009/11/18/a-strange-accident-of-squid" title="squid一次诡异事故" rel="bookmark">squid一次诡异事故</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-18 00:00:00 +0800">18 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-    <p>前几天出了一次诡异的事情。某客户在半夜2点钟更新了其网站的内容后，按照刷新规则，squid应该在15分钟内也更新成新内容的。但实际情况却是新网页一刷新没准就变成旧的，一直到5点左右这种现象才算是消失了。
-      <a href="/2009/11/18/a-strange-accident-of-squid" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2009/11/17/a-error-page-problem-of-squid" title="squid的一点小问题" rel="bookmark">squid的一点小问题</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-17 00:00:00 +0800">17 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-    <p>网站运行，出错是必然的。squid提供了一整套多国语言的错误信息页面，放在share/errors/目录下。
-但是，让人很尴尬的一点是：squid默认的english错误页面中，居然会公开显示客户源站的IP地址。而有一部分客户，用CDN的目的之一就是要用CDN来分担攻击流量，保护自己。这下可好。生生给暴露出去了。
-而附带的简体中文页面中，刚好就没这个信息。真不知道是在讽刺国人攻击性太强，心理太黑暗了么……
-不管怎么说，得把这个改掉。最简单的办法，修改english页面，删除掉ERR_CONNECT_FAIL里那个关键的信息。关键的就是下面这一段：
-      <a href="/2009/11/17/a-error-page-problem-of-squid" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2009/11/16/configure-ssl-support-of-squid" title="squid的SSL配置" rel="bookmark">squid的SSL配置</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2009-11-16 00:00:00 +0800">16 Nov 2009</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-    <p>公司新进客户，要求加速它的论坛，比较奇怪的是，整个论坛居然都是https协议的网页。所以得做443端口的配置。
-如果只是端口，一个https_port 443就够了。麻烦的地方在证书（之前就有客户死活不肯给证书，于是只能给做个端口转发，顶天了算是路由优化，何苦往CDN里投钱……）。
-在拿到证书后，squid.conf里添加这么一句，SSL配置就算是完成了。但测试的时候问题可就多多了
-      <a href="/2009/11/16/configure-ssl-support-of-squid" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -785,6 +805,9 @@ else{STABLE}
     </li>
     <li class="page">
       <a href="/page18">18</a>
+    </li>
+    <li class="page">
+      <a href="/page19">19</a>
     </li>
     <li>
       <a href="/page18">Next</a>
