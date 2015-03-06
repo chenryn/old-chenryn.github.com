@@ -206,9 +206,9 @@ script_filename = /opt/www/inkebook/index.php
 <p><em>Kibana 4 里还会检查 ES 集群的分片状态，如果有 INIT 状态的分片，直接连 server 都不会启动，一定要等待集群完全 green 了才行。这是个很没道理的做法。我只要每个号有一个分片能用，就不影响数据读取啊！碰巧也有这个问题的，可以修改 <code>src/server/lib/waitForEs.js</code> 里的 <code>waitForShards()</code> 函数，直接强制 return 即可。实测完全没影响。</em></p>
 <p>运行起来以后，访问主机的 5601 端口，就可以打开 Kibana4 的页面了。配置索引模式等步骤，这里不详说，可以参见我刚翻译完的<a href="http://kibana.logstash.es/content/v4/README.html">《Kibana 4 用户指南》</a>。</p>
 <p>总之，在 Discover 页添加一个 query 或者 filter，目的是过滤出来 php-fpm 的 slow 日志数据，完成后保存，命名。</p>
-<p>然后进 Visualize 页，添加一个 pie chart。选择 aggregation 类型为 terms。选择字段为 <code>slow.1</code>(如果采用了类 logstash 的template，这里应该用 <code>slow.1.raw</code> 确保函数不会被分词)。然后点击 <code>split bucket</code>，继续添加 aggregation，这次字段为 <code>slow.2</code>。以此类推，假设我们一直添加到了 <code>slow.4</code>。</p>
+<p>然后进 Visualize 页，添加一个 pie chart。选择 aggregation 类型为 terms。选择字段为 <code>slow.1</code>(如果采用了类 logstash 的template，这里应该用 <code>slow.1.raw</code> 确保函数不会被分词)。然后点击 <code>split slices</code>，继续添加 aggregation，这次字段为 <code>slow.2</code>。以此类推，假设我们一直添加到了 <code>slow.4</code>。</p>
 <p>好了，页面右侧出现了最终的效果：</p>
-<p><img src="/images/uploads/k4-split-bucket-pie.jpg" alt="split bucket pie chart" /></p>
+<p><img src="/images/uploads/k4-split-bucket-pie.jpg" alt="split slices pie chart" /></p>
 <p>点击保存，输入命名。之后，可以在 Dashboard 页加入这个图片，也可以直接在其他页面里嵌入这个图片。点击 share 图标就可以看到 URL 了。如下：</p>
 <blockquote>
   <p>http://sla.weibo.cn:5601/#/visualize/edit/php-slow-stack-pie?embed&amp;_g=(time:(from:now-24h,mode:quick,to:now))&amp;_a=(filters:!(),linked:!t,query:(query_string:(query:&rsquo;*&rsquo;)),vis:(aggs:!((id:&rsquo;1&rsquo;,params:(),schema:metric,type:count),(id:&rsquo;2&rsquo;,params:(field:slow.1.raw,order:desc,orderBy:&rsquo;1&rsquo;,size:10),schema:segment,type:terms),(id:&rsquo;3&rsquo;,params:(field:slow.2.raw,order:desc,orderBy:&rsquo;1&rsquo;,size:10),schema:segment,type:terms),(id:&rsquo;4&rsquo;,params:(field:slow.3.raw,order:desc,orderBy:&rsquo;1&rsquo;,size:10),schema:segment,type:terms),(id:&rsquo;5&rsquo;,params:(field:slow.4.raw,order:desc,orderBy:&rsquo;1&rsquo;,size:10),schema:segment,type:terms)),listeners:(),params:(addLegend:!t,addTooltip:!t,defaultYExtents:!f,isDonut:!t,shareYAxis:!t,spyPerPage:10),type:pie))</p>
@@ -339,16 +339,18 @@ var jiathis_config={
         </div>
         <div class="well sidebar-nav">
           <ul id="booklists" class="nav nav-list">
-          <li class="nav-header">我写的第一本技术书籍</li>
+          <li class="nav-header">我写的技术书籍</li>
           <li><a href='http://product.china-pub.com/3769604'><img src='http://images.china-pub.com/ebook3765001-3770000/3769604/shupi.jpg' border='0' alt='网站运维技术与实践'/></a></li>
-          <li class="nav-header">我写的两本电子书籍</li>
+          <li class="nav-header">我参与翻译的技术书籍</li>
+          <li><a href='http://product.china-pub.com/4582714'><img src='http://images.china-pub.com/ebook4580001-4585000/4582714/shupi.jpg' border='0' alt='Puppet 实战手册'/></a></li>
+          <li class="nav-header">我写的电子书籍</li>
           <li><a href='http://chenryn.gitbooks.io/logstash-best-practice/'><img src='https://sm3lir.cloudimage.io/s/cdn/x/https://www.gitbook.io/cover/book/chenryn/logstash-best-practice?build=1416299695472' border='0' alt='LogStash 最佳实践'/></a></li>
           <li><a href='http://kibana.logstash.es/'><img src='https://sm3lir.cloudimage.io/s/cdn/x/https://www.gitbook.io/cover/book/chenryn/kibana-guide-cn?build=1415872457562' border='0' alt='Kibana 中文指南'/></a></li>
         </div>
       </div>
     </div> <!-- row -->
       <footer>
-        <p>&copy; 陈子 2012 
+        <p>&copy; 陈子 2015 
           with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
           and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
         </p>
