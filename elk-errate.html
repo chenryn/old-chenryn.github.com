@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>不小心踩进ElasticSearch.pm模块的坑里了</title>
+    <title>《ELK stack权威指南》勘误</title>
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -28,7 +28,7 @@
           <ul class="nav">
       	<li><a href="/archive.html">归档</a></li>
       	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errate.html">《ELK stack权威指南》勘误</a></li>
+      	<li class="active"><a href="/elk-errate.html" class="active">《ELK stack权威指南》勘误</a></li>
       	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
       	<li><a href="/pages.html">Pages</a></li>
       	<li><a href="/projects.html">学习记录</a></li>
@@ -45,51 +45,23 @@
       <div class="span7">
 <div class="row">
   <div class="page-header">
-    <h1>不小心踩进ElasticSearch.pm模块的坑里了 <small></small></h1>
-    <div class="date"><span>11 December 2012</span></div>
+    <h1>《ELK stack权威指南》勘误 <small></small></h1>
+    <div class="date"><span>18 October 2015</span></div>
     <ul class="tag_box pull-right">
-    	<li><a href="/tags.html#elasticsearch-ref">elasticsearch <span>32</span></a></li>
-    	<li><a href="/tags.html#perl-ref">perl <span>68</span></a></li>
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>在今天以前，我一直认为perl的ElasticSearch.pm是除了原生java库以外封装最好的。不过今天踩进一个硕大的坑里，多亏 dancer-user 邮件列表里外国友人的帮助，才算爬了出来……</p>
-<h1 id="section">事情是这样的</h1>
-<p>用 dancer 搭建的一个 webserver 用来提供 api 给前端图表页面。dancer 收到 ajax 请求后组装成 json 发给 ElasticSearch。因为要算百分比，无法在单次请求内完成，不然的话直接从页面上发给 ES 服务器了。</p>
-<p>这个 webserver 是之前已经创建过的。而且作用类似，也就是说，之前已经存在一个 <code>DancerApp/lib/DancerApp/First.pm</code> 里使用了 ElasticSearch 模块。相关代码如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="n">Dancer</span> <span class="s">&#39;:syntax&#39;</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">ElasticSearch</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$elsearch</span> <span class="o">=</span> <span class="n">ElasticSearch</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">config</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">ElasticSearch</span><span class="p">}</span> <span class="p">);</span></code></pre></div>
-<p>然后给新项目创建 <code>DancerApp/lib/DancerApp/Second.pm</code> 同样使用 ElasticSearch 模块，代码原样复制。然后在 <code>DancerApp/lib/DancerApp.pm</code> 里先后加载：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="n">Dancer</span> <span class="s">&#39;:syntax&#39;</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">FindBin</span> <span class="sx">qw($Bin)</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">lib</span> <span class="s">&quot;$Bin/../lib&quot;</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">DancerApp::</span><span class="n">First</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">DancerApp::</span><span class="n">Second</span><span class="p">;</span></code></pre></div>
-<p>启动应用后访问页面。怪事出现了： <em>First 应用正常，Second 应用报错说 ElasticSearch 连接不上</em>。</p>
-<p>仔细看报错信息，发现Second 里的 <code>$elsearch</code> 连接的不是 <code>config.yml</code> 里设定的 servers，而是模块默认的 <code>127.0.0.1:9200</code>。</p>
-<p>更换<code>DancerApp/lib/DancerApp.pm</code> 里的加载次序，就变成了 <em>Second 正常，First 失败</em>。</p>
-<p>试图使用下面的代码检查 <code>config</code> ，发现 config 里其他的设置都没问题，唯独和 ElasticSearch 相关的设定发生了变化：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="nn">Data::</span><span class="n">Dumper</span><span class="p">;</span>
-    <span class="n">get</span> <span class="s">&#39;/config&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="k">return</span> <span class="n">Dumper</span> <span class="n">config</span> <span class="p">};</span></code></pre></div>
-<p>结果中 <code>config-&gt;{ElasticSearch}</code> 只剩下 <code>trace_calls: 0</code> 一条设定， <code>servers</code>、<code>transport</code>、<code>no_refresh</code> 和 <code>max_requests</code> 都消失了！</p>
-<h1 id="section-1">真相只有一个</h1>
-<p>ElasticSearch 模块在初始化的时候，会把参数传递给 <code>ElasticSearch::Transport</code> 模块做具体的操作（包括之前我很欣赏的自动选择节点服务器）。而就在这里，问题出现了：</p>
-<p><em>参数一直是以引用身份传递的，任何修改都会修改原始数据</em></p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">my</span> <span class="nv">$servers</span> <span class="o">=</span> <span class="nb">delete</span> <span class="nv">$params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">servers</span><span class="p">}</span>
-        <span class="o">||</span> <span class="s">&#39;127.0.0.1:&#39;</span> <span class="o">.</span> <span class="nv">$transport_class</span><span class="o">-&gt;</span><span class="n">default_port</span><span class="p">;</span></code></pre></div>
-<p>随着 <code>delete</code> 操作，悲剧就此发生了。Dancer 里的全局变量 <code>config-&gt;{ElasticSearch}</code> 中的 servers 元素就此消失……</p>
-<h1 id="section-2">善后事宜</h1>
-<p>解决办法很容易，在每个模块里初始化 ElasticSearch 实例的适合，传递一个全局 <code>config-&gt;{ElasticSearch}</code> 的_副本的引用_过去。</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">my</span> <span class="nv">$elsearch</span> <span class="o">=</span> <span class="n">ElasticSearch</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="p">{</span> <span class="nv">%</span><span class="p">{</span> <span class="n">config</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">ElasticSearch</span><span class="p">}</span> <span class="p">}</span> <span class="p">}</span> <span class="p">);</span></code></pre></div>
-<p>亲爱的 David Precious 童鞋已经把这个问题上报给 ElasticSearch.pm 开发者了。或许之后会由模块内部做副本操作。目前只能自己来了。</p>
-<p>issue 地址：<a href="https://github.com/clintongormley/ElasticSearch.pm/issues/34">https://github.com/clintongormley/ElasticSearch.pm/issues/34</a></p>
+    <p>新作《ELK stack权威指南》已经上架销售，考虑到个人精力有限，笔误、差错肯定在所难免。特开这个页面作为勘误清
+单，也包括一些书中技术经过重大更新不在适用或推荐的简略说明。</p>
+<p>如果大家有发现书中错误且尚未列出的，欢迎通过留言、邮件、微博等各种方式联系我～～</p>
+<hr />
+<h1 id="section">错误</h1>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/12/10/gnuplot-to-draw-histogram-cluster" title="用gnuplot绘制直方图">&larr; Previous</a></li>
+        <li class="prev disabled"><a>&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/12/16/how-to-set-host-header-in-perl" title="perl发起HTTP请求时如何设置Host头">Next &rarr;</a></li>
+        <li class="next disabled"><a>Next &rarr;</a>
       </ul>
     </div>
     <hr>
@@ -133,15 +105,6 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
-                 <li><a href="/2015/02/25/kibana-4-rc1-is-now-available">【翻译】Kibana 4 RC1 发布</a></li>
-                 <li><a href="/2015/02/25/kibana-4-literally">【翻译】kibana 4 正式就位</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">
