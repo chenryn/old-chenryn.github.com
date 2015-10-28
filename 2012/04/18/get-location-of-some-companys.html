@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>获取造价百强公司的真实位置</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes//bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes//css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes//css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive">归档</a></li>
+      	<li><a href="/categories">分类</a></li>
+      	<li><a href="/elk-errata">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages">Pages</a></li>
+      	<li><a href="/projects">学习记录</a></li>
+      	<li><a href="/tags">标签</a></li>
+            <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>获取造价百强公司的真实位置 <small></small></h1>
+    <div class="date"><span>18 April 2012</span></div>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>很久没更新，没用技术，今天稍微geek一下下。给老婆搜索她行业百强公司的具体地点，看看如果换单位的话是否方便出行~代码如下：</p>
+<figure class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl</span>
+<span class="k">use</span> <span class="nn">Data::</span><span class="n">Dumper</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">LWP::</span><span class="n">UserAgent</span><span class="p">;</span>
+<span class="k">use</span> <span class="n">URI</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Web::</span><span class="n">Scraper</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">JSON::</span><span class="n">XS</span><span class="p">;</span>
+<span class="c1"># 处理中文需要指定输入输出都用utf8格式，否则会有wide character in print的warning提示 </span>
+<span class="k">use</span> <span class="n">utf8</span><span class="p">;</span>
+<span class="nb">binmode</span><span class="p">(</span><span class="bp">STDIN</span><span class="p">,</span> <span class="s">&#39;:encoding(utf8)&#39;</span><span class="p">);</span>
+<span class="nb">binmode</span><span class="p">(</span><span class="bp">STDOUT</span><span class="p">,</span> <span class="s">&#39;:encoding(utf8)&#39;</span><span class="p">);</span>
+<span class="nb">binmode</span><span class="p">(</span><span class="bp">STDERR</span><span class="p">,</span> <span class="s">&#39;:encoding(utf8)&#39;</span><span class="p">);</span>
+<span class="c1"># 百度地图搜索的查询结果返回的是json数据，需要转换成perl的哈希格式 </span>
+<span class="k">sub </span><span class="nf">decode_map_json</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$map_json</span> <span class="o">=</span> <span class="n">decode_json</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="c1"># 如果是距离搜索，那么$map_json-&gt;{&quot;content&quot;}-&gt;[0]-&gt;{&quot;lines&quot;}-&gt;[0]-&gt;[2]是距离；$map_json-&gt;{&quot;taxi&quot;}-&gt;{&quot;detail&quot;}-&gt;[0]-&gt;{&quot;totalPrice&quot;}是打的费用。</span>
+    <span class="k">return</span> <span class="nv">$map_json</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;content&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;addr&quot;</span><span class="p">};</span>
+<span class="p">};</span>
+<span class="c1"># 用LWP发起地图查询请求 </span>
+<span class="k">sub </span><span class="nf">get_map_json</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$company</span> <span class="o">=</span> <span class="nv">$_</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$ua</span> <span class="o">=</span> <span class="nn">LWP::</span><span class="n">UserAgent</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="nv">$ua</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;http://map.baidu.com/?qt=s&amp;wd=&#39;</span><span class="o">.</span><span class="nv">$company</span><span class="p">);</span>
+    <span class="k">return</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="n">decoded_content</span> <span class="k">if</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="n">is_success</span><span class="p">;</span>
+<span class="p">};</span>
+<span class="c1"># 采用Web::Scraper获取网页里的XPath内容 </span>
+<span class="k">sub </span><span class="nf">get_company</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$ori_uri</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="c1"># 可以在firefox里直接查看元素的XPath，在google chrome里则需要安装Xpath Helper工具。</span>
+    <span class="c1"># 安装完成后，使用Ctrl+Shift+X快捷键呼出顶端Xpath调试框，然后按住Shift键，用鼠标左键点击网页元素，上边框里就出现元素的Xpath和content了。</span>
+    <span class="c1"># 注意复制过来的Xpath里的@会被perl理解成是数组的标示，所以要加上逃逸符\才行。</span>
+    <span class="k">my</span> <span class="nv">$tweets</span> <span class="o">=</span> <span class="n">scraper</span> <span class="p">{</span>
+        <span class="n">process</span> <span class="s">&quot;/html/body/div[\@class=&#39;index-main layout&#39;]/div[\@class=&#39;index-main layout&#39;]/div[\@class=&#39;index-content bcolor&#39;]/div[\@class=&#39;cont&#39;]/div[\@id=&#39;fontzoom&#39;]/span[\@id=&#39;BodyLabel&#39;]/div/table&quot;</span><span class="p">,</span> <span class="s">&quot;list&quot;</span> <span class="o">=&gt;</span> <span class="n">scraper</span> <span class="p">{</span>
+            <span class="c1"># 第一个scraper里不能获取tbody，原因未知。所以分成两步，先获取一个到table的scraper，再获取tbody里面的TEXT。</span>
+            <span class="n">process</span> <span class="s">&quot;tbody tr td:nth-child(2)&quot;</span><span class="p">,</span> <span class="s">&#39;cont[]&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;TEXT&#39;</span><span class="p">;</span>
+        <span class="p">};</span>
+    <span class="p">};</span>
+    <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="nv">$tweets</span><span class="o">-&gt;</span><span class="n">scrape</span><span class="p">(</span><span class="n">URI</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="nv">$ori_uri</span><span class="p">));</span>
+    <span class="k">return</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;list&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;cont&#39;</span><span class="p">};</span>
+<span class="p">};</span>
+<span class="k">my</span> <span class="nv">$company</span> <span class="o">=</span> <span class="n">get_company</span><span class="p">(</span><span class="s">&#39;http://www.ceca.org.cn/show.aspx?id=2006&#39;</span><span class="p">);</span>
+<span class="k">foreach</span><span class="p">(</span><span class="nv">@$company</span><span class="p">){</span>
+    <span class="k">print</span> <span class="nv">$_</span><span class="p">,</span><span class="s">&quot;\t&quot;</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$json</span> <span class="o">=</span> <span class="n">get_map_json</span><span class="p">(</span><span class="nv">$_</span><span class="p">);</span>
+    <span class="k">print</span> <span class="n">decode_map_json</span><span class="p">(</span><span class="nv">$json</span><span class="p">),</span><span class="s">&quot;\n&quot;</span><span class="p">;</span>
+<span class="p">};</span></code></pre></figure>
+<p>输出结果如下：    </p>
+<pre><code>单位名称	
+上海东方投资监理有限公司	中国·上海市江宁路1306弄7号富丽大厦23楼
+中冶京诚工程技术有限公司	白广路4号
+中铁工程设计咨询集团有限公司	
+中冶赛迪工程技术股份有限公司	重庆市渝中区双钢路一号
+中国电力工程顾问集团西南电力设计院	
+上海第一测量师事务所有限公司	澳门路519弄1-5号
+中竞发（北京）工程造价咨询有限公司	知春路108号豪景大厦A座13层
+</code></pre>
+<p>搜狗地图的api只是js的，不方便弄。不然直接获取从当前地点到目的地点的距离和耗时就更好了~~百度地图页面上就没看到有api提供，虽然用着，还是鄙视一下~~</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2012/04/16/configs-automatically-effective-for-elastic-monitor" title="弹性集群监控中的配置自动生效问题研究">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next"><a href="/2012/04/21/backup-blog-to-51cto" title="51CTO博客自动发布脚本">Next &rarr;</a></li>
+      </ul>
+    </div>
+    <hr>
+  <!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+<span class="jiathis_txt">分享到：</span>
+<a class="jiathis_button_tsina">新浪微博</a>
+<a class="jiathis_button_weixin">微信</a>
+<a class="jiathis_button_renren">人人网</a>
+<a class="jiathis_button_ydnote">有道云笔记</a>
+<a class="jiathis_button_gmail">Gmail邮箱</a>
+<a class="jiathis_button_twitter">Twitter</a>
+<a class="jiathis_button_googleplus">Google+</a>
+<a class="jiathis_button_hi">百度空间</a>
+<a class="jiathis_button_fb">Facebook</a>
+<a class="jiathis_button_douban">豆瓣</a>
+<a href="http://www.jiathis.com/share?uid=1589850" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank">更多</a>
+<a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript" >
+var jiathis_config={
+	data_track_clickback:true,
+	summary:"",
+	ralateuid:{
+		"tsina":"1035836154"
+	},
+	shortUrl:false,
+	hideMore:false
+}
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js?uid=1589850" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+<!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
+                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
+                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(英文)</li>
+              <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+              <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+              <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+              <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+              <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+              <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+              <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+              <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+              <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+              <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+              <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+              <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+              <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+              <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
+              <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+              <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
+              <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
+              <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
+              <li><a href="http://aphyr.com/posts" title="call me maybe 吐槽系列">Aphyr</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(中文)</li>
+              <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+              <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+              <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+              <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+              <li><a href="http://timo.piqiu.me/" title="TIMO IS MY OASIS">Timo</a></li>
+              <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+              <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+              <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+              <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+              <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
+              <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+              <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+              <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+              <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+              <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+              <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+              <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
+              <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+              <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+              <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+              <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
+              <li><a href="http://flw.tools/" title="">flw的工具箱</a></li>
+              <li><a href="http://blog.mcshell.org/" title="">mcshell</a></li>
+              <li><a href="http://novoland.github.io/" title="">克鲁斯卡尔的博客</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="booklists" class="nav nav-list">
+          <li class="nav-header">我写的技术书籍</li>
+          <li><a href='http://product.china-pub.com/3769604'><img src='http://images.china-pub.com/ebook3765001-3770000/3769604/shupi.jpg' border='0' alt='网站运维技术与实践'/></a></li>
+          <li><a href='http://product.china-pub.com/64005'><img src='http://images.china-pub.com/ebook60001-65000/64005/shupi.jpg' border='0' alt='ELK Stack权威指南'/></a></li>
+          <li class="nav-header">我参与翻译的技术书籍</li>
+          <li><a href='http://product.china-pub.com/4582714'><img src='http://images.china-pub.com/ebook4580001-4585000/4582714/shupi.jpg' border='0' alt='Puppet 实战手册'/></a></li>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2015 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+  </body>
+</html>

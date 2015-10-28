@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>【Etsy 的 Kale 系统】简介、部署和应用</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes//bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes//css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes//css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive">归档</a></li>
+      	<li><a href="/categories">分类</a></li>
+      	<li><a href="/elk-errata">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages">Pages</a></li>
+      	<li><a href="/projects">学习记录</a></li>
+      	<li><a href="/tags">标签</a></li>
+            <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>【Etsy 的 Kale 系统】简介、部署和应用 <small></small></h1>
+    <div class="date"><span>18 June 2013</span></div>
+    <ul class="tag_box pull-right">
+    	<li><a href="/tags.html#python-ref">python <span>12</span></a></li>
+    	<li><a href="/tags.html#perl-ref">perl <span>68</span></a></li>
+    	<li><a href="/tags.html#ruby-ref">ruby <span>21</span></a></li>
+    	<li><a href="/tags.html#elasticsearch-ref">elasticsearch <span>32</span></a></li>
+    	<li><a href="/tags.html#redis-ref">redis <span>4</span></a></li>
+    	<li><a href="/tags.html#graphite-ref">graphite <span>3</span></a></li>
+    </ul>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>监控大户 Etsy 最近有公布了一个全新的监控分析系统，叫 Kale，博客地址：<a href="http://codeascraft.com/2013/06/11/introducing-kale/">http://codeascraft.com/2013/06/11/introducing-kale/</a>。</p>
+<p>目前的介绍内容比较简单。两个组件 <code>skyline</code> 和 <code>oculus</code> 之间的关系也还没搞清楚。大概上， <code>skyline</code> 是一个 python 程序，接受 <code>cPickle</code> 和 <code>MessagePack</code> 两种数据包，解压后的数据格式类似 <code>graphite</code> 接收的，然后存在 <code>Redis-server</code> 中。在 webapp 上提供一个类似 <code>rrdtool</code> 的功能，显示触发阈值线的趋势图(不触发的不会显示，自动过滤了)。</p>
+<p>安装步骤：</p>
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">    pip install -r requirements.txt
+    apt-get install -y numpy scipy
+    pip install pandas patsy statsmodels msgpack_python
+    cp src/settings.py.example src/settings.py
+    mkdir /var/log/skyline
+    mkdir /var/run/skyline
+    mkdir /var/log/redis
+    <span class="c"># 必须用最新版的 redis-server 才能正常存储</span>
+    wget http://redis.googlecode.com/files/redis-2.6.13.tar.gz
+    tar zxvf redis-2.6.13.tar.gz
+    <span class="nb">cd </span>redis-2.6.13
+    make
+    ./src/redis-server ../bin/redis.conf
+    <span class="nb">cd</span> ../src
+    <span class="c"># 这里会启动 UDP 2024 端口接受 cpickle 包，2025 端口接受 msgpack 包</span>
+    ../bin/horizon.d start
+    ../bin/analyzer.d start
+    <span class="c"># 这里会启动 TCP 1500 端口接受 web 访问</span>
+    ../bin/webapp.d start
+    <span class="c"># 测试是否正常</span>
+    <span class="nb">cd</span> ../utils
+    ./seed_data.py</code></pre></figure>
+<p><code>oculus</code> 是一个 rack 应用，需要定时从 <code>skyline</code> 中导入数据到 <code>ElasticSearch</code> 中。同时，<code>oculus</code> 还提供了一个 <code>ElasticSearch</code> 分析器插件，可以在 ES 中完成 <code>FastDTW</code> 和 <code>Euclidian</code> 两种位移算法（用来给不同时间序列的近似度打分）。在rack 页面上，提供搜索框，你可以提交一个 metric 名称——经过测试，目前应该是采用完全匹配的方式搜索——然后展示这个 metric 的图形，以及按照 score 打分排序的近似时间序列。</p>
+<ul>
+  <li>欧几里德算法原理：根据两点的坐标系计算直线距离；</li>
+  <li>动态时间归整原理：将时间序列进行延伸或者缩短，然后再计算。
+<a href="http://www.cnblogs.com/kemaswill/archive/2013/04/18/3028610.html">http://www.cnblogs.com/kemaswill/archive/2013/04/18/3028610.html</a></li>
+</ul>
+<p>安装步骤：</p>
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">    <span class="c"># 只能用 0.20.5 版，0.90 版目前不支持</span>
+    wget https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-0.20.5.tar.gz
+    tar zxvf elasticsearch-0.20.5.tar.gz
+    mv elasticsearch-0.20.5 /opt/elasticsearch
+    <span class="c"># 编译插件</span>
+    cp -r resources/elasticsearch-oculus-plugin /opt/elasticsearch/
+    <span class="nb">pushd</span> /opt/elasticsearch/elasticsearch-oculus-plugin
+    rake build
+    cp OculusPlugins.jar /opt/elasticsearch/lib/OculusPlugins.jar
+    <span class="c"># 加载分析器和脚本</span>
+    cat &gt;&gt;/opt/elasticsearch/config/elasticsearch.yml<span class="s">&lt;&lt;EOF</span>
+<span class="s">    script.native:</span>
+<span class="s">      oculus_euclidian.type: com.etsy.oculus.tsscorers.EuclidianScriptFactory</span>
+<span class="s">      oculus_dtw.type: com.etsy.oculus.tsscorers.DTWScriptFactory</span>
+<span class="s">    EOF</span>
+    <span class="c"># 启动</span>
+    /opt/elasticsearch/bin/elasticsearch
+    <span class="nb">popd</span>
+<span class="nb">    </span>bundle install
+    mkdir /var/run/oculus
+    mkdir /var/log/oculus
+    <span class="c"># 启动 worker 进程，这是import.rb 和 ES 交流的渠道</span>
+    rake resque:start_workers
+    <span class="c"># 编辑 config/config.yml，注意里面ES一定要提供两台，哪怕写一个127.0.0.1一个localhost，后面 import 会验证数目</span>
+    vi config/config.yml
+    <span class="c"># 从 skyline 导入数据</span>
+    ./scripts/import.rb
+    <span class="nb">echo</span> <span class="s1">&#39;*/2 * * * * ~/oculus/scripts/import.rb &amp;&gt; /var/log/oculus/import.log&#39;</span> &gt;&gt; cron.list
+    crontab -u root cron.list
+    <span class="c"># 启动web</span>
+    thin start
+    <span class="c"># 默认用户密码都是admin，需要先点击初始化</span>
+    gnome-open localhost:3000/admin</code></pre></figure>
+<p><code>oculus</code> 的测试我是做出来了。如图：</p>
+<p><img src="/images/uploads/oculus.png" alt="oculus" /></p>
+<p>这个数据我是通过 perl 生成的随机数，所以也没什么近似队列了。展示一下脚本，这样说明我们可以通过其他脚本扩展 Kale 系统的用途。</p>
+<figure class="highlight"><pre><code class="language-perl" data-lang="perl">    <span class="c1">#!/usr/bin/env perl</span>
+    <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
+    <span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Data::</span><span class="n">MessagePack</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">AnyEvent::Handle::</span><span class="n">UDP</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$mp</span> <span class="o">=</span> <span class="nn">Data::</span><span class="n">MessagePack</span><span class="o">-&gt;</span><span class="k">new</span><span class="o">-&gt;</span><span class="n">utf8</span><span class="o">-&gt;</span><span class="n">prefer_integer</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$cv</span>   <span class="o">=</span> <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">condvar</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$sock</span> <span class="o">=</span> <span class="nn">AnyEvent::Handle::</span><span class="n">UDP</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+        <span class="nb">connect</span>   <span class="o">=&gt;</span> <span class="p">[</span> <span class="s">&#39;127.0.0.1&#39;</span><span class="p">,</span> <span class="s">&#39;2025&#39;</span> <span class="p">],</span>
+        <span class="n">on_recv</span>   <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="p">},</span>
+        <span class="n">autoflush</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$timer</span> <span class="o">=</span> <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">timer</span><span class="p">(</span>
+        <span class="n">after</span>    <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">interval</span> <span class="o">=&gt;</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="n">cb</span>       <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+            <span class="k">print</span> <span class="s">&quot;send...\n&quot;</span><span class="p">;</span>
+            <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="p">[</span> <span class="s">&#39;localhost.loadavg&#39;</span><span class="p">,</span> <span class="p">[</span> <span class="nb">time</span><span class="p">(),</span> <span class="nb">rand</span><span class="p">()</span> <span class="o">*</span> <span class="mi">2</span> <span class="p">]</span> <span class="p">];</span>
+            <span class="k">my</span> <span class="nv">$packed</span> <span class="o">=</span> <span class="nv">$mp</span><span class="o">-&gt;</span><span class="nb">pack</span><span class="p">(</span><span class="nv">$data</span><span class="p">);</span>
+            <span class="nv">$sock</span><span class="o">-&gt;</span><span class="n">push_send</span><span class="p">(</span><span class="s">&quot;$packed&quot;</span><span class="p">);</span>
+        <span class="p">},</span>
+    <span class="p">);</span>
+    <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nb">recv</span><span class="p">;</span></code></pre></figure>
+<p>从源码中，看到还有 <code>ganglia_to_skyline.rb</code> 脚本。目前看，<code>Kale</code> 应该是想着用 <code>skyline</code> 代替 <code>graphite-web</code>，得用 <code>redis</code> 来代替 <code>graphite-whisper</code>，不过我觉得似乎意义不是很大，还不如直接把数据存入 <code>ElasticSearch</code>，形成一套类似 <code>openTSDB</code> 的，但是完全基于 ES 的高扩展分布式方案。</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2013/06/12/translate-85-operational-rules" title="【翻译】运维的85条规则">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next"><a href="/2013/06/19/skyline-algorithms-intro" title="【Etsy 的 Kale 系统】skyline 的过滤算法">Next &rarr;</a></li>
+      </ul>
+    </div>
+    <hr>
+  <!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+<span class="jiathis_txt">分享到：</span>
+<a class="jiathis_button_tsina">新浪微博</a>
+<a class="jiathis_button_weixin">微信</a>
+<a class="jiathis_button_renren">人人网</a>
+<a class="jiathis_button_ydnote">有道云笔记</a>
+<a class="jiathis_button_gmail">Gmail邮箱</a>
+<a class="jiathis_button_twitter">Twitter</a>
+<a class="jiathis_button_googleplus">Google+</a>
+<a class="jiathis_button_hi">百度空间</a>
+<a class="jiathis_button_fb">Facebook</a>
+<a class="jiathis_button_douban">豆瓣</a>
+<a href="http://www.jiathis.com/share?uid=1589850" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank">更多</a>
+<a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript" >
+var jiathis_config={
+	data_track_clickback:true,
+	summary:"",
+	ralateuid:{
+		"tsina":"1035836154"
+	},
+	shortUrl:false,
+	hideMore:false
+}
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js?uid=1589850" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+<!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
+                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
+                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(英文)</li>
+              <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+              <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+              <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+              <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+              <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+              <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+              <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+              <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+              <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+              <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+              <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+              <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+              <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+              <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
+              <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+              <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
+              <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
+              <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
+              <li><a href="http://aphyr.com/posts" title="call me maybe 吐槽系列">Aphyr</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(中文)</li>
+              <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+              <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+              <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+              <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+              <li><a href="http://timo.piqiu.me/" title="TIMO IS MY OASIS">Timo</a></li>
+              <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+              <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+              <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+              <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+              <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
+              <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+              <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+              <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+              <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+              <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+              <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+              <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
+              <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+              <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+              <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+              <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
+              <li><a href="http://flw.tools/" title="">flw的工具箱</a></li>
+              <li><a href="http://blog.mcshell.org/" title="">mcshell</a></li>
+              <li><a href="http://novoland.github.io/" title="">克鲁斯卡尔的博客</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="booklists" class="nav nav-list">
+          <li class="nav-header">我写的技术书籍</li>
+          <li><a href='http://product.china-pub.com/3769604'><img src='http://images.china-pub.com/ebook3765001-3770000/3769604/shupi.jpg' border='0' alt='网站运维技术与实践'/></a></li>
+          <li><a href='http://product.china-pub.com/64005'><img src='http://images.china-pub.com/ebook60001-65000/64005/shupi.jpg' border='0' alt='ELK Stack权威指南'/></a></li>
+          <li class="nav-header">我参与翻译的技术书籍</li>
+          <li><a href='http://product.china-pub.com/4582714'><img src='http://images.china-pub.com/ebook4580001-4585000/4582714/shupi.jpg' border='0' alt='Puppet 实战手册'/></a></li>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2015 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+  </body>
+</html>

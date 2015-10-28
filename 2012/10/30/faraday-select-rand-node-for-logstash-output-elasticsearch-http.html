@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>【Logstash系列】Outputs::ElasticsearchHTTP自动获取随机node</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes//bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes//css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes//css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive">归档</a></li>
+      	<li><a href="/categories">分类</a></li>
+      	<li><a href="/elk-errata">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages">Pages</a></li>
+      	<li><a href="/projects">学习记录</a></li>
+      	<li><a href="/tags">标签</a></li>
+            <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>【Logstash系列】Outputs::ElasticsearchHTTP自动获取随机node <small></small></h1>
+    <div class="date"><span>30 October 2012</span></div>
+    <ul class="tag_box pull-right">
+    	<li><a href="/tags.html#ruby-ref">ruby <span>21</span></a></li>
+    	<li><a href="/tags.html#elasticsearch-ref">elasticsearch <span>32</span></a></li>
+    </ul>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>今天在ES群中和medcl请教了一下index的性能问题。基本上在bulk的基础上，还有几点是可以做的。当然medcl说的是正常的全文索引的场景：</p>
+<ul>
+  <li>不用http协议，直接走tcp层，维护一个pool发bulk；</li>
+  <li>多台node的情况下，在bulk前先设置replica为0；bulk完成后再调整replica；</li>
+  <li>因为es会自动路由，所以index请求可以分散开直接发给多个node。</li>
+</ul>
+<p>总之，就是减少集群内部的网络传输。</p>
+<p>介于logstash的应用是一直持续往es写数据的，所以replica调整这招用不上，顶多加大refresh时间而已。所以可以动手的地方主要就是第三条了。</p>
+<p>正好去翻了一下perl的Elasticsearch.pm的POD。发现原来perl模块本色默认就是这么做的。new的时候定义的server，是用来发送请求获取集群所有alive的nodes。然后会从这个nodes列表里选择(随机)一个创建真正的链接返回。获取nodes的API如下：</p>
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">curl http://192.168.1.33:9200/_cluster/nodes?pretty<span class="o">=</span>1
+<span class="o">{</span>
+  <span class="s2">&quot;ok&quot;</span> : <span class="nb">true</span>,
+  <span class="s2">&quot;cluster_name&quot;</span> : <span class="s2">&quot;logstash&quot;</span>,
+  <span class="s2">&quot;nodes&quot;</span> : <span class="o">{</span>
+    <span class="s2">&quot;he6ipuA3SDeNmOQYIr-bjg&quot;</span> : <span class="o">{</span>
+      <span class="s2">&quot;name&quot;</span> : <span class="s2">&quot;Afari, Jamal&quot;</span>,
+      <span class="s2">&quot;transport_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.33:9300]&quot;</span>,
+      <span class="s2">&quot;hostname&quot;</span> : <span class="s2">&quot;ES-33.domain.com&quot;</span>,
+      <span class="s2">&quot;http_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.33:9200]&quot;</span>
+    <span class="o">}</span>,
+    <span class="s2">&quot;WXK68VX0ThmNnozq0uioQw&quot;</span> : <span class="o">{</span>
+      <span class="s2">&quot;name&quot;</span> : <span class="s2">&quot;Harker, Quincy&quot;</span>,
+      <span class="s2">&quot;transport_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.68:9300]&quot;</span>,
+      <span class="s2">&quot;hostname&quot;</span> : <span class="s2">&quot;ES-68.domain.com&quot;</span>,
+      <span class="s2">&quot;http_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.68:9200]&quot;</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+<span class="o">}</span></code></pre></figure>
+<p>这样显然可以在cluster较大的时候分担index的压力(search的时候压力在集群本身的cpu上)。我打算给我的pure-ruby branch里的faraday版的Logstash::Outputs::ElasticsearchHTTP也加上这个功能。</p>
+<hr />
+<p>大致简单实现如下：</p>
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby">  <span class="k">def</span> <span class="nf">select_rand_host</span>
+    <span class="nb">require</span> <span class="s2">&quot;json&quot;</span>
+    <span class="k">begin</span>
+      <span class="n">response</span> <span class="o">=</span> <span class="vi">@agent</span><span class="o">.</span><span class="n">get</span> <span class="s1">&#39;/_cluster/nodes&#39;</span>
+      <span class="n">nodelist</span> <span class="o">=</span> <span class="no">JSON</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">body</span><span class="p">)</span><span class="o">[</span><span class="s1">&#39;nodes&#39;</span><span class="o">].</span><span class="n">values</span>
+      <span class="n">livenode</span> <span class="o">=</span> <span class="n">nodelist</span><span class="o">[</span><span class="nb">rand</span><span class="p">(</span><span class="n">nodelist</span><span class="o">.</span><span class="n">length</span><span class="p">)</span><span class="o">][</span><span class="s2">&quot;http_address&quot;</span><span class="o">].</span><span class="n">split</span><span class="p">(</span><span class="sr">/\[|\]/</span><span class="p">)</span><span class="o">[</span><span class="mi">1</span><span class="o">]</span>
+      <span class="vi">@agent</span> <span class="o">=</span> <span class="no">Faraday</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">:url</span> <span class="o">=&gt;</span> <span class="s2">&quot;http:/</span><span class="si">#{</span><span class="n">livenode</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="k">do</span> <span class="o">|</span><span class="n">faraday</span><span class="o">|</span>
+        <span class="n">faraday</span><span class="o">.</span><span class="n">use</span> <span class="no">Faraday</span><span class="o">::</span><span class="no">Adapter</span><span class="o">::</span><span class="no">EMHttp</span>
+      <span class="k">end</span>
+    <span class="k">end</span>
+  <span class="k">end</span></code></pre></figure>
+<p>然后在<code>def register</code>里和<code>def flush</code>的<code>retry</code>前面都加上<code>select_rand_host()</code>就好了。当然比起perl的ElasticSearch::Transport里各种检查各种排除，我这个还是简单多了……
+另，在Ruby1.9里从数组返回随机元素可以直接调用<code>.sample</code>，真赞。不过谁让我都是1.8.7的版本呢……</p>
+<p><strong>2012 年 12 月 30 日附注：</strong></p>
+<p>之后我在 maillist 里联系了 logstash 的作者。不过作者表示：第一，需要自选 node 功能的，建议使用 output/elasticsearch 因为这个是用的 java 客户端，直接会把自己作为一个 node 加入 ES 的 cluster。第二，ruby 的 http 模块他都不喜欢，所以全部项目里的相关部分他都只用自己写的 ftw 模块 ==!</p>
+<p><strong>2013 年 02 月 26 日附注：</strong></p>
+<p>最新版的 Logstash::Outputs::ElasticSearchHTTP 已经加入随机选择 node 功能。是其他网友在 ftw 模块基础上添加的。</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2012/10/26/systemtap-and-file-descriptor" title="用systemtap调试文件描述符限制">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next"><a href="/2012/11/09/chrome-app-demo" title="Chrome的APP简单用法">Next &rarr;</a></li>
+      </ul>
+    </div>
+    <hr>
+  <!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+<span class="jiathis_txt">分享到：</span>
+<a class="jiathis_button_tsina">新浪微博</a>
+<a class="jiathis_button_weixin">微信</a>
+<a class="jiathis_button_renren">人人网</a>
+<a class="jiathis_button_ydnote">有道云笔记</a>
+<a class="jiathis_button_gmail">Gmail邮箱</a>
+<a class="jiathis_button_twitter">Twitter</a>
+<a class="jiathis_button_googleplus">Google+</a>
+<a class="jiathis_button_hi">百度空间</a>
+<a class="jiathis_button_fb">Facebook</a>
+<a class="jiathis_button_douban">豆瓣</a>
+<a href="http://www.jiathis.com/share?uid=1589850" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank">更多</a>
+<a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript" >
+var jiathis_config={
+	data_track_clickback:true,
+	summary:"",
+	ralateuid:{
+		"tsina":"1035836154"
+	},
+	shortUrl:false,
+	hideMore:false
+}
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js?uid=1589850" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+<!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
+                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
+                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(英文)</li>
+              <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+              <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+              <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+              <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+              <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+              <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+              <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+              <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+              <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+              <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+              <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+              <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+              <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+              <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
+              <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+              <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
+              <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
+              <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
+              <li><a href="http://aphyr.com/posts" title="call me maybe 吐槽系列">Aphyr</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(中文)</li>
+              <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+              <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+              <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+              <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+              <li><a href="http://timo.piqiu.me/" title="TIMO IS MY OASIS">Timo</a></li>
+              <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+              <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+              <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+              <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+              <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
+              <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+              <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+              <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+              <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+              <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+              <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+              <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
+              <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+              <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+              <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+              <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
+              <li><a href="http://flw.tools/" title="">flw的工具箱</a></li>
+              <li><a href="http://blog.mcshell.org/" title="">mcshell</a></li>
+              <li><a href="http://novoland.github.io/" title="">克鲁斯卡尔的博客</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="booklists" class="nav nav-list">
+          <li class="nav-header">我写的技术书籍</li>
+          <li><a href='http://product.china-pub.com/3769604'><img src='http://images.china-pub.com/ebook3765001-3770000/3769604/shupi.jpg' border='0' alt='网站运维技术与实践'/></a></li>
+          <li><a href='http://product.china-pub.com/64005'><img src='http://images.china-pub.com/ebook60001-65000/64005/shupi.jpg' border='0' alt='ELK Stack权威指南'/></a></li>
+          <li class="nav-header">我参与翻译的技术书籍</li>
+          <li><a href='http://product.china-pub.com/4582714'><img src='http://images.china-pub.com/ebook4580001-4585000/4582714/shupi.jpg' border='0' alt='Puppet 实战手册'/></a></li>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2015 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+  </body>
+</html>

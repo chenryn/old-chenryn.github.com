@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Puppet 自定义 Provider</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes//bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes//css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes//css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive">归档</a></li>
+      	<li><a href="/categories">分类</a></li>
+      	<li><a href="/elk-errata">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages">Pages</a></li>
+      	<li><a href="/projects">学习记录</a></li>
+      	<li><a href="/tags">标签</a></li>
+            <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>Puppet 自定义 Provider <small></small></h1>
+    <div class="date"><span>15 March 2013</span></div>
+    <ul class="tag_box pull-right">
+    	<li><a href="/tags.html#puppet-ref">puppet <span>14</span></a></li>
+    	<li><a href="/tags.html#ruby-ref">ruby <span>21</span></a></li>
+    </ul>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>Puppet 默认提供了相当多的资源类型，不过我们还可以更进一步的扩展这个庞大的阵营。比如在 <code>package</code> 类型的资源里，我们看到 puppet 除了系统级别的<code>yum</code>,<code>apt</code>之类意外，还提供了 <code>gem</code>,<code>pip</code> 来管理 ruby 和 python 的 package。那么很自然的，我们就可以进一步扩充 <code>package</code> 来管理 perl 的 package 。只需要新加一个 provider 就可以了。</p>
+<p>关于 provider 开发的原理说明，见 <a href="http://docs.puppetlabs.com/guides/provider_development.html">http://docs.puppetlabs.com/guides/provider_development.html</a>。</p>
+<p>下面是 <code>/etc/puppet/modules/production/myclass/lib/puppet/provider/package/cpan.rb</code> 的内容，他会被 puppet 以 <code>pluginsync</code> 的方式下发。</p>
+<figure class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="c1"># 加载父类，这里是扩展 package 功能</span>
+<span class="nb">require</span> <span class="s1">&#39;puppet/provider/package&#39;</span>
+<span class="no">Puppet</span><span class="o">::</span><span class="no">Type</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="ss">:package</span><span class="p">)</span><span class="o">.</span><span class="n">provide</span> <span class="ss">:cpan</span><span class="p">,</span> <span class="ss">:parent</span> <span class="o">=&gt;</span> <span class="no">Puppet</span><span class="o">::</span><span class="no">Provider</span><span class="o">::</span><span class="no">Package</span> <span class="k">do</span>
+  <span class="n">desc</span> <span class="s2">&quot;CPAN modules support.  You can pass any `source` which `cpanm` support, </span>
+<span class="s2">    like URL, git repos and local tar.gz. If source is not present at all,</span>
+<span class="s2">    the module will be installed from the default CPAN source.</span>
+<span class="s2">    You must install App::cpanminus, App::pmodinfo, App::pmuninstall before.&quot;</span>
+  <span class="n">has_feature</span> <span class="ss">:versionable</span>
+  <span class="c1"># 下面这个是 Puppet::Provider 提供的私有方法，用来指定类内部适用的系统命令</span>
+  <span class="c1"># puppet agent 会通过对这个的运行测试来确认该 provider 是否适用于本机</span>
+  <span class="c1"># 所以在使用这个 provider 之前，要先通过其他方式在 node 上安装好这三个命令</span>
+  <span class="n">commands</span> <span class="ss">:cpanmcmd</span> <span class="o">=&gt;</span> <span class="s2">&quot;cpanm&quot;</span>
+  <span class="n">commands</span> <span class="ss">:pmodinfocmd</span> <span class="o">=&gt;</span> <span class="s2">&quot;pmodinfo&quot;</span>
+  <span class="n">commands</span> <span class="ss">:pmuninstallcmd</span> <span class="o">=&gt;</span> <span class="s2">&quot;pm-uninstall&quot;</span>
+  <span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">pmodlist</span><span class="p">(</span><span class="n">options</span><span class="p">)</span>
+    <span class="n">pmodlist_command</span> <span class="o">=</span> <span class="o">[</span><span class="n">command</span><span class="p">(</span><span class="ss">:pmodinfocmd</span><span class="p">),</span><span class="o">]</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">[</span><span class="ss">:local</span><span class="o">]</span>
+      <span class="n">pmodlist_command</span> <span class="o">&lt;&lt;</span> <span class="s2">&quot;-l&quot;</span>
+    <span class="k">else</span>
+      <span class="n">pmodlist_command</span> <span class="o">&lt;&lt;</span> <span class="s2">&quot;-c&quot;</span>
+    <span class="k">end</span>
+    <span class="k">if</span> <span class="nb">name</span> <span class="o">=</span> <span class="n">options</span><span class="o">[</span><span class="ss">:justme</span><span class="o">]</span>
+      <span class="n">pmodlist_command</span> <span class="o">&lt;&lt;</span> <span class="nb">name</span>
+      <span class="c1"># execute 是 Puppet::Util::Execution 提供的方法，接受数组传入，输出标准输出结果字符串</span>
+      <span class="n">list</span> <span class="o">=</span> <span class="o">[</span><span class="n">execute</span><span class="p">(</span><span class="n">pmodlist_command</span><span class="p">)</span><span class="o">].</span><span class="n">map</span> <span class="p">{</span><span class="o">|</span><span class="n">set</span><span class="o">|</span> <span class="n">pmodsplit</span><span class="p">(</span><span class="n">set</span><span class="p">)</span> <span class="p">}</span><span class="o">.</span><span class="n">reject</span> <span class="p">{</span><span class="o">|</span><span class="n">x</span><span class="o">|</span> <span class="n">x</span><span class="o">.</span><span class="n">nil?</span> <span class="p">}</span>
+    <span class="k">else</span>
+      <span class="n">list</span> <span class="o">=</span> <span class="n">execute</span><span class="p">(</span><span class="n">pmodlist_command</span><span class="p">)</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">map</span> <span class="p">{</span><span class="o">|</span><span class="n">set</span><span class="o">|</span> <span class="n">pmodsplit</span><span class="p">(</span><span class="n">set</span><span class="p">)</span> <span class="p">}</span><span class="o">.</span><span class="n">reject</span> <span class="p">{</span><span class="o">|</span><span class="n">x</span><span class="o">|</span> <span class="n">x</span><span class="o">.</span><span class="n">nil?</span> <span class="p">}</span>
+    <span class="k">end</span>
+    <span class="k">if</span> <span class="nb">name</span> <span class="o">=</span> <span class="n">options</span><span class="o">[</span><span class="ss">:justme</span><span class="o">]</span>
+      <span class="k">return</span> <span class="n">list</span><span class="o">.</span><span class="n">shift</span>
+    <span class="k">else</span>
+      <span class="k">return</span> <span class="n">list</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+  <span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">pmodsplit</span><span class="p">(</span><span class="n">desc</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">desc</span> <span class="o">=~</span> <span class="sr">/^(\S+) version is (.+)\.(\n  Last cpan version: (.+))?/</span>
+      <span class="nb">name</span> <span class="o">=</span> <span class="vg">$1</span>
+      <span class="c1"># 整个rb是从gem.rb复制过来的，gem list -r所有版本列成一行，split成一个数组</span>
+      <span class="c1"># 这里为了改动少点，就照样做成数组</span>
+      <span class="n">versions</span> <span class="o">=</span> <span class="o">[</span><span class="vg">$2</span><span class="o">]</span>
+      <span class="k">if</span> <span class="n">latest_version</span> <span class="o">=</span> <span class="vg">$3</span>
+        <span class="n">versions</span><span class="o">.</span><span class="n">unshift</span><span class="p">(</span><span class="vg">$4</span><span class="p">)</span>
+      <span class="k">end</span>
+      <span class="p">{</span>
+        <span class="ss">:name</span>     <span class="o">=&gt;</span> <span class="nb">name</span><span class="p">,</span>
+        <span class="ss">:ensure</span>   <span class="o">=&gt;</span> <span class="n">versions</span><span class="p">,</span>
+        <span class="ss">:provider</span> <span class="o">=&gt;</span> <span class="ss">:cpan</span>
+      <span class="p">}</span>
+    <span class="k">else</span>
+      <span class="no">Puppet</span><span class="o">.</span><span class="n">warning</span> <span class="s2">&quot;Could not match </span><span class="si">#{</span><span class="n">desc</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">unless</span> <span class="n">desc</span><span class="o">.</span><span class="n">chomp</span><span class="o">.</span><span class="n">empty?</span>
+      <span class="kp">nil</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+  <span class="c1"># 这个 instances 方法是 provider 必须提供，在package里就是本地模块的列表</span>
+  <span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">instances</span><span class="p">(</span><span class="n">justme</span> <span class="o">=</span> <span class="kp">false</span><span class="p">)</span>
+    <span class="n">pmodlist</span><span class="p">(</span><span class="ss">:local</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span> <span class="k">do</span> <span class="o">|</span><span class="nb">hash</span><span class="o">|</span>
+      <span class="kp">new</span><span class="p">(</span><span class="nb">hash</span><span class="p">)</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+  <span class="c1"># 往下的方法都是 package 要求提供的</span>
+  <span class="k">def</span> <span class="nf">install</span><span class="p">(</span><span class="n">useversion</span> <span class="o">=</span> <span class="kp">true</span><span class="p">)</span>
+    <span class="n">command</span> <span class="o">=</span> <span class="o">[</span><span class="n">command</span><span class="p">(</span><span class="ss">:cpanmcmd</span><span class="p">)</span><span class="o">]</span>
+    <span class="c1"># cpanm 指定安装版本的命令格式是这样： cpanm Dancer@1.000</span>
+    <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span> <span class="o">+=</span> <span class="s1">&#39;@&#39;</span> <span class="o">+</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:ensure</span><span class="o">]</span> <span class="k">if</span> <span class="p">(</span><span class="o">!</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:ensure</span><span class="o">].</span><span class="n">is_a?</span> <span class="no">Symbol</span><span class="p">)</span> <span class="ow">and</span> <span class="n">useversion</span>
+    <span class="n">command</span> <span class="o">&lt;&lt;</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">execute</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+    <span class="nb">self</span><span class="o">.</span><span class="n">fail</span> <span class="s2">&quot;Could not install: </span><span class="si">#{</span><span class="n">output</span><span class="o">.</span><span class="n">chomp</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">output</span><span class="o">.</span><span class="n">include?</span><span class="p">(</span><span class="s2">&quot;failed&quot;</span><span class="p">)</span>
+  <span class="k">end</span>
+  <span class="k">def</span> <span class="nf">latest</span>
+    <span class="n">pmodinfo_options</span> <span class="o">=</span> <span class="p">{</span><span class="ss">:justme</span> <span class="o">=&gt;</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span><span class="p">}</span>
+    <span class="nb">hash</span> <span class="o">=</span> <span class="nb">self</span><span class="o">.</span><span class="n">class</span><span class="o">.</span><span class="n">pmodlist</span><span class="p">(</span><span class="n">pmodlist_options</span><span class="p">)</span>
+    <span class="c1"># 这里就是前面要用数组的原因了</span>
+    <span class="nb">hash</span><span class="o">[</span><span class="ss">:ensure</span><span class="o">][</span><span class="mi">0</span><span class="o">]</span>
+  <span class="k">end</span>
+  <span class="c1"># 请求本地是否存在具体某个包</span>
+  <span class="k">def</span> <span class="nf">query</span>
+    <span class="nb">self</span><span class="o">.</span><span class="n">class</span><span class="o">.</span><span class="n">pmodlist</span><span class="p">(</span><span class="ss">:justme</span> <span class="o">=&gt;</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span><span class="p">,</span> <span class="ss">:local</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">)</span>
+  <span class="k">end</span>
+  <span class="k">def</span> <span class="nf">uninstall</span>
+    <span class="n">pmuninstallcmd</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span>
+  <span class="k">end</span>
+  <span class="k">def</span> <span class="nf">update</span>
+    <span class="nb">self</span><span class="o">.</span><span class="n">install</span><span class="p">(</span><span class="kp">false</span><span class="p">)</span>
+  <span class="k">end</span>
+<span class="k">end</span></code></pre></figure>
+<p>在一台没有安装 cpanm 等命令的主机上运行 <code>puppet agent --debug</code>，可以看到这么一行输出：</p>
+<pre><code>debug: Puppet::Type::Package::ProviderCpan: file cpanm does not exist
+</code></pre>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2013/03/14/jpush-example" title="极光推送demo">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next"><a href="/2013/03/18/logrotate-configuration-files-mode" title="logrotate 配置文件强制为 0644 属性">Next &rarr;</a></li>
+      </ul>
+    </div>
+    <hr>
+  <!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+<span class="jiathis_txt">分享到：</span>
+<a class="jiathis_button_tsina">新浪微博</a>
+<a class="jiathis_button_weixin">微信</a>
+<a class="jiathis_button_renren">人人网</a>
+<a class="jiathis_button_ydnote">有道云笔记</a>
+<a class="jiathis_button_gmail">Gmail邮箱</a>
+<a class="jiathis_button_twitter">Twitter</a>
+<a class="jiathis_button_googleplus">Google+</a>
+<a class="jiathis_button_hi">百度空间</a>
+<a class="jiathis_button_fb">Facebook</a>
+<a class="jiathis_button_douban">豆瓣</a>
+<a href="http://www.jiathis.com/share?uid=1589850" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank">更多</a>
+<a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript" >
+var jiathis_config={
+	data_track_clickback:true,
+	summary:"",
+	ralateuid:{
+		"tsina":"1035836154"
+	},
+	shortUrl:false,
+	hideMore:false
+}
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js?uid=1589850" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+<!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
+                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
+                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(英文)</li>
+              <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+              <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+              <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+              <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+              <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+              <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+              <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+              <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+              <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+              <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+              <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+              <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+              <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+              <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
+              <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+              <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
+              <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
+              <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
+              <li><a href="http://aphyr.com/posts" title="call me maybe 吐槽系列">Aphyr</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(中文)</li>
+              <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+              <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+              <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+              <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+              <li><a href="http://timo.piqiu.me/" title="TIMO IS MY OASIS">Timo</a></li>
+              <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+              <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+              <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+              <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+              <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
+              <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+              <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+              <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+              <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+              <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+              <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+              <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
+              <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+              <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+              <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+              <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
+              <li><a href="http://flw.tools/" title="">flw的工具箱</a></li>
+              <li><a href="http://blog.mcshell.org/" title="">mcshell</a></li>
+              <li><a href="http://novoland.github.io/" title="">克鲁斯卡尔的博客</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="booklists" class="nav nav-list">
+          <li class="nav-header">我写的技术书籍</li>
+          <li><a href='http://product.china-pub.com/3769604'><img src='http://images.china-pub.com/ebook3765001-3770000/3769604/shupi.jpg' border='0' alt='网站运维技术与实践'/></a></li>
+          <li><a href='http://product.china-pub.com/64005'><img src='http://images.china-pub.com/ebook60001-65000/64005/shupi.jpg' border='0' alt='ELK Stack权威指南'/></a></li>
+          <li class="nav-header">我参与翻译的技术书籍</li>
+          <li><a href='http://product.china-pub.com/4582714'><img src='http://images.china-pub.com/ebook4580001-4585000/4582714/shupi.jpg' border='0' alt='Puppet 实战手册'/></a></li>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2015 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+  </body>
+</html>

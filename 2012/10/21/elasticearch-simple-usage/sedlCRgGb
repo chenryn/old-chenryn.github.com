@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>【Logstash系列】ElasticSearch的几点使用事项</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes/twitter/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes/twitter/css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes/twitter/css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive.html">归档</a></li>
+      	<li><a href="/categories.html">分类</a></li>
+      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages.html">Pages</a></li>
+      	<li><a href="/projects.html">学习记录</a></li>
+      	<li><a href="/tags.html">标签</a></li>
+            <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>【Logstash系列】ElasticSearch的几点使用事项 <small></small></h1>
+    <div class="date"><span>21 October 2012</span></div>
+    <ul class="tag_box pull-right">
+    	<li><a href="/tags.html#elasticsearch-ref">elasticsearch <span>32</span></a></li>
+    </ul>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>之前已经写过一些ES的使用，也翻译了一篇官网上关于ES存储日志的建议日志。今天稍微总结一下近期以来实践出来的方案。</p>
+<h1 id="shardreplica">shard和replica的选择</h1>
+<p>在测试期，可以单节点上设置成1 shard + 0 replica的方式，这种的indexing速度是最快的(存疑:我至今没搞清楚ES在index的时候集群&rdquo;应该&rdquo;是比单node快还是慢)。</p>
+<p>我曾经按照&rdquo;常理&rdquo;(我想象中的)理解，设定成10 shards + 0 replica，期望能用上并行写双node加倍index，事实上压根没用，而且因为另一台node上有其他负载的原因导致更慢了。</p>
+<p>更可怕的是：就在前几天，突然出现一个shard挂了，……毫无办法，整个index全作废了。</p>
+<p>所以结论是：无论如何，一定要保证有 &gt; 0 份的replica!! 至于shards，保持默认的5个，或者顶多到20个也就差不多了。在maillist里看到有哥们设了100个，然后苦着脸问性能问题…… 要知道shards的份数是一旦设定不能更改的。</p>
+<h1 id="template">template的使用</h1>
+<p>刚开始的时候，每次实验都去改/etc/elasticsearch/elasticsearch.yml配置文件。事实上在template里修改settings更方便而且灵活！当然最主要的，还是调节里面的properties设定，合理的控制store和analyze了。</p>

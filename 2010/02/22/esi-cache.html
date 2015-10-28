@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>ESI 语言介绍</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes//bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes//css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes//css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive">归档</a></li>
+      	<li><a href="/categories">分类</a></li>
+      	<li><a href="/elk-errata">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages">Pages</a></li>
+      	<li><a href="/projects">学习记录</a></li>
+      	<li><a href="/tags">标签</a></li>
+            <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>ESI 语言介绍 <small></small></h1>
+    <div class="date"><span>22 February 2010</span></div>
+    <ul class="tag_box pull-right">
+    	<li><a href="/tags.html#squid-ref">squid <span>25</span></a></li>
+    </ul>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>今天看到一个叫做 ESI 的东东，以此为线索，一路链接下去，颇为有趣，摘抄些新闻/博客段落来，算作长眼了：</p>
+<p>首先是《CSDN09大会见闻》，其中提到康神的讲演《网站的那些事儿》，介绍了大规模网站架构上的种种工具和技术“比如做数据切分的 Mysql Proxy，分布式缓存的 MemoryCached，Web 服务器缓存的 Squid，页面优化的 Y!Slow，页面切分方面的 js 拼接和 iframe 拼接（呵呵，怪不得搜狐的页面都是 js 加载，对搜索引擎很不友好），前端服务器 Lighttpd, Squid3, ESI 等。也提到了架构设计中扩展性，可用性和一致性三者的关系，优化时应让让一致性延迟。提到目前网站系统一般都是三层结构 DB 层，逻辑层和前端层，而可扩展度方面DB &lt; 逻辑 &lt; 前端，原因就是有状态的最难扩展，无状态的最容易扩展，所以主张优化时尽量减少DB中存储的状态，将逻辑前移，最后总结优化的大方向就是：逻辑前移，善用缓存（无处不在的缓存）和数据冗余（方便查询）。”</p>
+<p>从中得到几个信息——</p>
+<ol>
+  <li>搜狐的架构康神插手了；</li>
+  <li>squid对ESI的支持限于3.0版本以上（这点很重要，因为其他任何地方都没写明）；</li>
+  <li>缓存无处不在~~</li>
+</ol>
+<p>然后是ESI的概念原理。</p>
+<p><strong>“ESI（Edge Side Include）通过使用简单的标记语言来对那些可以加速和不能加速的网页中的内容片断进行描述，每个网页都被划分成不同的小部分分别赋予不同的缓存控制策略，使Cache服务器可以根据这些策略在将完整的网页发送给用户之前将不同的小部分动态地组合在一起。通过这种控制，可以有效地减少从服务器抓取整个页面的次数，而只用从原服务器中提取少量的不能缓存的片断，因此可以有效降低原服务器的负载，同时提高用户访问的响应时间”</strong></p>
+<p>从中得到几个信息——</p>
+<ol>
+  <li>ESI不是一门新语言，而只是嵌入在html里的一种标记，首先要求对网页进行模板式的规划，然后由支持ESI的cache服务器根据“HTTP请求标题或用户的cookie信息”自行组装返回给browser；</li>
+  <li>我想到lighttpd和nginx的流媒体支持，也是根据cookie信息，获取拖拽的指定帧定位。不过没找到这两个对esi的cache处理文章，毕竟他们的主业还是webserver……</li>
+</ol>
+<p>然后是计算机世界网中关于ESI的介绍。内容较长，不贴了，要点如下：</p>
+<ol>
+  <li>ESI最多支持三级递归，可以在包含文档中再嵌套进一步ESI标记；</li>
+  <li>ESI支持基于布尔比较或者环境变量的条件处理；</li>
+  <li>ESI支持cgi环境变量，比如cookie；</li>
+  <li>ESI支持开发者定制失败动作（这不就是我梦寐以求的东东？呵呵，夸张鸟~）</li>
+  <li>ESI提供内容无效规范进行内容管理（cache的purge不再头疼？）；</li>
+  <li>ESI是基于XML语言的，现有一个java的定制标签库JESI帮助生成jsp代码，这个东东我想是ESI标准被诸多寡头接受的重要原因，不然去哪找来一大批专门写ESI的设计员呢；</li>
+  <li>ESI的主要开发和推动者，是CDN老大akaimai和DB老大oracle！！再次验证康神的话，Optimization=Cache+Data。</li>
+</ol>
+<p>最后，说一下squid3如何支持ESI。</p>
+<p>./configure参数如下：</p>
+<pre><code>--enable-esi           
+Enable ESI for accelerators. Requires libexpat.
+Enabling ESI will cause squid to follow the Edge
+Acceleration Specification (www.esi.org). This
+causes squid to IGNORE client Cache-Control headers.
+DO NOT use this in a squid configured as a web
+proxy, ONLY use it in a squid configured for
+webserver acceleration.
+</code></pre>
+<p>squid.conf参数如下：</p>
+<figure class="highlight"><pre><code class="language-squid" data-lang="squid"><span class="w">    </span>httpd_accel_surrogate_id<span class="w"> </span>unset-id<span class="w"></span>
+<span class="w">    </span>http_accel_surrogate_remote<span class="w"> </span><span class="no">on</span><span class="w"></span>
+<span class="w">    </span>esi_parser<span class="w"> </span>custom<span class="w"></span></code></pre></figure>
+<p>写到最后郁闷了一下，这个东东，为了cache而发明出来了，却是得写在web上的。那我这篇博文，该归哪个类别呢？——或者这也验证了工作中的一点郁闷吧，cache的问题，经常出在web上，我们做CDN的，能怎么办呢？</p>
+<p>ESI网站:</p>
+<p><a href="http://www.akamai.com/html/support/esi.html">http://www.akamai.com/html/support/esi.html</a>
+<a href="http://www.w3.org/TR/esi-lang">http://www.w3.org/TR/esi-lang</a></p>
+<p><strong>2010年8月1日：</strong></p>
+<h1 id="esi">ESI指令集</h1>
+<h3 id="include-">include 标签</h3>
+<p>首先尝试 include 页面 <code>1.html</code>，如果不存在就显示 <code>2.html</code>，如果还不存在，就忽略这条 esi</p>
+<figure class="highlight"><pre><code class="language-html" data-lang="html"><span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://example.com/1.html&quot;</span> <span class="na">alt=</span><span class="s">&quot;http://bak.example.com/2.html&quot;</span> <span class="na">onerror=</span><span class="s">&quot;continue&quot;</span><span class="nt">/&gt;</span></code></pre></figure>
+<h3 id="case-when-">case when 标签</h3>
+<figure class="highlight"><pre><code class="language-html" data-lang="html"><span class="nt">&lt;esi:choose&gt;</span> 
+    <span class="nt">&lt;esi:when</span> <span class="na">test=</span><span class="s">&quot;$(HTTP_COOKIE{group})==&#39;Advanced&#39;&quot;</span><span class="nt">&gt;</span> 
+        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/advanced.html&quot;</span><span class="nt">/&gt;</span> 
+    <span class="nt">&lt;/esi:when&gt;</span> 
+    <span class="nt">&lt;esi:when</span> <span class="na">test=</span><span class="s">&quot;$(HTTP_COOKIE{group})==&#39;Basic User&#39;&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/basic.html&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;/esi:when&gt;</span> 
+    <span class="nt">&lt;esi:otherwise&gt;</span> 
+        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/new_user.html&quot;</span><span class="nt">/&gt;</span> 
+    <span class="nt">&lt;/esi:otherwise&gt;</span>
+<span class="nt">&lt;/esi:choose&gt;</span></code></pre></figure>
+<h3 id="try-catch-">try catch 标签</h3>
+<figure class="highlight"><pre><code class="language-html" data-lang="html"><span class="nt">&lt;esi:try&gt;</span> 
+    <span class="nt">&lt;esi:attempt&gt;</span>
+        <span class="nt">&lt;esi:comment</span> <span class="na">text=</span><span class="s">&quot;Include an ad&quot;</span><span class="nt">/&gt;</span> 
+        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/ad1.html&quot;</span><span class="nt">/&gt;</span> 
+    <span class="nt">&lt;/esi:attempt&gt;</span>
+    <span class="nt">&lt;esi:except&gt;</span> 
+        <span class="nt">&lt;esi:comment</span> <span class="na">text=</span><span class="s">&quot;Just write some HTML instead&quot;</span><span class="nt">/&gt;</span> 
+        <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">www.akamai.com</span><span class="nt">&gt;</span>www.example.com<span class="nt">&lt;/a&gt;</span>
+    <span class="nt">&lt;/esi:except&gt;</span> 
+<span class="nt">&lt;/esi:try&gt;</span></code></pre></figure>
+<h3 id="remove-">remove 标签</h3>
+<p>如果服务器可执行 ESI，就只执行 include；如果不可，只好识别标准的HTML</p>
+<figure class="highlight"><pre><code class="language-html" data-lang="html"><span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/ad.html&quot;</span><span class="nt">/&gt;</span> 
+<span class="nt">&lt;esi:remove&gt;</span> 
+  <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://www.example.com&quot;</span><span class="nt">&gt;</span>www.example.com<span class="nt">&lt;/a&gt;</span>
+<span class="nt">&lt;/esi:remove&gt;</span></code></pre></figure>
+<h3 id="esi-1">esi变量</h3>
+<figure class="highlight"><pre><code class="language-html" data-lang="html"><span class="nt">&lt;esi:vars&gt;</span>
+  <span class="nt">&lt;img</span> <span class="na">src=</span><span class="s">&quot;http://www.example.com/$(HTTP_COOKIE{type})/hello.gif&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/esi:vars&gt;</span></code></pre></figure>
+<p>变量都是从request-header中获得的，squid只支持标准的esi协议，即只识别下列header。</p>
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_ACCEPT_LANGUAGE&quot;</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableLanguage</span><span class="p">);</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_COOKIE&quot;</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableCookie</span><span class="p">);</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_HOST&quot;</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableHost</span><span class="p">);</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_REFERER&quot;</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableReferer</span><span class="p">);</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;HTTP_USER_AGENT&quot;</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableUserAgent</span><span class="p">(</span><span class="o">*</span><span class="n">this</span><span class="p">));</span> 
+<span class="err">    </span><span class="n">addVariable</span> <span class="p">(</span><span class="s">&quot;QUERY_STRING&quot;</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="n">new</span> <span class="n">ESIVariableQuery</span><span class="p">(</span><span class="n">uri</span><span class="p">));</span> </code></pre></figure>
+<h3 id="section">逻辑表达式</h3>
+<p><code>==</code>,<code>!=</code>,<code>&lt;</code>,<code>&gt;</code>,<code>&lt;=</code>,<code>&gt;=</code>,<code>!</code>,<code>&amp;</code>,<code>|</code>都只能用于表达式之间的关系，本身不具有真义，所以类似shell的(1 &amp; 2)是不成立的。</p>
+<p>ESI必须由web端在response-header中声明Surrogate-Control: content=&rdquo;ESI/1.0&rdquo;。启用ESI后，Set-Cookie、Cache-Control、Last-Modified无效。</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2010/02/09/qhttpd" title="qhttpd">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next"><a href="/2010/02/23/extend-shell-variables" title="shell变量扩展">Next &rarr;</a></li>
+      </ul>
+    </div>
+    <hr>
+  <!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+<span class="jiathis_txt">分享到：</span>
+<a class="jiathis_button_tsina">新浪微博</a>
+<a class="jiathis_button_weixin">微信</a>
+<a class="jiathis_button_renren">人人网</a>
+<a class="jiathis_button_ydnote">有道云笔记</a>
+<a class="jiathis_button_gmail">Gmail邮箱</a>
+<a class="jiathis_button_twitter">Twitter</a>
+<a class="jiathis_button_googleplus">Google+</a>
+<a class="jiathis_button_hi">百度空间</a>
+<a class="jiathis_button_fb">Facebook</a>
+<a class="jiathis_button_douban">豆瓣</a>
+<a href="http://www.jiathis.com/share?uid=1589850" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank">更多</a>
+<a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript" >
+var jiathis_config={
+	data_track_clickback:true,
+	summary:"",
+	ralateuid:{
+		"tsina":"1035836154"
+	},
+	shortUrl:false,
+	hideMore:false
+}
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js?uid=1589850" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+<!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
+                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
+                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(英文)</li>
+              <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+              <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+              <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+              <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+              <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+              <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+              <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+              <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+              <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+              <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+              <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+              <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+              <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+              <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
+              <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+              <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
+              <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
+              <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
+              <li><a href="http://aphyr.com/posts" title="call me maybe 吐槽系列">Aphyr</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(中文)</li>
+              <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+              <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+              <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+              <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+              <li><a href="http://timo.piqiu.me/" title="TIMO IS MY OASIS">Timo</a></li>
+              <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+              <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+              <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+              <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+              <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
+              <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+              <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+              <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+              <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+              <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+              <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+              <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
+              <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+              <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+              <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+              <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
+              <li><a href="http://flw.tools/" title="">flw的工具箱</a></li>
+              <li><a href="http://blog.mcshell.org/" title="">mcshell</a></li>
+              <li><a href="http://novoland.github.io/" title="">克鲁斯卡尔的博客</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="booklists" class="nav nav-list">
+          <li class="nav-header">我写的技术书籍</li>
+          <li><a href='http://product.china-pub.com/3769604'><img src='http://images.china-pub.com/ebook3765001-3770000/3769604/shupi.jpg' border='0' alt='网站运维技术与实践'/></a></li>
+          <li><a href='http://product.china-pub.com/64005'><img src='http://images.china-pub.com/ebook60001-65000/64005/shupi.jpg' border='0' alt='ELK Stack权威指南'/></a></li>
+          <li class="nav-header">我参与翻译的技术书籍</li>
+          <li><a href='http://product.china-pub.com/4582714'><img src='http://images.china-pub.com/ebook4580001-4585000/4582714/shupi.jpg' border='0' alt='Puppet 实战手册'/></a></li>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2015 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+  </body>
+</html>

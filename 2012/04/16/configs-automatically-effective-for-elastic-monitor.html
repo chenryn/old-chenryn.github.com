@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>弹性集群监控中的配置自动生效问题研究</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes//bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes//css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes//css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive">归档</a></li>
+      	<li><a href="/categories">分类</a></li>
+      	<li><a href="/elk-errata">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages">Pages</a></li>
+      	<li><a href="/projects">学习记录</a></li>
+      	<li><a href="/tags">标签</a></li>
+            <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>弹性集群监控中的配置自动生效问题研究 <small></small></h1>
+    <div class="date"><span>16 April 2012</span></div>
+    <ul class="tag_box pull-right">
+    	<li><a href="/tags.html#nagios-ref">nagios <span>15</span></a></li>
+    	<li><a href="/tags.html#gearman-ref">gearman <span>6</span></a></li>
+    	<li><a href="/tags.html#perl-ref">perl <span>68</span></a></li>
+    </ul>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>最近跟<a href="http://weibo.com/fedoracore">@画圈圈的星星</a> 聊天，说到nagios在大规模集群运用中一个比较严重的瓶颈：修改配置需要重启进程。 <br />
+听起来似乎不是什么问题，我个人之前对nagios的追求，也都放在怎么样提供一个及时高效的监控和数据展示上面&mdash;-这两个问题在 <code>mod_gearman</code> 和 <code>pnp4nagios</code> 的协助下已经很给力了。    </p>
+<p>但是聊天中提到了一个新的场景，事实上早在两个月前，<a href="http://weibo.com/tjpm">@GNUer</a> 就提到过类似的场景，就是当 nagios 监控的是这样一个弹性集群的时候：</p>
+<pre><code>集群设备数以千记，甚至是上万的规模；
+而且设备上运行着复杂的应用，每台设备都有几十上百的监控项需求；
+为了提供高可靠性，集群以资源池的方式运行，即设备随时可能更改当前应用角色，在idle/lb/cache/web/app/db/storage等之间切换；
+</code></pre>
+<p>以上。    </p>
+<p>尤其是最后一条，假如这个更改频率快到了每分钟都有变更，那么 nagios 重启进程这点就足以打死它了。实际运行中我们可以知道，当 <code>nagios reload</code> 的时候，这个命令的执行本身就要花费远大于1分钟的时间。    </p>
+<p>临时的办法，就是在更改后不主动 reload，而是在 crontab 里定时去做。损失一些监控实时性。一般来说，还不至于真的同一台设备一分钟内连续更改角色并且需要分别监控的。    </p>
+<p>但是真要做到实时，应该怎么做呢？    </p>
+<p>首先想到的是 <code>mod_gearman</code> 的基础上进行改造。我们之前已经知道，<code>mod_gearman</code> 上是可以分别有 host_check/service_check/check_result 几个 jobs 的。那么，我们可以跳过 config 阶段，自己写 gearman client 发送 job 。这一步很容易。难点是 check_result 被 nagios 回收后，我们自己发的 job，其 host/service 在 nagios 的 service_list 结构里是不存在的&hellip;&hellip;所以还要自己写 gearman worker 来回收 result，具体来说，必须要做的事情包括有：根据 performance_data 来 create 和 update 相应的 rrds；根据 exit status 来启动 notification。这个工作内容一下子达到自己重写一个比较完整的监控系统的地步了，而且你如果通过原版的 cgi 查看，这部分内容还查看不到&hellip;&hellip;    </p>
+<p>于是我在 github 上询问 <code>mod_gearman</code> 的作者<a href="https://github.com/sni">Sven Nierlein</a> ，他回答说：</p>
+<pre><code>There is no such feature right now and it would be very hard to implement such thing in nagios or icinga.
+It should be easier to implement something like that in shinken, but i guess it still takes 2-3 weeks of development.
+</code></pre>
+<p>好吧，比较失望的回答。尝试去瞄一眼 nagios-src，在 base/events.c 里可以看到，nagios 是在读取完全部 config 之后，才进入 loop，并提供 eventbroker 的 api 的。    </p>
+<p>shinken 是完全重写过的披着 nagios 皮的监控系统，在 <a href="http://shinken.ideascale.com/">shinken 的 suggestion 征集页面</a> 上，我看到也有一位提议：<a href="http://shinken.ideascale.com/a/dtd/Arbiter-configuration-without-reloading-daemon/323455-10373">Arbiter configuration without reloading daemon</a>，不过应者寥寥，看来这种需求真的是极少数人才会碰到的。    </p>
+<p>既然说到用 gearman，又说到监控，再回头看看去年提到的 cloudforecast。在 <code>ConfigLoader.pm</code> 中，可以看到一个 <code>watchdog</code> 方法。具体代码如下：</p>
+<figure class="highlight"><pre><code class="language-perl" data-lang="perl">    <span class="k">my</span> <span class="nv">$watcher</span> <span class="o">=</span> <span class="nn">Filesys::Notify::</span><span class="n">Simple</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="o">\</span><span class="nv">@path</span><span class="p">);</span>
+    <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$watcher</span><span class="o">-&gt;</span><span class="nb">wait</span><span class="p">(</span> <span class="k">sub </span><span class="p">{</span>
+            <span class="k">my</span> <span class="nv">@path</span> <span class="o">=</span> <span class="nb">grep</span> <span class="p">{</span> <span class="nv">$_</span> <span class="o">!~</span> <span class="sr">m![/\\][\._]|\.bak$|~$!</span>  <span class="p">}</span> <span class="nb">map</span> <span class="p">{</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">path</span><span class="p">}</span> <span class="p">}</span> <span class="nv">@_</span><span class="p">;</span>
+            <span class="k">return</span> <span class="k">if</span> <span class="o">!</span> <span class="nv">@path</span><span class="p">;</span>
+            <span class="nn">CloudForecast::</span><span class="n">Log</span><span class="o">-&gt;</span><span class="nb">warn</span><span class="p">(</span> <span class="s">&quot;File updates: &quot;</span> <span class="o">.</span> <span class="nb">join</span><span class="p">(</span><span class="s">&quot;,&quot;</span><span class="p">,</span> <span class="nv">@path</span><span class="p">)</span> <span class="p">);</span>
+            <span class="nb">sleep</span> <span class="mi">1</span><span class="p">;</span>
+            <span class="nb">kill</span> <span class="s">&#39;TERM&#39;</span><span class="p">,</span> <span class="nv">$parent_pid</span><span class="p">;</span>
+            <span class="nb">exit</span><span class="p">;</span>
+        <span class="p">}</span> <span class="p">);</span>
+    <span class="p">}</span></code></pre></figure>
+<p>可以看到，其实现方法是通过另起进程，通过 inotify 监听文件修改的方式，&rdquo;实时&rdquo;的重启主进程。实质上与 nagios 并无区别，都是要重新加载内存中保存的整个监控项配置列表。虽然没有大压力运用，但是可以猜测在预设环境中，重启耗时也会是瓶颈。    </p>
+<p>另外一个监控系统 zabbix，与上面两个系统都不同，他的监控配置，不是通过文件方式存在监控服务器上，而是通过 web 操作保存在数据库里。整个 host/item/template 等等都是鼠标点击即可。    </p>
+<p>zabbix 我的使用经验不多，只在三年前用它的预设步骤的方式监控过网页性能。印象中在 create graph 后需要等待一定时间后才能反映出结果。但不确定这个时间是监控项排队消耗的，还是监控进程重启消耗掉的。    </p>
+<p>和<a href="http://weibo.com/frankymryao">@超大杯摩卡星冰乐</a> 询问了一下，只能猜测或许是通过循环 scan table 的方式&rdquo;实时&rdquo;的添加&rdquo;新&rdquo;监控项到监控进程的队列里。或许也得跟分析 nagios 一样看看代码才知道是否能在本文预设的弹性环境下适用了。</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2012/03/18/postgresql-dba-2000-note2" title="PostgreSQL中国用户会DBA2000培训计划北京第二课笔记">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next"><a href="/2012/04/18/get-location-of-some-companys" title="获取造价百强公司的真实位置">Next &rarr;</a></li>
+      </ul>
+    </div>
+    <hr>
+  <!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+<span class="jiathis_txt">分享到：</span>
+<a class="jiathis_button_tsina">新浪微博</a>
+<a class="jiathis_button_weixin">微信</a>
+<a class="jiathis_button_renren">人人网</a>
+<a class="jiathis_button_ydnote">有道云笔记</a>
+<a class="jiathis_button_gmail">Gmail邮箱</a>
+<a class="jiathis_button_twitter">Twitter</a>
+<a class="jiathis_button_googleplus">Google+</a>
+<a class="jiathis_button_hi">百度空间</a>
+<a class="jiathis_button_fb">Facebook</a>
+<a class="jiathis_button_douban">豆瓣</a>
+<a href="http://www.jiathis.com/share?uid=1589850" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank">更多</a>
+<a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript" >
+var jiathis_config={
+	data_track_clickback:true,
+	summary:"",
+	ralateuid:{
+		"tsina":"1035836154"
+	},
+	shortUrl:false,
+	hideMore:false
+}
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js?uid=1589850" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+<!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
+                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
+                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(英文)</li>
+              <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+              <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+              <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+              <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+              <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+              <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+              <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+              <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+              <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+              <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+              <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+              <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+              <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+              <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
+              <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+              <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
+              <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
+              <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
+              <li><a href="http://aphyr.com/posts" title="call me maybe 吐槽系列">Aphyr</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(中文)</li>
+              <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+              <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+              <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+              <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+              <li><a href="http://timo.piqiu.me/" title="TIMO IS MY OASIS">Timo</a></li>
+              <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+              <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+              <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+              <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+              <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
+              <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+              <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+              <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+              <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+              <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+              <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+              <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
+              <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+              <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+              <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+              <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
+              <li><a href="http://flw.tools/" title="">flw的工具箱</a></li>
+              <li><a href="http://blog.mcshell.org/" title="">mcshell</a></li>
+              <li><a href="http://novoland.github.io/" title="">克鲁斯卡尔的博客</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="booklists" class="nav nav-list">
+          <li class="nav-header">我写的技术书籍</li>
+          <li><a href='http://product.china-pub.com/3769604'><img src='http://images.china-pub.com/ebook3765001-3770000/3769604/shupi.jpg' border='0' alt='网站运维技术与实践'/></a></li>
+          <li><a href='http://product.china-pub.com/64005'><img src='http://images.china-pub.com/ebook60001-65000/64005/shupi.jpg' border='0' alt='ELK Stack权威指南'/></a></li>
+          <li class="nav-header">我参与翻译的技术书籍</li>
+          <li><a href='http://product.china-pub.com/4582714'><img src='http://images.china-pub.com/ebook4580001-4585000/4582714/shupi.jpg' border='0' alt='Puppet 实战手册'/></a></li>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2015 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+  </body>
+</html>

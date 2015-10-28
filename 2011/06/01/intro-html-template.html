@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>HTML::Template试用</title>
+    <meta name="author" content="陈子">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!-- Le styles -->
+    <link href="/assets/themes//bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/themes//css/style.css?body=1" rel="stylesheet" type="text/css" media="all">
+    <link href="/assets/themes//css/pygments/default.css" rel="stylesheet" type="text/css">
+    <!-- Le fav and touch icons -->
+  <!-- Update these with your own images
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  -->
+  </head>
+  <body>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand" href="/">三斗室</a>
+          <ul class="nav">
+      	<li><a href="/archive">归档</a></li>
+      	<li><a href="/categories">分类</a></li>
+      	<li><a href="/elk-errata">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages">Pages</a></li>
+      	<li><a href="/projects">学习记录</a></li>
+      	<li><a href="/tags">标签</a></li>
+            <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
+            <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
+          </ul>
+          <ul class="nav pull-right"><li><a href="/about.html">有关我</a></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+    <div class="row">
+      <div class="span7">
+<div class="row">
+  <div class="page-header">
+    <h1>HTML::Template试用 <small></small></h1>
+    <div class="date"><span>01 June 2011</span></div>
+  </div>
+  <div style='background-color: #FFF;'>
+    <p>给我自己的学习计划做个开头，从html::template开始试用。
+首先利用上上篇的nmap.pl脚本，提取一些数据，然后展示在页面上。
+cgi脚本如下：</p>
+<figure class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">use</span> <span class="nn">HTML::</span><span class="n">Template</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">XML::</span><span class="n">Simple</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Net::</span><span class="n">MySQL</span><span class="p">;</span>
+<span class="c1">#定期执行这个</span>
+<span class="c1">#system(&quot;nmap -n -p 22,5666 10.168.168.0/23 10.168.170.0/24 -oX output.xml&quot;);</span>
+<span class="k">my</span> <span class="nv">$text</span> <span class="o">=</span> <span class="n">XMLin</span><span class="p">(</span><span class="s">&quot;output.xml&quot;</span><span class="p">);</span>
+<span class="c1">#读取html模版</span>
+<span class="k">my</span> <span class="nv">$temp</span> <span class="o">=</span> <span class="nn">HTML::</span><span class="n">Template</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="n">filename</span> <span class="o">=&gt;</span> <span class="s">&#39;../template/html/server.tmpl&#39;</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$localhost</span> <span class="o">=</span> <span class="s">&#39;127.0.0.1&#39;</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">@array</span> <span class="o">=</span> <span class="p">();</span>
+<span class="k">my</span> <span class="nv">$i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$hash</span> <span class="o">=</span> <span class="p">{};</span>
+<span class="k">while</span> <span class="p">(</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span> <span class="p">)</span> <span class="p">{</span>
+<span class="c1">#因为新增了ssh端口扫描，所以xml解析和前例稍有不同</span>
+    <span class="k">my</span> <span class="nv">$ssh_state</span> <span class="o">=</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">ports</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">port</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">};</span>
+    <span class="k">my</span> <span class="nv">$nrpe_state</span> <span class="o">=</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">ports</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">port</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">};</span>
+    <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="nb">ref</span><span class="p">(</span><span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">})</span> <span class="ow">eq</span> <span class="s">&#39;ARRAY&#39;</span> <span class="p">?</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">addr</span><span class="p">}</span> <span class="p">:</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">addr</span><span class="p">};</span>
+    <span class="k">my</span> <span class="nv">$mac</span> <span class="o">=</span> <span class="nb">ref</span><span class="p">(</span><span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">})</span> <span class="ow">eq</span> <span class="s">&#39;ARRAY&#39;</span> <span class="p">?</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">addr</span><span class="p">}</span> <span class="p">:</span> <span class="s">&#39;00:1E:C9:E6:E1:7C&#39;</span><span class="p">;</span>
+    <span class="nv">$i</span><span class="o">++</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$channel</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">amp</span><span class="p">;</span><span class="n">mysql_query</span><span class="p">(</span><span class="nv">$mac</span><span class="p">);</span>
+<span class="c1">#将ip按照频道排成列表，每个ip存有ssh和nrpe状态</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="nb">exists</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$channel</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="nb">push</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$channel</span><span class="p">}},</span> <span class="p">{</span> <span class="s">&#39;IP&#39;</span> <span class="o">=&gt;</span> <span class="nv">$ip</span><span class="p">,</span> <span class="s">&#39;SSH&#39;</span> <span class="o">=&gt;</span> <span class="nv">$ssh_state</span><span class="p">,</span> <span class="s">&#39;NRPE&#39;</span> <span class="o">=&gt;</span> <span class="nv">$nrpe_state</span><span class="p">,</span> <span class="p">};</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$channel</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span> <span class="s">&#39;IP&#39;</span> <span class="o">=&gt;</span> <span class="nv">$ip</span><span class="p">,</span> <span class="s">&#39;SSH&#39;</span> <span class="o">=&gt;</span> <span class="nv">$ssh_state</span><span class="p">,</span> <span class="s">&#39;NRPE&#39;</span> <span class="o">=&gt;</span> <span class="nv">$nrpe_state</span><span class="p">,</span> <span class="p">};</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="c1">#将上面while生成的hash转成HTML::Template认可的array，不过array的单个元素可以是hash</span>
+<span class="k">foreach</span> <span class="k">my</span> <span class="nv">$key</span><span class="p">(</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$hash</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$onechannel</span> <span class="o">=</span> <span class="p">{};</span>
+    <span class="nv">$onechannel</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;CHANNEL&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$key</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="k">foreach</span> <span class="k">my</span> <span class="nv">$ip</span><span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$key</span><span class="p">}}</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$onechannel</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;IP_LOOP&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$j</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$ip</span><span class="p">;</span>
+        <span class="nv">$j</span><span class="o">++</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="nb">push</span> <span class="nv">@array</span><span class="p">,</span> <span class="nv">$onechannel</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="c1">#将array传递给之前定义的html模版</span>
+<span class="c1">#注意：不管是param还是@array里，所有的key必须都在tmpl里使用，冗余也会报错</span>
+<span class="nv">$temp</span><span class="o">-&gt;</span><span class="n">param</span><span class="p">(</span><span class="n">CHANNEL_LOOP</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@array</span><span class="p">);</span>
+<span class="c1">#输出成html格式</span>
+<span class="k">print</span> <span class="s">&quot;Content-Type: text/html\n\n&quot;</span><span class="p">,</span> <span class="nv">$temp</span><span class="o">-&gt;</span><span class="n">output</span><span class="p">;</span>
+<span class="c1">#这段没什么说的，根据mac获取频道</span>
+<span class="k">sub </span><span class="nf">mysql_query</span> <span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$mac</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$mysql</span> <span class="o">=</span> <span class="nn">Net::</span><span class="n">MySQL</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">hostname</span> <span class="o">=&gt;</span> <span class="nv">$localhost</span><span class="p">,</span>
+                                 <span class="n">database</span> <span class="o">=&gt;</span> <span class="s">&#39;myops&#39;</span><span class="p">,</span>
+                                 <span class="n">user</span>     <span class="o">=&gt;</span> <span class="s">&#39;myops&#39;</span><span class="p">,</span>
+                                 <span class="n">password</span> <span class="o">=&gt;</span> <span class="s">&#39;myops&#39;</span><span class="p">,</span>
+                               <span class="p">);</span>
+    <span class="nv">$mysql</span><span class="o">-&gt;</span><span class="n">query</span><span class="p">(</span><span class="s">&quot;select channel from myhost where mac=&#39;$mac&#39;&quot;</span><span class="p">);</span>
+    <span class="o">&amp;</span><span class="n">amp</span><span class="p">;</span><span class="n">alert</span><span class="p">(</span><span class="s">&quot;New server&quot;</span><span class="p">)</span> <span class="k">unless</span> <span class="nv">$mysql</span><span class="o">-&gt;</span><span class="n">has_selected_record</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$a_record_iterator</span> <span class="o">=</span> <span class="nv">$mysql</span><span class="o">-&gt;</span><span class="n">create_record_iterator</span><span class="p">();</span>
+    <span class="k">while</span> <span class="p">(</span><span class="k">my</span> <span class="nv">$record</span> <span class="o">=</span> <span class="nv">$a_record_iterator</span><span class="o">-&gt;</span><span class="nb">each</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$record</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+    <span class="p">};</span>
+<span class="p">}</span>
+<span class="c1">#留着后续继续处理</span>
+<span class="k">sub </span><span class="nf">alert</span> <span class="p">{</span>
+    <span class="k">print</span> <span class="nv">@_</span><span class="p">,</span><span class="s">&quot;\n&quot;</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+<p>然后是template文件server.tmpl：</p>
+<figure class="highlight"><pre><code class="language-html" data-lang="html"><span class="nt">&lt;html&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+<span class="nt">&lt;title&gt;</span>Server Plate<span class="nt">&lt;/title&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;body&gt;</span>
+<span class="nt">&lt;table</span> <span class="na">width=</span><span class="s">&quot;100%&quot;</span> <span class="na">cellspacing=</span><span class="s">&quot;0&quot;</span> <span class="na">cellpadding=</span><span class="s">&quot;0&quot;</span> <span class="na">border=</span><span class="s">&quot;1&quot;</span><span class="nt">&gt;</span>
+<span class="c">&lt;!--TMPL_LOOP循环格式，使用的是array里channel_loop的每个元素--&gt;</span>
+<span class="nt">&lt;TMPL_LOOP</span> <span class="na">NAME=</span><span class="s">&quot;CHANNEL_LOOP&quot;</span><span class="nt">&gt;</span>
+<span class="nt">&lt;tr&gt;</span>
+<span class="c">&lt;!--根据本层loop中的某个元素的channel的value开始表格的一行--&gt;</span>
+<span class="nt">&lt;th&gt;&lt;center&gt;&lt;TMPL_VAR</span> <span class="na">NAME=</span><span class="s">&quot;CHANNEL&quot;</span><span class="nt">&gt;&lt;/center&gt;&lt;/th&gt;</span>
+<span class="c">&lt;!--本层loop中另一个元素ip_loop，也是array格式，所以继续循环，每个元素使用一列--&gt;</span>
+<span class="nt">&lt;TMPL_LOOP</span> <span class="na">NAME=</span><span class="s">&quot;IP_LOOP&quot;</span><span class="nt">&gt;</span>
+<span class="nt">&lt;td</span> <span class="na">valign=</span><span class="s">top</span><span class="nt">&gt;&lt;center&gt;</span>
+//根据本层loop的ssh情况选择显示哪个图标；TMPL_IF只能判断key的真假，所以用js
+<span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span><span class="nt">&gt;</span>
+<span class="k">if</span> <span class="p">(</span><span class="s1">&#39;&lt;TMPL_VAR NAME=&quot;SSH&quot;&gt;&#39;</span> <span class="o">==</span> <span class="s1">&#39;open&#39;</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nb">document</span><span class="p">.</span><span class="nx">write</span><span class="p">(</span><span class="s2">&quot;&lt;img src=&#39;../template/images/unlock_server.png&#39;&gt;&quot;</span><span class="p">);</span>
+<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+    <span class="nb">document</span><span class="p">.</span><span class="nx">write</span><span class="p">(</span><span class="s2">&quot;&lt;img src=&#39;../template/images/desable_server.png&#39;&gt;&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="nt">&lt;/script&gt;</span>
+<span class="c">&lt;!--显示第二层loop里元素的几个value--&gt;</span>
+<span class="nt">&lt;hr&gt;</span>nrpe:<span class="nt">&lt;TMPL_VAR</span> <span class="na">NAME=</span><span class="s">&quot;NRPE&quot;</span><span class="nt">&gt;&lt;hr&gt;</span>ssh :<span class="nt">&lt;TMPL_VAR</span> <span class="na">NAME=</span><span class="s">&quot;SSH&quot;</span><span class="nt">&gt;&lt;hr&gt;&lt;TMPL_VAR</span> <span class="na">NAME=</span><span class="s">&quot;IP&quot;</span><span class="nt">&gt;</span>
+<span class="nt">&lt;/center&gt;&lt;/td&gt;</span>
+<span class="c">&lt;!--结束里层loop，即完成一行表格--&gt;</span>
+<span class="nt">&lt;/TMPL_LOOP&gt;</span>
+<span class="nt">&lt;/tr&gt;</span>
+<span class="c">&lt;!--结束顶层loop，即完成表格--&gt;</span>
+<span class="nt">&lt;/TMPL_LOOP&gt;</span>
+<span class="nt">&lt;/table&gt;&lt;/center&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;center&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span></code></pre></figure>
+<p>用apache分别发布cgi目录和静态目录。然后访问一下；OK。</p>
+    <hr>
+    <div class="pagination">
+      <ul>
+        <li class="prev"><a href="/2011/05/30/intro-perl-set-image-filter" title="nginx两个小测试(perl_set/image_filter)">&larr; Previous</a></li>
+        <li><a href="/archive.html">Archive</a></li>
+        <li class="next"><a href="/2011/06/03/aggregate-multi-servers-rollback-log-by-gearmand" title="用gearman汇总多台服务器的回滚日志">Next &rarr;</a></li>
+      </ul>
+    </div>
+    <hr>
+  <!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+<span class="jiathis_txt">分享到：</span>
+<a class="jiathis_button_tsina">新浪微博</a>
+<a class="jiathis_button_weixin">微信</a>
+<a class="jiathis_button_renren">人人网</a>
+<a class="jiathis_button_ydnote">有道云笔记</a>
+<a class="jiathis_button_gmail">Gmail邮箱</a>
+<a class="jiathis_button_twitter">Twitter</a>
+<a class="jiathis_button_googleplus">Google+</a>
+<a class="jiathis_button_hi">百度空间</a>
+<a class="jiathis_button_fb">Facebook</a>
+<a class="jiathis_button_douban">豆瓣</a>
+<a href="http://www.jiathis.com/share?uid=1589850" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank">更多</a>
+<a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript" >
+var jiathis_config={
+	data_track_clickback:true,
+	summary:"",
+	ralateuid:{
+		"tsina":"1035836154"
+	},
+	shortUrl:false,
+	hideMore:false
+}
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js?uid=1589850" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+<!-- UY BEGIN -->
+<div id="uyan_frame"></div>
+<script type="text/javascript" id="UYScript" src="http://v1.uyan.cc/js/iframe.js?UYUserId=1589850" async=""></script>
+<!-- UY END -->
+  </div>
+</div>
+      </div>
+      <div class="span4">
+          <div class="well sidebar-nav">
+             <ul id="relate_blog" class="nav nav-list">
+               <li class="nav-header">最近文章</li>
+                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
+                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
+                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+            </ul>
+          </div>
+        <div class="well sidebar-nav">
+          <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=1&ptype=1&speed=0&skin=2&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=1035836154&verifier=a26926d5&dpc=1"></iframe>
+        </div>
+        <div class="well sidebar-nav">
+            <div id="uyan_list_time_frame"></div>
+            <script type="text/javascript" id="UYScriptTime" src="http://v1.uyan.cc/js/iframe_time_list.js?UYUserId=1589850&rankType=time" async=""></script>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(英文)</li>
+              <li><a href="http://codeascraft.com/" title="Etsy 运维团队博客">Code as Craft</a></li>
+              <li><a href="http://devopsanywhere.blogspot.jp/" title="">devopsanywhere</a></li>
+              <li><a href="http://www.jedi.be/blog/" title="">Jong En Dynamische Informatica</a></li>
+              <li><a href="http://www.planetdevops.net/" title="">planetdevops</a></li>
+              <li><a href="http://www.kitchensoap.com/" title="《网站运维》作者，Etsy 运维">Kitchen Soap</a></li>
+              <li><a href="http://blog.johngoulah.com" title="Musings of linux, open source, cloud computing and systems">John Goulah</a></li>
+              <li><a href="http://serverfault.com/" title="stackexchange下属的系统工程师问答网站">serverfault</a></li>
+              <li><a href="http://www.thegeekstuff.com/" title="各种超酷Linux命令用法">TheGeekStuff</a></li>
+              <li><a href="http://neilb.org/" title="The good,the bad,and the beautiful">neilb</a></li>
+              <li><a href="http://www.reddit.com/r/perl/" title="">reddit perl 频道</a></li>
+              <li><a href="http://jpetazzo.github.io/" title="">~jpetazzo</a></li>
+              <li><a href="http://www.perfplanet.com/" title="News and views from the web performance blogosphere">Performance Planet</a></li>
+              <li><a href="http://cuddletech.com/blog/" title="Use UNIX or die">Cuddle Tech</a></li>
+              <li><a href="http://showmetheco.de/" title="Viacheslav Tykhanovskyi(PocketIO/Text::Haml)">No time to wait</a></li>
+              <li><a href="http://blog.dataloop.io/" title="A new SaaS monitoring tool for DevOps & Operations">Dataloop.IO</a></li>
+              <li><a href="http://www.ducea.com/" title="">MDLog:/sysadmin</a></li>
+              <li><a href="http://planeteria.org/perl6/" title="Perl6 文集">Planet Perl 6</a></li>
+              <li><a href="http://www.metaforsoftware.com/blog/" title="">metafor</a></li>
+              <li><a href="http://blog.kablamo.org/" title="Eric Johnson，一个游走在伦敦和北京的 Perler">kablamo</a></li>
+              <li><a href="http://aphyr.com/posts" title="call me maybe 吐槽系列">Aphyr</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="linklists" class="nav nav-list">
+            <li class="nav-header">友情链接(中文)</li>
+              <li><a href="http://www.nginxs.com/" title="">eric</a></li>
+              <li><a href="http://www.hellodb.net/" title="Ali DBA 张瑞">Hello DBA</a></li>
+              <li><a href="http://blog.nosqlfan.com/" title="not only sql信息集散地">NoSQLfan</a></li>
+              <li><a href="http://ourmysql.com/" title="">OurMySQL</a></li>
+              <li><a href="http://timo.piqiu.me/" title="TIMO IS MY OASIS">Timo</a></li>
+              <li><a href="http://www.liurongxing.com/" title="">刘荣星</a></li>
+              <li><a href="http://www.cnadn.net/" title="F5工程师">应用交付学习之路</a></li>
+              <li><a href="http://scmbob.org/" title="杭州NSN工程师，shell高人~">扛一肩记忆</a></li>
+              <li><a href="http://www.php-oa.com/" title="音悦台技术经理">扶凯</a></li>
+              <li><a href="http://www.lark.net.cn/" title="王剑">lark's cloud</a></li>
+              <li><a href="http://log.heartoutside.com/" title="HeartOutSide">HeartOutside</a></li>
+              <li><a href="http://blog.liulantao.com/" title="刘兰涛">Lax</a></li>
+              <li><a href="http://niubie.me/" title="莫言">莫言</a></li>
+              <li><a href="http://noops.me/" title="小米运维部">NoOps</a></li>
+              <li><a href="http://www.searchtech.pro/" title="">云端分布式搜索技术</a></li>
+              <li><a href="http://www.usefulshare.com" title="当当网安全运维">UsefulShare</a></li>
+              <li><a href="http://junqili.com/" title="深入研究puppet">纸飞机</a></li>
+              <li><a href="http://www.chinaxing.org/" title="">ChinaXing</a></li>
+              <li><a href="http://bubbyroom.com/" title="守住每一天">Liuyu's blog</a></li>
+              <li><a href="http://blog.aka-cool.net/" title="">Aka.Why</a></li>
+              <li><a href="http://blog.l8ii.com/" title="刘侨">LairdNote</a></li>
+              <li><a href="http://flw.tools/" title="">flw的工具箱</a></li>
+              <li><a href="http://blog.mcshell.org/" title="">mcshell</a></li>
+              <li><a href="http://novoland.github.io/" title="">克鲁斯卡尔的博客</a></li>
+          </ul>
+        </div>
+        <div class="well sidebar-nav">
+          <ul id="booklists" class="nav nav-list">
+          <li class="nav-header">我写的技术书籍</li>
+          <li><a href='http://product.china-pub.com/3769604'><img src='http://images.china-pub.com/ebook3765001-3770000/3769604/shupi.jpg' border='0' alt='网站运维技术与实践'/></a></li>
+          <li><a href='http://product.china-pub.com/64005'><img src='http://images.china-pub.com/ebook60001-65000/64005/shupi.jpg' border='0' alt='ELK Stack权威指南'/></a></li>
+          <li class="nav-header">我参与翻译的技术书籍</li>
+          <li><a href='http://product.china-pub.com/4582714'><img src='http://images.china-pub.com/ebook4580001-4585000/4582714/shupi.jpg' border='0' alt='Puppet 实战手册'/></a></li>
+        </div>
+      </div>
+    </div> <!-- row -->
+      <footer>
+        <p>&copy; 陈子 2015 
+          with help from <a href="http://jekyllbootstrap.com" target="_blank" title="The Definitive Jekyll Blogging Framework">Jekyll Bootstrap</a>
+          and <a href="http://twitter.github.com/bootstrap/" target="_blank">Twitter Bootstrap</a>
+        </p>
+      </footer>
+    </div> <!-- /container -->
+  </body>
+</html>
