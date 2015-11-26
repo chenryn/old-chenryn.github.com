@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,118 +53,122 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>最后编写一段日志收集的agent：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl</span>
-    <span class="nb">package</span> <span class="n">NginxLogCollector</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">Moo</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">MooX::</span><span class="n">Options</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">Message::Passing::</span><span class="n">DSL</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">MooX::Types::MooseLike::</span><span class="n">Base</span> <span class="sx">qw/ Str /</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">namespace::</span><span class="n">clean</span> <span class="o">-</span><span class="n">except</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw( meta _options_data _options_config )</span><span class="p">];</span>
-    <span class="n">with</span> <span class="s">&#39;Message::Passing::Role::Script&#39;</span><span class="p">;</span>
-    <span class="n">option</span> <span class="n">filename</span> <span class="o">=&gt;</span> <span class="p">(</span>
-        <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
-        <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span><span class="p">,</span>
-        <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="s">&#39;/data/nginx/logs/access.log&#39;</span> <span class="p">},</span>
-    <span class="p">);</span>
-    <span class="n">option</span> <span class="n">rabbitmq</span> <span class="o">=&gt;</span> <span class="p">(</span>
-        <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
-        <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span><span class="p">,</span>
-        <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="s">&#39;10.3.18.199&#39;</span> <span class="p">},</span>
-    <span class="p">);</span>
-    <span class="k">sub </span><span class="nf">build_chain</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-        <span class="n">message_chain</span> <span class="p">{</span>
-            <span class="n">output</span> <span class="n">rabbitmq</span> <span class="o">=&gt;</span> <span class="p">(</span>
-                <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;AMQP&#39;</span><span class="p">,</span>
-                <span class="n">exchange_name</span> <span class="o">=&gt;</span> <span class="s">&#39;logcollect&#39;</span><span class="p">,</span>
-    <span class="c1"># 目前测试结果，发现Input::AMQP无法接收到非topic的exchange</span>
-    <span class="c1"># CPAN上有关RabbitMQ的模块都是这个哥们写的，POD简略到没有一样，表示无语下</span>
-    <span class="c1">#            exchange_type =&gt; &#39;direct&#39;,</span>
-                <span class="n">hostname</span> <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">rabbitmq</span><span class="p">,</span>
-                <span class="n">username</span> <span class="o">=&gt;</span> <span class="s">&#39;guest&#39;</span><span class="p">,</span>
-                <span class="n">password</span> <span class="o">=&gt;</span> <span class="s">&#39;guest&#39;</span><span class="p">,</span>
-            <span class="p">);</span>
-            <span class="n">output</span> <span class="n">debug</span> <span class="o">=&gt;</span> <span class="p">(</span>
-                <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;STDOUT&#39;</span><span class="p">,</span>
-            <span class="p">);</span>
-            <span class="n">encoder</span><span class="p">(</span><span class="s">&quot;encoder&quot;</span><span class="p">,</span>
-                <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;JSON&#39;</span><span class="p">,</span>
-                <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;rabbitmq&#39;</span><span class="p">,</span>
-                <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;debug&#39;</span><span class="p">,</span>
-            <span class="p">);</span>
-            <span class="n">filter</span> <span class="n">grok</span> <span class="o">=&gt;</span> <span class="p">(</span>
-                <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;GrokLike&#39;</span><span class="p">,</span>
-                <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;encoder&#39;</span><span class="p">,</span>
-            <span class="p">);</span>
-            <span class="n">filter</span> <span class="n">logstash</span> <span class="o">=&gt;</span> <span class="p">(</span>
-                <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;ToLogstash&#39;</span><span class="p">,</span>
-                <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;grok&#39;</span><span class="p">,</span>
-            <span class="p">);</span>
-            <span class="n">decoder</span><span class="p">(</span><span class="s">&quot;decoder&quot;</span><span class="p">,</span>
-                <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;JSON&#39;</span><span class="p">,</span>
-                <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;logstash&#39;</span><span class="p">,</span>
-            <span class="p">);</span>
-            <span class="n">input</span> <span class="n">nginxlog</span> <span class="o">=&gt;</span> <span class="p">(</span>
-                <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;FileTail&#39;</span><span class="p">,</span>
-                <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;decoder&#39;</span><span class="p">,</span>
-                <span class="n">filename</span> <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">filename</span><span class="p">,</span>
-           <span class="p">);</span>
-        <span class="p">};</span>
-    <span class="p">}</span>
-    <span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">start</span> <span class="k">unless</span> <span class="nb">caller</span><span class="p">;</span>
-    <span class="mi">1</span><span class="p">;</span></code></pre></div>
-<p>目前就做到这步，之后从rabbitmq里往elasticsearch写的还没搞。从上面的chain可以很清除的看到和logstash一样的管道思想，input-&gt;decoder-&gt;filter-&gt;encoder-&gt;output。巧的是两种写法中，decode/encode那个写法跟puppet的DSL定义特别的像。哈哈～</p>
-<p>继续贴汇总入库的agent代码：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl</span>
-<span class="k">use</span> <span class="n">Moo</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">MooX::</span><span class="n">Options</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Message::Passing::</span><span class="n">DSL</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">MooX::Types::MooseLike::</span><span class="n">Base</span> <span class="sx">qw/ Str /</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">namespace::</span><span class="n">clean</span> <span class="o">-</span><span class="n">except</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw( meta _options_data _options_config )</span><span class="p">];</span>
-<span class="n">with</span> <span class="s">&#39;Message::Passing::Role::Script&#39;</span><span class="p">;</span>
-<span class="n">option</span> <span class="n">elasticsearch_servers</span> <span class="o">=&gt;</span> <span class="p">(</span>
-    <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
-    <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span><span class="p">,</span>
-    <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="s">&#39;10.3.18.199:9200&#39;</span> <span class="p">},</span>
-<span class="p">);</span>
-<span class="n">option</span> <span class="n">rabbitmq</span> <span class="o">=&gt;</span> <span class="p">(</span>
-    <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
-    <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span><span class="p">,</span>
-    <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="s">&#39;10.3.18.199&#39;</span> <span class="p">},</span>
-<span class="p">);</span>
-<span class="k">sub </span><span class="nf">build_chain</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="n">message_chain</span> <span class="p">{</span>
-        <span class="n">output</span> <span class="n">elasticsearch</span> <span class="o">=&gt;</span> <span class="p">(</span>
-            <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;ElasticSearch&#39;</span><span class="p">,</span>
-            <span class="n">elasticsearch_servers</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="nv">$self</span><span class="o">-&gt;</span><span class="n">elasticsearch_servers</span><span class="p">],</span>
-        <span class="p">);</span>
-        <span class="n">decoder</span> <span class="n">decoder</span> <span class="o">=&gt;</span> <span class="p">(</span>
-            <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;JSON&#39;</span><span class="p">,</span>
-            <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;elasticsearch&#39;</span><span class="p">,</span>
-        <span class="p">);</span>
-        <span class="n">input</span> <span class="n">rabbitmq</span> <span class="o">=&gt;</span> <span class="p">(</span>
-            <span class="n">class</span> <span class="o">=&gt;</span> <span class="s">&#39;AMQP&#39;</span><span class="p">,</span>
-            <span class="n">exchange_name</span> <span class="o">=&gt;</span> <span class="s">&#39;logcollect&#39;</span><span class="p">,</span>
-            <span class="n">queue_name</span> <span class="o">=&gt;</span> <span class="s">&#39;logcollect&#39;</span><span class="p">,</span>
-            <span class="n">hostname</span> <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">rabbitmq</span><span class="p">,</span>
-            <span class="n">username</span> <span class="o">=&gt;</span> <span class="s">&#39;guest&#39;</span><span class="p">,</span>
-            <span class="n">password</span> <span class="o">=&gt;</span> <span class="s">&#39;guest&#39;</span><span class="p">,</span>
-            <span class="n">output_to</span> <span class="o">=&gt;</span> <span class="s">&#39;decoder&#39;</span><span class="p">,</span>
-        <span class="p">);</span>
-    <span class="p">};</span>
-<span class="p">}</span>
-<span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">start</span> <span class="k">unless</span> <span class="nb">caller</span><span class="p">;</span>
-<span class="mi">1</span><span class="p">;</span></code></pre></div>
-<p>总的来说，原有模块相互之间都有些不太协调，用的时候还是要自己改改。比如这里，原版的Output::ElasticSearch是吧之前传递过来的整个message放进@fields里的，这跟Filter::ToLogstash的message结构是完全冲突的。所以需要修改Output::ElasticSearch里的bulk_index()的data=&gt;$data,就可以了，不要多改动。</p>
+    <p>最后编写一段日志收集的agent：<br />
+<code class="highlighter-rouge">perl
+    #!/usr/bin/perl
+    package NginxLogCollector;
+    use Moo;
+    use MooX::Options;
+    use Message::Passing::DSL;
+    use MooX::Types::MooseLike::Base qw/ Str /;
+    use namespace::clean -except =&gt; [qw( meta _options_data _options_config )];
+    with 'Message::Passing::Role::Script';
+    option filename =&gt; (
+        is =&gt; 'ro',
+        isa =&gt; Str,
+        default =&gt; sub { '/data/nginx/logs/access.log' },
+    );
+    option rabbitmq =&gt; (
+        is =&gt; 'ro',
+        isa =&gt; Str,
+        default =&gt; sub { '10.3.18.199' },
+    );
+    sub build_chain {
+        my $self = shift;
+        message_chain {
+            output rabbitmq =&gt; (
+                class =&gt; 'AMQP',
+                exchange_name =&gt; 'logcollect',
+    # 目前测试结果，发现Input::AMQP无法接收到非topic的exchange
+    # CPAN上有关RabbitMQ的模块都是这个哥们写的，POD简略到没有一样，表示无语下
+    #            exchange_type =&gt; 'direct',
+                hostname =&gt; $self-&gt;rabbitmq,
+                username =&gt; 'guest',
+                password =&gt; 'guest',
+            );
+            output debug =&gt; (
+                class =&gt; 'STDOUT',
+            );
+            encoder("encoder",
+                class =&gt; 'JSON',
+                output_to =&gt; 'rabbitmq',
+                output_to =&gt; 'debug',
+            );
+            filter grok =&gt; (
+                class =&gt; 'GrokLike',
+                output_to =&gt; 'encoder',
+            );
+            filter logstash =&gt; (
+                class =&gt; 'ToLogstash',
+                output_to =&gt; 'grok',
+            );
+            decoder("decoder",
+                class =&gt; 'JSON',
+                output_to =&gt; 'logstash',
+            );
+            input nginxlog =&gt; (
+                class =&gt; 'FileTail',
+                output_to =&gt; 'decoder',
+                filename =&gt; $self-&gt;filename,
+           );
+        };
+    }
+    __PACKAGE__-&gt;start unless caller;
+    1;
+</code><br />
+目前就做到这步，之后从rabbitmq里往elasticsearch写的还没搞。从上面的chain可以很清除的看到和logstash一样的管道思想，input-&gt;decoder-&gt;filter-&gt;encoder-&gt;output。巧的是两种写法中，decode/encode那个写法跟puppet的DSL定义特别的像。哈哈～</p>
+<p>继续贴汇总入库的agent代码：<br />
+```perl<br />
+#!/usr/bin/perl<br />
+use Moo;<br />
+use MooX::Options;<br />
+use Message::Passing::DSL;<br />
+use MooX::Types::MooseLike::Base qw/ Str /;<br />
+use namespace::clean -except =&gt; [qw( meta _options_data _options_config )];</p>
+<p>with &lsquo;Message::Passing::Role::Script&rsquo;;</p>
+<p>option elasticsearch_servers =&gt; (<br />
+    is =&gt; &lsquo;ro&rsquo;,<br />
+    isa =&gt; Str,<br />
+    default =&gt; sub { &lsquo;10.3.18.199:9200&rsquo; },<br />
+);</p>
+<p>option rabbitmq =&gt; (<br />
+    is =&gt; &lsquo;ro&rsquo;,<br />
+    isa =&gt; Str,<br />
+    default =&gt; sub { &lsquo;10.3.18.199&rsquo; },<br />
+);</p>
+<p>sub build_chain {<br />
+    my $self = shift;<br />
+    message_chain {<br />
+        output elasticsearch =&gt; (<br />
+            class =&gt; &lsquo;ElasticSearch&rsquo;,<br />
+            elasticsearch_servers =&gt; [$self-&gt;elasticsearch_servers],<br />
+        );<br />
+        decoder decoder =&gt; (<br />
+            class =&gt; &lsquo;JSON&rsquo;,<br />
+            output_to =&gt; &lsquo;elasticsearch&rsquo;,<br />
+        );<br />
+        input rabbitmq =&gt; (<br />
+            class =&gt; &lsquo;AMQP&rsquo;,<br />
+            exchange_name =&gt; &lsquo;logcollect&rsquo;,<br />
+            queue_name =&gt; &lsquo;logcollect&rsquo;,<br />
+            hostname =&gt; $self-&gt;rabbitmq,<br />
+            username =&gt; &lsquo;guest&rsquo;,<br />
+            password =&gt; &lsquo;guest&rsquo;,<br />
+            output_to =&gt; &lsquo;decoder&rsquo;,<br />
+        );<br />
+    };<br />
+}<br />
+<strong>PACKAGE</strong>-&gt;start unless caller;<br />
+1;<br />
+```<br />
+总的来说，原有模块相互之间都有些不太协调，用的时候还是要自己改改。比如这里，原版的Output::ElasticSearch是吧之前传递过来的整个message放进@fields里的，这跟Filter::ToLogstash的message结构是完全冲突的。所以需要修改Output::ElasticSearch里的bulk_index()的data=&gt;$data,就可以了，不要多改动。</p>
 <p>整个代码变动，参加个人github:<a href="https://github.com/chenryn/Message-Passing.git">https://github.com/chenryn/Message-Passing.git</a></p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/09/16/elasticsearch-bulk-index-speed-testing" title="【Message::Passing系列】ElasticSearch的bulk_index速度测试">&larr; Previous</a></li>
+        <li class="prev"><a href="/2012/09/16/elasticsearch-bulk-index-speed-testing/" title="【Message::Passing系列】ElasticSearch的bulk_index速度测试">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/09/16/message-passing-filter-demo" title="【Message::Passing系列】过滤器实例">Next &rarr;</a></li>
+        <li class="next"><a href="/2012/09/16/message-passing-filter-demo/" title="【Message::Passing系列】过滤器实例">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -208,15 +212,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

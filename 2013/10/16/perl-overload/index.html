@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -54,38 +54,46 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>在使用 Mojolicious 的时候，通常我们会发现一个很有趣的现象。</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="n">ojo</span><span class="p">;</span>
-<span class="n">say</span> <span class="n">g</span><span class="p">(</span><span class="s">&#39;http://www.baidu.com&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">dom</span><span class="o">-&gt;</span><span class="n">at</span><span class="p">(</span><span class="s">&#39;script&#39;</span><span class="p">);</span>
-<span class="n">say</span> <span class="n">g</span><span class="p">(</span><span class="s">&#39;http://www.baidu.com&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">dom</span><span class="o">-&gt;</span><span class="n">at</span><span class="p">(</span><span class="s">&#39;script&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">text</span><span class="p">;</span></code></pre></div>
-<p>这里可以看到，在用 <code>at()</code> 方法之后得到的结果，如果从上一行解读，似乎应该是一个字符串；但是从下一行解读，又还是一个对象，可以继续调用 <code>-&gt;text</code> 属性。</p>
-<p>Perl 本身不是一个纯对象式的语言，字符串本身是没有对象属性的。而直接打印对象的话，应该输出的是类似 <code>Mojo::DOM-&gt;HASH(0x1234567)</code> 的效果。那这个效果是怎么实现的呢？</p>
-<p>翻了 Mojo 的代码之后，发现原来 Mojo 里是把字符串、数组等都实现成了对象，分别是 <code>Mojo::ByteStream</code> 和 <code>Mojo::Collection</code> 两个类。然后再实现中，运用了 <code>overload</code> 来实现这个效果。代码很简单，<code>Mojo::ByteStream</code> 里是这样的：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="n">overload</span> <span class="s">&#39;&quot;&quot;&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nb">shift</span><span class="o">-&gt;</span><span class="n">to_string</span> <span class="p">},</span> <span class="n">fallback</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">to_string</span> <span class="p">{</span> <span class="nv">$</span><span class="p">{</span><span class="nv">$_</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span> <span class="p">}</span></code></pre></div>
-<p>此外， <code>Mojo::DOM</code>，<code>Mojo::URL</code>，<code>Mojo::JSON</code> 等十多个类中都用了这个方法。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">use</span> <span class="nv">ojo</span><span class="p">;</span>
+<span class="nv">say</span> <span class="nv">g</span><span class="p">(</span><span class="s">'http://www.baidu.com'</span><span class="p">)</span><span class="o">-&gt;</span><span class="nv">dom</span><span class="o">-&gt;</span><span class="nv">at</span><span class="p">(</span><span class="s">'script'</span><span class="p">);</span>
+<span class="nv">say</span> <span class="nv">g</span><span class="p">(</span><span class="s">'http://www.baidu.com'</span><span class="p">)</span><span class="o">-&gt;</span><span class="nv">dom</span><span class="o">-&gt;</span><span class="nv">at</span><span class="p">(</span><span class="s">'script'</span><span class="p">)</span><span class="o">-&gt;</span><span class="nv">text</span><span class="p">;</span>
+</code></pre>
+</div>
+<p>这里可以看到，在用 <code class="highlighter-rouge">at()</code> 方法之后得到的结果，如果从上一行解读，似乎应该是一个字符串；但是从下一行解读，又还是一个对象，可以继续调用 <code class="highlighter-rouge">-&gt;text</code> 属性。</p>
+<p>Perl 本身不是一个纯对象式的语言，字符串本身是没有对象属性的。而直接打印对象的话，应该输出的是类似 <code class="highlighter-rouge">Mojo::DOM-&gt;HASH(0x1234567)</code> 的效果。那这个效果是怎么实现的呢？</p>
+<p>翻了 Mojo 的代码之后，发现原来 Mojo 里是把字符串、数组等都实现成了对象，分别是 <code class="highlighter-rouge">Mojo::ByteStream</code> 和 <code class="highlighter-rouge">Mojo::Collection</code> 两个类。然后再实现中，运用了 <code class="highlighter-rouge">overload</code> 来实现这个效果。代码很简单，<code class="highlighter-rouge">Mojo::ByteStream</code> 里是这样的：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">use</span> <span class="nv">overload</span> <span class="s">'""'</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nb">shift</span><span class="o">-&gt;</span><span class="nv">to_string</span> <span class="p">},</span> <span class="nv">fallback</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">;</span>
+<span class="k">sub </span><span class="nf">to_string</span> <span class="p">{</span> <span class="nv">$</span><span class="p">{</span><span class="nv">$_</span><span class="p">[</span><span class="mi">0</span><span class="p">]}</span> <span class="p">}</span>
+</code></pre>
+</div>
+<p>此外， <code class="highlighter-rouge">Mojo::DOM</code>，<code class="highlighter-rouge">Mojo::URL</code>，<code class="highlighter-rouge">Mojo::JSON</code> 等十多个类中都用了这个方法。</p>
 <p>看起来似乎还不是很明了，再贴两段 <a href="http://perldoc.perl.org/overload.html">overload 的 POD</a> 就清楚了：</p>
-<pre><code>It also defines an anonymous subroutine to implement stringification: this is called whenever an object blessed into the package Number is used in a string context...
+<div class="highlighter-rouge"><pre class="highlight"><code>It also defines an anonymous subroutine to implement stringification: this is called whenever an object blessed into the package Number is used in a string context...
 For example, the subroutine for '""' (stringify) may be used where the overloaded object is passed as an argument to print,...
 </code></pre>
-<p>这下清楚了吧。一旦在某个类里 <code>overload</code> 了双引号，那么这个类的对象在标量环境下调用的时候就会先调用这个函数。最典型的例子就是用在 <code>print</code> 的时候。</p>
+</div>
+<p>这下清楚了吧。一旦在某个类里 <code class="highlighter-rouge">overload</code> 了双引号，那么这个类的对象在标量环境下调用的时候就会先调用这个函数。最典型的例子就是用在 <code class="highlighter-rouge">print</code> 的时候。</p>
 <p>下面我们可以自己也试试：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="n">Test</span> <span class="mf">0.01</span> <span class="p">{</span>
-    <span class="k">use</span> <span class="n">overload</span> <span class="s">&#39;&quot;&quot;&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nb">join</span> <span class="s">&quot; overloaded.\n&quot;</span><span class="p">,</span> <span class="nv">@</span><span class="p">{</span><span class="o">+</span><span class="nb">shift</span><span class="p">}</span> <span class="p">};</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="nb">package</span> <span class="nv">Test</span> <span class="mf">0.01</span> <span class="p">{</span>
+    <span class="k">use</span> <span class="nv">overload</span> <span class="s">'""'</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nb">join</span> <span class="s">" overloaded.\n"</span><span class="p">,</span> <span class="nv">@</span><span class="p">{</span><span class="o">+</span><span class="nb">shift</span><span class="p">}</span> <span class="p">};</span>
     <span class="k">sub </span><span class="nf">new</span> <span class="p">{</span> <span class="nb">bless</span> <span class="p">[</span><span class="nv">@_</span><span class="p">[</span><span class="mi">1</span> <span class="o">..</span> <span class="nv">$#_</span><span class="p">]],</span> <span class="nb">shift</span> <span class="p">};</span>
 <span class="p">}</span>
-<span class="k">my</span> <span class="nv">$obj</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Test</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">);</span>
-<span class="k">print</span> <span class="nv">$obj</span><span class="p">;</span></code></pre></div>
+<span class="k">my</span> <span class="nv">$obj</span> <span class="o">=</span> <span class="k">new</span> <span class="nv">Test</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">);</span>
+<span class="k">print</span> <span class="nv">$obj</span><span class="p">;</span>
+</code></pre>
+</div>
 <p>输出结果：</p>
-<pre><code>1 overloaded.
+<div class="highlighter-rouge"><pre class="highlight"><code>1 overloaded.
 3 overloaded.
 2
 </code></pre>
+</div>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/10/09/using-elasticsearch-and-logstash-to-serve-billions-of-searchable-events-for-customers" title="【翻译】用 elasticsearch 和 logstash 为数十亿次客户搜索提供服务">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/10/09/using-elasticsearch-and-logstash-to-serve-billions-of-searchable-events-for-customers/" title="【翻译】用 elasticsearch 和 logstash 为数十亿次客户搜索提供服务">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/10/25/intro-plenv" title="用 plenv 代替 perlbrew 管理 Perl5">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/10/25/intro-plenv/" title="用 plenv 代替 perlbrew 管理 Perl5">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -129,15 +137,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -57,33 +57,37 @@
 <p>一是直接error_page 502 503 504 = http://xyfunds.cdn.21vokglb.cn/index.htm;</p>
 <p>二是error_page 502 503 504 =200 @fetch;然后location ~* @fetch {……}。</p>
 <p>网上看到很多自定义error_page的方式，比如error_page 404 /404.php;把变量都传给php去分析处理；也可以在location里用if(){}做rewrite等等。</p>
-<p>squid的error_page，可以有error_directory、error_map、deny_info三种方式。其中deny_info仅适用于ERR_ACCESS_DENIED一种情况；目前对于源站故障跳转，采用的是修改error_directory里html的meta；今天由nginx的方式想到采用error_map试试，于是写了如下php页面：</p>
-<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
-<span class="k">switch</span> <span class="p">(</span><span class="nv">$_SERVER</span><span class="p">[</span><span class="s1">&#39;SERVER_NAME&#39;</span><span class="p">])</span>
-<span class="p">{</span>
-<span class="k">case</span> <span class="s1">&#39;www.xyfunds.com.cn&#39;</span><span class="o">:</span>
-<span class="nb">header</span><span class="p">(</span><span class="s2">&quot;Location: http://xyfunds.cdn.21vokglb.cn/index.htm&quot;</span><span class="p">);</span>
-<span class="k">break</span><span class="p">;</span>
-<span class="k">default</span><span class="o">:</span>
-<span class="k">echo</span> <span class="nv">$_SERVER</span><span class="p">[</span><span class="s1">&#39;SERVER_NAME&#39;</span><span class="p">];</span>
-<span class="p">}</span>
-<span class="cp">?&gt;</span><span class="x"></span></code></pre></div>
-<p>但测试结果，ERR的页面却是一片空白……在squid.conf,default中看到，原来<span style="color:#ff0000;">error_map只是返回定义页面的内容，header还是原先的。</span>
-于是又想针对squid返回的%U，进行strtr()，然后再进行meta，如下：</p>
-<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
-<span class="nv">$urlarray</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;com.cn&#39;</span><span class="o">=&gt;</span><span class="s1">&#39;21vokglb.cn&#39;</span><span class="p">);</span>
-<span class="nv">$urlrewrite</span> <span class="o">=</span> <span class="nb">strtr</span><span class="p">(</span><span class="s2">&quot;%U&quot;</span><span class="p">,</span><span class="nv">$urlarray</span><span class="p">);</span>
-<span class="k">echo</span> <span class="o">&lt;</span><span class="nx">META</span> <span class="nx">HTTP</span><span class="o">-</span><span class="nx">EQUIV</span><span class="o">=</span><span class="s2">&quot;refresh&quot;</span> <span class="nx">CONTENT</span><span class="o">=</span><span class="s2">&quot;0; </span><span class="si">$urlrewrite</span><span class="s2">&quot;</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="cp">?&gt;</span><span class="x"></span></code></pre></div>
-<p>很可惜，测试结果是把这串字符直接显示在了页面上。
+<p>squid的error_page，可以有error_directory、error_map、deny_info三种方式。其中deny_info仅适用于ERR_ACCESS_DENIED一种情况；目前对于源站故障跳转，采用的是修改error_directory里html的meta；今天由nginx的方式想到采用error_map试试，于是写了如下php页面：<br />
+<code class="highlighter-rouge">php
+&lt;?php
+switch ($_SERVER['SERVER_NAME'])
+{
+case 'www.xyfunds.com.cn':
+header("Location: http://xyfunds.cdn.21vokglb.cn/index.htm");
+break;
+default:
+echo $_SERVER['SERVER_NAME'];
+}
+?&gt;
+</code><br />
+但测试结果，ERR的页面却是一片空白……在squid.conf,default中看到，原来<span style="color:#ff0000;">error_map只是返回定义页面的内容，header还是原先的。</span><br />
+于是又想针对squid返回的%U，进行strtr()，然后再进行meta，如下：<br />
+<code class="highlighter-rouge">php
+&lt;?php
+$urlarray = array('com.cn'=&gt;'21vokglb.cn');
+$urlrewrite = strtr("%U",$urlarray);
+echo &lt;META HTTP-EQUIV="refresh" CONTENT="0; $urlrewrite"&gt;;
+?&gt;
+</code><br />
+很可惜，测试结果是把这串字符直接显示在了页面上。<br />
 这两个结果让我很无语。如果说squid不支持php，那为什么它能识别出来上一个是修改header而不是页面内容所以不显示文本；如果说squid支持php，那为什么下一个又无法执行呢？</p>
 <p>想对%U进行操作，难道非得到squid/src/errorpage.c里去修改么？C语言的字符串处理没有封装好的函数，真的好麻烦的说……</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/03/24/default-vhost-in-nginx" title="nginx的默认主机头问题">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/03/24/default-vhost-in-nginx/" title="nginx的默认主机头问题">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/03/24/monitor-tcp-conns-by-cacti" title="cacti自建tcp80连接数监控">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/03/24/monitor-tcp-conns-by-cacti/" title="cacti自建tcp80连接数监控">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -127,15 +131,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

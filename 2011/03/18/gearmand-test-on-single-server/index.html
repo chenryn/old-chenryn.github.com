@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -59,41 +59,50 @@
 <p><img src="/images/uploads/gearman4log.jpg" alt="gearman" /></p>
 <p>好了。上面都是虚的。现在开始做实验。</p>
 <p>下载gearman的c语言版，毕竟单纯就为了记录下带宽值的话，没必要下perl版的来折腾——注意，和memcached一样，gearman也采用了libevent，所以必须先安好libevent：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">wget http://launchpad.net/gearmand/trunk/0.14/+download/gearmand-0.14.tar.gz
+<div class="highlighter-rouge"><pre class="highlight"><code>wget http://launchpad.net/gearmand/trunk/0.14/+download/gearmand-0.14.tar.gz
 tar zxvf gearmand-0.14
 <span class="nb">cd</span> !<span class="err">$</span>
-./configure <span class="o">&amp;&amp;</span> make <span class="o">&amp;&amp;</span> make install</code></pre></div>
+./configure <span class="o">&amp;&amp;</span> make <span class="o">&amp;&amp;</span> make install
+</code></pre>
+</div>
 <p>默认会采用sqlite存储持久化队列。如果觉得memcached什么的更有爱，也可以&ndash;with。</p>
 <p>安装完成后，会在/usr/local/bin下生成gearman和gearmand两个文件，前一个是worker和client共用的；后一个是jobserver。</p>
 <p>首先要启动jobserver：</p>
-<pre><code>gearmand -d -p 7003
+<div class="highlighter-rouge"><pre class="highlight"><code>gearmand -d -p 7003
 </code></pre>
+</div>
 <p>然后开启一个client：</p>
-<pre><code>echo 'test' | gearman -h 127.0.0.1 -p 7003 -f testwork
+<div class="highlighter-rouge"><pre class="highlight"><code>echo 'test' | gearman -h 127.0.0.1 -p 7003 -f testwork
 </code></pre>
+</div>
 <p>资料都说7003是gearman的默认端口，但C版的必须明确定义才行。</p>
 <p>这个时候，可以telnet 127.0.0.1 7003上去，输入status看看了，上面显示“1 0 0”，表示有一个请求在队列中等待执行了。</p>
 <p>然后注册一个worker：</p>
-<pre><code>gearman -n -w -f testwork -- ls -lh
+<div class="highlighter-rouge"><pre class="highlight"><code>gearman -n -w -f testwork -- ls -lh
 </code></pre>
+</div>
 <p>资料也都没有要使用-n参数。但如果不用这个，worker会在接收执行完队列中的第一个任务后就主动退出了！</p>
 <p>ok，现在执行结果出来了。在client端（因为单机执行，其实就是运行client命令的ssh窗口），显示出来了一串文件信息，就是worker端的ls -lh结果。</p>
 <p>然后重新注册worker，以测试client传递的内容能被worker正确处理：</p>
-<pre><code>gearman -n -w -f testwork | awk '{print $0}'
+<div class="highlighter-rouge"><pre class="highlight"><code>gearman -n -w -f testwork | awk '{print $0}'
 </code></pre>
+</div>
 <p>嗯？worker端还是没有反应啊？切到client来，发现client这边显示了test！难道是标准输出就是用来返回给client的？那试试别的命令试试吧。</p>
 <p>重新注册worker：</p>
-<pre><code>gearman -n -w -f testwork | awk '{system("touch /tmp/"$0}'
+<div class="highlighter-rouge"><pre class="highlight"><code>gearman -n -w -f testwork | awk '{system("touch /tmp/"$0}'
 </code></pre>
+</div>
 <p>这时候也可以telnet上去看看status，会显示“0 0 1”，表示有一个注册在jobserver上的worker；</p>
 <p>然后重新发起client：</p>
-<pre><code>echo 'test' | gearman -h 127.0.0.1 -p 7003 -f testwork
+<div class="highlighter-rouge"><pre class="highlight"><code>echo 'test' | gearman -h 127.0.0.1 -p 7003 -f testwork
 </code></pre>
+</div>
 <p>在到/tmp下一看，确实出现了/tmp/test文件了~~</p>
 <p>不过，如何确定这个/tmp/test是worker生成的，而不是client呢（单机测试就是郁闷啊……）</p>
 <p>修改一下worker：</p>
-<pre><code>gearman -n -w -f testwork | awk '{system("sleep 100;touch /tmp/"$0}'
+<div class="highlighter-rouge"><pre class="highlight"><code>gearman -n -w -f testwork | awk '{system("sleep 100;touch /tmp/"$0}'
 </code></pre>
+</div>
 <p>重新发起client，因为有sleep 100在，这次client没有立刻退出，但为了测试需要，按下Ctrl+C，终止client的运行，以确保命令不会是由client执行的（更确保一点，可以退出ssh会话）。</p>
 <p>切换到/tmp/目录下，用stat命令查看/tmp/test文件的CTIME——目前还是上一次试验时的生成时间。</p>
 <p>这时候telnet看status，显示是“1 0 1”，表示一个job正在运行。</p>
@@ -101,9 +110,9 @@ tar zxvf gearmand-0.14
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/03/17/initctl-error" title="linux小报错一例">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/03/17/initctl-error/" title="linux小报错一例">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/03/21/bsd_flow_monitor_by_awk" title="BSD上的流量监控脚本">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/03/21/bsd_flow_monitor_by_awk/" title="BSD上的流量监控脚本">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -147,15 +156,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

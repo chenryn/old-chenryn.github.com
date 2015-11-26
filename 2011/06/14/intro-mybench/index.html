@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,238 +53,226 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>小型的mysql测试工具，主要有自带的mysqlslap、super-smack和mybench。嗯，我这里的小型的意思是指工具安装过程简单。
-mysqlslap的使用方法遍地都是，就不先详细写了。根据个人偏好写写mybench吧，毕竟是perl的。
-安装很简单，如下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">cpanm DBI DBD::mysql Time::HiRes
+    <p>小型的mysql测试工具，主要有自带的mysqlslap、super-smack和mybench。嗯，我这里的小型的意思是指工具安装过程简单。<br />
+mysqlslap的使用方法遍地都是，就不先详细写了。根据个人偏好写写mybench吧，毕竟是perl的。<br />
+安装很简单，如下：<br />
+<code class="highlighter-rouge">bashcpanm DBI DBD::mysql Time::HiRes
 wget http://jeremy.zawodny.com/mysql/mybench/mybench-1.0.tar.gz
 tar zxvf mybench-1.0.tar.gz
-<span class="nb">cd </span>mybench-1.0
-perl MakeFile.PL <span class="o">&amp;&amp;</span> make <span class="o">&amp;&amp;</span> make install</code></pre></div>
-<p>但是使用就不是太简单了——mysqlslap会自己生成（-a选项）sql，super-smack则带了一个gen-data程序生成数据然后自动导入，但是mybench没有，所以只能自己搞定数据。
-不过mybench还是自己生成了一个测试模版的脚本在/usr/bin/bench_example，很简单的就知道怎么做了。
-example如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="nb">eval</span> <span class="s">&#39;exec /usr/bin/perl -w -S $0 ${1+&quot;$@&quot;}&#39;</span>
-    <span class="k">if</span> <span class="mi">0</span><span class="p">;</span> <span class="c1"># not running under some shell</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">MyBench</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Getopt::</span><span class="n">Std</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Time::</span><span class="n">HiRes</span> <span class="sx">qw(gettimeofday tv_interval)</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">DBI</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">%opt</span><span class="p">;</span>
-<span class="nn">Getopt::Std::</span><span class="n">getopt</span><span class="p">(</span><span class="s">&#39;n:r:h:&#39;</span><span class="p">,</span> <span class="o">\</span><span class="nv">%opt</span><span class="p">);</span>
-<span class="c1">#这是我见过的最hardcode的perl脚本了（呃，除了我自己写的垃圾），连db库、用户名、密码都不给运行参数的</span>
-<span class="k">my</span> <span class="nv">$num_kids</span>  <span class="o">=</span> <span class="nv">$opt</span><span class="p">{</span><span class="n">n</span><span class="p">}</span> <span class="o">||</span> <span class="mi">10</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$num_runs</span>  <span class="o">=</span> <span class="nv">$opt</span><span class="p">{</span><span class="n">r</span><span class="p">}</span> <span class="o">||</span> <span class="mi">100</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$db</span>        <span class="o">=</span> <span class="s">&quot;test&quot;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$user</span>      <span class="o">=</span> <span class="s">&quot;test&quot;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$pass</span>      <span class="o">=</span> <span class="s">&quot;&quot;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$port</span>      <span class="o">=</span> <span class="mi">3306</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$host</span>      <span class="o">=</span> <span class="nv">$opt</span><span class="p">{</span><span class="n">h</span><span class="p">}</span> <span class="o">||</span> <span class="s">&quot;192.168.0.1&quot;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$dsn</span>       <span class="o">=</span> <span class="s">&quot;DBI:mysql:$db:$host;port=$port&quot;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$callback</span> <span class="o">=</span> <span class="k">sub</span>
-<span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$id</span>  <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$dbh</span> <span class="o">=</span> <span class="n">DBI</span><span class="o">-&gt;</span><span class="nb">connect</span><span class="p">(</span><span class="nv">$dsn</span><span class="p">,</span> <span class="nv">$user</span><span class="p">,</span> <span class="nv">$pass</span><span class="p">,</span> <span class="p">{</span> <span class="n">RaiseError</span> <span class="o">=&gt;</span> <span class="mi">1</span> <span class="p">});</span>
-<span class="c1">#为测试准备的请求，测select就写select，测insert就写insert呗~</span>
-<span class="c1">#如果不修改，也就是说测试用的是test.mytable表，而且必须有一个列叫id</span>
-    <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span><span class="s">&quot;SELECT * FROM mytable WHERE ID = ?&quot;</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$cnt</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">@times</span> <span class="o">=</span> <span class="p">();</span>
-    <span class="c1">## wait for the parent to HUP me</span>
-    <span class="nb">local</span> <span class="nv">$SIG</span><span class="p">{</span><span class="n">HUP</span><span class="p">}</span> <span class="o">=</span> <span class="k">sub </span><span class="p">{</span> <span class="p">};</span>
-    <span class="nb">sleep</span> <span class="mi">600</span><span class="p">;</span>
-<span class="c1">#脚本定义的每个进程执行多少次请求</span>
-    <span class="k">while</span> <span class="p">(</span><span class="nv">$cnt</span> <span class="o">&lt;</span> <span class="nv">$num_runs</span><span class="p">)</span>
-    <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$v</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">rand</span><span class="p">(</span><span class="mi">100_000</span><span class="p">));</span>
-        <span class="c1">## time the query</span>
-        <span class="k">my</span> <span class="nv">$t0</span> <span class="o">=</span> <span class="p">[</span><span class="n">gettimeofday</span><span class="p">];</span>
-<span class="c1">#真正的执行sql请求，通过上面的rand知道，之前准备的test.mytable的id列必须是int格式，同时不少于10w行（又一处hard）</span>
-        <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">(</span><span class="nv">$v</span><span class="p">);</span>
-<span class="c1">#通过前后两次gettimeofday获得sql的exec耗时</span>
-        <span class="k">my</span> <span class="nv">$t1</span> <span class="o">=</span> <span class="n">tv_interval</span><span class="p">(</span><span class="nv">$t0</span><span class="p">,</span> <span class="p">[</span><span class="n">gettimeofday</span><span class="p">]);</span>
-<span class="c1">#完成一次请求执行，加入数组</span>
-        <span class="nb">push</span> <span class="nv">@times</span><span class="p">,</span> <span class="nv">$t1</span><span class="p">;</span>
-        <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">finish</span><span class="p">();</span>
-        <span class="nv">$cnt</span><span class="o">++</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="c1">## cleanup</span>
-    <span class="nv">$dbh</span><span class="o">-&gt;</span><span class="n">disconnect</span><span class="p">();</span>
-<span class="c1">#计算本进程全部请求的各项数据，几个大小和均来自MyBench模块</span>
-    <span class="k">my</span> <span class="nv">@r</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$id</span><span class="p">,</span> <span class="nb">scalar</span><span class="p">(</span><span class="nv">@times</span><span class="p">),</span> <span class="n">min</span><span class="p">(</span><span class="nv">@times</span><span class="p">),</span> <span class="n">max</span><span class="p">(</span><span class="nv">@times</span><span class="p">),</span> <span class="n">avg</span><span class="p">(</span><span class="nv">@times</span><span class="p">),</span> <span class="n">tot</span><span class="p">(</span><span class="nv">@times</span><span class="p">));</span>
-    <span class="k">return</span> <span class="nv">@r</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="c1">#将上面这个函数交给MyBench模块的fork_and_work执行，即并发指定数量请求，返回总的结果</span>
-<span class="k">my</span> <span class="nv">@results</span> <span class="o">=</span> <span class="nn">MyBench::</span><span class="n">fork_and_work</span><span class="p">(</span><span class="nv">$num_kids</span><span class="p">,</span> <span class="nv">$callback</span><span class="p">);</span>
-<span class="c1">#计算总的数据</span>
-<span class="nn">MyBench::</span><span class="n">compute_results</span><span class="p">(</span><span class="s">&#39;test&#39;</span><span class="p">,</span> <span class="nv">@results</span><span class="p">);</span>
-<span class="nb">exit</span><span class="p">;</span>
-<span class="cp">__END__</span></code></pre></div>
-<p>然后看看/usr/lib/perl5/site_perl/5.8.8/MyBench.pm，主要内容就是fork和compute：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="n">MyBench</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="nv">$</span><span class="nn">main::</span><span class="nv">VERSION</span> <span class="o">=</span> <span class="s">&#39;1.0&#39;</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Exporter</span><span class="p">;</span>
-<span class="nv">@</span><span class="nn">MyBench::</span><span class="nv">ISA</span> <span class="o">=</span> <span class="s">&#39;Exporter&#39;</span><span class="p">;</span>
-<span class="c1">#导出求最大值、最小值、平均值、综合值的函数给外面用</span>
-<span class="nv">@</span><span class="nn">MyBench::</span><span class="nv">EXPORT</span> <span class="o">=</span> <span class="sx">qw(max min avg tot)</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">fork_and_work</span><span class="p">($$)</span>
-<span class="p">{</span>
-<span class="c1">#关闭输出缓冲</span>
-    <span class="vg">$|</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">IO::</span><span class="n">Pipe</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">IO::</span><span class="n">Select</span><span class="p">;</span>
-    <span class="nv">$SIG</span><span class="p">{</span><span class="n">CHLD</span><span class="p">}</span> <span class="o">=</span> <span class="s">&#39;IGNORE&#39;</span><span class="p">;</span>      <span class="c1">## let the kids die</span>
-    <span class="k">my</span> <span class="nv">$kids_to_fork</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$callback</span>     <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$num_kids</span>     <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">@pipes</span>        <span class="o">=</span> <span class="p">();</span>
-    <span class="k">my</span> <span class="nv">@pids</span>         <span class="o">=</span> <span class="p">();</span>
-    <span class="k">my</span> <span class="nv">$pid</span>          <span class="o">=</span> <span class="nb">undef</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;forking: &quot;</span><span class="p">;</span>
-    <span class="k">while</span> <span class="p">(</span><span class="nv">$num_kids</span> <span class="o">&lt;</span> <span class="nv">$kids_to_fork</span><span class="p">)</span>
-    <span class="p">{</span>
-<span class="c1">#用IO::Pipe管道方式来传递父子进程的信息</span>
-        <span class="k">my</span> <span class="nv">$pipe</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">IO::</span><span class="n">Pipe</span><span class="p">;</span>
-<span class="c1">#fork进程开始</span>
-        <span class="k">if</span> <span class="p">(</span><span class="nv">$pid</span> <span class="o">=</span> <span class="nb">fork</span><span class="p">())</span>
-        <span class="p">{</span>
-            <span class="c1">## parent</span>
-            <span class="nv">$num_kids</span><span class="o">++</span><span class="p">;</span>
-<span class="c1">#每fork完成一个打印一个+号</span>
-            <span class="k">print</span> <span class="s">&quot;+&quot;</span><span class="p">;</span>
-<span class="c1">#从管道中读取数据</span>
-            <span class="nv">$pipe</span><span class="o">-&gt;</span><span class="n">reader</span><span class="p">();</span>
-            <span class="nb">push</span> <span class="nv">@pipes</span><span class="p">,</span> <span class="nv">$pipe</span><span class="p">;</span>
-            <span class="nb">push</span> <span class="nv">@pids</span><span class="p">,</span>  <span class="nv">$pid</span><span class="p">;</span>
-        <span class="p">}</span>
-        <span class="k">elsif</span> <span class="p">(</span><span class="nb">defined</span> <span class="nv">$pid</span><span class="p">)</span>
-        <span class="p">{</span>
-            <span class="c1">## child</span>
-<span class="c1">#打开管道写入数据的功能</span>
-            <span class="nv">$pipe</span><span class="o">-&gt;</span><span class="n">writer</span><span class="p">();</span>
-<span class="c1">#执行select_example脚本传入的mysql请求测试函数</span>
-            <span class="k">my</span> <span class="nv">@result</span> <span class="o">=</span> <span class="nv">$callback</span><span class="o">-&gt;</span><span class="p">(</span><span class="nv">$num_kids</span><span class="p">);</span>
-<span class="c1">#把结果写入管道</span>
-            <span class="k">print</span> <span class="nv">$pipe</span> <span class="s">&quot;@result\n&quot;</span><span class="p">;</span>
-<span class="c1">#关闭管道</span>
-            <span class="nv">$pipe</span><span class="o">-&gt;</span><span class="nb">close</span><span class="p">();</span>
-            <span class="nb">exit</span> <span class="mi">0</span><span class="p">;</span>
-        <span class="p">}</span>
-        <span class="k">else</span>
-        <span class="p">{</span>
-            <span class="k">print</span> <span class="s">&quot;fork failed: $!\n&quot;</span><span class="p">;</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-    <span class="k">print</span> <span class="s">&quot;\n&quot;</span><span class="p">;</span>
-    <span class="c1">## give them a bit of time to setup</span>
-    <span class="k">my</span> <span class="nv">$time</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nv">$num_kids</span> <span class="o">/</span> <span class="mi">10</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;sleeping for $time seconds while kids get ready\n&quot;</span><span class="p">;</span>
-    <span class="nb">sleep</span> <span class="nv">$time</span><span class="p">;</span>
- <span class="c1">#发送SIGHUP信号给callback函数</span>
-    <span class="nb">kill</span> <span class="mi">1</span><span class="p">,</span> <span class="nv">@pids</span><span class="p">;</span>
-    <span class="c1">## collect the results</span>
-    <span class="k">my</span> <span class="nv">@results</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;waiting: &quot;</span><span class="p">;</span>
-<span class="c1">#从管道中读取数据到数组</span>
-    <span class="k">for</span> <span class="k">my</span> <span class="nv">$pipe</span> <span class="p">(</span><span class="nv">@pipes</span><span class="p">)</span>
-    <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="sr">&lt;$pipe&gt;</span><span class="p">;</span>
-        <span class="nb">push</span> <span class="nv">@results</span><span class="p">,</span> <span class="nv">$data</span><span class="p">;</span>
-        <span class="nv">$pipe</span><span class="o">-&gt;</span><span class="nb">close</span><span class="p">();</span>
-        <span class="k">print</span> <span class="s">&quot;-&quot;</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="k">print</span> <span class="s">&quot;\n&quot;</span><span class="p">;</span>
-    <span class="k">return</span> <span class="nv">@results</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">compute_results</span><span class="p">(@)</span>
-<span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$name</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$recs</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$Cnt</span><span class="p">,</span> <span class="nv">$Min</span><span class="p">,</span> <span class="nv">$Max</span><span class="p">,</span> <span class="nv">$Avg</span><span class="p">,</span> <span class="nv">$Tot</span><span class="p">,</span> <span class="nv">@Min</span><span class="p">,</span> <span class="nv">@Max</span><span class="p">);</span>
-    <span class="k">while</span> <span class="p">(</span><span class="nv">@_</span><span class="p">)</span>
-    <span class="p">{</span>
-        <span class="c1">## 6 elements per record</span>
-        <span class="k">my</span> <span class="nv">$rec</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span> <span class="nb">chomp</span> <span class="nv">$rec</span><span class="p">;</span>
-        <span class="k">my</span> <span class="p">(</span><span class="nv">$id</span><span class="p">,</span> <span class="nv">$cnt</span><span class="p">,</span> <span class="nv">$min</span><span class="p">,</span> <span class="nv">$max</span><span class="p">,</span> <span class="nv">$avg</span><span class="p">,</span> <span class="nv">$tot</span><span class="p">)</span> <span class="o">=</span> <span class="nb">split</span> <span class="sr">/\s+/</span><span class="p">,</span> <span class="nv">$rec</span><span class="p">;</span>
-        <span class="nv">$Cnt</span> <span class="o">+=</span> <span class="nv">$cnt</span><span class="p">;</span>
-        <span class="nv">$Avg</span> <span class="o">+=</span> <span class="nv">$avg</span><span class="p">;</span>
-        <span class="nv">$Tot</span> <span class="o">+=</span> <span class="nv">$tot</span><span class="p">;</span>
-        <span class="nb">push</span> <span class="nv">@Min</span><span class="p">,</span> <span class="nv">$min</span><span class="p">;</span>
-        <span class="nb">push</span> <span class="nv">@Max</span><span class="p">,</span> <span class="nv">$max</span><span class="p">;</span>
-        <span class="nv">$recs</span><span class="o">++</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="nv">$Avg</span> <span class="o">=</span> <span class="nv">$Avg</span> <span class="o">/</span> <span class="nv">$recs</span><span class="p">;</span>
-    <span class="nv">$Min</span> <span class="o">=</span> <span class="n">min</span><span class="p">(</span><span class="nv">@Min</span><span class="p">);</span>
-    <span class="nv">$Max</span> <span class="o">=</span> <span class="n">max</span><span class="p">(</span><span class="nv">@Max</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$Qps</span> <span class="o">=</span> <span class="nv">$Cnt</span> <span class="sr">/ ($Tot /</span> <span class="nv">$recs</span><span class="p">);</span>
-    <span class="k">print</span> <span class="s">&quot;$name: $Cnt $Min $Max $Avg $Tot $Qps\n&quot;</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;  clients : $recs\n&quot;</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;  queries : $Cnt\n&quot;</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;  fastest : $Min\n&quot;</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;  slowest : $Max\n&quot;</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;  average : $Avg\n&quot;</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;  serial  : $Tot\n&quot;</span><span class="p">;</span>
-    <span class="k">print</span> <span class="s">&quot;  q/sec   : $Qps\n&quot;</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="c1">## some numerical helper functions for arrays</span>
-<span class="k">sub </span><span class="nf">max</span>
-<span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$val</span> <span class="o">=</span> <span class="nv">$_</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
-    <span class="k">for</span> <span class="p">(</span><span class="nv">@_</span><span class="p">)</span>
-    <span class="p">{</span>
-        <span class="k">if</span> <span class="p">(</span><span class="nv">$_</span> <span class="o">&gt;</span> <span class="nv">$val</span><span class="p">)</span> <span class="p">{</span> <span class="nv">$val</span> <span class="o">=</span> <span class="nv">$_</span><span class="p">;</span> <span class="p">}</span>
-    <span class="p">}</span>
-    <span class="k">return</span> <span class="nv">$val</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">min</span>
-<span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$val</span> <span class="o">=</span> <span class="nv">$_</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
-    <span class="k">for</span> <span class="p">(</span><span class="nv">@_</span><span class="p">)</span>
-    <span class="p">{</span>
-        <span class="k">if</span> <span class="p">(</span><span class="nv">$_</span> <span class="o">&lt;</span> <span class="nv">$val</span><span class="p">)</span> <span class="p">{</span> <span class="nv">$val</span> <span class="o">=</span> <span class="nv">$_</span><span class="p">;</span> <span class="p">}</span>
-    <span class="p">}</span>
-    <span class="k">return</span> <span class="nv">$val</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">avg</span>
-<span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$tot</span><span class="p">;</span>
-    <span class="k">for</span> <span class="p">(</span><span class="nv">@_</span><span class="p">)</span> <span class="p">{</span> <span class="nv">$tot</span> <span class="o">+=</span> <span class="nv">$_</span><span class="p">;</span> <span class="p">}</span>
-    <span class="k">return</span> <span class="nv">$tot</span> <span class="o">/</span> <span class="nv">@_</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">sub </span><span class="nf">tot</span>
-<span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$tot</span><span class="p">;</span>
-    <span class="k">for</span> <span class="p">(</span><span class="nv">@_</span><span class="p">)</span> <span class="p">{</span> <span class="nv">$tot</span> <span class="o">+=</span> <span class="nv">$_</span><span class="p">;</span> <span class="p">}</span>
-    <span class="k">return</span> <span class="nv">$tot</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="mi">1</span><span class="p">;</span></code></pre></div>
-<p>好了，开始准备数据，比较懒，直接用super-smack的gen-data先出了一些./gen-data  -n 100000 -f %n,%80-12s%12n,%512-512s,%d &gt; /root/data，然后进mysql里执行：</p>
-<div class="highlight"><pre><code class="language-mysql" data-lang="mysql"><span class="k">USE</span> <span class="n">test</span><span class="p">;</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="nf">mytable</span> <span class="p">(</span><span class="n">id</span> <span class="kt">INT</span><span class="p">(</span><span class="mi">11</span><span class="p">)</span> <span class="k">NOT</span> <span class="no">NULL</span> <span class="kp">AUTO_INCREMENT</span><span class="p">,</span> <span class="n">col1</span> <span class="kt">CHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span> <span class="n">col2</span> <span class="kt">CHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span> <span class="n">col3</span> <span class="kt">INT</span><span class="p">(</span><span class="mi">11</span><span class="p">),</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">id</span><span class="p">)</span> <span class="p">)</span><span class="kp">ENGINE</span><span class="o">=</span><span class="n">InnoDB</span> <span class="k">DEFAULT</span> <span class="kp">CHARSET</span><span class="o">=</span><span class="n">utf8</span><span class="p">;</span>
-<span class="k">LOAD</span> <span class="n">DATA</span> <span class="n">LOCAL</span> <span class="k">INFILE</span> <span class="s1">&#39;data&#39;</span> <span class="k">REPLACE</span> <span class="k">INTO</span> <span class="k">TABLE</span> <span class="s1">&#39;mytable&#39;</span> <span class="n">FIELDS</span> <span class="k">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;,&#39;</span> <span class="k">LINES</span> <span class="k">TERMINATED</span> <span class="k">BY</span> <span class="s1">&#39;\n&#39;</span><span class="p">;</span>
-<span class="k">INSERT</span> <span class="k">INTO</span> <span class="nf">mytable</span> <span class="p">(</span><span class="n">col1</span><span class="p">,</span><span class="n">col2</span><span class="p">,</span><span class="n">col3</span><span class="p">)</span> <span class="k">SELECT</span> <span class="n">col1</span><span class="p">,</span><span class="n">col2</span><span class="p">,</span><span class="n">col3</span> <span class="k">FROM</span> <span class="n">mytable</span><span class="p">;</span></code></pre></div>
-<p>最后执行./select_bench -h 10.168.170.92 -n 10 -r 1000就能看到结果了：
-forking: ++++++++++
-sleeping for 2 seconds while kids get ready
-waiting: &mdash;&mdash;&mdash;-
-test: 10000 0.00017 0.006809 0.0010413514 10.413514 9602.9063772325
-  clients : 10
-  queries : 10000
-  fastest : 0.00017
-  slowest : 0.006809
-  average : 0.0010413514
-  serial  : 10.413514
+cd mybench-1.0
+perl MakeFile.PL &amp;&amp; make &amp;&amp; make install</code><br />
+但是使用就不是太简单了——mysqlslap会自己生成（-a选项）sql，super-smack则带了一个gen-data程序生成数据然后自动导入，但是mybench没有，所以只能自己搞定数据。<br />
+不过mybench还是自己生成了一个测试模版的脚本在/usr/bin/bench_example，很简单的就知道怎么做了。<br />
+example如下：<br />
+```perl#!/usr/bin/perl -w</p>
+<p>eval &lsquo;exec /usr/bin/perl -w -S $0 ${1+&rdquo;$@&rdquo;}&rsquo;<br />
+    if 0; # not running under some shell</p>
+<p>use strict;<br />
+use MyBench;<br />
+use Getopt::Std;<br />
+use Time::HiRes qw(gettimeofday tv_interval);<br />
+use DBI;</p>
+<p>my %opt;<br />
+Getopt::Std::getopt(&lsquo;n:r:h:&rsquo;, \%opt);<br />
+#这是我见过的最hardcode的perl脚本了（呃，除了我自己写的垃圾），连db库、用户名、密码都不给运行参数的<br />
+my $num_kids  = $opt{n} || 10;<br />
+my $num_runs  = $opt{r} || 100;<br />
+my $db        = &ldquo;test&rdquo;;<br />
+my $user      = &ldquo;test&rdquo;;<br />
+my $pass      = &ldquo;&rdquo;;<br />
+my $port      = 3306;<br />
+my $host      = $opt{h} || &ldquo;192.168.0.1&rdquo;;<br />
+my $dsn       = &ldquo;DBI:mysql:$db:$host;port=$port&rdquo;;</p>
+<p>my $callback = sub<br />
+{<br />
+    my $id  = shift;<br />
+    my $dbh = DBI-&gt;connect($dsn, $user, $pass, { RaiseError =&gt; 1 });<br />
+#为测试准备的请求，测select就写select，测insert就写insert呗~<br />
+#如果不修改，也就是说测试用的是test.mytable表，而且必须有一个列叫id<br />
+    my $sth = $dbh-&gt;prepare(&ldquo;SELECT * FROM mytable WHERE ID = ?&rdquo;);</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>my $cnt = 0;
+my @times = ();
+## wait for the parent to HUP me
+local $SIG{HUP} = sub { };
+sleep 600; #脚本定义的每个进程执行多少次请求
+while ($cnt &lt; $num_runs)
+{
+    my $v = int(rand(100_000));
+    ## time the query
+    my $t0 = [gettimeofday]; #真正的执行sql请求，通过上面的rand知道，之前准备的test.mytable的id列必须是int格式，同时不少于10w行（又一处hard）
+    $sth-&gt;execute($v); #通过前后两次gettimeofday获得sql的exec耗时
+    my $t1 = tv_interval($t0, [gettimeofday]); #完成一次请求执行，加入数组
+    push @times, $t1;
+    $sth-&gt;finish();
+    $cnt++;
+}
+## cleanup
+$dbh-&gt;disconnect(); #计算本进程全部请求的各项数据，几个大小和均来自MyBench模块
+my @r = ($id, scalar(@times), min(@times), max(@times), avg(@times), tot(@times));
+return @r; }; #将上面这个函数交给MyBench模块的fork_and_work执行，即并发指定数量请求，返回总的结果 my @results = MyBench::fork_and_work($num_kids, $callback); #计算总的数据 MyBench::compute_results('test', @results);
+</code></pre>
+</div>
+<p>exit;</p>
+<p><strong>END</strong><code class="highlighter-rouge">
+然后看看/usr/lib/perl5/site_perl/5.8.8/MyBench.pm，主要内容就是fork和compute：
+</code>perlpackage MyBench;<br />
+use strict;</p>
+<p>$main::VERSION = &lsquo;1.0&rsquo;;</p>
+<p>use Exporter;<br />
+@MyBench::ISA = &lsquo;Exporter&rsquo;;<br />
+#导出求最大值、最小值、平均值、综合值的函数给外面用<br />
+@MyBench::EXPORT = qw(max min avg tot);</p>
+<p>sub fork_and_work($$)<br />
+{<br />
+#关闭输出缓冲<br />
+    $|=1;</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>use strict;
+use IO::Pipe;
+use IO::Select;
+$SIG{CHLD} = 'IGNORE';      ## let the kids die
+my $kids_to_fork = shift;
+my $callback     = shift;
+my $num_kids     = 0;
+my @pipes        = ();
+my @pids         = ();
+my $pid          = undef;
+print "forking: ";
+while ($num_kids &lt; $kids_to_fork)
+{ #用IO::Pipe管道方式来传递父子进程的信息
+    my $pipe = new IO::Pipe; #fork进程开始
+    if ($pid = fork())
+    {
+        ## parent
+        $num_kids++; #每fork完成一个打印一个+号
+        print "+"; #从管道中读取数据
+        $pipe-&gt;reader();
+        push @pipes, $pipe;
+        push @pids,  $pid;
+    }
+    elsif (defined $pid)
+    {
+        ## child #打开管道写入数据的功能
+        $pipe-&gt;writer(); #执行select_example脚本传入的mysql请求测试函数
+        my @result = $callback-&gt;($num_kids); #把结果写入管道
+        print $pipe "@result\n"; #关闭管道
+        $pipe-&gt;close();
+        exit 0;
+    }
+    else
+    {
+        print "fork failed: $!\n";
+    }
+}
+print "\n";
+## give them a bit of time to setup
+my $time = int($num_kids / 10) + 1;
+print "sleeping for $time seconds while kids get ready\n";
+sleep $time;
+</code></pre>
+</div>
+<p>#发送SIGHUP信号给callback函数<br />
+    kill 1, @pids;</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>## collect the results
+my @results;
+print "waiting: "; #从管道中读取数据到数组
+for my $pipe (@pipes)
+{
+    my $data = &lt;$pipe&gt;;
+    push @results, $data;
+    $pipe-&gt;close();
+    print "-";
+}
+print "\n";
+return @results; }
+</code></pre>
+</div>
+<p>sub compute_results(@)<br />
+{<br />
+    my $name = shift;<br />
+    my $recs = 0;<br />
+    my ($Cnt, $Min, $Max, $Avg, $Tot, @Min, @Max);</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>while (@_)
+{
+    ## 6 elements per record
+    my $rec = shift; chomp $rec;
+    my ($id, $cnt, $min, $max, $avg, $tot) = split /\s+/, $rec;
+    $Cnt += $cnt;
+    $Avg += $avg;
+    $Tot += $tot;
+    push @Min, $min;
+    push @Max, $max;
+    $recs++;
+}
+$Avg = $Avg / $recs;
+$Min = min(@Min);
+$Max = max(@Max);
+my $Qps = $Cnt / ($Tot / $recs);
+print "$name: $Cnt $Min $Max $Avg $Tot $Qps\n";
+print "  clients : $recs\n";
+print "  queries : $Cnt\n";
+print "  fastest : $Min\n";
+print "  slowest : $Max\n";
+print "  average : $Avg\n";
+print "  serial  : $Tot\n";
+print "  q/sec   : $Qps\n"; }
+</code></pre>
+</div>
+<h2 id="some-numerical-helper-functions-for-arrays">some numerical helper functions for arrays</h2>
+<p>sub max<br />
+{<br />
+    my $val = $<em>[0];<br />
+    for (@</em>)<br />
+    {<br />
+        if ($_ &gt; $val) { $val = $_; }<br />
+    }<br />
+    return $val;<br />
+}</p>
+<p>sub min<br />
+{<br />
+    my $val = $<em>[0];<br />
+    for (@</em>)<br />
+    {<br />
+        if ($_ &lt; $val) { $val = $_; }<br />
+    }<br />
+    return $val;<br />
+}</p>
+<p>sub avg<br />
+{<br />
+    my $tot;<br />
+    for (@<em>) { $tot += $</em>; }<br />
+    return $tot / @_;<br />
+}</p>
+<p>sub tot<br />
+{<br />
+    my $tot;<br />
+    for (@<em>) { $tot += $</em>; }<br />
+    return $tot;<br />
+}</p>
+<p>1;<code class="highlighter-rouge">
+好了，开始准备数据，比较懒，直接用super-smack的gen-data先出了一些./gen-data  -n 100000 -f %n,%80-12s%12n,%512-512s,%d &gt; /root/data，然后进mysql里执行：
+</code>mysql<br />
+USE test;<br />
+CREATE TABLE mytable (id INT(11) NOT NULL AUTO_INCREMENT, col1 CHAR(100), col2 CHAR(100), col3 INT(11), PRIMARY KEY (id) )ENGINE=InnoDB DEFAULT CHARSET=utf8;<br />
+LOAD DATA LOCAL INFILE &lsquo;data&rsquo; REPLACE INTO TABLE &lsquo;mytable&rsquo; FIELDS TERMINATED BY &lsquo;,&rsquo; LINES TERMINATED BY &lsquo;\n&rsquo;;<br />
+INSERT INTO mytable (col1,col2,col3) SELECT col1,col2,col3 FROM mytable;```<br />
+最后执行./select_bench -h 10.168.170.92 -n 10 -r 1000就能看到结果了：<br />
+forking: ++++++++++<br />
+sleeping for 2 seconds while kids get ready<br />
+waiting: &mdash;&mdash;&mdash;-<br />
+test: 10000 0.00017 0.006809 0.0010413514 10.413514 9602.9063772325<br />
+  clients : 10<br />
+  queries : 10000<br />
+  fastest : 0.00017<br />
+  slowest : 0.006809<br />
+  average : 0.0010413514<br />
+  serial  : 10.413514<br />
   q/sec   : 9602.9063772325</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/06/10/java-chinese-support" title="java的中文支持">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/06/10/java-chinese-support/" title="java的中文支持">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/06/22/extend-open_conn-output-support-to-squid-snmp" title="给squid的snmp增加open_conn输出">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/06/22/extend-open_conn-output-support-to-squid-snmp/" title="给squid的snmp增加open_conn输出">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -328,15 +316,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

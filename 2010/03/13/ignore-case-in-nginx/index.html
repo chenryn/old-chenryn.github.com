@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -51,86 +51,92 @@
   <div style='background-color: #FFF;'>
     <p>刚才发现使用perl_set忽略大小写，完全不用perl_module和perl_require那么兴师动众，同样也能达到不错的效果。比如<a href="http://www.cnblogs.com/fengmk2/archive/2009/04/25.html" target="_blank">这个用perl做伪静态路径的例子</a>。随即就动手试验一下。</p>
 <p>首先找一个windows的origin，因为windows是不区分大小写，这样可以确保任意wget都能返回200的结果；</p>
-<p>然后按照上篇提到的方法配置nginx.conf（如下），stop&amp;&amp;start看看。</p>
-<div class="highlight"><pre><code class="language-nginx" data-lang="nginx"><span class="k">upstream</span> <span class="s">test</span><span class="p">{</span>
-    <span class="kn">server</span> <span class="n">61.152.237.170</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="k">perl_set</span> <span class="nv">$url</span> <span class="s">&#39;</span>
-    <span class="s">sub</span> <span class="p">{</span>
-        <span class="kn">my</span> <span class="nv">$r</span> <span class="p">=</span> <span class="s">shift</span><span class="p">;</span>
-        <span class="kn">my</span> <span class="nv">$re</span> <span class="p">=</span> <span class="s">lc(</span><span class="nv">$r-&gt;uri</span><span class="s">)</span><span class="p">;</span>
-        <span class="kn">return</span> <span class="nv">$re</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="k">&#39;</span><span class="p">;</span>
-<span class="k">server</span> <span class="p">{</span>
-    <span class="kn">listen      </span> <span class="mi">80</span><span class="p">;</span>
-    <span class="kn">server_name </span> <span class="s">www.hapi.com.cn</span><span class="p">;</span>
-    <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
-        <span class="kn">root</span> <span class="s">/cache/</span><span class="nv">$host/</span><span class="p">;</span>
-        <span class="kn">proxy_redirect</span> <span class="no">off</span><span class="p">;</span>
-        <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="nv">$host</span><span class="p">;</span>
-        <span class="kn">proxy_set_header</span> <span class="s">X-Real-IP</span> <span class="nv">$remote_addr</span><span class="p">;</span>
-        <span class="kn">proxy_set_header</span> <span class="s">X-Forwarded-For</span> <span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span>
-        <span class="kn">proxy_store</span> <span class="s">/cache/</span><span class="nv">$host$url</span><span class="p">;</span>
-        <span class="kn">proxy_store_access  </span> <span class="s">user:rw </span> <span class="s">group:rw </span> <span class="s">all:r</span><span class="p">;</span>
-        <span class="kn">proxy_temp_path     </span> <span class="s">/cache/temp</span><span class="p">;</span>
-        <span class="kn">if</span> <span class="s">(!-f</span> <span class="nv">$request_filename</span><span class="s">)</span> <span class="p">{</span>
-            <span class="kn">proxy_pass</span> <span class="s">http://test</span><span class="p">;</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
-<p>这里没法直接把lc($uri)继续set成$uri，应该是内置变量的缘故……</p>
+<p>然后按照上篇提到的方法配置nginx.conf（如下），stop&amp;&amp;start看看。<br />
+<code class="highlighter-rouge">nginx
+upstream test{
+    server 61.152.237.170:80;
+}
+perl_set $url '
+    sub {
+        my $r = shift;
+        my $re = lc($r-&gt;uri);
+        return $re;
+    }
+';
+server {
+    listen       80;
+    server_name  www.hapi.com.cn;
+    location / {
+        root /cache/$host/;
+        proxy_redirect off;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_store /cache/$host$url;
+        proxy_store_access   user:rw  group:rw  all:r;
+        proxy_temp_path      /cache/temp;
+        if (!-f $request_filename) {
+            proxy_pass http://test;
+        }
+    }
+}
+</code><br />
+这里没法直接把lc($uri)继续set成$uri，应该是内置变量的缘故……</p>
 <p>测试相关的access.log如下：</p>
-<pre><code>1268461739.707 -/200 416073 GET http://www.hapi.com.cn/flash/age.swf PARENT/61.152.237.170:80 "-" "Wget/1.10.2 (Red Hat modified)"
+<div class="highlighter-rouge"><pre class="highlight"><code>1268461739.707 -/200 416073 GET http://www.hapi.com.cn/flash/age.swf PARENT/61.152.237.170:80 "-" "Wget/1.10.2 (Red Hat modified)"
 1268461767.366 -/200 416073 GET http://www.hapi.com.cn/flash/Age.swf PARENT/61.152.237.170:80 "-" "Wget/1.10.2 (Red Hat modified)"
 1268461785.360 -/200 416073 GET http://www.hapi.com.cn/flash/Age.swf PARENT/61.152.237.170:80 "-" "Wget/1.10.2 (Red Hat modified)"
 1268461806.195 -/200 416073 GET http://www.hapi.com.cn/flash/age.swf PARENT/- "-" "Wget/1.10.2 (Red Hat modified)"
 </code></pre>
+</div>
 <p>然后查看缓存目录：</p>
-<p>[root@sdl4 /home/nginx/conf 14:36:46]# ls /cache/www.hapi.com.cn/flash/
+<p>[root@sdl4 /home/nginx/conf 14:36:46]# ls /cache/www.hapi.com.cn/flash/<br />
 age.swf</p>
 <p>可以看到，只缓存了一个文件，但其他写法的请求就会反复重写……</p>
 <p>看起来缓存空间确实是节省下来了，不过真正的缓存目的还是没达到。</p>
-<p>再加上rewrite，变成下面这样：</p>
-<div class="highlight"><pre><code class="language-nginx" data-lang="nginx"><span class="k">perl_set</span> <span class="nv">$url</span> <span class="s">&#39;</span>
-    <span class="s">sub</span> <span class="p">{</span>
-        <span class="kn">my</span> <span class="nv">$r</span> <span class="p">=</span> <span class="s">shift</span><span class="p">;</span>
-        <span class="kn">my</span> <span class="nv">$re</span> <span class="p">=</span> <span class="s">lc(</span><span class="nv">$r-&gt;uri</span><span class="s">)</span><span class="p">;</span>
-        <span class="kn">return</span> <span class="nv">$re</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="k">&#39;</span><span class="p">;</span>
-<span class="k">server</span> <span class="p">{</span>
-    <span class="kn">listen      </span> <span class="mi">80</span><span class="p">;</span>
-    <span class="kn">server_name </span> <span class="s">www.hapi.com.cn</span><span class="p">;</span>
-    <span class="kn">if</span> <span class="s">(</span><span class="nv">$uri</span> <span class="p">~</span> <span class="sr">[A-Z])</span><span class="p">{</span>
-    <span class="kn">rewrite</span> <span class="s">^(.*)</span>$ <span class="nv">$url</span> <span class="s">last</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
-        <span class="kn">root</span> <span class="s">/cache/</span><span class="nv">$host/</span><span class="p">;</span>
-        <span class="kn">proxy_redirect</span> <span class="no">off</span><span class="p">;</span>
-        <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="nv">$host</span><span class="p">;</span>
-        <span class="kn">proxy_set_header</span> <span class="s">X-Real-IP</span> <span class="nv">$remote_addr</span><span class="p">;</span>
-        <span class="kn">proxy_set_header</span> <span class="s">X-Forwarded-For</span> <span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span>
-        <span class="kn">proxy_store</span> <span class="s">/cache/</span><span class="nv">$host$uri</span><span class="p">;</span>
-        <span class="kn">proxy_store_access  </span> <span class="s">user:rw </span> <span class="s">group:rw </span> <span class="s">all:r</span><span class="p">;</span>
-        <span class="kn">proxy_temp_path     </span> <span class="s">/cache/temp</span><span class="p">;</span>
-        <span class="kn">if</span> <span class="s">(!-f</span> <span class="nv">$request_filename</span><span class="s">)</span> <span class="p">{</span>
-            <span class="kn">proxy_pass</span> <span class="s">http://test</span><span class="p">;</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
-<p>测试变可以了：</p>
-<pre><code>1268469316.852 -/200 416073 GET http://www.hapi.com.cn/flash/agE.swf PARENT/- "-" "Wget/1.10.2 (Red Hat modified)"
+<p>再加上rewrite，变成下面这样：<br />
+<code class="highlighter-rouge">nginx
+perl_set $url '
+    sub {
+        my $r = shift;
+        my $re = lc($r-&gt;uri);
+        return $re;
+    }
+';
+server {
+    listen       80;
+    server_name  www.hapi.com.cn;
+    if ($uri ~ [A-Z]){
+    rewrite ^(.*)$ $url last;
+    }
+    location / {
+        root /cache/$host/;
+        proxy_redirect off;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_store /cache/$host$uri;
+        proxy_store_access   user:rw  group:rw  all:r;
+        proxy_temp_path      /cache/temp;
+        if (!-f $request_filename) {
+            proxy_pass http://test;
+        }
+    }
+}
+</code><br />
+测试变可以了：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>1268469316.852 -/200 416073 GET http://www.hapi.com.cn/flash/agE.swf PARENT/- "-" "Wget/1.10.2 (Red Hat modified)"
 1268469327.605 -/200 416073 GET http://www.hapi.com.cn/FLASH/age.swf PARENT/- "-" "Wget/1.10.2 (Red Hat modified)"
 1268469397.312 -/200 416073 GET http://www.hapi.com.cn/FLASH/AGE.swf PARENT/- "-" "Wget/1.10.2 (Red Hat modified)"
 </code></pre>
+</div>
 <p>另：因为uri改写后，是从location开始重新执行匹配等（相当于重新访问），所以这里proxy_store用$uri就行了——换句话说，前面那一大段都是白折腾。。。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/03/11/upstream-log-in-nginx" title="nginx日志（upstream）">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/03/13/ignore-case-in-nginx-2/" title="忽略大小写（刚在nginx的maillist看到的）">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/03/13/ignore-case-in-nginx-2" title="忽略大小写（刚在nginx的maillist看到的）">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/03/13/pan-domain-cache_store/" title="nginx泛域名cache_store">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -174,15 +180,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

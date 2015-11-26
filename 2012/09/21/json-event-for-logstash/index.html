@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,49 +53,55 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>之前的各种示例中，都没有提到logstash的输入输出格式。看起来就好像logstash比Message::Passing少了decoder/encoder一样。其实logstash也有类似的设定的，这就是format。有三种选择：plain/json/json_event。默认情况下是plain。也就是我们之前的通用做法，传文本给logstash，由logstash转换成json。</p>
-<p>logstash社区根据某些应用场景，有相关的cookbook。关于访问日志，有<a href="http://cookbook.logstash.net/recipes/apache-json-logs/">http://cookbook.logstash.net/recipes/apache-json-logs/</a>。这是一个不错的思路！我们可以照葫芦画瓢给nginx也定义一下：</p>
-<div class="highlight"><pre><code class="language-nginx" data-lang="nginx"><span class="k">logformat</span> <span class="s">json</span> <span class="s">&#39;</span><span class="p">{</span><span class="kn">&quot;@timestamp&quot;:&quot;$time_iso8601&quot;,&#39;</span>
-                    <span class="s">&#39;&quot;@source&quot;:&quot;</span><span class="nv">$server_addr&quot;,&#39;</span>
-                    <span class="s">&#39;&quot;@fields&quot;:</span><span class="p">{</span><span class="kn">&#39;</span>
-                    <span class="s">&#39;&quot;client&quot;:&quot;</span><span class="nv">$remote_addr&quot;,&#39;</span>
-                    <span class="s">&#39;&quot;size&quot;:</span><span class="nv">$body_bytes_sent,&#39;</span>
-                    <span class="s">&#39;&quot;responsetime&quot;:</span><span class="nv">$request_time,&#39;</span>
-                    <span class="s">&#39;&quot;upstreamtime&quot;:</span><span class="nv">$upstream_response_time,&#39;</span>
-                    <span class="s">&#39;&quot;oh&quot;:&quot;</span><span class="nv">$upstream_addr&quot;,&#39;</span>
-                    <span class="s">&#39;&quot;domain&quot;:&quot;</span><span class="nv">$host&quot;,&#39;</span>
-                    <span class="s">&#39;&quot;url&quot;:&quot;</span><span class="nv">$uri&quot;,&#39;</span>
-                    <span class="s">&#39;&quot;status&quot;:&quot;</span><span class="nv">$status&quot;}}&#39;</span><span class="p">;</span>
-     <span class="kn">access_log</span> <span class="s">/data/nginx/logs/access.json</span> <span class="s">json</span><span class="p">;</span></code></pre></div>
-<p>这里需要注意的地方是：因为最后需要插入ES的某些field是有double/float类型。所以麻烦来了：一些端口监控工具的请求，状态码为400的，因为直接断开，所以并没有链接上upstream的服务器，其$upstream_response_time变量不存在，记录在日志里是-，这对于数值型是非法的定义。直接把带有400的日志通过file格式输入给logstash的时候，因为这个非法定义会报错，并把这行日志给丢弃掉。那么我们就无法统计400请求的数据了。</p>
-<p>这里需要变通一下，我们知道其实所谓的Input::File就等效于tail -F ${path}${filename}(当然其实不是，模块的实际做法是在~/.sincedb里记录上次读取的位置，然后每${stat_interval}秒检查一次内容更新，每${discover_interval}秒检查一次文件描述符变更。也就是说默认其实是每秒读一次，一次几百上千行，这样效率更高)。所以我们可以自己运行tail命令，然后sed修正upstream_response_time后通过管道传递给logstash的Input::STDIN，效果是一样一样的。
-新的logstash/agent.conf如下：</p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">input</span> <span class="p">{</span>
-    <span class="n">stdin</span> <span class="p">{</span>
-        <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;nginx&quot;</span>
-        <span class="nb">format</span> <span class="o">=&gt;</span> <span class="s2">&quot;json_event&quot;</span>
-    <span class="p">}</span>
-<span class="p">}</span> 
-<span class="n">output</span> <span class="p">{</span>
-    <span class="n">amqp</span> <span class="p">{</span>
-        <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;nginx&quot;</span>
-        <span class="n">host</span> <span class="o">=&gt;</span> <span class="s2">&quot;10.10.10.10&quot;</span>
-        <span class="n">key</span>  <span class="o">=&gt;</span> <span class="s2">&quot;cdn&quot;</span>
-        <span class="nb">name</span> <span class="o">=&gt;</span> <span class="s2">&quot;logstash&quot;</span>
-        <span class="n">exchange_type</span> <span class="o">=&gt;</span> <span class="s2">&quot;direct&quot;</span>
-    <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
-<p>运行命令如下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/bin/sh</span>
-      tail -F /data/nginx/logs/access.json <span class="se">\</span>
-    <span class="p">|</span> sed <span class="s1">&#39;s/upstreamtime&quot;:-/upstreamtime&quot;:0/&#39;</span> <span class="se">\</span>
-    <span class="p">|</span> /usr/local/logstash/bin/logstash -f /usr/local/logstash/etc/agent.conf <span class="p">&amp;</span></code></pre></div>
-<p>这样可以直接省略掉昂贵的Grok操作，同时节约原本的_all/_message/_source_host等等格式的空间。</p>
+<p>logstash社区根据某些应用场景，有相关的cookbook。关于访问日志，有<a href="http://cookbook.logstash.net/recipes/apache-json-logs/">http://cookbook.logstash.net/recipes/apache-json-logs/</a>。这是一个不错的思路！我们可以照葫芦画瓢给nginx也定义一下：<br />
+<code class="highlighter-rouge">nginx
+     logformat json '{"@timestamp":"$time_iso8601",'
+                    '"@source":"$server_addr",'
+                    '"@fields":{'
+                    '"client":"$remote_addr",'
+                    '"size":$body_bytes_sent,'
+                    '"responsetime":$request_time,'
+                    '"upstreamtime":$upstream_response_time,'
+                    '"oh":"$upstream_addr",'
+                    '"domain":"$host",'
+                    '"url":"$uri",'
+                    '"status":"$status"}}';
+     access_log /data/nginx/logs/access.json json;
+</code><br />
+这里需要注意的地方是：因为最后需要插入ES的某些field是有double/float类型。所以麻烦来了：一些端口监控工具的请求，状态码为400的，因为直接断开，所以并没有链接上upstream的服务器，其$upstream_response_time变量不存在，记录在日志里是-，这对于数值型是非法的定义。直接把带有400的日志通过file格式输入给logstash的时候，因为这个非法定义会报错，并把这行日志给丢弃掉。那么我们就无法统计400请求的数据了。</p>
+<p>这里需要变通一下，我们知道其实所谓的Input::File就等效于tail -F ${path}${filename}(当然其实不是，模块的实际做法是在~/.sincedb里记录上次读取的位置，然后每${stat_interval}秒检查一次内容更新，每${discover_interval}秒检查一次文件描述符变更。也就是说默认其实是每秒读一次，一次几百上千行，这样效率更高)。所以我们可以自己运行tail命令，然后sed修正upstream_response_time后通过管道传递给logstash的Input::STDIN，效果是一样一样的。<br />
+新的logstash/agent.conf如下：<br />
+<code class="highlighter-rouge">ruby
+input {
+    stdin {
+        type =&gt; "nginx"
+        format =&gt; "json_event"
+    }
+} 
+output {
+    amqp {
+        type =&gt; "nginx"
+        host =&gt; "10.10.10.10"
+        key  =&gt; "cdn"
+        name =&gt; "logstash"
+        exchange_type =&gt; "direct"
+    }
+}
+</code><br />
+运行命令如下：<br />
+<code class="highlighter-rouge">bash
+    #!/bin/sh
+      tail -F /data/nginx/logs/access.json \
+    | sed 's/upstreamtime":-/upstreamtime":0/' \
+    | /usr/local/logstash/bin/logstash -f /usr/local/logstash/etc/agent.conf &amp;
+</code><br />
+这样可以直接省略掉昂贵的Grok操作，同时节约原本的_all/_message/_source_host等等格式的空间。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/09/16/regexp-log-demo-for-nginx" title="【Message::Passing系列】Regexp::Log模板匹配变量">&larr; Previous</a></li>
+        <li class="prev"><a href="/2012/09/16/regexp-log-demo-for-nginx/" title="【Message::Passing系列】Regexp::Log模板匹配变量">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/09/26/jsonp-for-new-version-amcharts" title="用javascript操作新版本amcharts">Next &rarr;</a></li>
+        <li class="next"><a href="/2012/09/26/jsonp-for-new-version-amcharts/" title="用javascript操作新版本amcharts">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -139,15 +145,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

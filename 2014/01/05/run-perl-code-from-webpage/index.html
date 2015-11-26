@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -55,61 +55,67 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>这几天折腾<a href="http://www.perl-china.com">Perl中国用户组网站</a>，觉得类似 Ruby 的 tryruby，Scala 的 scala-tour 这样的新手入门教程非常好玩。于是准备自己也尝试一下。</p>
-<p>理论上，通过 Ajax 传递代码到服务器上，直接 <code>eval {}</code> 即可。不过这样会导致一个安全问题。如何防止用户执行错误代码导致严重后果呢？</p>
+<p>理论上，通过 Ajax 传递代码到服务器上，直接 <code class="highlighter-rouge">eval {}</code> 即可。不过这样会导致一个安全问题。如何防止用户执行错误代码导致严重后果呢？</p>
 <p>我想到了最近一直在跟踪看的 Docker 容器。如果我们把代码放在 Docker 里运行，不就不怕了么。</p>
 <p>首先要构建一个可以运行大多数示例代码的 Docker 镜像。</p>
 <h3 id="section">首先打开一个终端运行初始镜像：</h3>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c"># docker run -i -t ubuntu /bin/sh</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="c"># docker run -i -t ubuntu /bin/sh</span>
 <span class="c"># apt-get install -y wget gcc make</span>
 <span class="c"># useradd tour</span>
-<span class="c"># echo &#39;tour hard nproc 8&#39; &gt;&gt; /etc/security/limits.conf</span>
+<span class="c"># echo 'tour hard nproc 8' &gt;&gt; /etc/security/limits.conf</span>
 <span class="c"># wget http://cpanmin.us -O bin/cpanm</span>
-<span class="c"># cpanm List::AllUtils Moo Path::Tiny DBD::SQLite AnyEvent::HTTP DateTime</span></code></pre></div>
+<span class="c"># cpanm List::AllUtils Moo Path::Tiny DBD::SQLite AnyEvent::HTTP DateTime</span>
+</code></pre>
+</div>
 <h3 id="section-1">然后打开另一个终端保存前一个终端的变更：</h3>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c"># docker ps</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="c"># docker ps</span>
 CONTAINER ID ...
-<span class="c"># docker commit &lt;ID&gt; perl-tour</span></code></pre></div>
-<p>注意一定要在之前 <code>cpanm</code> 已经成功执行完毕后保存，但是前面登录进 docker 的会话千万不要退出，否则后面的 <code>docker ps</code> 就查看不到 id 了。退出时这些临时变更都毁掉了。</p>
+<span class="c"># docker commit &lt;ID&gt; perl-tour</span>
+</code></pre>
+</div>
+<p>注意一定要在之前 <code class="highlighter-rouge">cpanm</code> 已经成功执行完毕后保存，但是前面登录进 docker 的会话千万不要退出，否则后面的 <code class="highlighter-rouge">docker ps</code> 就查看不到 id 了。退出时这些临时变更都毁掉了。</p>
 <p><strong>2014 年 1 月 7 日补充</strong></p>
-<p>被莫莫用死循环 <code>fork()</code> 轰炸了一回，发现 docker 容器的一个问题，容器技术本身没有对用户最大进程数的限制。因为其实际运行的是 <code>docker -d</code> 服务进程的子进程。</p>
-<p>直接在镜像里编辑 <code>/etc/security/limits.conf</code> 实测没有作用。而主机上限定普通用户的 nproc 也没用(因为普通用户运行不了 docker )。</p>
-<p>最后想到的办法，是启动 <code>docker -d</code> 的时候，先 <code>ulimit -HSu 16</code>，这样这个 docker 下一共也跑不了多少 fork 了。</p>
+<p>被莫莫用死循环 <code class="highlighter-rouge">fork()</code> 轰炸了一回，发现 docker 容器的一个问题，容器技术本身没有对用户最大进程数的限制。因为其实际运行的是 <code class="highlighter-rouge">docker -d</code> 服务进程的子进程。</p>
+<p>直接在镜像里编辑 <code class="highlighter-rouge">/etc/security/limits.conf</code> 实测没有作用。而主机上限定普通用户的 nproc 也没用(因为普通用户运行不了 docker )。</p>
+<p>最后想到的办法，是启动 <code class="highlighter-rouge">docker -d</code> 的时候，先 <code class="highlighter-rouge">ulimit -HSu 16</code>，这样这个 docker 下一共也跑不了多少 fork 了。</p>
 <p>顺带提一句，查阅系统日志可以发现，在 fork 的时候，其实触发了主机的 OOM-killer，但是这个机制在死循环这个变态攻击下挽救不了主机……</p>
 <p><strong>END</strong></p>
 <p>现在我们已经有了一个安装好很多常用 CPAN 模块的镜像了。可以取构建网站了。</p>
 <p>网站里添加下面一段：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="nn">Dancer::Plugin::</span><span class="n">Ajax</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">File::</span><span class="n">Temp</span> <span class="sx">qw(tempfile)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">IPC::</span><span class="n">Run</span> <span class="sx">qw(start harness timeout)</span><span class="p">;</span>
-<span class="n">ajax</span> <span class="s">&#39;/run&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$code</span> <span class="o">=</span> <span class="n">param</span><span class="p">(</span><span class="s">&#39;code&#39;</span><span class="p">);</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">use</span> <span class="nn">Dancer::Plugin::</span><span class="nv">Ajax</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">File::</span><span class="nv">Temp</span> <span class="sx">qw(tempfile)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">IPC::</span><span class="nv">Run</span> <span class="sx">qw(start harness timeout)</span><span class="p">;</span>
+<span class="nv">ajax</span> <span class="s">'/run'</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="k">my</span> <span class="nv">$code</span> <span class="o">=</span> <span class="nv">param</span><span class="p">(</span><span class="s">'code'</span><span class="p">);</span>
     <span class="k">my</span> <span class="nv">@cmd</span> <span class="o">=</span> <span class="sx">qw(docker run -m 128m -u tour -v /tmp/:/tmp:ro perl-tour perl)</span><span class="p">;</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$fh</span><span class="p">,</span> <span class="nv">$temp</span><span class="p">)</span> <span class="o">=</span> <span class="n">tempfile</span><span class="p">();</span>
-    <span class="nb">binmode</span><span class="p">(</span><span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;:utf8&#39;</span><span class="p">);</span>
+    <span class="k">my</span> <span class="p">(</span><span class="nv">$fh</span><span class="p">,</span> <span class="nv">$temp</span><span class="p">)</span> <span class="o">=</span> <span class="nv">tempfile</span><span class="p">();</span>
+    <span class="nb">binmode</span><span class="p">(</span><span class="nv">$fh</span><span class="p">,</span> <span class="s">':utf8'</span><span class="p">);</span>
     <span class="k">print</span> <span class="nv">$fh</span> <span class="nv">$code</span><span class="p">;</span>
     <span class="nb">push</span> <span class="nv">@cmd</span><span class="p">,</span> <span class="nv">$temp</span><span class="p">;</span>
     <span class="k">my</span> <span class="nv">$h</span><span class="p">;</span>
     <span class="nb">eval</span> <span class="p">{</span>
-        <span class="nv">$h</span> <span class="o">=</span> <span class="n">harness</span> <span class="o">\</span><span class="nv">@cmd</span><span class="p">,</span> <span class="o">\</span><span class="nv">$in</span><span class="p">,</span> <span class="o">\</span><span class="nv">$out</span><span class="p">,</span> <span class="o">\</span><span class="nv">$err</span><span class="p">,</span> <span class="n">timeout</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>
-        <span class="n">start</span> <span class="nv">$h</span><span class="p">;</span>
-        <span class="nv">$h</span><span class="o">-&gt;</span><span class="n">finish</span><span class="p">;</span>
+        <span class="nv">$h</span> <span class="o">=</span> <span class="nv">harness</span> <span class="o">\</span><span class="nv">@cmd</span><span class="p">,</span> <span class="o">\</span><span class="nv">$in</span><span class="p">,</span> <span class="o">\</span><span class="nv">$out</span><span class="p">,</span> <span class="o">\</span><span class="nv">$err</span><span class="p">,</span> <span class="nv">timeout</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>
+        <span class="nv">start</span> <span class="nv">$h</span><span class="p">;</span>
+        <span class="nv">$h</span><span class="o">-&gt;</span><span class="nv">finish</span><span class="p">;</span>
     <span class="p">};</span>
     <span class="k">if</span><span class="p">(</span><span class="vg">$@</span><span class="p">)</span> <span class="p">{</span>
         <span class="k">my</span> <span class="nv">$x</span> <span class="o">=</span> <span class="vg">$@</span><span class="p">;</span>
-        <span class="nv">$h</span><span class="o">-&gt;</span><span class="n">kill_kill</span><span class="p">;</span>
+        <span class="nv">$h</span><span class="o">-&gt;</span><span class="nv">kill_kill</span><span class="p">;</span>
         <span class="k">return</span> <span class="nv">$x</span><span class="p">;</span>
     <span class="p">};</span>
     <span class="nb">unlink</span> <span class="nv">$temp</span><span class="p">;</span>
-    <span class="k">return</span> <span class="n">to_json</span><span class="p">({</span>
-        <span class="n">Errors</span> <span class="o">=&gt;</span> <span class="p">[</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/\n/</span><span class="p">,</span> <span class="nv">$err</span><span class="p">)</span> <span class="p">],</span>
-        <span class="n">Events</span> <span class="o">=&gt;</span> <span class="p">[</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/\n/</span><span class="p">,</span> <span class="nv">$out</span><span class="p">)</span> <span class="p">],</span>
+    <span class="k">return</span> <span class="nv">to_json</span><span class="p">({</span>
+        <span class="nv">Errors</span> <span class="o">=&gt;</span> <span class="p">[</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/\n/</span><span class="p">,</span> <span class="nv">$err</span><span class="p">)</span> <span class="p">],</span>
+        <span class="nv">Events</span> <span class="o">=&gt;</span> <span class="p">[</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/\n/</span><span class="p">,</span> <span class="nv">$out</span><span class="p">)</span> <span class="p">],</span>
     <span class="p">});</span>
-<span class="p">};</span></code></pre></div>
+<span class="p">};</span>
+</code></pre>
+</div>
 <p>页面上通过 Ajax 请求交互：</p>
-<div class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="nx">$</span><span class="p">.</span><span class="nx">ajax</span><span class="p">(</span><span class="s2">&quot;/run?code=&quot;</span> <span class="o">+</span> <span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">codeStr</span><span class="p">),</span> <span class="p">{</span>
-    <span class="nx">type</span><span class="o">:</span> <span class="s2">&quot;GET&quot;</span><span class="p">,</span>
-    <span class="nx">dataType</span><span class="o">:</span> <span class="s2">&quot;json&quot;</span><span class="p">,</span>
-    <span class="nx">success</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>  <span class="nx">$</span><span class="p">.</span><span class="nx">ajax</span><span class="p">(</span><span class="s2">"/run?code="</span> <span class="o">+</span> <span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">codeStr</span><span class="p">),</span> <span class="p">{</span>
+    <span class="na">type</span><span class="p">:</span> <span class="s2">"GET"</span><span class="p">,</span>
+    <span class="na">dataType</span><span class="p">:</span> <span class="s2">"json"</span><span class="p">,</span>
+    <span class="na">success</span><span class="p">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
       <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
         <span class="k">return</span><span class="p">;</span>
       <span class="p">}</span>
@@ -119,11 +125,13 @@ CONTAINER ID ...
       <span class="p">}</span>
       <span class="nx">setOutput</span><span class="p">(</span><span class="nx">outputDiv</span><span class="p">,</span> <span class="nx">data</span><span class="p">.</span><span class="nx">Events</span><span class="p">,</span> <span class="nx">data</span><span class="p">.</span><span class="nx">ErrEvents</span><span class="p">,</span> <span class="kc">false</span><span class="p">);</span>
     <span class="p">},</span>
-    <span class="nx">error</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
-      <span class="nx">outputDiv</span><span class="p">.</span><span class="nx">addClass</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">).</span><span class="nx">text</span><span class="p">(</span>
-        <span class="s2">&quot;Error communicating with remote server.&quot;</span><span class="p">);</span>
+    <span class="na">error</span><span class="p">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+      <span class="nx">outputDiv</span><span class="p">.</span><span class="nx">addClass</span><span class="p">(</span><span class="s2">"error"</span><span class="p">).</span><span class="nx">text</span><span class="p">(</span>
+        <span class="s2">"Error communicating with remote server."</span><span class="p">);</span>
     <span class="p">}</span>
-  <span class="p">});</span></code></pre></div>
+  <span class="p">});</span>
+</code></pre>
+</div>
 <p>静态页面部分严重参考了 Scala 的 Tour 页。趁机学习了 impress.js 制作幻灯片效果、codemirror 实现代码高亮效果。</p>
 <p>最终效果见 <a href="http://www.perl-china.com/tour.html">少年 Perl 的魔法世界</a>。欢迎大家莅临指导~</p>
 <p>最后，阅读了 Golang Tour 关于 <a href="http://play.golang.org">Go Playground</a> 的原理说明，发现它们是在 Google App Engine 上运行实例，然后走消息队列把代码发送给后台实例运行结果。</p>
@@ -131,9 +139,9 @@ CONTAINER ID ...
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2014/01/05/future-with-anyevent" title="Future模块和AnyEvent事件驱动的结合">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/01/05/future-with-anyevent/" title="Future模块和AnyEvent事件驱动的结合">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/01/06/staticperl-and-upx" title="利用 staticperl 和 upx 生成 单个可执行 perl">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/01/06/staticperl-and-upx/" title="利用 staticperl 和 upx 生成 单个可执行 perl">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -177,15 +185,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

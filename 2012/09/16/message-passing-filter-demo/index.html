@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -56,62 +56,64 @@
     <p><a href="http://github.com/suretec">Message::Passing</a>是Suretec公司为自己的VoIP业务开发的logstash山寨版。这几个月更新还是比较快的。比之前我刚关注它时改变很大。比如Message::Passing::Output::ElasticSearch已经出来了，还有专门的Message::Passing::Filter::ToLogstash，连命令行方式Message::Passing::Role::Script都采用了MooX::Options构建，相当的OO了。</p>
 <p>不过可能是运用环境的区别吧，作者一直在filter方面没有什么动静，可怜巴巴的null/all/key/tologstash这么几个，比起input和output的列表差太远了。而且像logstash里的jls-grok这么最有力的工具没有山寨。</p>
 <p>今天有空，稍微写了个例子，可以比较方便的定义类似grok_pattern的方式完成对accesslog的json序列化。不过配置方式比Grok还是麻烦不少，以后真用的话，再考虑config的办法吧，这里主要是为了展示Message::Passing::Filter::XXX的编写：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl</span>
-    <span class="nb">package</span> <span class="nn">Message::Passing::Filter::</span><span class="n">GrokLike</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">Moo</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">MooX::Types::MooseLike::</span><span class="n">Base</span> <span class="sx">qw/ ArrayRef Str /</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">List::</span><span class="n">MoreUtils</span> <span class="sx">qw/ uniq /</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">DateTime</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">Regexp::Log::</span><span class="n">Nginx</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">namespace::</span><span class="n">clean</span> <span class="o">-</span><span class="n">except</span> <span class="o">=&gt;</span> <span class="s">&#39;meta&#39;</span><span class="p">;</span>
-    <span class="n">with</span> <span class="s">&#39;Message::Passing::Role::Filter&#39;</span><span class="p">;</span>
-    <span class="n">has</span> <span class="nb">format</span> <span class="o">=&gt;</span> <span class="p">(</span>
-        <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
-        <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span><span class="p">,</span>
-        <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="s">&#39;%date %status %remotehost %domain %request %originhost %responsetime %upstreamtime %bytes %referer %useragent %xforwarderfor&#39;</span> <span class="p">},</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="c1">#!/usr/bin/perl</span>
+    <span class="nb">package</span> <span class="nn">Message::Passing::Filter::</span><span class="nv">GrokLike</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nv">Moo</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">MooX::Types::MooseLike::</span><span class="nv">Base</span> <span class="sx">qw/ ArrayRef Str /</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">List::</span><span class="nv">MoreUtils</span> <span class="sx">qw/ uniq /</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nv">DateTime</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Regexp::Log::</span><span class="nv">Nginx</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">namespace::</span><span class="nv">clean</span> <span class="o">-</span><span class="nv">except</span> <span class="o">=&gt;</span> <span class="s">'meta'</span><span class="p">;</span>
+    <span class="nv">with</span> <span class="s">'Message::Passing::Role::Filter'</span><span class="p">;</span>
+    <span class="nv">has</span> <span class="nb">format</span> <span class="o">=&gt;</span> <span class="p">(</span>
+        <span class="nv">is</span> <span class="o">=&gt;</span> <span class="s">'ro'</span><span class="p">,</span>
+        <span class="nv">isa</span> <span class="o">=&gt;</span> <span class="nv">Str</span><span class="p">,</span>
+        <span class="nv">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="s">'%date %status %remotehost %domain %request %originhost %responsetime %upstreamtime %bytes %referer %useragent %xforwarderfor'</span> <span class="p">},</span>
     <span class="p">);</span>
-    <span class="n">has</span> <span class="n">capture</span> <span class="o">=&gt;</span> <span class="p">(</span>
-        <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
-        <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">ArrayRef</span><span class="p">,</span>
-        <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="p">[</span> <span class="s">&#39;ts&#39;</span><span class="p">,</span> <span class="s">&#39;status&#39;</span><span class="p">,</span> <span class="s">&#39;remotehost&#39;</span><span class="p">,</span> <span class="s">&#39;url&#39;</span><span class="p">,</span> <span class="s">&#39;oh&#39;</span><span class="p">,</span> <span class="s">&#39;responsetime&#39;</span><span class="p">,</span> <span class="s">&#39;upstreamtime&#39;</span><span class="p">,</span> <span class="s">&#39;bytes&#39;</span> <span class="p">]</span> <span class="p">},</span>
+    <span class="nv">has</span> <span class="nv">capture</span> <span class="o">=&gt;</span> <span class="p">(</span>
+        <span class="nv">is</span> <span class="o">=&gt;</span> <span class="s">'ro'</span><span class="p">,</span>
+        <span class="nv">isa</span> <span class="o">=&gt;</span> <span class="nv">ArrayRef</span><span class="p">,</span>
+        <span class="nv">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="p">[</span> <span class="s">'ts'</span><span class="p">,</span> <span class="s">'status'</span><span class="p">,</span> <span class="s">'remotehost'</span><span class="p">,</span> <span class="s">'url'</span><span class="p">,</span> <span class="s">'oh'</span><span class="p">,</span> <span class="s">'responsetime'</span><span class="p">,</span> <span class="s">'upstreamtime'</span><span class="p">,</span> <span class="s">'bytes'</span> <span class="p">]</span> <span class="p">},</span>
     <span class="p">);</span>
-    <span class="n">has</span> <span class="n">_grok</span> <span class="o">=&gt;</span> <span class="p">(</span>
-        <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span>
-        <span class="n">lazy</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
-        <span class="n">builder</span> <span class="o">=&gt;</span> <span class="s">&#39;_build_grok&#39;</span><span class="p">,</span>
+    <span class="nv">has</span> <span class="nv">_grok</span> <span class="o">=&gt;</span> <span class="p">(</span>
+        <span class="nv">is</span> <span class="o">=&gt;</span> <span class="s">'ro'</span><span class="p">,</span>
+        <span class="nv">lazy</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="nv">builder</span> <span class="o">=&gt;</span> <span class="s">'_build_grok'</span><span class="p">,</span>
     <span class="p">);</span>
     <span class="k">sub </span><span class="nf">_build_grok</span> <span class="p">{</span>
         <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$rln</span> <span class="o">=</span> <span class="nn">Regexp::Log::</span><span class="n">Nginx</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+        <span class="k">my</span> <span class="nv">$rln</span> <span class="o">=</span> <span class="nn">Regexp::Log::</span><span class="nv">Nginx</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
             <span class="nb">format</span>  <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="nb">format</span><span class="p">,</span>
-            <span class="n">capture</span> <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">capture</span><span class="p">,</span>
+            <span class="nv">capture</span> <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="nv">capture</span><span class="p">,</span>
         <span class="p">);</span>
         <span class="k">return</span> <span class="nv">$rln</span><span class="p">;</span>
     <span class="p">};</span>
     <span class="k">sub </span><span class="nf">filter</span> <span class="p">{</span>
         <span class="k">my</span> <span class="p">(</span><span class="nv">$self</span><span class="p">,</span> <span class="nv">$message</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">@fields</span> <span class="o">=</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">_grok</span><span class="o">-&gt;</span><span class="n">capture</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$re</span> <span class="o">=</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">_grok</span><span class="o">-&gt;</span><span class="n">regexp</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">@fields</span> <span class="o">=</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="nv">_grok</span><span class="o">-&gt;</span><span class="nv">capture</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">$re</span> <span class="o">=</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="nv">_grok</span><span class="o">-&gt;</span><span class="nv">regexp</span><span class="p">;</span>
         <span class="k">my</span> <span class="nv">%data</span><span class="p">;</span>
-        <span class="nv">@data</span><span class="p">{</span><span class="nv">@fields</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$message</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;@message&#39;</span><span class="p">}</span> <span class="o">=~</span> <span class="sr">m/$re/</span><span class="p">;</span>
-        <span class="nv">$message</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;@fields&#39;</span><span class="p">}</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nv">@data</span><span class="p">{</span><span class="nv">@fields</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$message</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">'@message'</span><span class="p">}</span> <span class="o">=~</span> <span class="sr">m/$re/</span><span class="p">;</span>
+        <span class="nv">$message</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">'@fields'</span><span class="p">}</span> <span class="o">=</span> <span class="p">{</span>
             <span class="nv">%data</span><span class="p">,</span>
-            <span class="n">responsetime</span> <span class="o">=&gt;</span> <span class="nv">$data</span><span class="p">{</span><span class="s">&#39;responsetime&#39;</span><span class="p">}</span> <span class="o">+</span> <span class="mi">0</span><span class="p">,</span>
-            <span class="n">upstreamtime</span> <span class="o">=&gt;</span> <span class="nv">$data</span><span class="p">{</span><span class="s">&#39;upstreamtime&#39;</span><span class="p">}</span> <span class="o">+</span> <span class="mi">0</span><span class="p">,</span>
-            <span class="n">bytes</span>        <span class="o">=&gt;</span> <span class="nv">$data</span><span class="p">{</span><span class="s">&#39;bytes&#39;</span><span class="p">}</span>        <span class="o">+</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="nv">responsetime</span> <span class="o">=&gt;</span> <span class="nv">$data</span><span class="p">{</span><span class="s">'responsetime'</span><span class="p">}</span> <span class="o">+</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="nv">upstreamtime</span> <span class="o">=&gt;</span> <span class="nv">$data</span><span class="p">{</span><span class="s">'upstreamtime'</span><span class="p">}</span> <span class="o">+</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="nv">bytes</span>        <span class="o">=&gt;</span> <span class="nv">$data</span><span class="p">{</span><span class="s">'bytes'</span><span class="p">}</span>        <span class="o">+</span> <span class="mi">0</span><span class="p">,</span>
         <span class="p">};</span>
         <span class="nv">$message</span><span class="p">;</span>
     <span class="p">};</span>
-    <span class="n">true</span><span class="p">;</span></code></pre></div>
+    <span class="nv">true</span><span class="p">;</span>
+</code></pre>
+</div>
 <hr />
 <p><strong>2012 年 12 月 30 日附注：</strong></p>
-<p>前两天已经把这个模块正规化后上传到 CPAN 上了。把捕获定义成 <code>.ini</code> 文件，同时还加入了类似 logstash 里的 mutate filter 的功能。模块叫 <code>Message::Passing::Filter::Regexp</code>。同时上传了一个 <code>Message::Passing::Output::PocketIO</code> 模块，可以打开一个网页时时接收output。</p>
+<p>前两天已经把这个模块正规化后上传到 CPAN 上了。把捕获定义成 <code class="highlighter-rouge">.ini</code> 文件，同时还加入了类似 logstash 里的 mutate filter 的功能。模块叫 <code class="highlighter-rouge">Message::Passing::Filter::Regexp</code>。同时上传了一个 <code class="highlighter-rouge">Message::Passing::Output::PocketIO</code> 模块，可以打开一个网页时时接收output。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/09/16/message-passing-agent" title="【Message::Passing系列】客户端收集脚本">&larr; Previous</a></li>
+        <li class="prev"><a href="/2012/09/16/message-passing-agent/" title="【Message::Passing系列】客户端收集脚本">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/09/16/regexp-log-demo-for-nginx" title="【Message::Passing系列】Regexp::Log模板匹配变量">Next &rarr;</a></li>
+        <li class="next"><a href="/2012/09/16/regexp-log-demo-for-nginx/" title="【Message::Passing系列】Regexp::Log模板匹配变量">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -155,15 +157,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

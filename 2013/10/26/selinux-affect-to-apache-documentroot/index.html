@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -55,31 +55,38 @@
   <div style='background-color: #FFF;'>
     <p>SELinux 在国内是一个很少有人用的东西，一般来说，服务器上手第一件事情就是把 SELinux 关掉，以至于有问题的时候排查思路里都压根没检查 SELinux 这步。</p>
 <p>昨天在个人电脑的 Fedora 上搭建一个 webserver 发布几个文件，本来想着简单任务越快越好，几行命令完成：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">sudo yum install httpd
+<div class="highlighter-rouge"><pre class="highlight"><code>sudo yum install httpd
 sudo mv ~/src /var/www/html/
-sudo service httpd start</code></pre></div>
-<p>结果居然一直返回 <code>403 Denied</code>！</p>
-<p>看 httpd 的 error.log ，一直报这么一行错误：</p>
-<pre><code>[core:error] [pid 3806] (13)Permission denied: [client 127.0.0.1:59180] AH00035: access to /src/master.zip denied (filesystem path '/var/www/html/src') because search permissions are missing on a component of the path
+sudo service httpd start
 </code></pre>
-<p>很奇怪吧，于是我先去确认了 httpd.conf 里关于 <code>&lt;Directory "/var/www/html"&gt;</code> 的配置(因为 Fedora19 的 httpd 版本是 2.4.6，我以为新版本有变化了)，然后去确认了 <code>/var/www/html/src</code> 的权限是不是 755，其他用户可读的。都没问题！</p>
+</div>
+<p>结果居然一直返回 <code class="highlighter-rouge">403 Denied</code>！</p>
+<p>看 httpd 的 error.log ，一直报这么一行错误：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>[core:error] [pid 3806] (13)Permission denied: [client 127.0.0.1:59180] AH00035: access to /src/master.zip denied (filesystem path '/var/www/html/src') because search permissions are missing on a component of the path
+</code></pre>
+</div>
+<p>很奇怪吧，于是我先去确认了 httpd.conf 里关于 <code class="highlighter-rouge">&lt;Directory "/var/www/html"&gt;</code> 的配置(因为 Fedora19 的 httpd 版本是 2.4.6，我以为新版本有变化了)，然后去确认了 <code class="highlighter-rouge">/var/www/html/src</code> 的权限是不是 755，其他用户可读的。都没问题！</p>
 <p>最后还是在 apache 的 httpd 官方文档上找到了关于这个错误码的详细解释，原来还有一种可能性，就是 SELinux 的安全控制！这个可以通过下面这个命令看到：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nv">$ </span>ls -lZ /var/www /var/www/html
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span>ls -lZ /var/www /var/www/html
 /var/www:
 drwxr-xr-x. root   root   system_u:object_r:httpd_sys_script_exec_t:s0 cgi-bin
 drwxr-xr-x. apache apache system_u:object_r:httpd_sys_content_t:s0 html
 /var/www/html:
-drwxr-xr-x. chenlin.rao chenlin.rao unconfined_u:object_r:user_home_t:s0 src</code></pre></div>
-<p>看到没有，这里这些文件的 SELinux 类型是不一样的，默认的 <code>/var/www/html</code> 是 <code>httpd_sys_content_t</code>，<code>/var/www/cgi-bin</code> 是 <code>httpd_sys_script_exec_t</code>，而从我家目录移过去的 <code>/var/www/html/src</code> 是 <code>user_home_t</code>！</p>
+drwxr-xr-x. chenlin.rao chenlin.rao unconfined_u:object_r:user_home_t:s0 src
+</code></pre>
+</div>
+<p>看到没有，这里这些文件的 SELinux 类型是不一样的，默认的 <code class="highlighter-rouge">/var/www/html</code> 是 <code class="highlighter-rouge">httpd_sys_content_t</code>，<code class="highlighter-rouge">/var/www/cgi-bin</code> 是 <code class="highlighter-rouge">httpd_sys_script_exec_t</code>，而从我家目录移过去的 <code class="highlighter-rouge">/var/www/html/src</code> 是 <code class="highlighter-rouge">user_home_t</code>！</p>
 <p>解决办法也很简单，把这个类型也改过来就好了：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nv">$ </span>chcon -R -t httpd_sys_content_t /var/www/html/src</code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span>chcon -R -t httpd_sys_content_t /var/www/html/src
+</code></pre>
+</div>
 <p>这是第一次接触 SELinux 的安全管理，真的是好细致！</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/10/25/intro-plenv" title="用 plenv 代替 perlbrew 管理 Perl5">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/10/25/intro-plenv/" title="用 plenv 代替 perlbrew 管理 Perl5">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/11/04/perl-unpack-tongdaxin" title="用 Perl 读取通达信日线数据">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/11/04/perl-unpack-tongdaxin/" title="用 Perl 读取通达信日线数据">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -123,15 +130,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

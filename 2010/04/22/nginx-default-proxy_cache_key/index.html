@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -49,43 +49,47 @@
     <div class="date"><span>22 April 2010</span></div>
   </div>
   <div style='background-color: #FFF;'>
-    <p>今天一天都在跟刷新做斗争。
-先是squid的目录刷新，用/home/squid/bin/squidclient -p 80 mgr:objects|awk &lsquo;/harbin/{system(&ldquo;/home/squid/bin/squidclient -p 80 -m purge &ldquo;$2}&rsquo;刷新一遍；客户反馈看到的依然是旧页面；我想想似乎看到url里有带()的，awk的system函数这时候会出错；于是改成用for i in <code>/home/squid/bin/squidclient -p 80 mgr:objects|awk '/harbin/{print $2}'</code>;do /home/squid/bin/squidclient -p 80 -m purge &ldquo;$i&rdquo;;done再刷新一遍；然后自己绑定节点访问，居然也还看到是旧页面！</p>
-<p>通过httpwatch抓取，其中的http://www.harbin-beer.cn/flash/age.swf的Age高达23325，显然没有被purge到，单独提交/home/squid/bin/squidclient -p 80 -m purge http://www.harbin-beer.cn/flash/age.swf，再访问，Ok了！！
+    <p>今天一天都在跟刷新做斗争。<br />
+先是squid的目录刷新，用/home/squid/bin/squidclient -p 80 mgr:objects|awk &lsquo;/harbin/{system(&ldquo;/home/squid/bin/squidclient -p 80 -m purge &ldquo;$2}&rsquo;刷新一遍；客户反馈看到的依然是旧页面；我想想似乎看到url里有带()的，awk的system函数这时候会出错；于是改成用for i in <code class="highlighter-rouge">/home/squid/bin/squidclient -p 80 mgr:objects|awk '/harbin/{print $2}'</code>;do /home/squid/bin/squidclient -p 80 -m purge &ldquo;$i&rdquo;;done再刷新一遍；然后自己绑定节点访问，居然也还看到是旧页面！</p>
+<p>通过httpwatch抓取，其中的http://www.harbin-beer.cn/flash/age.swf的Age高达23325，显然没有被purge到，单独提交/home/squid/bin/squidclient -p 80 -m purge http://www.harbin-beer.cn/flash/age.swf，再访问，Ok了！！<br />
 毫无疑问http://www.harbin-beer.cn/flash/age.swf这个url绝对是能被/harbin/模式匹配的，但为什么之前刷新不到？而且不单单是某一台服务器如此。。。</p>
-<p>然后是nginx的url刷新，某小图片加速客户原先是增量缓存，于是nginx中只是很简单的配置了一下文件类型和缓存时间。不料今天客户突然传过来一个24M大小的url列表，将近30万条url要求全网刷新！而这批nginx连后台刷新接口都没有……哭
-临时更换nginx版本为&ndash;add-ngx_cache_purge的。在设置proxy_cache_purge时却又碰到了难题。因为之前的cache配置里压根没配置proxy_cache_key！！有心格盘，但一算，300000*5k=1.5G，而cache已存文件是100G，格盘动作太大了……
-进到nginx的cache目录下，strings其中的文件，看到如下信息：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">[</span>root@ct5 ~<span class="o">]</span><span class="c"># strings /cache/0/00/c7de957045a9987b18f94d3cc1f99000 |head</span>
+<p>然后是nginx的url刷新，某小图片加速客户原先是增量缓存，于是nginx中只是很简单的配置了一下文件类型和缓存时间。不料今天客户突然传过来一个24M大小的url列表，将近30万条url要求全网刷新！而这批nginx连后台刷新接口都没有……哭<br />
+临时更换nginx版本为&ndash;add-ngx_cache_purge的。在设置proxy_cache_purge时却又碰到了难题。因为之前的cache配置里压根没配置proxy_cache_key！！有心格盘，但一算，300000*5k=1.5G，而cache已存文件是100G，格盘动作太大了……<br />
+进到nginx的cache目录下，strings其中的文件，看到如下信息：<br />
+<code class="highlighter-rouge">bash
+[root@ct5 ~]# strings /cache/0/00/c7de957045a9987b18f94d3cc1f99000 |head
 KEY: http://images6.anjukestatic.com/property/20090904/22/65/91/69/22659169/600x600.jpg
-HTTP/1.0 <span class="m">200</span> OK
+HTTP/1.0 200 OK
 Server: nginx
-Date: Thu, <span class="m">11</span> Mar <span class="m">2010</span> 15:48:20 GMT
+Date: Thu, 11 Mar 2010 15:48:20 GMT
 Content-Type: image/jpeg
-ajk: <span class="nv">server</span><span class="o">=</span>img01-001
-Expires: Thu, <span class="m">31</span> Dec <span class="m">2037</span> 23:55:55 GMT
-Cache-Control: max-age<span class="o">=</span>315360000
+ajk: server=img01-001
+Expires: Thu, 31 Dec 2037 23:55:55 GMT
+Cache-Control: max-age=315360000
 X-Cache: HIT from CDN01-001
-Age: 1465699</code></pre></div>
-<p>对照其他带purge的nginx_cache格式，可以发现nginx默认的proxy_cache_key应该是$scheme://$host$uri$is_args$args，那么proxy_cache_purge就设成$scheme://$host$1$is_args$args，重读配置，然后curl -x 127.0.0.1:80 http://images6.anjukestatic.com/purge/property/20090904/22/65/91/69/22659169/600x600.jpg，看到</p>
-<div class="highlight"><pre><code class="language-html" data-lang="html"><span class="nt">&lt;html&gt;</span>
-<span class="nt">&lt;head&gt;&lt;title&gt;</span>Successful purge<span class="nt">&lt;/title&gt;&lt;/head&gt;</span>
-<span class="nt">&lt;body</span> <span class="na">bgcolor=</span><span class="s">&quot;white&quot;</span><span class="nt">&gt;</span>
-<span class="nt">&lt;center&gt;&lt;h1&gt;</span>Successful purge<span class="nt">&lt;/h1&gt;</span>
-<span class="nt">&lt;br&gt;</span>Key : http://images6.anjukestatic.com/property/20090904/22/65/91/69/22659169/600x600.jpg
-<span class="nt">&lt;br&gt;</span>Path: /cache/0/00/c7de957045a9987b18f94d3cc1f99000
-<span class="nt">&lt;/center&gt;</span>
-<span class="nt">&lt;hr&gt;&lt;center&gt;</span>nginx/0.7.65<span class="nt">&lt;/center&gt;</span>
-<span class="nt">&lt;/body&gt;</span>
-<span class="nt">&lt;/html&gt;</span></code></pre></div>
-<p>（写到这里，想到google首页源代码省略了&lt;/body&gt;&lt;/html&gt;，据说是因为就少这几个字符，在全球就能节省几个G的带宽。相比来说这个purgemodule可真浪费的）
+Age: 1465699
+</code><br />
+对照其他带purge的nginx_cache格式，可以发现nginx默认的proxy_cache_key应该是$scheme://$host$uri$is_args$args，那么proxy_cache_purge就设成$scheme://$host$1$is_args$args，重读配置，然后curl -x 127.0.0.1:80 http://images6.anjukestatic.com/purge/property/20090904/22/65/91/69/22659169/600x600.jpg，看到<br />
+```html</p>
+<html>
+<head><title>Successful purge</title></head>
+<body bgcolor="white">
+<center><h1>Successful purge</h1>
+<br />Key : http://images6.anjukestatic.com/property/20090904/22/65/91/69/22659169/600x600.jpg
+<br />Path: /cache/0/00/c7de957045a9987b18f94d3cc1f99000
+</center>
+<hr /><center>nginx/0.7.65</center>
+</body>
+</html>
+<p>```<br />
+（写到这里，想到google首页源代码省略了&lt;/body&gt;&lt;/html&gt;，据说是因为就少这几个字符，在全球就能节省几个G的带宽。相比来说这个purgemodule可真浪费的）<br />
 再ls /cache/0/00/c7de957045a9987b18f94d3cc1f99000，提示No such file or directory，成功了。接下来就是for循环刷新了……</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/04/20/sscanf-usage" title="sscanf用法">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/04/20/sscanf-usage/" title="sscanf用法">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/04/22/perl-built_in-variables" title="perl内置变量">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/04/22/perl-built_in-variables/" title="perl内置变量">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -129,15 +133,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

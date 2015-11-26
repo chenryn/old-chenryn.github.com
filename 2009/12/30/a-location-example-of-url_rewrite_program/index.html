@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -51,34 +51,36 @@
   <div style='background-color: #FFF;'>
     <p>上文提到，squid大多数的rewrite_program是用perl编写的。现在就转几个简洁明了的redirect.pl。虽说我至今没把perl基础教程看完。不过从中领会一下squid的rewrite流程，还是可以的：</p>
 <p>例一：这是最简单的url转向，把http://www.baidu.com/转到https://www.google.com:</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="c1">#!/usr/bin/perl -w</span>
 <span class="vg">$|</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span>
 <span class="k">while</span> <span class="p">()</span> <span class="p">{</span>
     <span class="nv">@X</span> <span class="o">=</span> <span class="nb">split</span><span class="p">;</span>
     <span class="nv">$url</span> <span class="o">=</span> <span class="nv">$X</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
-    <span class="k">if</span> <span class="p">(</span><span class="nv">$url</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^http://www.baidu.com#) {</span>
-        <span class="k">print</span> <span class="s">&quot;302:http://www.google.com\n&quot;</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="nv">$url</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^http://gmail.com#) {</span>
-        <span class="k">print</span> <span class="s">&quot;302:http://gmail.google.com\n&quot;</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$url</span> <span class="o">=~</span> <span class="nv">m</span><span class="c1">#^http://www.baidu.com#) {</span>
+        <span class="k">print</span> <span class="s">"302:http://www.google.com\n"</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="nv">$url</span> <span class="o">=~</span> <span class="nv">m</span><span class="c1">#^http://gmail.com#) {</span>
+        <span class="k">print</span> <span class="s">"302:http://gmail.google.com\n"</span><span class="p">;</span>
     <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-        <span class="k">print</span> <span class="s">&quot;$url\n&quot;</span><span class="p">;</span>
+        <span class="k">print</span> <span class="s">"$url\n"</span><span class="p">;</span>
     <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span>
+</code></pre>
+</div>
 <p>例二：这个的功效，是当第一次访问外网网站时，先跳转到公司主页一次，之后再访问就不再限制。</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">DB_File</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">vars</span> <span class="sx">qw (%cache </span><span class="nv">$uri</span> <span class="nv">$cachetime</span><span class="p">);</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">use</span> <span class="nv">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">DB_File</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">vars</span> <span class="sx">qw (%cache </span><span class="nv">$uri</span> <span class="nv">$cachetime</span><span class="p">);</span>
 <span class="vg">$|</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span>
 <span class="k">my</span> <span class="nv">$timeout</span><span class="o">=</span><span class="mi">3600</span><span class="p">;</span><span class="c1">#缓存超时时间</span>
 <span class="k">while</span> <span class="p">(){</span>
     <span class="k">my</span> <span class="p">(</span><span class="nv">$client</span><span class="p">,</span><span class="nv">$ident</span><span class="p">,</span><span class="nv">$method</span><span class="p">)</span><span class="o">=</span><span class="p">();</span>
     <span class="p">(</span><span class="nv">$uri</span><span class="p">,</span><span class="nv">$client</span><span class="p">,</span><span class="nv">$ident</span><span class="p">,</span><span class="nv">$method</span><span class="p">)</span><span class="o">=</span><span class="nb">split</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">check</span><span class="p">(</span><span class="nv">$client</span><span class="p">)){</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">check</span><span class="p">(</span><span class="nv">$client</span><span class="p">)){</span>
         <span class="k">next</span><span class="p">;</span>
     <span class="p">}</span><span class="k">else</span><span class="p">{</span>
-        <span class="n">save</span><span class="p">(</span><span class="nv">$client</span><span class="p">);</span>
-        <span class="nv">$uri</span><span class="o">=</span><span class="s">&quot;301:http://www.xxxx.cn&quot;</span><span class="p">;</span>
+        <span class="nv">save</span><span class="p">(</span><span class="nv">$client</span><span class="p">);</span>
+        <span class="nv">$uri</span><span class="o">=</span><span class="s">"301:http://www.xxxx.cn"</span><span class="p">;</span>
     <span class="p">}</span>
 <span class="p">}</span> <span class="k">continue</span> <span class="p">{</span>
     <span class="k">print</span> <span class="nv">$uri</span><span class="p">;</span>
@@ -97,7 +99,7 @@
     <span class="k">return</span> <span class="mi">1</span> <span class="k">if</span> <span class="nv">$cache</span><span class="p">{</span><span class="nv">$client</span><span class="p">};</span>
     <span class="c1"># reopen db</span>
     <span class="k">my</span> <span class="nv">%ip</span><span class="o">=</span><span class="p">();</span>
-    <span class="nb">tie</span> <span class="nv">%ip</span><span class="p">,</span><span class="s">&quot;DB_File&quot;</span><span class="p">,</span><span class="s">&quot;/tmp/ip.db&quot;</span><span class="p">,</span><span class="n">O_CREAT</span><span class="o">|</span><span class="n">O_RDWR</span><span class="p">,</span><span class="mo">0666</span><span class="p">;</span>
+    <span class="nb">tie</span> <span class="nv">%ip</span><span class="p">,</span><span class="s">"DB_File"</span><span class="p">,</span><span class="s">"/tmp/ip.db"</span><span class="p">,</span><span class="nv">O_CREAT</span><span class="o">|</span><span class="nv">O_RDWR</span><span class="p">,</span><span class="mo">0666</span><span class="p">;</span>
     <span class="nv">%cache</span><span class="o">=</span><span class="nv">%ip</span><span class="p">;</span> <span class="c1">#hard copy?</span>
     <span class="nb">untie</span> <span class="nv">%ip</span><span class="p">;</span>
     <span class="nv">$cache</span><span class="p">{</span><span class="nv">$client</span><span class="p">}</span> <span class="p">?</span> <span class="mi">1</span><span class="p">:</span><span class="mi">0</span><span class="p">;</span>
@@ -105,16 +107,18 @@
 <span class="k">sub </span><span class="nf">save</span> <span class="p">{</span>
     <span class="k">my</span> <span class="nv">$client</span><span class="o">=</span><span class="nb">shift</span><span class="p">;</span>
     <span class="k">my</span> <span class="nv">%ip</span><span class="o">=</span><span class="p">();</span>
-    <span class="nb">tie</span> <span class="nv">%ip</span><span class="p">,</span><span class="s">&quot;DB_File&quot;</span><span class="p">,</span><span class="s">&quot;/tmp/ip.db&quot;</span><span class="p">,</span><span class="n">O_CREAT</span><span class="o">|</span><span class="n">O_RDWR</span><span class="p">,</span><span class="mo">0666</span><span class="p">;</span>
+    <span class="nb">tie</span> <span class="nv">%ip</span><span class="p">,</span><span class="s">"DB_File"</span><span class="p">,</span><span class="s">"/tmp/ip.db"</span><span class="p">,</span><span class="nv">O_CREAT</span><span class="o">|</span><span class="nv">O_RDWR</span><span class="p">,</span><span class="mo">0666</span><span class="p">;</span>
     <span class="nv">$ip</span><span class="p">{</span><span class="nv">$client</span><span class="p">}</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span>
     <span class="nb">untie</span> <span class="nv">%ip</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span>
+</code></pre>
+</div>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2009/12/30/a-location-example-of-squid_session" title="squid_session（首次访问跳转）">&larr; Previous</a></li>
+        <li class="prev"><a href="/2009/12/30/a-location-example-of-squid_session/" title="squid_session（首次访问跳转）">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2009/12/30/a-reverse-example-of-url_rewrite_program" title="url_rewrite_program（squid游戏恶搞~）">Next &rarr;</a></li>
+        <li class="next"><a href="/2009/12/30/a-reverse-example-of-url_rewrite_program/" title="url_rewrite_program（squid游戏恶搞~）">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -158,15 +162,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

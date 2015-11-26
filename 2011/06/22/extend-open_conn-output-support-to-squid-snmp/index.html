@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -54,104 +54,106 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>做反向代理的squid集群监控，在单机维护时，squidclient mgr:server_list里的OPEN CONNS是经常看的一项数据，不过在开启snmp支持后，在mib里却没有找到相关的数据。还一度怀疑是不是cachePeerKeepAlRecv或者cachePeerKeepSent。今天想起来去src里grep了一把源码，顺利的在squid/src/neighbors.c里看到了OPEN CONNS等数据的来源，如下：</p>
-<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">static</span> <span class="kt">void</span>
-<span class="nf">dump_peers</span><span class="p">(</span><span class="n">StoreEntry</span> <span class="o">*</span> <span class="n">sentry</span><span class="p">,</span> <span class="n">peer</span> <span class="o">*</span> <span class="n">peers</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="n">peer</span> <span class="o">*</span><span class="n">e</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-<span class="err">……</span>
-    <span class="k">for</span> <span class="p">(</span><span class="n">e</span> <span class="o">=</span> <span class="n">peers</span><span class="p">;</span> <span class="n">e</span><span class="p">;</span> <span class="n">e</span> <span class="o">=</span> <span class="n">e</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">)</span> <span class="p">{</span>
-<span class="err">……</span>
-        <span class="n">storeAppendPrintf</span><span class="p">(</span><span class="n">sentry</span><span class="p">,</span> <span class="s">&quot;OPEN CONNS : %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="o">-&gt;</span><span class="n">stats</span><span class="p">.</span><span class="n">conn_open</span><span class="p">);</span>
-<span class="err">……</span>
-        <span class="n">storeAppendPrintf</span><span class="p">(</span><span class="n">sentry</span><span class="p">,</span> <span class="s">&quot;keep-alive ratio: %d%%</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span>
-            <span class="n">percent</span><span class="p">(</span><span class="n">e</span><span class="o">-&gt;</span><span class="n">stats</span><span class="p">.</span><span class="n">n_keepalives_recv</span><span class="p">,</span> <span class="n">e</span><span class="o">-&gt;</span><span class="n">stats</span><span class="p">.</span><span class="n">n_keepalives_sent</span><span class="p">));</span></code></pre></div>
-<p>然后在squid/src/snmp_agent.c里看到了这些数据的snmp输出，如下：</p>
-<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">variable_list</span> <span class="o">*</span>
-<span class="nf">snmp_meshPtblFn</span><span class="p">(</span><span class="n">variable_list</span> <span class="o">*</span> <span class="n">Var</span><span class="p">,</span> <span class="n">snint</span> <span class="o">*</span> <span class="n">ErrP</span><span class="p">)</span>
-<span class="p">{</span>
-    <span class="n">variable_list</span> <span class="o">*</span><span class="n">Answer</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-    <span class="k">struct</span> <span class="n">in_addr</span> <span class="o">*</span><span class="n">laddr</span><span class="p">;</span>
-    <span class="kt">int</span> <span class="n">loop</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="kt">char</span> <span class="o">*</span><span class="n">cp</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-    <span class="n">peer</span> <span class="o">*</span><span class="n">p</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-    <span class="kt">int</span> <span class="n">cnt</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-<span class="err">……</span>
-    <span class="k">switch</span> <span class="p">(</span><span class="n">Var</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">[</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">2</span><span class="p">])</span> <span class="p">{</span>
-    <span class="k">case</span> <span class="nl">MESH_PTBL_NAME</span><span class="p">:</span>
-        <span class="n">cp</span> <span class="o">=</span> <span class="n">p</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">;</span>
-        <span class="n">Answer</span> <span class="o">=</span> <span class="n">snmp_var_new</span><span class="p">(</span><span class="n">Var</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">Var</span><span class="o">-&gt;</span><span class="n">name_length</span><span class="p">);</span>
-<span class="err">……</span>
-    <span class="k">case</span> <span class="nl">MESH_PTBL_KEEPAL_R</span><span class="p">:</span>
-        <span class="n">Answer</span> <span class="o">=</span> <span class="n">snmp_var_new_integer</span><span class="p">(</span><span class="n">Var</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">Var</span><span class="o">-&gt;</span><span class="n">name_length</span><span class="p">,</span>
-            <span class="n">p</span><span class="o">-&gt;</span><span class="n">stats</span><span class="p">.</span><span class="n">n_keepalives_recv</span><span class="p">,</span>
-            <span class="n">SMI_COUNTER32</span><span class="p">);</span>
-        <span class="k">break</span><span class="p">;</span>
-    <span class="k">case</span> <span class="nl">MESH_PTBL_INDEX</span><span class="p">:</span>
-        <span class="n">Answer</span> <span class="o">=</span> <span class="n">snmp_var_new_integer</span><span class="p">(</span><span class="n">Var</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">Var</span><span class="o">-&gt;</span><span class="n">name_length</span><span class="p">,</span>
-            <span class="n">index</span><span class="p">,</span>
-            <span class="n">ASN_INTEGER</span><span class="p">);</span>
-        <span class="k">break</span><span class="p">;</span>
-    <span class="k">default</span><span class="o">:</span>
-        <span class="o">*</span><span class="n">ErrP</span> <span class="o">=</span> <span class="n">SNMP_ERR_NOSUCHNAME</span><span class="p">;</span>
-        <span class="k">break</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="k">return</span> <span class="n">Answer</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
-<p>一对比，发现确实没有stats.conn_open输出……
-好在这个比较简单，稍微改一下，就能搞出来：
-1、修改squid/include/cache_snmp.h如下：</p>
-<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">enum</span> <span class="p">{</span>                          <span class="cm">/* cachePeerTable */</span>
-<span class="err">……</span>
-    <span class="n">MESH_PTBL_CONN_OPEN</span><span class="p">,</span>   <span class="cm">/*新增这个*/</span>
-    <span class="n">MESH_PTBL_HOST</span><span class="p">,</span>
-    <span class="n">MESH_PTBL_END</span>
-<span class="p">};</span></code></pre></div>
-<p>2、修改squid/src/snmp_core.c如下：</p>
-<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="kt">void</span>
-<span class="nf">snmpInit</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
-<span class="p">{</span>
-<span class="err">……</span>
-                                            <span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
-<span class="cm">/* LEN_SQ_MESH + 2, NULL, NULL, 15,这里改成16，大概在324行，通过原来的MIB知道有15的地方就两个，peer的是后一个 */</span>
-                                                <span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span>
-<span class="err">……</span>
-                                                <span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span>
-                                                    <span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">snmp_meshPtblFn</span><span class="p">,</span> <span class="n">peer_InstIndex</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-                                                <span class="n">snmpAddNode</span><span class="p">(</span><span class="n">snmpCreateOid</span><span class="p">(</span><span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">SQ_MESH</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="cm">/*新增这个16*/</span>
-                                                    <span class="n">LEN_SQ_MESH</span> <span class="o">+</span> <span class="mi">3</span><span class="p">,</span> <span class="n">snmp_meshPtblFn</span><span class="p">,</span> <span class="n">peer_InstIndex</span><span class="p">,</span> <span class="mi">0</span><span class="p">))),</span></code></pre></div>
-<p>3、修改squid/src/snmp_agent.c如下：</p>
-<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="err">……</span>
-    <span class="k">case</span> <span class="nl">MESH_PTBL_INDEX</span><span class="p">:</span>
-        <span class="n">Answer</span> <span class="o">=</span> <span class="n">snmp_var_new_integer</span><span class="p">(</span><span class="n">Var</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">Var</span><span class="o">-&gt;</span><span class="n">name_length</span><span class="p">,</span>
-            <span class="n">index</span><span class="p">,</span>
-            <span class="n">ASN_INTEGER</span><span class="p">);</span>
-        <span class="k">break</span><span class="p">;</span>
-<span class="cm">/*新增下面这段，case的内容在第1步cache_snmp.h里增加了；stats.conn_open由之前grep的结果得知；INTEGER是数值类型，照抄RTT的即可*/</span>
-    <span class="k">case</span> <span class="nl">MESH_PTBL_CONN_OPEN</span><span class="p">:</span>
-        <span class="n">Answer</span> <span class="o">=</span> <span class="n">snmp_var_new_integer</span><span class="p">(</span><span class="n">Var</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">,</span> <span class="n">Var</span><span class="o">-&gt;</span><span class="n">name_length</span><span class="p">,</span>
-            <span class="n">p</span><span class="o">-&gt;</span><span class="n">stats</span><span class="p">.</span><span class="n">conn_open</span><span class="p">,</span>
-            <span class="n">ASN_INTEGER</span><span class="p">);</span>
-        <span class="k">break</span><span class="p">;</span></code></pre></div>
-<p>4、重新编译squid，然后用snmpwalk获取数据观察：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">[</span>root@naigos myops<span class="o">]</span><span class="c"># snmpwalk -v 2c -c cacti_china 10.168.168.69 .1.3.6.1.4.1.3495.1.5.1.2  -Cc  | tail</span>
-SNMPv2-SMI::enterprises.3495.1.5.1.2.13.3 <span class="o">=</span> Counter32: 0
-SNMPv2-SMI::enterprises.3495.1.5.1.2.14.1 <span class="o">=</span> INTEGER: 1
-SNMPv2-SMI::enterprises.3495.1.5.1.2.14.2 <span class="o">=</span> INTEGER: 2
-SNMPv2-SMI::enterprises.3495.1.5.1.2.14.3 <span class="o">=</span> INTEGER: 3
-SNMPv2-SMI::enterprises.3495.1.5.1.2.15.1 <span class="o">=</span> INTEGER: 3
-SNMPv2-SMI::enterprises.3495.1.5.1.2.15.2 <span class="o">=</span> INTEGER: 5
-SNMPv2-SMI::enterprises.3495.1.5.1.2.15.3 <span class="o">=</span> INTEGER: 6
-SNMPv2-SMI::enterprises.3495.1.5.1.2.16.1 <span class="o">=</span> STRING: <span class="s2">&quot;10.168.170.43&quot;</span>
-SNMPv2-SMI::enterprises.3495.1.5.1.2.16.2 <span class="o">=</span> STRING: <span class="s2">&quot;10.168.168.73&quot;</span>
-SNMPv2-SMI::enterprises.3495.1.5.1.2.16.3 <span class="o">=</span> STRING: <span class="s2">&quot;10.168.168.122&quot;</span></code></pre></div>
-<p>原来的SNMPv2-SMI::enterprises.3495.1.5.1.2.15.1 = STRING: &ldquo;10.168.170.43&rdquo;变成了SNMPv2-SMI::enterprises.3495.1.5.1.2.16.1 = STRING: &ldquo;10.168.170.43&rdquo;，而SNMPv2-SMI::enterprises.3495.1.5.1.2.15.1 = INTEGER: 3就是需要的open_conn数据了！</p>
+    <p>做反向代理的squid集群监控，在单机维护时，squidclient mgr:server_list里的OPEN CONNS是经常看的一项数据，不过在开启snmp支持后，在mib里却没有找到相关的数据。还一度怀疑是不是cachePeerKeepAlRecv或者cachePeerKeepSent。今天想起来去src里grep了一把源码，顺利的在squid/src/neighbors.c里看到了OPEN CONNS等数据的来源，如下：<br />
+<code class="highlighter-rouge">cstatic void
+dump_peers(StoreEntry * sentry, peer * peers)
+{
+    peer *e = NULL;
+……
+    for (e = peers; e; e = e-&gt;next) {
+……
+        storeAppendPrintf(sentry, "OPEN CONNS : %d\n", e-&gt;stats.conn_open);
+……
+        storeAppendPrintf(sentry, "keep-alive ratio: %d%%\n",
+            percent(e-&gt;stats.n_keepalives_recv, e-&gt;stats.n_keepalives_sent));</code><br />
+然后在squid/src/snmp_agent.c里看到了这些数据的snmp输出，如下：<br />
+<code class="highlighter-rouge">cvariable_list *
+snmp_meshPtblFn(variable_list * Var, snint * ErrP)
+{
+    variable_list *Answer = NULL;
+    struct in_addr *laddr;
+    int loop, index = 0;
+    char *cp = NULL;
+    peer *p = NULL;
+    int cnt = 0;
+……
+    switch (Var-&gt;name[LEN_SQ_MESH + 2]) {
+    case MESH_PTBL_NAME:
+        cp = p-&gt;name;
+        Answer = snmp_var_new(Var-&gt;name, Var-&gt;name_length);
+……
+    case MESH_PTBL_KEEPAL_R:
+        Answer = snmp_var_new_integer(Var-&gt;name, Var-&gt;name_length,
+            p-&gt;stats.n_keepalives_recv,
+            SMI_COUNTER32);
+        break;
+    case MESH_PTBL_INDEX:
+        Answer = snmp_var_new_integer(Var-&gt;name, Var-&gt;name_length,
+            index,
+            ASN_INTEGER);
+        break;
+    default:
+        *ErrP = SNMP_ERR_NOSUCHNAME;
+        break;
+    }
+    return Answer;
+}</code><br />
+一对比，发现确实没有stats.conn_open输出……<br />
+好在这个比较简单，稍微改一下，就能搞出来：<br />
+1、修改squid/include/cache_snmp.h如下：<br />
+<code class="highlighter-rouge">cenum {                          /* cachePeerTable */
+……
+    MESH_PTBL_CONN_OPEN,   /*新增这个*/
+    MESH_PTBL_HOST,
+    MESH_PTBL_END
+};</code><br />
+2、修改squid/src/snmp_core.c如下：<br />
+<code class="highlighter-rouge">c
+void
+snmpInit(void)
+{
+……
+                                            snmpAddNode(snmpCreateOid(LEN_SQ_MESH + 2, SQ_MESH, 1, 2),
+/* LEN_SQ_MESH + 2, NULL, NULL, 15,这里改成16，大概在324行，通过原来的MIB知道有15的地方就两个，peer的是后一个 */
+                                                LEN_SQ_MESH + 2, NULL, NULL, 16,
+……
+                                                snmpAddNode(snmpCreateOid(LEN_SQ_MESH + 3, SQ_MESH, 1, 2, 15),
+                                                    LEN_SQ_MESH + 3, snmp_meshPtblFn, peer_InstIndex, 0),
+                                                snmpAddNode(snmpCreateOid(LEN_SQ_MESH + 3, SQ_MESH, 1, 2, 16), /*新增这个16*/
+                                                    LEN_SQ_MESH + 3, snmp_meshPtblFn, peer_InstIndex, 0))),</code><br />
+3、修改squid/src/snmp_agent.c如下：<br />
+<code class="highlighter-rouge">c……
+    case MESH_PTBL_INDEX:
+        Answer = snmp_var_new_integer(Var-&gt;name, Var-&gt;name_length,
+            index,
+            ASN_INTEGER);
+        break;
+/*新增下面这段，case的内容在第1步cache_snmp.h里增加了；stats.conn_open由之前grep的结果得知；INTEGER是数值类型，照抄RTT的即可*/
+    case MESH_PTBL_CONN_OPEN:
+        Answer = snmp_var_new_integer(Var-&gt;name, Var-&gt;name_length,
+            p-&gt;stats.conn_open,
+            ASN_INTEGER);
+        break;
+</code><br />
+4、重新编译squid，然后用snmpwalk获取数据观察：<br />
+<code class="highlighter-rouge">bash[root@naigos myops]# snmpwalk -v 2c -c cacti_china 10.168.168.69 .1.3.6.1.4.1.3495.1.5.1.2  -Cc  | tail
+SNMPv2-SMI::enterprises.3495.1.5.1.2.13.3 = Counter32: 0
+SNMPv2-SMI::enterprises.3495.1.5.1.2.14.1 = INTEGER: 1
+SNMPv2-SMI::enterprises.3495.1.5.1.2.14.2 = INTEGER: 2
+SNMPv2-SMI::enterprises.3495.1.5.1.2.14.3 = INTEGER: 3
+SNMPv2-SMI::enterprises.3495.1.5.1.2.15.1 = INTEGER: 3
+SNMPv2-SMI::enterprises.3495.1.5.1.2.15.2 = INTEGER: 5
+SNMPv2-SMI::enterprises.3495.1.5.1.2.15.3 = INTEGER: 6
+SNMPv2-SMI::enterprises.3495.1.5.1.2.16.1 = STRING: "10.168.170.43"
+SNMPv2-SMI::enterprises.3495.1.5.1.2.16.2 = STRING: "10.168.168.73"
+SNMPv2-SMI::enterprises.3495.1.5.1.2.16.3 = STRING: "10.168.168.122"</code><br />
+原来的SNMPv2-SMI::enterprises.3495.1.5.1.2.15.1 = STRING: &ldquo;10.168.170.43&rdquo;变成了SNMPv2-SMI::enterprises.3495.1.5.1.2.16.1 = STRING: &ldquo;10.168.170.43&rdquo;，而SNMPv2-SMI::enterprises.3495.1.5.1.2.15.1 = INTEGER: 3就是需要的open_conn数据了！</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/06/14/intro-mybench" title="mysql测试小工具mybench试用">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/06/14/intro-mybench/" title="mysql测试小工具mybench试用">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/06/23/make-patch-of-squid-snmp" title="patch制作和使用">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/06/23/make-patch-of-squid-snmp/" title="patch制作和使用">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -195,15 +197,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

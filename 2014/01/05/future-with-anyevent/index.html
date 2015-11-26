@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -55,65 +55,67 @@
   <div style='background-color: #FFF;'>
     <p>上个月的 advent calendar 活动中，有一个新的模块进入我们视野，这就是 IO::Async 模块作者写的 <a href="https://metacpan.org/pod/Future">Future</a> 模块。通过 Future 模块，我们可以做到对异步请求的各种控制，比如：</p>
 <ul>
-  <li><code>needs_all</code> / <code>needs_any</code> / <code>wait_any</code> / <code>wait_all</code></li>
-  <li><code>then</code> / <code>else</code> / <code>and_then</code> / <code>or_else</code> / <code>followed_by</code></li>
-  <li><code>on_ready</code> / <code>on_done</code> / <code>on_fail</code> / <code>on_cancel</code></li>
+  <li><code class="highlighter-rouge">needs_all</code> / <code class="highlighter-rouge">needs_any</code> / <code class="highlighter-rouge">wait_any</code> / <code class="highlighter-rouge">wait_all</code></li>
+  <li><code class="highlighter-rouge">then</code> / <code class="highlighter-rouge">else</code> / <code class="highlighter-rouge">and_then</code> / <code class="highlighter-rouge">or_else</code> / <code class="highlighter-rouge">followed_by</code></li>
+  <li><code class="highlighter-rouge">on_ready</code> / <code class="highlighter-rouge">on_done</code> / <code class="highlighter-rouge">on_fail</code> / <code class="highlighter-rouge">on_cancel</code></li>
 </ul>
 <p>目前来说，IO::Async 是原生支持 Future 了的。但是 AnyEvent 框架才是目前 Perl 社区事件驱动编程的主流选择。还好 Future 源码目录下 <a href="https://metacpan.org/source/PEVANS/Future-0.21/examples">examples/</a> 里有关于 AnyEvent 和 POE 如何跟 Future 一起运行的示例。</p>
-<p>示例统一举例的是 timer 事件。而我更看好的是 <a href="https://metacpan.org/pod/Future::Utils">Future::Utils</a> 提供的一些关于循环的函数，比如 <code>fmap</code> 可以很简单的控制住异步的并发数。稍微试验，得到脚本如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="nn">Future::</span><span class="n">AnyEvent</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">base</span> <span class="sx">qw( Future )</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">AnyEvent</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">AnyEvent::</span><span class="n">HTTP</span><span class="p">;</span> 
+<p>示例统一举例的是 timer 事件。而我更看好的是 <a href="https://metacpan.org/pod/Future::Utils">Future::Utils</a> 提供的一些关于循环的函数，比如 <code class="highlighter-rouge">fmap</code> 可以很简单的控制住异步的并发数。稍微试验，得到脚本如下：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="nb">package</span> <span class="nn">Future::</span><span class="nv">AnyEvent</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">base</span> <span class="sx">qw( Future )</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">AnyEvent</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">AnyEvent::</span><span class="nv">HTTP</span><span class="p">;</span> 
 <span class="k">sub </span><span class="nf">await</span> <span class="p">{</span>
    <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-   <span class="k">my</span> <span class="nv">$cv</span> <span class="o">=</span> <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">condvar</span><span class="p">;</span>
-   <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">on_ready</span><span class="p">(</span><span class="k">sub </span><span class="p">{</span> <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nb">send</span> <span class="p">});</span>
+   <span class="k">my</span> <span class="nv">$cv</span> <span class="o">=</span> <span class="nv">AnyEvent</span><span class="o">-&gt;</span><span class="nv">condvar</span><span class="p">;</span>
+   <span class="nv">$self</span><span class="o">-&gt;</span><span class="nv">on_ready</span><span class="p">(</span><span class="k">sub </span><span class="p">{</span> <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nb">send</span> <span class="p">});</span>
    <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nb">recv</span><span class="p">;</span>
 <span class="p">}</span>
 <span class="k">sub </span><span class="nf">httpget</span> <span class="p">{</span>
    <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">;</span>
-   <span class="n">http_get</span><span class="p">(</span><span class="nb">shift</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+   <span class="nv">http_get</span><span class="p">(</span><span class="nb">shift</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
       <span class="k">my</span> <span class="p">(</span><span class="nv">$content</span><span class="p">,</span> <span class="nv">$headers</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-      <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">done</span><span class="p">(</span><span class="nv">$content</span><span class="p">);</span>
+      <span class="nv">$self</span><span class="o">-&gt;</span><span class="nv">done</span><span class="p">(</span><span class="nv">$content</span><span class="p">);</span>
    <span class="p">});</span>
    <span class="k">return</span> <span class="nv">$self</span><span class="p">;</span>
 <span class="p">}</span>
-<span class="nb">package</span> <span class="n">main</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Future::</span><span class="n">Utils</span> <span class="sx">qw/fmap/</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">@urls</span> <span class="o">=</span> <span class="sx">qw(</span>
-<span class="sx">    http://www.sina.com.cn</span>
-<span class="sx">    http://www.baidu.com</span>
-<span class="sx">    http://www.sohu.com</span>
-<span class="sx">#    ...</span>
-<span class="sx">)</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$f</span> <span class="o">=</span> <span class="n">fmap</span> <span class="p">{</span>
-    <span class="nn">Future::</span><span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">httpget</span><span class="p">(</span> <span class="nb">shift</span> <span class="p">);</span>
-<span class="p">}</span> <span class="k">foreach</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@urls</span><span class="p">,</span> <span class="n">concurrent</span> <span class="o">=&gt;</span> <span class="mi">5</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">@res</span> <span class="o">=</span> <span class="nv">$f</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">;</span>
-<span class="k">print</span> <span class="nv">@res</span><span class="p">;</span></code></pre></div>
+<span class="nb">package</span> <span class="nv">main</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Future::</span><span class="nv">Utils</span> <span class="sx">qw/fmap/</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">@urls</span> <span class="o">=</span> <span class="sx">qw(
+    http://www.sina.com.cn
+    http://www.baidu.com
+    http://www.sohu.com
+#    ...
+)</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$f</span> <span class="o">=</span> <span class="nv">fmap</span> <span class="p">{</span>
+    <span class="nn">Future::</span><span class="nv">AnyEvent</span><span class="o">-&gt;</span><span class="nv">httpget</span><span class="p">(</span> <span class="nb">shift</span> <span class="p">);</span>
+<span class="p">}</span> <span class="k">foreach</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@urls</span><span class="p">,</span> <span class="nv">concurrent</span> <span class="o">=&gt;</span> <span class="mi">5</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">@res</span> <span class="o">=</span> <span class="nv">$f</span><span class="o">-&gt;</span><span class="nv">get</span><span class="p">;</span>
+<span class="k">print</span> <span class="nv">@res</span><span class="p">;</span>
+</code></pre>
+</div>
 <p>看起来稍显复杂。这里其实最关键的就是几个接口函数：</p>
 <ul>
   <li>await / on_ready</li>
 </ul>
-<p>Future 对象到实际执行时(即-&gt;get调用处)，会寻找 <code>await</code> 方法。所以必须给自己选用的事件驱动实现这个 <code>await</code> 方法。</p>
-<p>ready 状态即一个 Future 执行完成，注意执行完成不意味着执行成功，ready 状态包括 success 和 fail 两种，其实是可以分别定义 <code>on_success</code> 和 <code>on_failure</code> 回调的。
-<code>on_ready</code> 回调的作用是：在该 Future 对象达到 ready 状态的时候，执行这步调用。</p>
-<p>在本例使用 AnyEvent 的时候，也就是一般来说都会在每步操作结束的 <code>$cv-&gt;send</code> 改到这里来等待调用。</p>
+<p>Future 对象到实际执行时(即-&gt;get调用处)，会寻找 <code class="highlighter-rouge">await</code> 方法。所以必须给自己选用的事件驱动实现这个 <code class="highlighter-rouge">await</code> 方法。</p>
+<p>ready 状态即一个 Future 执行完成，注意执行完成不意味着执行成功，ready 状态包括 success 和 fail 两种，其实是可以分别定义 <code class="highlighter-rouge">on_success</code> 和 <code class="highlighter-rouge">on_failure</code> 回调的。<br />
+<code class="highlighter-rouge">on_ready</code> 回调的作用是：在该 Future 对象达到 ready 状态的时候，执行这步调用。</p>
+<p>在本例使用 AnyEvent 的时候，也就是一般来说都会在每步操作结束的 <code class="highlighter-rouge">$cv-&gt;send</code> 改到这里来等待调用。</p>
 <ul>
   <li>done / done_cb</li>
 </ul>
-<p>那 Future 对象的 ready 状态是怎么来的呢？就是这步了：<code>$f-&gt;done</code> 一旦被调用，就意味着该 Future 对象进入了 ready and success 状态。</p>
-<p>同样，如果你要详细控制 Future 对象进入具体的 ready but failure 状态，就使用 <code>$f-&gt;fail</code> 好了。</p>
-<p>调用 <code>-&gt;done|fail()</code> 的时候，你可以选择传递具体哪些数据。比如本例中，就只传递了抓取的 <code>$content</code> 而没有 <code>$headers</code>。</p>
-<p>Future 提供了 <code>-&gt;done_cb</code> 和 <code>-&gt;fail_cb</code> 两个回调函数，默认传递回当前全部数据。本例如果要传回全部，就可以直接写成<code>http_get shift, $self-&gt;done_cb</code>。</p>
-<p>好了，就到这里。这个例子虽然比 Future 自带的 <code>anyevent.pl</code> 示例稍微复杂一点，但是依然很简单。如果能引起大家的兴趣，请直接阅读官方文档。</p>
+<p>那 Future 对象的 ready 状态是怎么来的呢？就是这步了：<code class="highlighter-rouge">$f-&gt;done</code> 一旦被调用，就意味着该 Future 对象进入了 ready and success 状态。</p>
+<p>同样，如果你要详细控制 Future 对象进入具体的 ready but failure 状态，就使用 <code class="highlighter-rouge">$f-&gt;fail</code> 好了。</p>
+<p>调用 <code class="highlighter-rouge">-&gt;done|fail()</code> 的时候，你可以选择传递具体哪些数据。比如本例中，就只传递了抓取的 <code class="highlighter-rouge">$content</code> 而没有 <code class="highlighter-rouge">$headers</code>。</p>
+<p>Future 提供了 <code class="highlighter-rouge">-&gt;done_cb</code> 和 <code class="highlighter-rouge">-&gt;fail_cb</code> 两个回调函数，默认传递回当前全部数据。本例如果要传回全部，就可以直接写成<code class="highlighter-rouge">http_get shift, $self-&gt;done_cb</code>。</p>
+<p>好了，就到这里。这个例子虽然比 Future 自带的 <code class="highlighter-rouge">anyevent.pl</code> 示例稍微复杂一点，但是依然很简单。如果能引起大家的兴趣，请直接阅读官方文档。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/12/31/report-of-this-year" title="2013 年度个人总结">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/12/31/report-of-this-year/" title="2013 年度个人总结">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/01/05/run-perl-code-from-webpage" title="通过网页运行 Perl 代码的安全实现">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/01/05/run-perl-code-from-webpage/" title="通过网页运行 Perl 代码的安全实现">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -157,15 +159,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

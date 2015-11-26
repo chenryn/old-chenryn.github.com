@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,79 +53,80 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>因为空闲时间比较多，所以在CPAN上乱翻，看到了nginx_perl这个项目(原名Nginx::Engine)，现在托管在github.com上。地址见：
+    <p>因为空闲时间比较多，所以在CPAN上乱翻，看到了nginx_perl这个项目(原名Nginx::Engine)，现在托管在github.com上。地址见：<br />
 <a href="https://github.com/zzzcpan/nginx-perl">https://github.com/zzzcpan/nginx-perl</a></p>
 <p>这个模块的目的，是在nginx内置官方perl模块的基础上，实现一系列异步非阻塞的api。用connector/writer/reader完成类似proxy的功能（这里因为是交给perl完成，所以不单单局限在http上了），用take_connection/give_connection完成类似websocket的功能，用ssl_handshaker完成ssl的解析，用timer完成定时器，用resolver完成域名解析…使用方法简单来说，就是用main_count_inc/finalize_request控制计数器，用NGX_READ/NGX_WRITE/NGX_CLOSE等控制callback。</p>
 <p>其他内容和apache的mod_perl，或者nginx.org的perl类似。最新版的POD地址见：<a href="http://zzzcpan.github.com/nginx-perl/Nginx.html">http://zzzcpan.github.com/nginx-perl/Nginx.html</a></p>
 <p>最后举例一个自己写的简单的例子：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="n">HelloWorld</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Nginx</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="c1">#用来在nginx启动的时候做的事情，这里单纯显示一下</span>
-<span class="k">sub </span><span class="nf">init_worker</span> <span class="p">{</span>
-    <span class="nb">warn</span> <span class="s">&#39;nginx_perl start [OK]&#39;</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="c1">#这里是nginx的http模块中调用的handler，alexander有计划改成tcp级别的</span>
-<span class="k">sub </span><span class="nf">handler</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-<span class="c1">#增加主循环的计数器</span>
-    <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">main_count_inc</span><span class="p">;</span>
-<span class="c1">#使用非阻塞的连接器连接127.0.0.1的80端口，10秒超时</span>
-    <span class="n">ngx_connector</span> <span class="s">&#39;127.0.0.1&#39;</span><span class="p">,</span> <span class="mi">80</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
-<span class="c1">#如果连接出问题，会记录在$!中</span>
-        <span class="k">if</span> <span class="p">(</span><span class="vg">$!</span><span class="p">)</span> <span class="p">{</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">send_http_header</span><span class="p">(</span><span class="s">&#39;text/html&#39;</span><span class="p">);</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="k">print</span><span class="p">(</span><span class="s">&quot;Connection failed, $!\n&quot;</span><span class="p">);</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">send_special</span><span class="p">(</span><span class="n">NGX_HTTP_LAST</span><span class="p">);</span>
-<span class="c1">#不管怎么处理这次连接，最后一定要记得用$r-&gt;finalize_request()，会decrease之前$r-&gt;main_count_inc;里加上的计数。</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">finalize_request</span><span class="p">(</span><span class="n">NGX_OK</span><span class="p">);</span>
-            <span class="k">return</span> <span class="n">NGX_CLOSE</span><span class="p">;</span>
-        <span class="p">};</span>
-<span class="c1">#返回$c是建立的连接</span>
-        <span class="k">my</span> <span class="nv">$c</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$req_buf</span> <span class="o">=</span> <span class="s">&quot;GET /index.php HTTP/1.0\x0d\x0a&quot;</span><span class="o">.</span>
-              <span class="s">&quot;Host: chenlinux.com\x0d\x0a&quot;</span><span class="o">.</span>
-              <span class="s">&quot;Connection: close\x0d\x0a&quot;</span><span class="o">.</span>
-              <span class="s">&quot;\x0d\x0a&quot;</span><span class="p">;</span>
-<span class="c1">#这里记住定义buffer的时候不要搞成undef了，会报段错误的，不过俄国佬回信说他修复了</span>
-        <span class="k">my</span> <span class="nv">$res_buf</span> <span class="o">=</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="c1">#非阻塞写入，超时10秒</span>
-        <span class="n">ngx_writer</span> <span class="nv">$c</span><span class="p">,</span> <span class="nv">$req_buf</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
-            <span class="k">if</span> <span class="p">(</span><span class="vg">$!</span><span class="p">)</span> <span class="p">{</span>
-                 <span class="o">......</span>
-            <span class="p">};</span>
-            <span class="nv">$req_buf</span> <span class="o">=</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="c1">#之前的buffer测试就是这里，如果加一个warn，就不会报错……汗</span>
-<span class="c1">#warn &quot;$req_buf\n$res_buf\n&quot;;</span>
-<span class="c1">#写入完成后，开始调用读取</span>
-            <span class="k">return</span> <span class="n">NGX_READ</span><span class="p">;</span>
-        <span class="p">};</span>
-<span class="c1">#读取到buffer，最短0字节，最长8000字节，超时10秒</span>
-        <span class="n">ngx_reader</span> <span class="nv">$c</span><span class="p">,</span> <span class="nv">$res_buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">8000</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
-            <span class="k">if</span> <span class="p">(</span><span class="vg">$!</span><span class="p">)</span> <span class="p">{</span>
-            <span class="o">......</span>
-            <span class="p">}</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">send_http_header</span><span class="p">(</span><span class="s">&#39;text/html&#39;</span><span class="p">);</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="k">print</span><span class="p">(</span><span class="nv">$res_buf</span><span class="p">);</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">send_special</span><span class="p">(</span><span class="n">NGX_HTTP_LAST</span><span class="p">);</span>
-            <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">finalize_request</span><span class="p">(</span><span class="n">NGX_OK</span><span class="p">);</span>
-            <span class="k">return</span> <span class="n">NGX_CLOSE</span><span class="p">;</span>
-        <span class="p">};</span>
-<span class="c1">#这个是connector的语句，表示连接成功后调用写入</span>
-        <span class="k">return</span> <span class="n">NGX_WRITE</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="c1">#各个非阻塞调用完成后的返回，NGX_DONE只能用在http的handler里，不能在ngx_*r里用，里面请用NGX_CLOSE。</span>
-    <span class="k">return</span> <span class="n">NGX_DONE</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="mi">1</span><span class="p">;</span></code></pre></div>
+<p><code class="highlighter-rouge">perl
+package HelloWorld;
+use Nginx;
+use strict;
+#用来在nginx启动的时候做的事情，这里单纯显示一下
+sub init_worker {
+    warn 'nginx_perl start [OK]';
+};
+#这里是nginx的http模块中调用的handler，alexander有计划改成tcp级别的
+sub handler {
+    my $r = shift;
+#增加主循环的计数器
+    $r-&gt;main_count_inc;
+#使用非阻塞的连接器连接127.0.0.1的80端口，10秒超时
+    ngx_connector '127.0.0.1', 80, 10, sub {
+#如果连接出问题，会记录在$!中
+        if ($!) {
+            $r-&gt;send_http_header('text/html');
+            $r-&gt;print("Connection failed, $!\n");
+            $r-&gt;send_special(NGX_HTTP_LAST);
+#不管怎么处理这次连接，最后一定要记得用$r-&gt;finalize_request()，会decrease之前$r-&gt;main_count_inc;里加上的计数。
+            $r-&gt;finalize_request(NGX_OK);
+            return NGX_CLOSE;
+        };
+#返回$c是建立的连接
+        my $c = shift;
+        my $req_buf = "GET /index.php HTTP/1.0\x0d\x0a".
+              "Host: chenlinux.com\x0d\x0a".
+              "Connection: close\x0d\x0a".
+              "\x0d\x0a";
+#这里记住定义buffer的时候不要搞成undef了，会报段错误的，不过俄国佬回信说他修复了
+        my $res_buf = '';
+#非阻塞写入，超时10秒
+        ngx_writer $c, $req_buf, 10, sub {
+            if ($!) {
+                 ......
+            };
+            $req_buf = '';
+#之前的buffer测试就是这里，如果加一个warn，就不会报错……汗
+#warn "$req_buf\n$res_buf\n";
+#写入完成后，开始调用读取
+            return NGX_READ;
+        };
+#读取到buffer，最短0字节，最长8000字节，超时10秒
+        ngx_reader $c, $res_buf, 0, 8000, 10, sub {
+            if ($!) {
+            ......
+            }
+            $r-&gt;send_http_header('text/html');
+            $r-&gt;print($res_buf);
+            $r-&gt;send_special(NGX_HTTP_LAST);
+            $r-&gt;finalize_request(NGX_OK);
+            return NGX_CLOSE;
+        };
+#这个是connector的语句，表示连接成功后调用写入
+        return NGX_WRITE;
+    };
+#各个非阻塞调用完成后的返回，NGX_DONE只能用在http的handler里，不能在ngx_*r里用，里面请用NGX_CLOSE。
+    return NGX_DONE;
+};
+1;</code></p>
 <p>另：源码中带有一个真正的反向http的例子Nginx::Util和一个Redis的例子。并且与nodejs读取redis的性能做了对比。可以参见~~</p>
 <p><strong style="display:block;margin:12px 0 4px"><a href="http://www.slideshare.net/chenryn/perlnginx" title="Perl在nginx里的应用" target="_blank">Perl在nginx里的应用</a></strong></p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/11/04/test_websocket_with_dancer" title="websocket体验">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/11/04/test_websocket_with_dancer/" title="websocket体验">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/12/15/learning_dancer_plugin_simplecrud" title="Dancer::Plugin::SimpleCRUD模块学习">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/12/15/learning_dancer_plugin_simplecrud/" title="Dancer::Plugin::SimpleCRUD模块学习">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -169,15 +170,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

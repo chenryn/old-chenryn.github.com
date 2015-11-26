@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -58,10 +58,11 @@
 <p>httping是一个模拟ping输出的http请求客户端。从1.5开始支持发送fastopen请求，目前版本是2.3.4。</p>
 <p>我在 fedora 20 (内核3.13版) 上编译了 nginx 1.5.13，yum 安装了 httping 2.3.3版。</p>
 <p>开两个终端，一个运行tcpdump，然后另一个运行httping如下：</p>
-<pre><code>httping -F -g http://www.google.com.hk/url -c 1
+<div class="highlighter-rouge"><pre class="highlight"><code>httping -F -g http://www.google.com.hk/url -c 1
 </code></pre>
+</div>
 <p>这时候看到前一个终端的输出是这样的：</p>
-<pre><code>[chenlin.rao@com21-100 tfo]$ sudo tcpdump -i p5p1 -vvnxXs 0 tcp port 80
+<div class="highlighter-rouge"><pre class="highlight"><code>[chenlin.rao@com21-100 tfo]$ sudo tcpdump -i p5p1 -vvnxXs 0 tcp port 80
 tcpdump: listening on p5p1, link-type EN10MB (Ethernet), capture size 65535 bytes
 20:40:15.034486 IP (tos 0x0, ttl 64, id 52862, offset 0, flags [DF], proto TCP (6), length 147)
     10.2.5.100.40699 &gt; 74.125.128.199.http: Flags [S], cksum 0xbb34 (correct), seq 3616187260:3616187335, win 29200, options [mss 1460,sackOK,TS val 31091970 ecr 0,nop,wscale 7,exp-tfo cookie 9a8e5a15f1deab96], length 75
@@ -116,40 +117,44 @@ tcpdump: listening on p5p1, link-type EN10MB (Ethernet), capture size 65535 byte
 	0x00f0:  7465 726e 6174 652d 5072 6f74 6f63 6f6c  ternate-Protocol
 	0x0100:  3a20 3830 3a71 7569 630d 0a0d 0a         :.80:quic....
 </code></pre>
+</div>
 <p>没错，在第一个 SYN 包的时候就把 HEAD 请求带过去了。</p>
 <p>但是发现比较奇怪的是很多时候一模一样的命令，SYN 包上就没带数据。</p>
 <p>按我的想法，既然还是第一个 SYN 包，客户端这边压根不知道服务器端的情况，那么应该不管服务器端如何 SYN 里都带有 HEAD 请求啊？</p>
 <hr />
-<p>另外，用 <code>httping -F</code> 命令测试自己编译的 nginx 的时候，一直都没看到正确的抓包结果，HEAD 请求一直都是在三次握手后发送的。</p>
+<p>另外，用 <code class="highlighter-rouge">httping -F</code> 命令测试自己编译的 nginx 的时候，一直都没看到正确的抓包结果，HEAD 请求一直都是在三次握手后发送的。</p>
 <p>试图用 systemtap 来追踪一些问题。</p>
 <h3 id="nginx--socket--fastopen">第一步确认我的 nginx 的 socket 是不是真的开了 fastopen：</h3>
 <p>一个终端运行如下命令：</p>
-<pre><code>stap -e 'probe kernel.function("do_tcp_setsockopt") {printf("%d\n", $optname)}'
+<div class="highlighter-rouge"><pre class="highlight"><code>stap -e 'probe kernel.function("do_tcp_setsockopt") {printf("%d\n", $optname)}'
 </code></pre>
-<p>另一个终端启动nginx，看到前一个终端输出结果为<code>23</code>，查 <code>tcp.h</code> 可以看到 23 正是 <code>TCP_FASTOPEN</code> 没错！</p>
+</div>
+<p>另一个终端启动nginx，看到前一个终端输出结果为<code class="highlighter-rouge">23</code>，查 <code class="highlighter-rouge">tcp.h</code> 可以看到 23 正是 <code class="highlighter-rouge">TCP_FASTOPEN</code> 没错！</p>
 <h3 id="httping--fastopen">第二步确认 httping 发送的时候是不是开了 fastopen：</h3>
 <p>一个终端运行如下命令：</p>
-<pre><code>stap -e 'probe kernel.function("tcp_sendmsg") {printf("%d %x\n",$msg-&gt;msg_namelen,$msg-&gt;msg_flags)}'
+<div class="highlighter-rouge"><pre class="highlight"><code>stap -e 'probe kernel.function("tcp_sendmsg") {printf("%d %x\n",$msg-&gt;msg_namelen,$msg-&gt;msg_flags)}'
 </code></pre>
-<p>另一个终端运行最开始提到的 <code>httping -F</code> 命令，看到前一个终端输出结果为 <code>16 20000040</code>，查 <code>socket.h</code> 可以看到 <code>MSG_FASTOPEN</code> 是 <code>0x20000000</code>，<code>MSG_DONTWAIT</code> 是 <code>0x40</code>，也就是说 httping 也没问题。</p>
-<p>现在比较郁闷的一点是：在 <code>net/ipv4/tcp.c</code> 里，<code>tcp_sendmsg()</code> 函数会判断 <code>if ((flags &amp; MSG_FASTOPEN))</code>，就调用 <code>tcp_sendmsg_fastopen()</code> 函数来处理。但是试图用 systemtap 来调查这个函数的时候，会报一个错：</p>
-<pre><code>WARNING: probe kernel.function("tcp_sendmsg_fastopen@net/ipv4/tcp.c:1005") (address 0xffffffff815cca08) registration error (rc -22)
+</div>
+<p>另一个终端运行最开始提到的 <code class="highlighter-rouge">httping -F</code> 命令，看到前一个终端输出结果为 <code class="highlighter-rouge">16 20000040</code>，查 <code class="highlighter-rouge">socket.h</code> 可以看到 <code class="highlighter-rouge">MSG_FASTOPEN</code> 是 <code class="highlighter-rouge">0x20000000</code>，<code class="highlighter-rouge">MSG_DONTWAIT</code> 是 <code class="highlighter-rouge">0x40</code>，也就是说 httping 也没问题。</p>
+<p>现在比较郁闷的一点是：在 <code class="highlighter-rouge">net/ipv4/tcp.c</code> 里，<code class="highlighter-rouge">tcp_sendmsg()</code> 函数会判断 <code class="highlighter-rouge">if ((flags &amp; MSG_FASTOPEN))</code>，就调用 <code class="highlighter-rouge">tcp_sendmsg_fastopen()</code> 函数来处理。但是试图用 systemtap 来调查这个函数的时候，会报一个错：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>WARNING: probe kernel.function("tcp_sendmsg_fastopen@net/ipv4/tcp.c:1005") (address 0xffffffff815cca08) registration error (rc -22)
 </code></pre>
+</div>
 <p>原因还未知。</p>
 <p>留记，继续研究。</p>
 <hr />
-<p>注1：发现 chrome 即使在 <code>about:flags</code> 里启用了 fastopen 好像也不行，必须命令行 <code>google-chrome --enable-tcp-fastopen</code> 这样打开才行。</p>
+<p>注1：发现 chrome 即使在 <code class="highlighter-rouge">about:flags</code> 里启用了 fastopen 好像也不行，必须命令行 <code class="highlighter-rouge">google-chrome --enable-tcp-fastopen</code> 这样打开才行。</p>
 <p>注2：网上看到有人写server和client的demo演示fastopen，但其实不对，demo代码里print的数据是正常三次握手以后socket收到的。这点开tcpdump才能确认到底是什么时候发送的数据。</p>
 <hr />
 <p><strong>2014 年 04 月 18 日更新：</strong></p>
-<p>今天改用 wireshark 看了一下数据包，在第一个 SYN 包没有带请求数据的时候，其实最末尾可选项里是有 fastopen 的，截图如下。看来还是服务器端的问题。下一步研究 <code>tcp_recvmsg()</code> 函数去。</p>
+<p>今天改用 wireshark 看了一下数据包，在第一个 SYN 包没有带请求数据的时候，其实最末尾可选项里是有 fastopen 的，截图如下。看来还是服务器端的问题。下一步研究 <code class="highlighter-rouge">tcp_recvmsg()</code> 函数去。</p>
 <p><img src="/images/uploads/wireshark-fastopen.png" alt="" /></p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2014/04/07/perlchina-mini-workshop-with-larry-wall" title="Larry Wall 来中国参加 OSTC 和 PerlChina Workshop">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/04/07/perlchina-mini-workshop-with-larry-wall/" title="Larry Wall 来中国参加 OSTC 和 PerlChina Workshop">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/04/21/tcp-fastopen-2" title="TCP Fast Open 测试(2)">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/04/21/tcp-fastopen-2/" title="TCP Fast Open 测试(2)">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -193,15 +198,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

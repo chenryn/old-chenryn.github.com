@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -56,7 +56,7 @@
 <h2 id="section">测试环境</h2>
 <p>两台测试机。其中：</p>
 <p>A 配置为 imtcp/514，omfwd 到 B 的 514。</p>
-<pre><code>module( load="imtcp" )
+<div class="highlighter-rouge"><pre class="highlight"><code>module( load="imtcp" )
 input( type="imtcp" port="514" ruleset="forwardruleset" )
 Ruleset( name="forwardruleset" )
 {
@@ -86,28 +86,32 @@ Ruleset( name="forwardruleset" )
     stop
 }
 </code></pre>
+</div>
 <p>B 配置为 imtcp/514，omfile 到本机。</p>
-<pre><code>module( load="imtcp" )
+<div class="highlighter-rouge"><pre class="highlight"><code>module( load="imtcp" )
 input( type="imtcp" port="514" ruleset="recordruleset" )
 Ruleset( name="recordruleset" )
 {
     action( type="omfile" file="/data1/debug.log" template="defaultLogFormat" asyncWriting="on" flushOnTXEnd="off" ioBufferSize="81920k" flushInterval="5")
 }
 </code></pre>
+</div>
 <h2 id="section-1">测试工具</h2>
 <p>为了控制测试的速度，放弃之前压测 logstash 时候用的 logger 命令，采用 syslog-ng 项目自带的 loggen 命令。本来准备编译一下 syslog-ng，不过报错太多，实在复杂，看了一下 loggen.c 本身没啥依赖，所以决定采用最简单的办法获取 loggen 命令——下载 syslog-ng.rpm，然后直接解压压缩包！</p>
-<pre><code>wget http://mirrors.zju.edu.cn/epel/5/x86_64/syslog-ng-2.1.4-9.el5.x86_64.rpm
+<div class="highlighter-rouge"><pre class="highlight"><code>wget http://mirrors.zju.edu.cn/epel/5/x86_64/syslog-ng-2.1.4-9.el5.x86_64.rpm
 rpm2cpio syslog-ng-2.1.4-9.el5.x86_64.rpm  | cpio -div
 </code></pre>
+</div>
 <p><em>我这不能直接通过 yum install 安装，因为 syslog-ng 跟系统里已有的 rsyslog 是冲突的。</em></p>
 <h2 id="section-2">测试命令</h2>
-<p>rpm 获取的 loggen 命令还不支持 <code>--read-data</code> 参数，只能自己模拟填充数据。所以测试命令如下：</p>
-<pre><code>./usr/bin/loggen -r 10000 -i -s 500 -I 600 $a-server-ip 514
+<p>rpm 获取的 loggen 命令还不支持 <code class="highlighter-rouge">--read-data</code> 参数，只能自己模拟填充数据。所以测试命令如下：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>./usr/bin/loggen -r 10000 -i -s 500 -I 600 $a-server-ip 514
 </code></pre>
+</div>
 <p>意即单条长度 500 字节，每秒 10000 条的频率，持续发送 600 秒。</p>
 <h2 id="section-3">验证方式</h2>
 <p>rsyslog 有专门的 impstats 模块，输出本身运行情况的统计，可以通过如下配置开启：</p>
-<pre><code>module( load="impstats" interval="60" severity="6" log.syslog="on" format="json" resetCounters="on")
+<div class="highlighter-rouge"><pre class="highlight"><code>module( load="impstats" interval="60" severity="6" log.syslog="on" format="json" resetCounters="on")
 template( name="dynaFileRsyslog" type="string" string="/data1/rsyslog/impstats/%$year%/%$month%/%$day%_impstats.log" )
 if ( $syslogfacility-text == 'syslog' ) then
 {
@@ -115,30 +119,32 @@ if ( $syslogfacility-text == 'syslog' ) then
     stop
 }
 </code></pre>
+</div>
 <p>每 60 秒会输出 JSON 格式的统计数据，类似这样：</p>
-<pre><code>2015-02-11T20:00:43.176325+08:00 localhost rsyslogd-pstats: {"name":"action_fwd queue","size":0,"enqueued":0,"full":0,"discarded.full":0,"discarded.nf":0,"maxqsize":0}
+<div class="highlighter-rouge"><pre class="highlight"><code>2015-02-11T20:00:43.176325+08:00 localhost rsyslogd-pstats: {"name":"action_fwd queue","size":0,"enqueued":0,"full":0,"discarded.full":0,"discarded.nf":0,"maxqsize":0}
 </code></pre>
+</div>
 <p>其中，enqueued 表示进入队列的条目数，size 表示暂存在内存中的条目数，discarded.full 表示队列满丢弃的条目数，discarded.nf 表示队列将满丢弃的条目数。</p>
-<p>如果内存队列都不够用，那么 rsyslog 会记录到磁盘队列上，这时候看到类似上面的统计数据的另一条记录，区别是 <code>"name":"action_fwd queue[DA]"</code>，这个 DA 就是磁盘队列的意思。</p>
+<p>如果内存队列都不够用，那么 rsyslog 会记录到磁盘队列上，这时候看到类似上面的统计数据的另一条记录，区别是 <code class="highlighter-rouge">"name":"action_fwd queue[DA]"</code>，这个 DA 就是磁盘队列的意思。</p>
 <h2 id="section-4">测试结果</h2>
 <ol>
   <li>每秒 5 万条的发送，可以做到毫无 size 的全部即时转发。</li>
-  <li>加大 <code>queue.size</code> 到 10 倍，即时转发能力提高到 12 万条。</li>
-  <li>再加大 <code>queue.workerthreads</code> 到 10，即时转发能力提高到 15 万条。</li>
-  <li>单独加大 <code>queue.dequeuebatchsize</code> 到 10 倍，即时转发能力提高到 17 万条。</li>
-  <li>同时加大 <code>queue.size</code> 和 <code>queue.dequeuebatchsize</code> 到 10 倍 ，即时转发能力提高到 18 万条。</li>
+  <li>加大 <code class="highlighter-rouge">queue.size</code> 到 10 倍，即时转发能力提高到 12 万条。</li>
+  <li>再加大 <code class="highlighter-rouge">queue.workerthreads</code> 到 10，即时转发能力提高到 15 万条。</li>
+  <li>单独加大 <code class="highlighter-rouge">queue.dequeuebatchsize</code> 到 10 倍，即时转发能力提高到 17 万条。</li>
+  <li>同时加大 <code class="highlighter-rouge">queue.size</code> 和 <code class="highlighter-rouge">queue.dequeuebatchsize</code> 到 10 倍 ，即时转发能力提高到 18 万条。</li>
   <li>加大频率到 24 万，进入磁盘队列，因为这时候已经到千兆网卡瓶颈。</li>
   <li>加大模拟长度到 5000 字节，即时转发能力下降到 1 万。</li>
 </ol>
-<p>最后，尽可能删除掉各种配置，以默认方式运行，发现转发能力也能达到 5 万条。查了一下源码，默认的 <code>queue.size</code> 是 1000，<code>queue.dequeuebatchsize</code> 是 16。说明在这段大小(初始测试值是默认值的 50 多倍)内，性能变化不大。</p>
+<p>最后，尽可能删除掉各种配置，以默认方式运行，发现转发能力也能达到 5 万条。查了一下源码，默认的 <code class="highlighter-rouge">queue.size</code> 是 1000，<code class="highlighter-rouge">queue.dequeuebatchsize</code> 是 16。说明在这段大小(初始测试值是默认值的 50 多倍)内，性能变化不大。</p>
 <h2 id="section-5">长期运行</h2>
 <p>测试每次只运行几分钟，还需要长期运行的考验。运行两三天的观察，同时加大到 10 倍的配置(即短期测试可以跑满网卡的配置)，在长期稳定每秒 5 万条的测试中，也会出现内存队列的 size 数。还需继续观察 size 是否累积，以及更大量的情况是否会出现磁盘队列。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2015/02/11/python-elasticsearch-bulk" title="Python 批量写入 Elasticsearch 脚本">&larr; Previous</a></li>
+        <li class="prev"><a href="/2015/02/11/python-elasticsearch-bulk/" title="Python 批量写入 Elasticsearch 脚本">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2015/02/13/spark-streaming-sql" title="spark streaming 和 spark sql 结合示例">Next &rarr;</a></li>
+        <li class="next"><a href="/2015/02/13/spark-streaming-sql/" title="spark streaming 和 spark sql 结合示例">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -182,15 +188,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

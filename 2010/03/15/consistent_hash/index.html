@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -57,15 +57,19 @@
 <h2 id="urlhash">一、url_hash的原理</h2>
 <p>在一些稳定的系统（即不考虑流量变化导致时常add/del服务器）中，采用upstream_url_hash+固定的peer+一个backup的方式应该很不错。整个module很“简单”，对$uri进行CRC32计算得到key，然后把key针对peer的总数求余数，余几就把$uri存在第几个peer上。over~~</p>
 <p>用perl表示，大概如下吧：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="k">use</span> <span class="nn">String::</span><span class="n">CRC32</span><span class="p">;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">use</span> <span class="nn">String::</span><span class="nv">CRC32</span><span class="p">;</span>
 <span class="k">my</span> <span class="p">(</span><span class="nv">$url</span><span class="p">,</span> <span class="nv">$sum</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@ARGV</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$crc</span> <span class="o">=</span> <span class="n">crc32</span><span class="p">(</span><span class="s">&quot;$url&quot;</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$crc</span> <span class="o">=</span> <span class="nv">crc32</span><span class="p">(</span><span class="s">"$url"</span><span class="p">);</span>
 <span class="k">my</span> <span class="nv">$num</span> <span class="o">=</span> <span class="nv">$crc</span> <span class="nv">%</span> <span class="err">$</span><span class="nv">sum</span><span class="p">;</span>
-<span class="nb">printf</span> <span class="s">&quot;%s cached at the %s peer by the key %s\n&quot;</span><span class="p">,</span> <span class="nv">$url</span><span class="p">,</span> <span class="nv">$num</span><span class="p">,</span> <span class="nv">$crc</span><span class="p">;</span></code></pre></div>
+<span class="nb">printf</span> <span class="s">"%s cached at the %s peer by the key %s\n"</span><span class="p">,</span> <span class="nv">$url</span><span class="p">,</span> <span class="nv">$num</span><span class="p">,</span> <span class="nv">$crc</span><span class="p">;</span>
+</code></pre>
+</div>
 <p>测试如下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">[</span>root@sdl4 /home/rao 21:41:47<span class="o">]</span><span class="c"># ./crc.pl http://www.baidu.com 10</span>
-http://www.baidu.com cached at the <span class="m">4</span> peer by the key 3500265894</code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="o">[</span>root@sdl4 /home/rao 21:41:47]# ./crc.pl http://www.baidu.com 10
+http://www.baidu.com cached at the 4 peer by the key 3500265894
+</code></pre>
+</div>
 <h2 id="consistenthash">二、consistent_hash的原理</h2>
 <ol>
   <li>consistent_hash在url_hash的基础上进一步，不单单对$uri进行CRC32计算，同样对peer进行CRC32计算。然后向下寻找离crc32($uri)最近的一个crc32($peer)，并把$uri存在这个peer上。</li>
@@ -86,7 +90,9 @@ http://www.baidu.com cached at the <span class="m">4</span> peer by the key 3500
   <li>在计算crc32的时候，不单单是使用uri和server_name:port的字符串，而且还增补上了字符串length;</li>
   <li>和url_hash禁止给server加其他任何配置不同，src中也有weight的相关定义（0-255）处理（计算虚拟节点时），以完成weight-&gt;hash_cyc的映射；具体算法如下，MMC_CONSISTENT_POINTS，最开始定义了它等于160.应该就是全默认状态下的虚拟节点，naddrs或许是当前server的排序序号？（未知）</li>
 </ol>
-<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">points</span> <span class="o">+=</span> <span class="n">server</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">weight</span> <span class="o">*</span> <span class="n">server</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">naddrs</span> <span class="o">*</span> <span class="n">MMC_CONSISTENT_POINTS</span><span class="p">;</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="n">points</span> <span class="o">+=</span> <span class="n">server</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">weight</span> <span class="o">*</span> <span class="n">server</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">naddrs</span> <span class="o">*</span> <span class="n">MMC_CONSISTENT_POINTS</span><span class="p">;</span>
+</code></pre>
+</div>
 <ol>
   <li>ngx_http_upstream_consistent_hash_find(ngx_http_upstream_consistent_hash_continuum *continuum, ngx_uint_t point)函数test middle point，用来计算url的crc32离哪个point最近。</li>
   <li>使用了ngx_crc32_long来计算hash，这部分在nginx/src/core/ngx_crc32.c中。看到里头提供了256的初始化数据，和perl的String::CRC32里的是一样的……</li>
@@ -94,9 +100,9 @@ http://www.baidu.com cached at the <span class="m">4</span> peer by the key 3500
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/03/13/pan-domain-cache_store" title="nginx泛域名cache_store">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/03/13/pan-domain-cache_store/" title="nginx泛域名cache_store">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/03/16/implement-consistent_hash-by-perl" title="consistent_hash的perl脚本模拟">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/03/16/implement-consistent_hash-by-perl/" title="consistent_hash的perl脚本模拟">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -140,15 +146,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

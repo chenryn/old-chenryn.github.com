@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -54,21 +54,24 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>这几天阅读 Splunk 书，发现 Splunk 作为一个不需要提前结构化数据的处理工具，在自动发现的 &ldquo;interesting fields&rdquo; 以外，也提供了在页面通过正则临时产生新字段的能力。类似下面这样：</p>
-<pre><code>sourcetype="impl_splunk_gen"
+<div class="highlighter-rouge"><pre class="highlight"><code>sourcetype="impl_splunk_gen"
   | rex "ip=(?P&lt;subnet&gt;\d+\.\d+\.\d+)\.\d+"
   | chart values(subnet) by user network
 </code></pre>
+</div>
 <p>这就蛮让人流口水的了。毕竟谁也不可能保证自己在结构化的时候做到了万事俱备。不过，ELK 虽然建议大家在 logstash 里通过 grok 来预处理，其实本身也是有这个能力的。今天稍微测试了一下，通过 ES 的 <strong>scripting</strong> 模块，完全可以实现这个效果。</p>
 <p><em>测试在 Elasticsearch 1.4.1 上进行。较低的版本可能在支持的语言方面稍有差异。</em></p>
-<p>因为 scripting 在早先 1.2 的时候出过安全问题，所以后来就都不再允许直接通过 POST 的内容里提交 scripting 代码了。现在有两种方式，一种是在 elasticsearch-1.4.1/config/ 目录下新建一个 scripts 目录，然后把准备要用的脚本都放在这个目录里，ES 会自动探测并加载编译；另一种是开启动态 scripting 功能，再通过 <code>/_script</code> 接口上传脚本。</p>
+<p>因为 scripting 在早先 1.2 的时候出过安全问题，所以后来就都不再允许直接通过 POST 的内容里提交 scripting 代码了。现在有两种方式，一种是在 elasticsearch-1.4.1/config/ 目录下新建一个 scripts 目录，然后把准备要用的脚本都放在这个目录里，ES 会自动探测并加载编译；另一种是开启动态 scripting 功能，再通过 <code class="highlighter-rouge">/_script</code> 接口上传脚本。</p>
 <p>下面示例两种实现获取 client_ip 字段的 C 段的统计的方式：</p>
 <ol>
   <li>通过简单的切割合并</li>
 </ol>
-<p>创建 <code>config/scripts/split.groovy</code> 文件，内容如下：</p>
-<div class="highlight"><pre><code class="language-java" data-lang="java"><span class="n">doc</span><span class="o">[</span><span class="n">fieldname</span><span class="o">].</span><span class="na">value</span><span class="o">.</span><span class="na">split</span><span class="o">(</span><span class="sc">&#39;.&#39;</span><span class="o">)[</span><span class="mi">0</span><span class="o">..-</span><span class="mi">2</span><span class="o">].</span><span class="na">join</span><span class="o">(</span><span class="sc">&#39;.&#39;</span><span class="o">)</span></code></pre></div>
+<p>创建 <code class="highlighter-rouge">config/scripts/split.groovy</code> 文件，内容如下：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="n">doc</span><span class="o">[</span><span class="n">fieldname</span><span class="o">].</span><span class="na">value</span><span class="o">.</span><span class="na">split</span><span class="o">(</span><span class="sc">'.'</span><span class="o">)[</span><span class="mi">0</span><span class="o">..-</span><span class="mi">2</span><span class="o">].</span><span class="na">join</span><span class="o">(</span><span class="sc">'.'</span><span class="o">)</span>
+</code></pre>
+</div>
 <p>稍等一下，看到 ES 的日志显示探测到并且编译成功后。就可以发送请求了：</p>
-<pre><code>curl '127.0.0.1:9200/logstash-2014.11.27/_search?pretty&amp;size=0' -d '{
+<div class="highlighter-rouge"><pre class="highlight"><code>curl '127.0.0.1:9200/logstash-2014.11.27/_search?pretty&amp;size=0' -d '{
     "aggs" : {
         "ipaddr" : {
             "terms" : {
@@ -81,43 +84,48 @@
     }
 }'
 </code></pre>
+</div>
 <p><strong>注意这里一定要传递是 &ldquo;not_analyzed&rdquo; 的 字段过去！</strong> ES 流程上是先过分词器再到 scripting 模块的，这里要是切一下，到你脚本里就不知道长啥样了……</p>
 <p>结果如下：</p>
-<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span>
-  <span class="nt">&quot;took&quot;</span> <span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
-  <span class="nt">&quot;timed_out&quot;</span> <span class="p">:</span> <span class="kc">false</span><span class="p">,</span>
-  <span class="nt">&quot;_shards&quot;</span> <span class="p">:</span> <span class="p">{</span>
-    <span class="nt">&quot;total&quot;</span> <span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
-    <span class="nt">&quot;successful&quot;</span> <span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
-    <span class="nt">&quot;failed&quot;</span> <span class="p">:</span> <span class="mi">0</span>
-  <span class="p">},</span>
-  <span class="nt">&quot;hits&quot;</span> <span class="p">:</span> <span class="p">{</span>
-    <span class="nt">&quot;total&quot;</span> <span class="p">:</span> <span class="mi">786</span><span class="p">,</span>
-    <span class="nt">&quot;max_score&quot;</span> <span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
-    <span class="nt">&quot;hits&quot;</span> <span class="p">:</span> <span class="p">[</span> <span class="p">]</span>
-  <span class="p">},</span>
-  <span class="nt">&quot;aggregations&quot;</span> <span class="p">:</span> <span class="p">{</span>
-    <span class="nt">&quot;ipaddr&quot;</span> <span class="p">:</span> <span class="p">{</span>
-      <span class="nt">&quot;doc_count_error_upper_bound&quot;</span> <span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-      <span class="nt">&quot;sum_other_doc_count&quot;</span> <span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-      <span class="nt">&quot;buckets&quot;</span> <span class="p">:</span> <span class="p">[</span> <span class="p">{</span>
-        <span class="nt">&quot;key&quot;</span> <span class="p">:</span> <span class="s2">&quot;127.0.0&quot;</span><span class="p">,</span>
-        <span class="nt">&quot;doc_count&quot;</span> <span class="p">:</span> <span class="mi">786</span>
-      <span class="p">}</span> <span class="p">]</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nt">"took"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w">
+  </span><span class="nt">"timed_out"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w">
+  </span><span class="nt">"_shards"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nt">"total"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w">
+    </span><span class="nt">"successful"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w">
+    </span><span class="nt">"failed"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nt">"hits"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nt">"total"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">786</span><span class="p">,</span><span class="w">
+    </span><span class="nt">"max_score"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w">
+    </span><span class="nt">"hits"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">]</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nt">"aggregations"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nt">"ipaddr"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nt">"doc_count_error_upper_bound"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w">
+      </span><span class="nt">"sum_other_doc_count"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w">
+      </span><span class="nt">"buckets"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nt">"key"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="s2">"127.0.0"</span><span class="p">,</span><span class="w">
+        </span><span class="nt">"doc_count"</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">786</span><span class="w">
+      </span><span class="p">}</span><span class="w"> </span><span class="p">]</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre>
+</div>
 <ol>
   <li>通过正则捕获</li>
 </ol>
 <p>前面的方式虽然达到目的，但是不像 splunk 的做法那么通用，所以更高级的是这样：</p>
-<p>创建 <code>config/scripts/regex.groovy</code> 文件，内容如下：</p>
-<div class="highlight"><pre><code class="language-java" data-lang="java"><span class="n">matcher</span> <span class="o">=</span> <span class="o">(</span> <span class="n">doc</span><span class="o">[</span><span class="n">fieldname</span><span class="o">].</span><span class="na">value</span> <span class="o">=~</span> <span class="o">/</span><span class="n">$</span><span class="o">{</span><span class="n">pattern</span><span class="o">}/</span> <span class="o">)</span>
+<p>创建 <code class="highlighter-rouge">config/scripts/regex.groovy</code> 文件，内容如下：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="n">matcher</span> <span class="o">=</span> <span class="o">(</span> <span class="n">doc</span><span class="o">[</span><span class="n">fieldname</span><span class="o">].</span><span class="na">value</span> <span class="o">=~</span> <span class="o">/</span><span class="err">$</span><span class="o">{</span><span class="n">pattern</span><span class="o">}/</span> <span class="o">)</span>
 <span class="k">if</span> <span class="o">(</span><span class="n">matcher</span><span class="o">.</span><span class="na">matches</span><span class="o">())</span> <span class="o">{</span>
     <span class="n">matcher</span><span class="o">[</span><span class="mi">0</span><span class="o">][</span><span class="mi">1</span><span class="o">]</span>
-<span class="o">}</span></code></pre></div>
+<span class="o">}</span>
+</code></pre>
+</div>
 <p>同样等识别编译，然后发送这样的请求：</p>
-<pre><code>curl '127.0.0.1:9200/logstash-2014.11.27/_search?pretty&amp;size=0' -d '{
+<div class="highlighter-rouge"><pre class="highlight"><code>curl '127.0.0.1:9200/logstash-2014.11.27/_search?pretty&amp;size=0' -d '{
     "aggs" : {
         "ipaddr" : {
             "terms" : {
@@ -131,14 +139,15 @@
     }
 }'
 </code></pre>
+</div>
 <p>得到一模一样的结果。</p>
 <p>下一次试验一下在脚本中尝试加载其他库做更复杂处理的话，会如何呢？</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2014/11/23/kibana-panel-only-dashboard" title="利用动态仪表板实现kibana单图表导出功能">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/11/23/kibana-panel-only-dashboard/" title="利用动态仪表板实现kibana单图表导出功能">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/12/08/difference-filterings-kibana" title="Kibana 中几个不同的 filtering">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/12/08/difference-filterings-kibana/" title="Kibana 中几个不同的 filtering">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -182,15 +191,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

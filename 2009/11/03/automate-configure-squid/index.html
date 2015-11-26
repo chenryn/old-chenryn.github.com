@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -57,77 +57,86 @@
     <p>公司刚重新规定了squid服务的标准配置。以后，客户的配置要求，统一安排。这样，除了一些有特殊要求（比如加密／防盗链等）的以外，普通客户就可以逐步实现简洁明了的规范化自动化配置。</p>
 <p>目前squid的初始化准备还在慢慢进行中，趁有点空闲，先把自动化配置脚本搞出来。</p>
 <p>主程序do.sh如下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/bin/bash</span>
-    <span class="k">if</span> <span class="o">[</span> <span class="s2">&quot;$#&quot;</span> -ne <span class="m">2</span> <span class="o">]</span><span class="p">;</span><span class="k">then</span>
-    <span class="nb">echo</span> <span class="s2">&quot;Usage: ./do.sh [command][customer]&quot;</span>
-    <span class="nb">echo</span> <span class="s2">&quot;For example:./do.sh add abc&quot;</span>
-    <span class="nb">echo</span> <span class="s2">&quot;                            ./do.sh del abc&quot;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="c">#!/bin/bash</span>
+    <span class="k">if</span> <span class="o">[</span> <span class="s2">"$#"</span> -ne 2 <span class="o">]</span>;<span class="k">then
+    </span><span class="nb">echo</span> <span class="s2">"Usage: ./do.sh [command][customer]"</span>
+    <span class="nb">echo</span> <span class="s2">"For example:./do.sh add abc"</span>
+    <span class="nb">echo</span> <span class="s2">"                            ./do.sh del abc"</span>
     <span class="nb">exit </span>1
-    <span class="k">elif</span> <span class="o">[</span> ! -s ip.lst -a -e ip.lst <span class="o">]</span><span class="p">;</span><span class="k">then</span>
-    <span class="nb">echo</span> <span class="s2">&quot;No server in ip.lst&quot;</span>
+    <span class="k">elif</span> <span class="o">[</span> ! -s ip.lst -a -e ip.lst <span class="o">]</span>;<span class="k">then
+    </span><span class="nb">echo</span> <span class="s2">"No server in ip.lst"</span>
     <span class="nb">exit </span>1
-    <span class="k">fi</span>
-    <span class="k">for</span> ip in <span class="sb">`</span>cat ip.lst<span class="sb">`</span><span class="p">;</span><span class="k">do</span>
-    ping -c <span class="m">5</span> <span class="nv">$ip</span>
+    <span class="k">fi
+    for </span>ip <span class="k">in</span> <span class="sb">`</span>cat ip.lst<span class="sb">`</span>;<span class="k">do
+    </span>ping -c 5 <span class="nv">$ip</span>
     expect ssh.exp <span class="nv">$ip</span> <span class="nv">$1</span> <span class="nv">$2</span>
-    <span class="k">done</span></code></pre></div>
+    <span class="k">done</span>
+</code></pre>
+</div>
 <p>ssh.exp如下：</p>
-<div class="highlight"><pre><code class="language-tcl" data-lang="tcl"><span class="c">#!/usr/bin/expect -f</span>
-    <span class="nv">log_file</span> exp.log
-    <span class="k">set</span> ipaddr <span class="k">[</span><span class="nb">lindex</span> <span class="nv">$argv</span> <span class="mi">0</span><span class="k">]</span>
-    <span class="k">set</span> command <span class="k">[</span><span class="nb">lindex</span> <span class="nv">$argv</span> <span class="mi">1</span><span class="k">]</span>
-    <span class="k">set</span> custom <span class="k">[</span><span class="nb">lindex</span> <span class="nv">$argv</span> <span class="mi">2</span><span class="k">]</span>
-    <span class="nv">spawn</span> scp <span class="o">/</span>squid.config<span class="o">/</span><span class="nv">$custom</span> <span class="o">/</span>rt<span class="o">/</span>conf.sh <span class="nv">$ipaddr:</span><span class="o">/</span>root<span class="o">/</span>
-    <span class="k">for</span> <span class="k">{}</span> <span class="mi">1</span> <span class="k">{}</span> <span class="k">{</span>
-      <span class="nv">expect</span> <span class="k">{</span>
-        <span class="nb">eof</span>
-        <span class="k">break</span>
-        <span class="s2">&quot;(yes/no)?&quot;</span> <span class="k">{</span><span class="nv">send</span> <span class="s2">&quot;yesr&quot;</span><span class="k">}</span>
-        <span class="s2">&quot;assword:&quot;</span> <span class="k">{</span><span class="nv">send</span> <span class="s2">&quot;123456r&quot;</span><span class="k">}</span>
-      <span class="k">}</span>
-    <span class="k">}</span>
-    <span class="nv">spawn</span> ssh root<span class="err">@</span><span class="nv">$ipaddr</span> bash conf.sh <span class="nv">$command</span> <span class="nv">$custom</span>
-    <span class="k">for</span> <span class="k">{}</span> <span class="mi">1</span> <span class="k">{}</span> <span class="k">{</span>
-      <span class="nv">expect</span> <span class="k">{</span>
-        <span class="nb">eof</span>
-        <span class="k">break</span>
-        <span class="s2">&quot;(yes/no)?&quot;</span> <span class="k">{</span><span class="nv">send</span> <span class="s2">&quot;yesr&quot;</span><span class="k">}</span>
-        <span class="s2">&quot;assword:&quot;</span> <span class="k">{</span><span class="nv">send</span> <span class="s2">&quot;123456r&quot;</span><span class="k">}</span>
-      <span class="k">}</span>
-    <span class="k">}</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>    #!/usr/bin/expect -f
+    log_file exp.log
+    set ipaddr <span class="p">[</span><span class="nb">lindex</span> <span class="nv">$argv</span> 0<span class="p">]</span>
+    set command <span class="p">[</span><span class="nb">lindex</span> <span class="nv">$argv</span> 1<span class="p">]</span>
+    set custom <span class="p">[</span><span class="nb">lindex</span> <span class="nv">$argv</span> 2<span class="p">]</span>
+    spawn scp /squid.config/$custom /rt/conf.sh <span class="nv">$ipaddr:</span>/root/
+    for <span class="p">{}</span> 1 <span class="p">{}</span> <span class="p">{</span>
+      expect <span class="p">{</span>
+        eof
+        break
+        <span class="s2">"(yes/no)?"</span> <span class="p">{</span>send <span class="s2">"yesr"</span><span class="p">}</span>
+        <span class="s2">"assword:"</span> <span class="p">{</span>send <span class="s2">"123456r"</span><span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    spawn ssh root@$ipaddr bash conf.sh <span class="nv">$command</span> <span class="nv">$custom</span>
+    for <span class="p">{}</span> 1 <span class="p">{}</span> <span class="p">{</span>
+      expect <span class="p">{</span>
+        eof
+        break
+        <span class="s2">"(yes/no)?"</span> <span class="p">{</span>send <span class="s2">"yesr"</span><span class="p">}</span>
+        <span class="s2">"assword:"</span> <span class="p">{</span>send <span class="s2">"123456r"</span><span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
 <p>conf.sh如下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/bin/bash</span>
-    <span class="nv">NR</span><span class="o">=</span><span class="k">$(</span>cat <span class="nv">$2</span><span class="p">|</span>wc -l<span class="k">)</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="c">#!/bin/bash</span>
+    <span class="nv">NR</span><span class="o">=</span><span class="k">$(</span>cat <span class="nv">$2</span>|wc -l<span class="k">)</span>
     <span class="nv">CONF</span><span class="o">=</span>/etc/squid.conf
-    <span class="k">if</span> <span class="o">[</span> <span class="s2">&quot;$1&quot;</span> <span class="o">==</span> <span class="s2">&quot;add&quot;</span> <span class="o">]</span><span class="p">;</span><span class="k">then</span>
-        sed -i <span class="s2">&quot;/config/r $2&quot;</span> <span class="nv">$CONF</span>
-    <span class="k">elif</span> <span class="o">[</span> <span class="s2">&quot;$1&quot;</span> <span class="o">==</span> <span class="s2">&quot;del&quot;</span> <span class="o">]</span><span class="p">;</span><span class="k">then</span>
-        <span class="nv">CFNR</span><span class="o">=</span><span class="sb">`</span>sed -n -e /<span class="nv">$2</span>/<span class="o">=</span> <span class="nv">$CONF</span><span class="sb">`</span>
-        <span class="nv">BEGINNR</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$CFNR</span><span class="p">|</span>awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
+    <span class="k">if</span> <span class="o">[</span> <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span> <span class="o">==</span> <span class="s2">"add"</span> <span class="o">]</span>;<span class="k">then
+        </span>sed -i <span class="s2">"/config/r </span><span class="nv">$2</span><span class="s2">"</span> <span class="nv">$CONF</span>
+    <span class="k">elif</span> <span class="o">[</span> <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span> <span class="o">==</span> <span class="s2">"del"</span> <span class="o">]</span>;<span class="k">then
+        </span><span class="nv">CFNR</span><span class="o">=</span><span class="sb">`</span>sed -n -e /<span class="nv">$2</span>/<span class="o">=</span> <span class="nv">$CONF</span><span class="sb">`</span>
+        <span class="nv">BEGINNR</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$CFNR</span>|awk <span class="s1">'{print $1}'</span><span class="sb">`</span>
         <span class="nv">ENDNR</span><span class="o">=</span><span class="sb">`</span>expr <span class="nv">$BEGINNR</span> + <span class="nv">$NR</span><span class="sb">`</span>
-        sed -i <span class="s2">&quot;/$BEGINNR/,/$ENDNR/d&quot;</span> <span class="nv">$CONF</span>
-        rm -f <span class="s2">&quot;$2&quot;</span>*
-    <span class="k">else</span>
-        <span class="nb">echo</span> <span class="s2">&quot;Use add or del please!&quot;</span>
-    <span class="k">fi</span>
-    killall -9 squid
+        sed -i <span class="s2">"/</span><span class="nv">$BEGINNR</span><span class="s2">/,/</span><span class="nv">$ENDNR</span><span class="s2">/d"</span> <span class="nv">$CONF</span>
+        rm -f <span class="s2">"</span><span class="nv">$2</span><span class="s2">"</span><span class="k">*</span>
+    <span class="k">else
+        </span><span class="nb">echo</span> <span class="s2">"Use add or del please!"</span>
+    <span class="k">fi
+    </span>killall -9 squid
     <span class="nb">ulimit</span> -HSn 655360
-    /sbin/squid -s</code></pre></div>
+    /sbin/squid -s
+</code></pre>
+</div>
 <p>然后我们模拟一个叫做abc的客户来测试CDN了。那么我只要在/squid.config/下创建一个叫做abc的文本，内容是针对性的配置部分字段，假设如下：</p>
-<div class="highlight"><pre><code class="language-squid" data-lang="squid"><span class="c">#abc</span><span class="w"></span>
-<span class="w">    </span><span class="k">refresh_pattern</span><span class="w"> </span>-i<span class="w"> </span>http://www.abc.com/.*.(jpg|gif|js|css|swf|xml)$<span class="w"> </span><span class="m">1440</span><span class="w"> </span><span class="m">50%</span><span class="w"> </span><span class="m">4320</span><span class="w"> </span>ignore-reload<span class="w"></span>
-<span class="w">    </span><span class="k">acl</span><span class="w"> </span>abc<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>^http://www.abc.com/.*.(html|do|jsp|asp|aspx|axd|asmx)<span class="w"></span>
-<span class="w">    </span>cache<span class="w"> </span><span class="no">deny</span><span class="w"> </span>abc<span class="w"></span></code></pre></div>
+<pre><code class="language-squid">    #abc
+    refresh_pattern -i http://www.abc.com/.*.(jpg|gif|js|css|swf|xml)$ 1440 50% 4320 ignore-reload
+    acl abc url_regex -i ^http://www.abc.com/.*.(html|do|jsp|asp|aspx|axd|asmx)
+    cache deny abc
+</code></pre>
 <p>然后运行./do.sh add abc，就可以自动在ip.lst里所有的服务器的squid.conf中的“#config”字段下面，添上abc的配置文件了。</p>
 <p>过一段时间，要是abc这个客户流失了，就运行./do.sh del abc就行了。</p>
 <p>之前的思路，局限在一句句往配置文件里插句子。于是用下面这个办法</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">sed -i s/<span class="s2">&quot;config&quot;</span>/<span class="o">{</span>
-    a<span class="s2">&quot;……&quot;</span>/
-    a<span class="s2">&quot;……&quot;</span>/
-    a<span class="s2">&quot;……&quot;</span>/
+<div class="highlighter-rouge"><pre class="highlight"><code>    sed -i s/<span class="s2">"config"</span>/<span class="o">{</span>
+    a<span class="s2">"……"</span>/
+    a<span class="s2">"……"</span>/
+    a<span class="s2">"……"</span>/
     <span class="o">}</span>
-    squid.conf</code></pre></div>
-<p>而这样配置句段的顺序就反过来了，还得用 <code>sed -n "1!G;h;$!d"</code> 命令倒序读取——最开始用cat命令，结果cat在读取abc这个文件的时候会自动把空格前后的内容分段读出，于是改用sed。至于倒序之后，再怎么插入，就没有研究了。因为当时我发现了可以直接将文件a插入文件b的方法～～</p>
+    squid.conf
+</code></pre>
+</div>
+<p>而这样配置句段的顺序就反过来了，还得用 <code class="highlighter-rouge">sed -n "1!G;h;$!d"</code> 命令倒序读取——最开始用cat命令，结果cat在读取abc这个文件的时候会自动把空格前后的内容分段读出，于是改用sed。至于倒序之后，再怎么插入，就没有研究了。因为当时我发现了可以直接将文件a插入文件b的方法～～</p>
 <table>
   <tbody>
     <tr>
@@ -142,7 +151,7 @@
       <ul>
         <li class="prev disabled"><a>&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2009/11/03/dollar-zero-in-awk" title="awk变量$0妙用">Next &rarr;</a></li>
+        <li class="next"><a href="/2009/11/03/dollar-zero-in-awk/" title="awk变量$0妙用">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -186,15 +195,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

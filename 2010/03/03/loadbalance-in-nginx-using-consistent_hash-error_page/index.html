@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -51,21 +51,25 @@
   <div style='background-color: #FFF;'>
     <p>话接上篇，采用consistent方式进行url_hash负载均衡。</p>
 <p>重新编译nginx过程如下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">wget http://download.github.com/replay-ngx_http_consistent_hash-77b6940.tar.gz
+<div class="highlighter-rouge"><pre class="highlight"><code>wget http://download.github.com/replay-ngx_http_consistent_hash-77b6940.tar.gz
 tar zxvf replay-ngx_http_consistent_hash-77b6940.tar.gz
 <span class="nb">cd </span>nginx-0.7.65
 ./configure --prefix<span class="o">=</span>/home/nginx   --with-pcre<span class="o">=</span>/tmp/pcre-8.01 --with-http_stub_status_module --with-http_ssl_module --without-http_rewrite_module --add-module<span class="o">=</span>/tmp/nginx_upstream_hash-0.3 --add-module<span class="o">=</span>/tmp/replay-ngx_http_consistent_hash-77b6940
-make <span class="o">&amp;&amp;</span> make install</code></pre></div>
+make <span class="o">&amp;&amp;</span> make install
+</code></pre>
+</div>
 <p>完成。配置文件修改如下：</p>
-<div class="highlight"><pre><code class="language-nginx" data-lang="nginx"><span class="k">upstream</span> <span class="s">images6.static.com</span> <span class="p">{</span>
-    <span class="kn">server</span> <span class="n">11.11.11.12</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
-    <span class="kn">server</span> <span class="n">11.11.11.13</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">upstream</span> <span class="s">images6.static.com</span> <span class="p">{</span>
+    <span class="kn">server</span> <span class="nf">11.11.11.12</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
+    <span class="kn">server</span> <span class="nf">11.11.11.13</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
     <span class="kn">consistent_hash</span> <span class="nv">$request_uri</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span>
+</code></pre>
+</div>
 <p>访问测试正常。</p>
 <p>error_page配置备份如下：</p>
-<div class="highlight"><pre><code class="language-nginx" data-lang="nginx"><span class="k">upstream</span> <span class="s">backup</span> <span class="p">{</span>
-    <span class="kn">server</span> <span class="n">11.11.11.14</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">upstream</span> <span class="s">backup</span> <span class="p">{</span>
+    <span class="kn">server</span> <span class="nf">11.11.11.14</span><span class="p">:</span><span class="mi">80</span><span class="p">;</span>
 <span class="p">}</span>
 <span class="k">error_page</span> <span class="mi">404</span> <span class="mi">500</span> <span class="mi">502</span> <span class="mi">503</span> <span class="mi">504</span> <span class="p">=</span><span class="mi">200</span> <span class="s">@fetch</span><span class="p">;</span>
 <span class="k">location</span> <span class="s">@fetch</span> <span class="p">{</span>
@@ -73,14 +77,16 @@ make <span class="o">&amp;&amp;</span> make install</code></pre></div>
     <span class="kn">proxy_set_header  </span> <span class="s">Host            </span> <span class="nv">$host</span><span class="p">;</span>
     <span class="kn">proxy_set_header  </span> <span class="s">X-Real-IP       </span> <span class="nv">$remote_addr</span><span class="p">;</span>
     <span class="kn">proxy_set_header  </span> <span class="s">X-Forwarded-For </span> <span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span>
+</code></pre>
+</div>
 <p>注意：=200里的等号，左边有空格，右边没空格。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/03/03/an-alarm-shell-using-sendemail" title="服务器监控报警小脚本（shell+sendEmail）">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/03/03/an-alarm-shell-using-sendemail/" title="服务器监控报警小脚本（shell+sendEmail）">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/03/07/intro-proxy_cache-ngx_cache_purge" title="nginx的proxy_cache和cache_purge模块试用记录">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/03/07/intro-proxy_cache-ngx_cache_purge/" title="nginx的proxy_cache和cache_purge模块试用记录">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -124,15 +130,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

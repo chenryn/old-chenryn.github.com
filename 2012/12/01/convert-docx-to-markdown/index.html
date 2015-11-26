@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,47 +53,53 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>有些Word文档想搬到博客上来，而博客用的是markdown的格式。最简单的办法是在Word里转成html格式另存为，因为markdown和html是兼容的。不过word直接另存为的html里面带有“海量”的无聊样式，实在不方便之后我们再用vim的工具编辑。所以还是想办法整整。</p>
-<p>相对来说，Word的docx格式比doc格式要容易处理，因为docx是微软特意推出的open xml格式。其实就是记录了文本内容的content.xml、附件media/*和对应附件路径的_ref.xml等的zip包而已。所以相对必须在Windows平台上调用WIN32OLE的API来处理的doc来说，我们在linux平台上也可以很容易的处理docx文件了。比如rubygems上就有一个很不错的gem叫<code>ydocx</code>。一般的docx库都是只抽取docx里的content文字，而这个ydocx很负责的把media/*也复制到docxname_files/images/*下面，并且在html里生成<code>&lt;img&gt;</code>标签了。</p>
+<p>相对来说，Word的docx格式比doc格式要容易处理，因为docx是微软特意推出的open xml格式。其实就是记录了文本内容的content.xml、附件media/*和对应附件路径的_ref.xml等的zip包而已。所以相对必须在Windows平台上调用WIN32OLE的API来处理的doc来说，我们在linux平台上也可以很容易的处理docx文件了。比如rubygems上就有一个很不错的gem叫<code class="highlighter-rouge">ydocx</code>。一般的docx库都是只抽取docx里的content文字，而这个ydocx很负责的把media/*也复制到docxname_files/images/*下面，并且在html里生成<code class="highlighter-rouge">&lt;img&gt;</code>标签了。</p>
 <p>然后另一步就是把html转换成markdown，这在github上也有现成的repo叫<a href="https://github.com/cousine/downmark_it">downmark_it</a>。嗯，这名字一目了然就是反过来……</p>
-<p>(<code>ydocx</code>用的是<code>nokogiri</code>，<code>downmark\_it</code>用的是<code>hpricot</code>，或许应该也改用<code>nokogiri</code>比较好~不过<code>nokogiri</code>官网可耻的被墙了)</p>
+<p>(<code class="highlighter-rouge">ydocx</code>用的是<code class="highlighter-rouge">nokogiri</code>，<code class="highlighter-rouge">downmark\_it</code>用的是<code class="highlighter-rouge">hpricot</code>，或许应该也改用<code class="highlighter-rouge">nokogiri</code>比较好~不过<code class="highlighter-rouge">nokogiri</code>官网可耻的被墙了)</p>
 <h1 id="section">首先安装依赖</h1>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">apt-get install libxslt1-dev libxml2-dev
+<div class="highlighter-rouge"><pre class="highlight"><code>  apt-get install libxslt1-dev libxml2-dev
   gem install rubyzip htmlentities rmagick ydocx hpricot
-  wget https://raw.github.com/cousine/downmark_it/master/downmark_it.rb</code></pre></div>
+  wget https://raw.github.com/cousine/downmark_it/master/downmark_it.rb
+</code></pre>
+</div>
 <h1 id="section-1">编写转换脚本</h1>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="nb">require</span> <span class="s1">&#39;rubygems&#39;</span>
-  <span class="nb">require</span> <span class="s1">&#39;ydocx&#39;</span>
-  <span class="vg">$:</span> <span class="o">&lt;&lt;</span> <span class="no">File</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="bp">__FILE__</span><span class="p">)</span>
-  <span class="nb">require</span> <span class="s1">&#39;downmark_it&#39;</span>
-  <span class="n">filename</span> <span class="o">=</span> <span class="no">ARGV</span><span class="o">.</span><span class="n">shift</span>
-  <span class="n">ydocx</span> <span class="o">=</span> <span class="no">YDocx</span><span class="o">::</span><span class="no">Document</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-  <span class="n">html</span> <span class="o">=</span> <span class="n">ydocx</span><span class="o">.</span><span class="n">to_html</span><span class="o">.</span><span class="n">gsub</span><span class="p">(</span><span class="sr">/\n/</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
-  <span class="nb">puts</span> <span class="no">DownmarkIt</span><span class="o">.</span><span class="n">to_markdown</span><span class="p">(</span><span class="n">html</span><span class="p">)</span></code></pre></div>
-<p>这样就能看到输出了。目录里的每个章节都有引用格式凸现，美中不足是对word里的标题样式识别不太好，本来期望是可以自己生成<code>&lt;h1&gt;</code>、<code>&lt;h2&gt;</code>的，但是ydocx生成的html里只把第一个标题一变成<code>&lt;h1&gt;</code>，其他的都是普通的<code>&lt;p&gt;</code>。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>  <span class="nb">require</span> <span class="s1">'rubygems'</span>
+  <span class="nb">require</span> <span class="s1">'ydocx'</span>
+  <span class="vg">$:</span> <span class="o">&lt;&lt;</span> <span class="no">File</span><span class="p">.</span><span class="nf">dirname</span><span class="p">(</span><span class="kp">__FILE__</span><span class="p">)</span>
+  <span class="nb">require</span> <span class="s1">'downmark_it'</span>
+  <span class="n">filename</span> <span class="o">=</span> <span class="no">ARGV</span><span class="p">.</span><span class="nf">shift</span>
+  <span class="n">ydocx</span> <span class="o">=</span> <span class="no">YDocx</span><span class="o">::</span><span class="no">Document</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+  <span class="n">html</span> <span class="o">=</span> <span class="n">ydocx</span><span class="p">.</span><span class="nf">to_html</span><span class="p">.</span><span class="nf">gsub</span><span class="p">(</span><span class="sr">/\n/</span><span class="p">,</span> <span class="s1">''</span><span class="p">)</span>
+  <span class="nb">puts</span> <span class="no">DownmarkIt</span><span class="p">.</span><span class="nf">to_markdown</span><span class="p">(</span><span class="n">html</span><span class="p">)</span>
+</code></pre>
+</div>
+<p>这样就能看到输出了。目录里的每个章节都有引用格式凸现，美中不足是对word里的标题样式识别不太好，本来期望是可以自己生成<code class="highlighter-rouge">&lt;h1&gt;</code>、<code class="highlighter-rouge">&lt;h2&gt;</code>的，但是ydocx生成的html里只把第一个标题一变成<code class="highlighter-rouge">&lt;h1&gt;</code>，其他的都是普通的<code class="highlighter-rouge">&lt;p&gt;</code>。</p>
 <p>另一个问题是上面脚本里直接调用to_html的方法，不会保存住unzip出来的images文件夹。自己再另写一段unzip的代码:</p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="nb">require</span> <span class="s1">&#39;fileutils&#39;</span>  
-  <span class="nb">require</span> <span class="s1">&#39;zip/zip&#39;</span>  
-  <span class="nb">require</span> <span class="s1">&#39;zip/zipfilesystem&#39;</span>  
+<div class="highlighter-rouge"><pre class="highlight"><code>  <span class="nb">require</span> <span class="s1">'fileutils'</span>  
+  <span class="nb">require</span> <span class="s1">'zip/zip'</span>  
+  <span class="nb">require</span> <span class="s1">'zip/zipfilesystem'</span>  
   <span class="k">def</span> <span class="nf">unzip</span><span class="p">(</span><span class="n">zip_file</span><span class="p">,</span> <span class="n">dest_dir</span><span class="p">)</span>
-    <span class="no">Zip</span><span class="o">::</span><span class="no">ZipFile</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">zip_file</span><span class="p">)</span> <span class="k">do</span> <span class="o">|</span><span class="n">zf</span><span class="o">|</span>
-      <span class="n">zf</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">e</span><span class="o">|</span>
-        <span class="n">path</span> <span class="o">=</span> <span class="no">File</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dest_dir</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-        <span class="no">FileUtils</span><span class="o">.</span><span class="n">mkdir_p</span><span class="p">(</span><span class="no">File</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
-        <span class="n">zf</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span> <span class="p">{</span> <span class="kp">true</span> <span class="p">}</span>
+    <span class="no">Zip</span><span class="o">::</span><span class="no">ZipFile</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="n">zip_file</span><span class="p">)</span> <span class="k">do</span> <span class="o">|</span><span class="n">zf</span><span class="o">|</span>
+      <span class="n">zf</span><span class="p">.</span><span class="nf">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">e</span><span class="o">|</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="no">File</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">dest_dir</span><span class="p">,</span> <span class="n">e</span><span class="p">.</span><span class="nf">name</span><span class="p">)</span>
+        <span class="no">FileUtils</span><span class="p">.</span><span class="nf">mkdir_p</span><span class="p">(</span><span class="no">File</span><span class="p">.</span><span class="nf">dirname</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+        <span class="n">zf</span><span class="p">.</span><span class="nf">extract</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span> <span class="p">{</span> <span class="kp">true</span> <span class="p">}</span>
       <span class="k">end</span>  
     <span class="k">end</span>  
   <span class="k">end</span>
-  <span class="n">dirname</span> <span class="o">=</span> <span class="no">File</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s1">&#39;.docx&#39;</span><span class="p">)</span>
-  <span class="n">unzip</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;/tmp/</span><span class="si">#{</span><span class="n">dirname</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-  <span class="no">FileUtils</span><span class="o">.</span><span class="n">mv</span><span class="p">(</span><span class="s2">&quot;/tmp/</span><span class="si">#{</span><span class="n">dirname</span><span class="si">}</span><span class="s2">/media/&quot;</span><span class="p">,</span> <span class="s2">&quot;/images/&quot;</span><span class="p">)</span>
-  <span class="no">FileUtils</span><span class="o">.</span><span class="n">rm_rf</span><span class="p">(</span><span class="s2">&quot;/tmp/</span><span class="si">#{</span><span class="n">dirname</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></code></pre></div>
-<p>比较普通的办法，是直接使用ydocx自带的脚本<code>docx2html --format none file.docx</code>，会在docx文档的同级目录下生成同名html和_files目录。然后再写一个单行脚本转成markdown的。</p>
+  <span class="n">dirname</span> <span class="o">=</span> <span class="no">File</span><span class="p">.</span><span class="nf">basename</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s1">'.docx'</span><span class="p">)</span>
+  <span class="n">unzip</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">"/tmp/</span><span class="si">#{</span><span class="n">dirname</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+  <span class="no">FileUtils</span><span class="p">.</span><span class="nf">mv</span><span class="p">(</span><span class="s2">"/tmp/</span><span class="si">#{</span><span class="n">dirname</span><span class="si">}</span><span class="s2">/media/"</span><span class="p">,</span> <span class="s2">"/images/"</span><span class="p">)</span>
+  <span class="no">FileUtils</span><span class="p">.</span><span class="nf">rm_rf</span><span class="p">(</span><span class="s2">"/tmp/</span><span class="si">#{</span><span class="n">dirname</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre>
+</div>
+<p>比较普通的办法，是直接使用ydocx自带的脚本<code class="highlighter-rouge">docx2html --format none file.docx</code>，会在docx文档的同级目录下生成同名html和_files目录。然后再写一个单行脚本转成markdown的。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/11/22/tatsumaki-demo" title="用 Tatsumaki 框架写 elasticsearch 界面">&larr; Previous</a></li>
+        <li class="prev"><a href="/2012/11/22/tatsumaki-demo/" title="用 Tatsumaki 框架写 elasticsearch 界面">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/12/10/gnuplot-to-draw-histogram-cluster" title="用gnuplot绘制直方图">Next &rarr;</a></li>
+        <li class="next"><a href="/2012/12/10/gnuplot-to-draw-histogram-cluster/" title="用gnuplot绘制直方图">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -137,15 +143,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

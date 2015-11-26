@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>apache防盗链（mod_perl试用二）</title>
+    <title>apache防盗链(modperl试用二)</title>
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -45,7 +45,7 @@
       <div class="span7">
 <div class="row">
   <div class="page-header">
-    <h1>apache防盗链（mod_perl试用二） <small></small></h1>
+    <h1>apache防盗链(modperl试用二) <small></small></h1>
     <div class="date"><span>26 May 2010</span></div>
     <ul class="tag_box pull-right">
     	<li><a href="/tags.html#apache-ref">apache <span>8</span></a></li>
@@ -53,56 +53,60 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>上回提到的防盗链方式是在strings上加上key和time，uri本身是不变的，这种方式其实现在不是很主流，主流的方式是将计算得出的加密串直接改在uri的路径里。比如下面将要提到的例子。要求其实和早先那个<a href="/2010/01/30/anti-hotlinking-in-nginx-lighttpd-squid">squid防盗链</a>的一模一样，就是改成用apache来跑。
-Test.pm内容如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="n">Test</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Socket</span> <span class="sx">qw(inet_aton)</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(difftime mktime)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestRec</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Connection</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestUtil</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Log</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Request</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Const</span> <span class="sx">qw(DECLINED FORBIDDEN)</span><span class="p">;</span>
+    <p>上回提到的防盗链方式是在strings上加上key和time，uri本身是不变的，这种方式其实现在不是很主流，主流的方式是将计算得出的加密串直接改在uri的路径里。比如下面将要提到的例子。要求其实和早先那个<a href="/2010/01/30/anti-hotlinking-in-nginx-lighttpd-squid">squid防盗链</a>的一模一样，就是改成用apache来跑。</p>
+<p>Test.pm内容如下：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="nb">package</span> <span class="nv">Test</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">Socket</span> <span class="sx">qw(inet_aton)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">POSIX</span> <span class="sx">qw(difftime mktime)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Digest::</span><span class="nv">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">RequestRec</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">Connection</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">RequestUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">ServerUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">Log</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">Request</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">Const</span> <span class="sx">qw(DECLINED FORBIDDEN)</span><span class="p">;</span>
 <span class="k">sub </span><span class="nf">handler</span> <span class="p">{</span>
 <span class="err">   </span> <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span><span class="o">-&gt;</span><span class="n">server</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$secret</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">dir_config</span><span class="p">(</span><span class="s">&#39;Secret&#39;</span><span class="p">)</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">()</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="nn">Apache2::</span><span class="nv">ServerUtil</span><span class="o">-&gt;</span><span class="nv">server</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$secret</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="nv">dir_config</span><span class="p">(</span><span class="s">'Secret'</span><span class="p">)</span> <span class="o">||</span> <span class="s">''</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="nv">uri</span><span class="p">()</span> <span class="o">||</span> <span class="s">''</span><span class="p">;</span>
 <span class="err">   </span> <span class="k">my</span> <span class="nv">$expire</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">if</span> <span class="p">(</span><span class="nv">$uri</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^/(d{4})(d{2})(d{2})(d{2})(d{2})/(w{32})(/S+.mp3)$#oi) {</span>
+<span class="err">   </span> <span class="k">if</span> <span class="p">(</span><span class="nv">$uri</span> <span class="o">=~</span> <span class="nv">m</span><span class="c1">#^/(d{4})(d{2})(d{2})(d{2})(d{2})/(w{32})(/S+.mp3)$#oi) {</span>
        <span class="err"> </span><span class="k">my</span> <span class="p">(</span><span class="nv">$year</span><span class="p">,</span> <span class="nv">$mon</span><span class="p">,</span> <span class="nv">$mday</span><span class="p">,</span> <span class="nv">$hour</span><span class="p">,</span> <span class="nv">$min</span><span class="p">,</span> <span class="nv">$md5</span><span class="p">,</span> <span class="nv">$path</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$1</span><span class="p">,</span> <span class="nv">$2</span><span class="p">,</span> <span class="nv">$3</span><span class="p">,</span> <span class="nv">$4</span><span class="p">,</span> <span class="nv">$5</span><span class="p">,</span> <span class="nv">$6</span><span class="p">,</span> <span class="nv">$7</span><span class="p">);</span>
-       <span class="err"> </span><span class="k">my</span> <span class="nv">$str</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$secret</span> <span class="o">.</span> <span class="nv">$year</span> <span class="o">.</span> <span class="nv">$mon</span> <span class="o">.</span> <span class="nv">$mday</span> <span class="o">.</span> <span class="nv">$hour</span> <span class="o">.</span> <span class="nv">$min</span> <span class="o">.</span> <span class="nv">$path</span><span class="p">);</span>
-       <span class="err"> </span><span class="k">my</span> <span class="nv">$reqtime</span> <span class="o">=</span> <span class="n">mktime</span><span class="p">(</span><span class="mo">00</span><span class="p">,</span> <span class="nv">$min</span><span class="p">,</span> <span class="nv">$hour</span><span class="p">,</span> <span class="nv">$mday</span><span class="p">,</span> <span class="nv">$mon</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="nv">$year</span> <span class="o">-</span> <span class="mi">1900</span><span class="p">);</span>
+       <span class="err"> </span><span class="k">my</span> <span class="nv">$str</span> <span class="o">=</span> <span class="nv">md5_hex</span><span class="p">(</span><span class="nv">$secret</span> <span class="o">.</span> <span class="nv">$year</span> <span class="o">.</span> <span class="nv">$mon</span> <span class="o">.</span> <span class="nv">$mday</span> <span class="o">.</span> <span class="nv">$hour</span> <span class="o">.</span> <span class="nv">$min</span> <span class="o">.</span> <span class="nv">$path</span><span class="p">);</span>
+       <span class="err"> </span><span class="k">my</span> <span class="nv">$reqtime</span> <span class="o">=</span> <span class="nv">mktime</span><span class="p">(</span><span class="mo">00</span><span class="p">,</span> <span class="nv">$min</span><span class="p">,</span> <span class="nv">$hour</span><span class="p">,</span> <span class="nv">$mday</span><span class="p">,</span> <span class="nv">$mon</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="nv">$year</span> <span class="o">-</span> <span class="mi">1900</span><span class="p">);</span>
        <span class="err"> </span><span class="k">my</span> <span class="nv">$now</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
        <span class="err"> </span><span class="k">if</span> <span class="p">(</span> <span class="nv">$now</span> <span class="o">-</span> <span class="nv">$reqtime</span> <span class="o">&lt;</span> <span class="nv">$expire</span><span class="p">){</span>
           <span class="err">  </span><span class="k">if</span> <span class="p">(</span><span class="nv">$str</span> <span class="ow">eq</span> <span class="nv">$md5</span><span class="p">)</span> <span class="p">{</span>
-          <span class="err">  </span>   <span class="err"> </span><span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">(</span><span class="s">&quot;$path&quot;</span><span class="p">);</span>
-          <span class="err">   </span>   <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">DECLINED</span><span class="p">;</span>
+          <span class="err">  </span>   <span class="err"> </span><span class="nv">$r</span><span class="o">-&gt;</span><span class="nv">uri</span><span class="p">(</span><span class="s">"$path"</span><span class="p">);</span>
+          <span class="err">   </span>   <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="nv">DECLINED</span><span class="p">;</span>
           <span class="err">  </span><span class="p">}</span>
        <span class="err"> </span><span class="p">}</span>
     <span class="p">}</span>
 <span class="p">}</span>
-<span class="mi">1</span><span class="p">;</span></code></pre></div>
+<span class="mi">1</span><span class="p">;</span>
+</code></pre>
+</div>
 <p>然后在httpd.conf中加上如下配置：</p>
-<div class="highlight"><pre><code class="language-apache" data-lang="apache"><span class="nb">PerlPostConfigRequire</span> <span class="sx">/home/apache2/perl/start.pl</span>
-<span class="nb">SetHandler</span> modperl
-<span class="nb">PerlTransHandler</span> Test
-<span class="nb">PerlSetVar</span> Secret abcdef</code></pre></div>
-<p>这里需要注意几点，根据modperl的处理流程，修改uri的时候，handler还没有走到对文件进行寻址，所以无法区分文件路径等信息，故而 <code>PerlTransHandler</code> 配置不能在 <code>&lt;Directory&gt;</code> 和 <code>&lt;Location&gt;</code> 里面。</p>
-<p>而在<a href="/2010/04/15/anti_hotlinking-in-apache-by-mod_perl">试用一</a>里，核对strings是用的 <code>PerlAccessHandler</code>，当时已经确认了uri的文件路径，故而可以在 <code>&lt;Location&gt;</code> 里。</p>
-<p>另，上面的pm，对错误访问返回的是404，如果需要403，<code>return FORBIDDEN</code> 就可以了。</p>
-<p>如果想同时根据referer来防盗链，可能要在 <code>PerlHeaderParserHandler</code> 阶段在进行一次判定了，这个还在研究，不知道怎么取request-header的信息……</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>PerlPostConfigRequire /home/apache2/perl/start.pl
+SetHandler modperl
+PerlTransHandler Test
+PerlSetVar Secret abcdef
+</code></pre>
+</div>
+<p>这里需要注意几点，根据modperl的处理流程，修改uri的时候，handler还没有走到对文件进行寻址，所以无法区分文件路径等信息，故而 <code class="highlighter-rouge">PerlTransHandler</code> 配置不能在 <code class="highlighter-rouge">&lt;Directory&gt;</code> 和 <code class="highlighter-rouge">&lt;Location&gt;</code> 里面。</p>
+<p>而在<a href="/2010/04/15/anti_hotlinking-in-apache-by-mod_perl">试用一</a>里，核对strings是用的 <code class="highlighter-rouge">PerlAccessHandler</code>，当时已经确认了uri的文件路径，故而可以在 <code class="highlighter-rouge">&lt;Location&gt;</code> 里。</p>
+<p>另，上面的pm，对错误访问返回的是404，如果需要403，<code class="highlighter-rouge">return FORBIDDEN</code> 就可以了。</p>
+<p>如果想同时根据referer来防盗链，可能要在 <code class="highlighter-rouge">PerlHeaderParserHandler</code> 阶段在进行一次判定了，这个还在研究，不知道怎么取request-header的信息……</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/05/23/learning-mtu" title="（读书笔记）网卡调优MTU">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/05/23/learning-mtu/" title="（读书笔记）网卡调优MTU">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/05/27/a-non-host-error-in-squid" title="一个少见的squid报错">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/05/27/a-non-host-error-in-squid/" title="一个少见的squid报错">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -146,15 +150,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

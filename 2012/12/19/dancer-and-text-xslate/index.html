@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -49,103 +49,121 @@
     <div class="date"><span>19 December 2012</span></div>
   </div>
   <div style='background-color: #FFF;'>
-    <p>Dancer 框架自带有一个 Simple 模版，不过推荐使用 <code>Template</code> 模块作为替代品。不过从性能上来说，TT2 比之前博客里陆续介绍过的 <code>HTML::Template</code> 和 <code>Text::MicroTemplate</code> 都要差。而这方面最好的，就是 <code>Text::XSlate</code> 模块了。今天尝试将一个 Dancer 应用迁移到 <code>Text::XSlate</code> 上。踩进两个坑，特此记录。</p>
+    <p>Dancer 框架自带有一个 Simple 模版，不过推荐使用 <code class="highlighter-rouge">Template</code> 模块作为替代品。不过从性能上来说，TT2 比之前博客里陆续介绍过的 <code class="highlighter-rouge">HTML::Template</code> 和 <code class="highlighter-rouge">Text::MicroTemplate</code> 都要差。而这方面最好的，就是 <code class="highlighter-rouge">Text::XSlate</code> 模块了。今天尝试将一个 Dancer 应用迁移到 <code class="highlighter-rouge">Text::XSlate</code> 上。踩进两个坑，特此记录。</p>
 <p>关于语法什么的，可以看 POD ，扶凯 有翻译的 中文版POD 。足以十分钟入门。就不多说了。</p>
 <ul>
   <li>第一个坑：session 的处理</li>
 </ul>
-<p>website 少不了 session 的运用。在 template 里使用 <code>[% session.username %]</code> 可以很方便的控制显示面板还是登陆啊什么的。</p>
-<p>不过切换成 XSlate 后（即 <code>&lt;: $session.username :&gt;</code>），请求会 crash 掉，报错大意是: <strong>$session 没有 username 这个 method</strong>。</p>
-<p>XSlate 提供了 <code>dump</code> 语法糖，让我们可以直接使用 <code>&lt;: $session | dump :&gt;</code> 检查问题。这时候发现显示如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nv">$VAR1</span> <span class="o">=</span> <span class="p">{</span> <span class="n">blessed</span><span class="p">(</span> <span class="p">{</span> <span class="n">id</span> <span class="o">=&gt;</span> <span class="s">&#39;2131232131&#39;</span><span class="p">,</span> <span class="n">username</span> <span class="o">=&gt;</span> <span class="s">&#39;user1&#39;</span> <span class="p">}</span> <span class="p">),</span> <span class="nn">Dancer::Session::</span><span class="n">YAML</span> <span class="p">};</span></code></pre></div>
-<p>尝试使用 <code>&lt;: $session.id :&gt;</code> ，发现可以正常输出 2131232131 。</p>
-<p>进去看 <code>Dancer::Session</code> 的代码，原来在 <code>Dancer::Session::Abstract</code> 里，有这么一行：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">__PACKAGE__</span><span class="o">-&gt;</span><span class="n">attributes</span><span class="p">(</span><span class="s">&#39;id&#39;</span><span class="p">);</span></code></pre></div>
-<p>说实话不太理解这行的用法，不过不妨碍我们用简单办法解决问题…… 在我们的应用中给 <code>Dancer::Session::YAML</code> 定义一个叫 username 的 method 就可以骗过去了：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="n">DancerApp</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">Dancer</span> <span class="s">&#39;:syntax&#39;</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">Dancer::Session::</span><span class="n">YAML</span><span class="p">;</span>
+<p>website 少不了 session 的运用。在 template 里使用 <code class="highlighter-rouge">[% session.username %]</code> 可以很方便的控制显示面板还是登陆啊什么的。</p>
+<p>不过切换成 XSlate 后（即 <code class="highlighter-rouge">&lt;: $session.username :&gt;</code>），请求会 crash 掉，报错大意是: <strong>$session 没有 username 这个 method</strong>。</p>
+<p>XSlate 提供了 <code class="highlighter-rouge">dump</code> 语法糖，让我们可以直接使用 <code class="highlighter-rouge">&lt;: $session | dump :&gt;</code> 检查问题。这时候发现显示如下：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">$VAR1</span> <span class="o">=</span> <span class="p">{</span> <span class="nv">blessed</span><span class="p">(</span> <span class="p">{</span> <span class="nv">id</span> <span class="o">=&gt;</span> <span class="s">'2131232131'</span><span class="p">,</span> <span class="nv">username</span> <span class="o">=&gt;</span> <span class="s">'user1'</span> <span class="p">}</span> <span class="p">),</span> <span class="nn">Dancer::Session::</span><span class="nv">YAML</span> <span class="p">};</span>
+</code></pre>
+</div>
+<p>尝试使用 <code class="highlighter-rouge">&lt;: $session.id :&gt;</code> ，发现可以正常输出 2131232131 。</p>
+<p>进去看 <code class="highlighter-rouge">Dancer::Session</code> 的代码，原来在 <code class="highlighter-rouge">Dancer::Session::Abstract</code> 里，有这么一行：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">__PACKAGE__</span><span class="o">-&gt;</span><span class="nv">attributes</span><span class="p">(</span><span class="s">'id'</span><span class="p">);</span>
+</code></pre>
+</div>
+<p>说实话不太理解这行的用法，不过不妨碍我们用简单办法解决问题…… 在我们的应用中给 <code class="highlighter-rouge">Dancer::Session::YAML</code> 定义一个叫 username 的 method 就可以骗过去了：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nb">package</span> <span class="nv">DancerApp</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nv">Dancer</span> <span class="s">':syntax'</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Dancer::Session::</span><span class="nv">YAML</span><span class="p">;</span>
     <span class="k">sub </span><span class="nf">Dancer</span><span class="p">::Session::YAML::username {</span>
-        <span class="k">return</span> <span class="n">session</span><span class="p">(</span><span class="s">&#39;username&#39;</span><span class="p">);</span>
+        <span class="k">return</span> <span class="nv">session</span><span class="p">(</span><span class="s">'username'</span><span class="p">);</span>
     <span class="p">};</span>
-    <span class="k">use</span> <span class="nn">Dancer::Plugin::Auth::</span><span class="n">Extensible</span><span class="p">;</span>
-    <span class="n">get</span> <span class="s">&#39;/&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">:RequireLogin {</span> <span class="n">template</span> <span class="s">&#39;index&#39;</span> <span class="p">};</span>
+    <span class="k">use</span> <span class="nn">Dancer::Plugin::Auth::</span><span class="nv">Extensible</span><span class="p">;</span>
+    <span class="nv">get</span> <span class="s">'/'</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">:RequireLogin {</span> <span class="nv">template</span> <span class="s">'index'</span> <span class="p">};</span>
     <span class="o">...</span><span class="p">;</span>
-    <span class="n">true</span><span class="p">;</span></code></pre></div>
+    <span class="nv">true</span><span class="p">;</span>
+</code></pre>
+</div>
 <p><strong>2013 年 03 月 25 日更新</strong></p>
 <p>今天莫莫也换成 Xslate 模板，顺带告诉我这里一个更通用和优雅的修改方式：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="n">DancerApp</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">Dancer</span> <span class="s">&#39;:syntax&#39;</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">Dancer::Session::</span><span class="n">Abstract</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">Dancer::Plugin::Auth::</span><span class="n">Extensible</span><span class="p">;</span>
-    <span class="nn">Dancer::Session::</span><span class="n">Abstract</span><span class="o">-&gt;</span><span class="n">attributes</span><span class="p">(</span> <span class="sx">qw(username)</span> <span class="p">);</span>
-    <span class="n">get</span> <span class="s">&#39;/&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">:RequireLogin {</span> <span class="n">template</span> <span class="s">&#39;index&#39;</span> <span class="p">};</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nb">package</span> <span class="nv">DancerApp</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nv">Dancer</span> <span class="s">':syntax'</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Dancer::Session::</span><span class="nv">Abstract</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Dancer::Plugin::Auth::</span><span class="nv">Extensible</span><span class="p">;</span>
+    <span class="nn">Dancer::Session::</span><span class="nv">Abstract</span><span class="o">-&gt;</span><span class="nv">attributes</span><span class="p">(</span> <span class="sx">qw(username)</span> <span class="p">);</span>
+    <span class="nv">get</span> <span class="s">'/'</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">:RequireLogin {</span> <span class="nv">template</span> <span class="s">'index'</span> <span class="p">};</span>
     <span class="o">...</span><span class="p">;</span>
-    <span class="n">true</span><span class="p">;</span></code></pre></div>
+    <span class="nv">true</span><span class="p">;</span>
+</code></pre>
+</div>
 <p>这样可以在各种 Session 引擎下通用了。</p>
 <p><strong>更新完毕</strong></p>
 <ul>
   <li>第二个坑：flashmessage 的处理</li>
 </ul>
-<p>这是一个外加模块，叫做 <code>Dancer::Plugin::FlashMessage</code> 。用它配合模版的 layout 功能，可以很方便的给应用提供全局的消息通知。使用方法如下：</p>
+<p>这是一个外加模块，叫做 <code class="highlighter-rouge">Dancer::Plugin::FlashMessage</code> 。用它配合模版的 layout 功能，可以很方便的给应用提供全局的消息通知。使用方法如下：</p>
 <p>首先在模块里加载 flash 变量：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="nn">DancerApp::</span><span class="n">First</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">Dancer</span> <span class="s">&#39;:syntax&#39;</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">Dancer::Plugin::</span><span class="n">FlashMessage</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">Dancer::Plugin::Auth::</span><span class="n">Extensible</span><span class="p">;</span>
-    <span class="n">get</span> <span class="s">&#39;/first/:name&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">:RequireRole(&#39;MAN&#39;) {</span>
-        <span class="n">flash</span> <span class="n">message</span> <span class="o">=&gt;</span> <span class="s">&#39;Hello! You are the first man here.&#39;</span><span class="p">;</span>
-        <span class="n">template</span> <span class="s">&#39;first&#39;</span><span class="p">,</span> <span class="p">{</span> <span class="n">name</span> <span class="o">=&gt;</span> <span class="n">param</span><span class="p">(</span><span class="s">&#39;name&#39;</span><span class="p">)</span> <span class="p">};</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nb">package</span> <span class="nn">DancerApp::</span><span class="nv">First</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nv">Dancer</span> <span class="s">':syntax'</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Dancer::Plugin::</span><span class="nv">FlashMessage</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Dancer::Plugin::Auth::</span><span class="nv">Extensible</span><span class="p">;</span>
+    <span class="nv">get</span> <span class="s">'/first/:name'</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">:RequireRole('MAN') {</span>
+        <span class="nv">flash</span> <span class="nv">message</span> <span class="o">=&gt;</span> <span class="s">'Hello! You are the first man here.'</span><span class="p">;</span>
+        <span class="nv">template</span> <span class="s">'first'</span><span class="p">,</span> <span class="p">{</span> <span class="nv">name</span> <span class="o">=&gt;</span> <span class="nv">param</span><span class="p">(</span><span class="s">'name'</span><span class="p">)</span> <span class="p">};</span>
     <span class="p">};</span>
-    <span class="n">true</span><span class="p">;</span></code></pre></div>
+    <span class="nv">true</span><span class="p">;</span>
+</code></pre>
+</div>
 <p>然后在模版里判断显示：</p>
-<div class="highlight"><pre><code class="language-html" data-lang="html">[% IF flash.message %]
-      <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;alert alert-success&quot;</span><span class="nt">&gt;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    [% IF flash.message %]
+      <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"alert alert-success"</span><span class="nt">&gt;</span>
         [% flash.message %]
       <span class="nt">&lt;/div&gt;</span>
-    [% END %]</code></pre></div>
+    [% END %]
+</code></pre>
+</div>
 <p>同样，在修改成 XSlate 后，模版是这样：</p>
-<div class="highlight"><pre><code class="language-html" data-lang="html">: if $flash.message {
-      <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;alert alert-success&quot;</span><span class="nt">&gt;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    : if $flash.message {
+      <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"alert alert-success"</span><span class="nt">&gt;</span>
         <span class="nt">&lt;:</span> <span class="na">flash</span><span class="err">.</span><span class="na">message</span> <span class="na">:</span><span class="nt">&gt;</span>
       <span class="nt">&lt;/div&gt;</span>
-    : }</code></pre></div>
-<p>结果发现页面上的 div 一直保持，而且显示着 <code>CODE(0x39a5c30)</code> 这样的字样。同样使用 <code>dump</code> 语法糖，看到 <code>$flash</code> 其实是 <code>{ message =&gt; sub {"DUMMY"} }</code>。</p>
+    : }
+</code></pre>
+</div>
+<p>结果发现页面上的 div 一直保持，而且显示着 <code class="highlighter-rouge">CODE(0x39a5c30)</code> 这样的字样。同样使用 <code class="highlighter-rouge">dump</code> 语法糖，看到 <code class="highlighter-rouge">$flash</code> 其实是 <code class="highlighter-rouge"><span class="p">{</span><span class="w"> </span><span class="err">message</span><span class="w"> </span><span class="err">=&gt;</span><span class="w"> </span><span class="err">sub</span><span class="w"> </span><span class="err">{</span><span class="nt">"DUMMY"</span><span class="err">}</span><span class="w"> </span><span class="err">}</span></code>。</p>
 <p>这个就有趣了，居然是个代码段~~于是翻源码来看：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">hook</span> <span class="n">before_template</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">hook</span> <span class="nv">before_template</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
         <span class="nb">shift</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$token_name</span><span class="p">}</span> <span class="o">=</span> <span class="p">{</span>
             <span class="nb">map</span> <span class="p">{</span> <span class="k">my</span> <span class="nv">$key</span> <span class="o">=</span> <span class="nv">$_</span><span class="p">;</span> <span class="k">my</span> <span class="nv">$value</span><span class="p">;</span>
                 <span class="p">(</span> <span class="nv">$key</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span> <span class="nb">defined</span> <span class="nv">$value</span> <span class="ow">and</span> <span class="k">return</span> <span class="nv">$value</span><span class="p">;</span>
-                    <span class="k">my</span> <span class="nv">$flash</span> <span class="o">=</span> <span class="n">session</span><span class="p">(</span><span class="nv">$session_hash_key</span><span class="p">)</span> <span class="o">||</span> <span class="p">{};</span>
+                    <span class="k">my</span> <span class="nv">$flash</span> <span class="o">=</span> <span class="nv">session</span><span class="p">(</span><span class="nv">$session_hash_key</span><span class="p">)</span> <span class="o">||</span> <span class="p">{};</span>
                     <span class="nv">$value</span> <span class="o">=</span> <span class="nb">delete</span> <span class="nv">$flash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$key</span><span class="p">};</span>
-                    <span class="n">session</span> <span class="nv">$session_hash_key</span><span class="p">,</span> <span class="nv">$flash</span><span class="p">;</span>
+                    <span class="nv">session</span> <span class="nv">$session_hash_key</span><span class="p">,</span> <span class="nv">$flash</span><span class="p">;</span>
                     <span class="k">return</span> <span class="nv">$value</span><span class="p">;</span>
                 <span class="p">}</span> <span class="p">);</span>
-            <span class="p">}</span> <span class="p">(</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="n">session</span><span class="p">(</span><span class="nv">$session_hash_key</span><span class="p">)</span> <span class="o">||</span> <span class="p">{}</span> <span class="p">})</span>
+            <span class="p">}</span> <span class="p">(</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">session</span><span class="p">(</span><span class="nv">$session_hash_key</span><span class="p">)</span> <span class="o">||</span> <span class="p">{}</span> <span class="p">})</span>
         <span class="p">};</span>
-    <span class="p">};</span></code></pre></div>
-<p><code>map</code> 里面，确实是一个 <code>$key =&gt; sub {}</code> 。</p>
-<p>这个时候我切换两个 template 做了个测试。在里面那个匿名 sub 里写了一行 <code>die;</code>。结果。XSlate “正常”运行过去，在页面上显示前面说过的 <code>CODE()</code>；而在 Template 模版下，500 了。看 console 的日志，发现 <code>die</code> 这个动作不是在 <code>before_template</code> 阶段发生的。而是在随后的 render 阶段，<code>Dancer::Template::Abstract</code> 里才挂了。</p>
-<p>所以，最终，两个坑归结起来并成了一个问题：模版系统是支持 coderef 还是支持 object 的问题。就在我写着这句话的同时，IRC 上还为 <code>Dancer::Plugin::FlashMessage</code> 的新实现而争论不休。xdg 童鞋已经在我提问的一个小时内快速的搞出来一个把 flash &ldquo;object 化&rdquo;的 patch，而 bigpresh 童鞋坚定的认为应该把 <code>delete</code> 操作放在 <code>hook after_template</code> 里完成。原作者 <code>dams</code> 则&rdquo;相信&rdquo;更多的模版是支持 coderef 不支持 object 的。</p>
-<p>不过我觉得，其实改动最小的办法，就是别用 <code>map</code> 这么高档的语法。拆成两段处理，确保传递给 <code>template_render</code> 的是字符串即可：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">hook</span> <span class="n">before_template</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="p">};</span>
+</code></pre>
+</div>
+<p><code class="highlighter-rouge">map</code> 里面，确实是一个 <code class="highlighter-rouge">$key =&gt; sub {}</code> 。</p>
+<p>这个时候我切换两个 template 做了个测试。在里面那个匿名 sub 里写了一行 <code class="highlighter-rouge">die;</code>。结果。XSlate “正常”运行过去，在页面上显示前面说过的 <code class="highlighter-rouge">CODE()</code>；而在 Template 模版下，500 了。看 console 的日志，发现 <code class="highlighter-rouge">die</code> 这个动作不是在 <code class="highlighter-rouge">before_template</code> 阶段发生的。而是在随后的 render 阶段，<code class="highlighter-rouge">Dancer::Template::Abstract</code> 里才挂了。</p>
+<p>所以，最终，两个坑归结起来并成了一个问题：模版系统是支持 coderef 还是支持 object 的问题。就在我写着这句话的同时，IRC 上还为 <code class="highlighter-rouge">Dancer::Plugin::FlashMessage</code> 的新实现而争论不休。xdg 童鞋已经在我提问的一个小时内快速的搞出来一个把 flash &ldquo;object 化&rdquo;的 patch，而 bigpresh 童鞋坚定的认为应该把 <code class="highlighter-rouge">delete</code> 操作放在 <code class="highlighter-rouge">hook after_template</code> 里完成。原作者 <code class="highlighter-rouge">dams</code> 则&rdquo;相信&rdquo;更多的模版是支持 coderef 不支持 object 的。</p>
+<p>不过我觉得，其实改动最小的办法，就是别用 <code class="highlighter-rouge">map</code> 这么高档的语法。拆成两段处理，确保传递给 <code class="highlighter-rouge">template_render</code> 的是字符串即可：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">hook</span> <span class="nv">before_template</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
         <span class="k">my</span> <span class="nv">%hash</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$flash</span> <span class="o">=</span> <span class="n">session</span><span class="p">(</span><span class="nv">$session_hash_key</span><span class="p">)</span> <span class="o">||</span> <span class="p">{};</span>
+        <span class="k">my</span> <span class="nv">$flash</span> <span class="o">=</span> <span class="nv">session</span><span class="p">(</span><span class="nv">$session_hash_key</span><span class="p">)</span> <span class="o">||</span> <span class="p">{};</span>
         <span class="k">for</span> <span class="p">(</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$flash</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
             <span class="nv">$hash</span><span class="p">{</span><span class="nv">$_</span><span class="p">}</span> <span class="o">=</span> <span class="nb">delete</span> <span class="nv">$flash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$_</span><span class="p">};</span>
         <span class="p">};</span>
-        <span class="n">session</span> <span class="nv">$session_hash_key</span><span class="p">,</span> <span class="nv">$flash</span><span class="p">;</span>
+        <span class="nv">session</span> <span class="nv">$session_hash_key</span><span class="p">,</span> <span class="nv">$flash</span><span class="p">;</span>
         <span class="nb">shift</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$token_name</span><span class="p">}</span> <span class="o">=</span> <span class="o">\</span><span class="nv">%hash</span><span class="p">;</span>
-    <span class="p">};</span></code></pre></div>
+    <span class="p">};</span>
+</code></pre>
+</div>
 <p>最后的最后，就在我测试完我的改动版本在两种模版下都可以运行的时候，dams 已经决定先同时保持 coderef 和 object 的写法并提供 setting 配置。然后慢慢搜集各种模版系统做覆盖测试。</p>
 <p><strong>20 日增</strong></p>
-<p>最后最后的最后，在 github 上搜到两个用 dancer 和 xslate 写的 repo。他们都采用了在应用 app 里自定义 <code>hook before_template</code> ，把 <code>session('username')</code> 和 <code>flash('message')</code> 两个变量传递给 <code>$token</code> 哈希的办法。</p>
+<p>最后最后的最后，在 github 上搜到两个用 dancer 和 xslate 写的 repo。他们都采用了在应用 app 里自定义 <code class="highlighter-rouge">hook before_template</code> ，把 <code class="highlighter-rouge">session('username')</code> 和 <code class="highlighter-rouge">flash('message')</code> 两个变量传递给 <code class="highlighter-rouge">$token</code> 哈希的办法。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/12/16/how-to-set-host-header-in-perl" title="perl发起HTTP请求时如何设置Host头">&larr; Previous</a></li>
+        <li class="prev"><a href="/2012/12/16/how-to-set-host-header-in-perl/" title="perl发起HTTP请求时如何设置Host头">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/12/21/dancer-plugin-auth-extensible" title="学习 Dancer::Plugin::Auth::Extensible 模块">Next &rarr;</a></li>
+        <li class="next"><a href="/2012/12/21/dancer-plugin-auth-extensible/" title="学习 Dancer::Plugin::Auth::Extensible 模块">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -189,15 +207,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

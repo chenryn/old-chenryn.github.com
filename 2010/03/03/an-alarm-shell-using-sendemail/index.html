@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -54,53 +54,51 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>这种email报警脚本遍地都是，很多用的sendmail、postfix，感觉有些大材小用了；也有些用perl的NET::SMTP和Authen::SASL模块发信的，不过我perl用的不好，老发出些莫名其妙的邮件来（比如if(a&gt;1){print(a);}，最后邮件里的显示的是0.99……）；最后采用sendEmail这个成型的perl程序发信报警，而实时监控部分回归shell，终于完成。</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">wget &lt;a <span class="nv">href</span><span class="o">=</span><span class="s2">&quot;http://caspian.dotconf.net/menu/Software/SendEmail/sendEmail-v1.56.tar.gz&quot;</span>&gt;http://caspian.dotconf.net/menu/Software/SendEmail/sendEmail-v1.56.tar.gz&lt;/a&gt;
+<div class="highlighter-rouge"><pre class="highlight"><code>wget &lt;a <span class="nv">href</span><span class="o">=</span><span class="s2">"http://caspian.dotconf.net/menu/Software/SendEmail/sendEmail-v1.56.tar.gz"</span>&gt;http://caspian.dotconf.net/menu/Software/SendEmail/sendEmail-v1.56.tar.gz&lt;/a&gt;
 tar zxvf sendEmail-v1.56.tar.gz
 cp sendEmail-v1.56/sendEmail /shell/check/
-cat &gt;&gt; check.sh <span class="s">&lt;&lt;EOF</span>
-<span class="s">#!/bin/bash</span>
-<span class="s">checkmail() {</span>
-<span class="s">    /usr/bin/perl ./sendEmail -f userid@mail.com -t oneuserid@mail.com –cc twouserid@mail.com threeuserid@mail.com -u &quot;$subject&quot; -m &quot;$data&quot; -s smtp.mail.com -xu userid -xp password</span>
-<span class="s">    sleep 300</span>
-<span class="s">}</span>
-<span class="s">while true;do</span>
-<span class="s">    loadavg=`awk &#39;{print $2}&#39; /proc/loadavg`</span>
-<span class="s">    diskuse=`df |awk &#39;/cache/{print $5}&#39;`</span>
-<span class="s">    servrun=`netstat -pln|awk -F/ &#39;/:80/{print $NF}&#39;`</span>
-<span class="s">    </span>
-<span class="s">    ip=`ifconfig|awk &#39;/cast/{print $2}&#39;|awk -F: &#39;{if(NR==1){a=$2}else if(NR==2){b=$2}}END{print b&quot;-&quot;a}&#39;`</span>
-<span class="s">    data=`echo -e &quot;ip:$ip\nloadavg/5min:$loadavg\tcacheuse%:$diskuse\tservice:$servrun&quot;`</span>
-<span class="s">    diskper=`echo $diskuse|sed &#39;s/%//&#39;`</span>
-<span class="s">    </span>
-<span class="s">    num=`ps aux|grep check.sh|grep -v grep|wc -l`</span>
-<span class="s">    </span>
-<span class="s">    if [[ $num &gt; 2 ]];then</span>
-<span class="s">        break 2</span>
-<span class="s">    fi</span>
-<span class="s">    </span>
-<span class="s">    if [[ $loadavg &gt; 1.00 ]] &amp;amp;&amp;amp; [[ $diskper &gt; 90 ]];then</span>
-<span class="s">        subject=&quot;warning-$ip-loadavg-disk&quot;</span>
-<span class="s">        checkmail</span>
-<span class="s">    else if [[ $loadavg &gt; 1.00 ]];then</span>
-<span class="s">        subject=&quot;warning-$ip-loadavg&quot;</span>
-<span class="s">        checkmail</span>
-<span class="s">    else if [[ $diskper &gt; 90 ]];then</span>
-<span class="s">        subject=&quot;warning-$ip-disk&quot;</span>
-<span class="s">        checkmail</span>
-<span class="s">    fi</span>
-<span class="s">    sleep 60</span>
-<span class="s">done</span>
-<span class="s">EOF</span></code></pre></div>
+cat &gt;&gt; check.sh <span class="sh">&lt;&lt;EOF
+#!/bin/bash
+checkmail() {
+    /usr/bin/perl ./sendEmail -f userid@mail.com -t oneuserid@mail.com –cc twouserid@mail.com threeuserid@mail.com -u "$subject" -m "$data" -s smtp.mail.com -xu userid -xp password
+    sleep 300
+}
+while true;do
+    loadavg=`awk '{print $2}' /proc/loadavg`
+    diskuse=`df |awk '/cache/{print $5}'`
+    servrun=`netstat -pln|awk -F/ '/:80/{print $NF}'`
+    ip=`ifconfig|awk '/cast/{print $2}'|awk -F: '{if(NR==1){a=$2}else if(NR==2){b=$2}}END{print b"-"a}'`
+    data=`echo -e "ip:$ip\nloadavg/5min:$loadavg\tcacheuse%:$diskuse\tservice:$servrun"`
+    diskper=`echo $diskuse|sed 's/%//'`
+    num=`ps aux|grep check.sh|grep -v grep|wc -l`
+    if [[ $num &gt; 2 ]];then
+        break 2
+    fi
+    if [[ $loadavg &gt; 1.00 ]] &amp;amp;&amp;amp; [[ $diskper &gt; 90 ]];then
+        subject="warning-$ip-loadavg-disk"
+        checkmail
+    else if [[ $loadavg &gt; 1.00 ]];then
+        subject="warning-$ip-loadavg"
+        checkmail
+    else if [[ $diskper &gt; 90 ]];then
+        subject="warning-$ip-disk"
+        checkmail
+    fi
+    sleep 60
+done
+EOF
+</span></code></pre>
+</div>
 <p>完成，执行sh check.sh &amp;&gt; /dev/null即可。报警邮件如下：</p>
-<p>标题：warning-192.168.0.100-10.10.10.10-disk
-ip:192.168.0.100-10.10.10.10
+<p>标题：warning-192.168.0.100-10.10.10.10-disk<br />
+ip:192.168.0.100-10.10.10.10<br />
 loadavg/5min:0.38 cacheuse%:94% service:nginx</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/03/02/loadbalance-in-nginx-using-url_hash" title="nginx负载均衡（url_hash）配置">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/03/02/loadbalance-in-nginx-using-url_hash/" title="nginx负载均衡（url_hash）配置">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/03/03/loadbalance-in-nginx-using-consistent_hash-error_page" title="nginx负载均衡（consistent_hash、error_page）进阶">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/03/03/loadbalance-in-nginx-using-consistent_hash-error_page/" title="nginx负载均衡（consistent_hash、error_page）进阶">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -144,15 +142,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

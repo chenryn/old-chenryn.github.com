@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -62,43 +62,51 @@
 </ol>
 <p>不过之前都停留在代码观摩和安装文档的阶段。这几天刚好有点需求，真正测试了一下如何利用 mod_gearman 实现 分布式的 Nagios 监测集群。</p>
 <p>OMD 的安装一如既往的简单，尤其是作为中控端，不需要讲究太多通用性，可以选择使用 ubuntu 系统，直接通过 deb 安装：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">wget http://omdistro.org/attachments/download/197/omd-0.56_0.wheezy_i386.deb
+<div class="highlighter-rouge"><pre class="highlight"><code>wget http://omdistro.org/attachments/download/197/omd-0.56_0.wheezy_i386.deb
 dpkg -i omd-0.56_0.wheezy_i386.deb
 omd create cdn-monitor
 su - cdn-monitor
-omd start</code></pre></div>
+omd start
+</code></pre>
+</div>
 <p>这就已经启动了。</p>
-<p>不过要使用 mod_gearman 的话，还需要通过 <code>omd config</code> 界面开启。</p>
+<p>不过要使用 mod_gearman 的话，还需要通过 <code class="highlighter-rouge">omd config</code> 界面开启。</p>
 <p>默认开启之后，是运行在本机多 worker 的 Load Balance 状态下。我们现在要做的是把worker拆分到其他机房去变成 Distributed 状态。</p>
 <p><img src="/images/uploads/sample_distributed.png" alt="distributed" /></p>
 <p>图上已经列出 server 和 worker 的主要配置不同。我们只需要照着这样改就可以了。</p>
 <p>不过在作为纯 worker 端的机房服务器上，我们没有必要安装完整的 OMD 了，这厮安装包都有100MB大……</p>
 <p><a href="http://mod-gearman.org/download/v1.4.2/">http://mod-gearman.org/download/v1.4.2/</a> 上提供了 mod_gearman 的独立安装包，我们只需要根据服务器发行版选择下载就可以，这里以 CentOS6 为例，相信现在这个也应该是服务器的主流。</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">wget http://mod-gearman.org/download/v1.4.2/rhel6/x86_64/gearmand-0.25-1.rhel6.x86_64.rpm
+<div class="highlighter-rouge"><pre class="highlight"><code>wget http://mod-gearman.org/download/v1.4.2/rhel6/x86_64/gearmand-0.25-1.rhel6.x86_64.rpm
 wget http://mod-gearman.org/download/v1.4.2/rhel6/x86_64/mod_gearman-1.4.2-1.e.rhel6.x86_64.rpm
-rpm -ivh gearmand-0.25-1.rhel6.x86_64.rpm mod_gearman-1.4.2-1.e.rhel6.x86_64.rpm</code></pre></div>
+rpm -ivh gearmand-0.25-1.rhel6.x86_64.rpm mod_gearman-1.4.2-1.e.rhel6.x86_64.rpm
+</code></pre>
+</div>
 <p>除了图中列出的几行关键配置以外，还有两个地方是需要修改的：</p>
 <h3 id="gearmand-">gearmand 的监听</h3>
-<p>OMD 安装的 gearmand 默认是监听在 127.0.0.1 上的，需要修改<code>/omd/sites/cdn-monitor/etc/mod-gearman/port.conf</code> 文件变成可以被其他机器访问的 IP 地址并重启。</p>
-<p>同样 分布式的 <code>/etc/mod_gearman/mod_gearman_worker.conf</code> 里，也需要修改 server 配置并重启服务。</p>
+<p>OMD 安装的 gearmand 默认是监听在 127.0.0.1 上的，需要修改<code class="highlighter-rouge">/omd/sites/cdn-monitor/etc/mod-gearman/port.conf</code> 文件变成可以被其他机器访问的 IP 地址并重启。</p>
+<p>同样 分布式的 <code class="highlighter-rouge">/etc/mod_gearman/mod_gearman_worker.conf</code> 里，也需要修改 server 配置并重启服务。</p>
 <h3 id="encryption-">encryption 配置</h3>
-<p>OMD 默认启用 encryption 并且会在 <code>/omd/sites/cdn/etc/mod-gearman/</code> 下生成 <code>secret.key</code> 文件。</p>
-<p>但是 <code>mod_gearman</code> 默认开启 encryption ，却不可能知道中控端的密码，所以默认是在配置文件中指定的 <code>key=should_be_changed</code>。这里我们需要修改一致：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">scp nagios:/omd/sites/cdn/etc/mod-gearman/secret.key /etc/mod_gearman/
-sed <span class="s1">&#39;s!#keyfile.*!keyfile=/etc/mod_gearman/secret.key!&#39;</span> /etc/mod_gearman/mod_gearman_worker.conf
-service mod_gearman_worker restart</code></pre></div>
+<p>OMD 默认启用 encryption 并且会在 <code class="highlighter-rouge">/omd/sites/cdn/etc/mod-gearman/</code> 下生成 <code class="highlighter-rouge">secret.key</code> 文件。</p>
+<p>但是 <code class="highlighter-rouge">mod_gearman</code> 默认开启 encryption ，却不可能知道中控端的密码，所以默认是在配置文件中指定的 <code class="highlighter-rouge">key=should_be_changed</code>。这里我们需要修改一致：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>scp nagios:/omd/sites/cdn/etc/mod-gearman/secret.key /etc/mod_gearman/
+sed <span class="s1">'s!#keyfile.*!keyfile=/etc/mod_gearman/secret.key!'</span> /etc/mod_gearman/mod_gearman_worker.conf
+service mod_gearman_worker restart
+</code></pre>
+</div>
 <p>事情还没完。这时候你会在 webUI 上看到分配给这个 worker 的检测全部报错，退出码 127。具体内容是：&rdquo;/omd/sites/cdn-monitor/lib/nagios/plugins/check_http do not exists&rdquo;之类的话。</p>
-<p>因为，在 OMD 上，commands.cfg 上，配置的 <code>$USER1$/check_http</code> 替换为具体路径后，直接 <code>add_task</code> 到 gearmand 里，所以 worker 上收到 command 并执行也就是这样的了。目前还没有发现可以在 worker 端替换 commands 字符串的简单办法。所以，我们还得自己创建一个软链接：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">mkdir -p /omd/sites/cdn-monitor/lib/nagios/
+<p>因为，在 OMD 上，commands.cfg 上，配置的 <code class="highlighter-rouge">$USER1$/check_http</code> 替换为具体路径后，直接 <code class="highlighter-rouge">add_task</code> 到 gearmand 里，所以 worker 上收到 command 并执行也就是这样的了。目前还没有发现可以在 worker 端替换 commands 字符串的简单办法。所以，我们还得自己创建一个软链接：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>mkdir -p /omd/sites/cdn-monitor/lib/nagios/
 yum install -y nagios-plugins-all --enablerepo<span class="o">=</span>epel
-ln -s /usr/lib64/nagios/plugins /omd/sites/cdn-monitor/lib/nagios/plugins</code></pre></div>
-<p>OK，现在这个机房(即nagios配置中的hostgroup)的监测任务，就都分发给本机房的 worker 来进行了。比如 <code>check_http</code> 任务，可以看到原先跨机房访问带来的几十毫秒的延时，都变成了一两毫秒。</p>
+ln -s /usr/lib64/nagios/plugins /omd/sites/cdn-monitor/lib/nagios/plugins
+</code></pre>
+</div>
+<p>OK，现在这个机房(即nagios配置中的hostgroup)的监测任务，就都分发给本机房的 worker 来进行了。比如 <code class="highlighter-rouge">check_http</code> 任务，可以看到原先跨机房访问带来的几十毫秒的延时，都变成了一两毫秒。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/03/18/logrotate-configuration-files-mode" title="logrotate 配置文件强制为 0644 属性">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/03/18/logrotate-configuration-files-mode/" title="logrotate 配置文件强制为 0644 属性">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/03/28/intro-haml" title="Haml 简介">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/03/28/intro-haml/" title="Haml 简介">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -142,15 +150,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

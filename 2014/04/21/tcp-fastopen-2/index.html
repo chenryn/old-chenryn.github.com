@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -69,17 +69,19 @@
 <p><img src="/images/uploads/tfo.jpg" alt="" /></p>
 <p>所以可以总结两点：</p>
 <ol>
-  <li>第一次请求是不会有时间节约的效果的，测试至少要 <code>httping -F -c 2</code>。</li>
+  <li>第一次请求是不会有时间节约的效果的，测试至少要 <code class="highlighter-rouge">httping -F -c 2</code>。</li>
   <li>从第二次开始节约的时间可以认为是第一个来回，httping 本身是个 HEAD 请求，可以认为是 50% 的节约。</li>
 </ol>
-<p>但是用 <code>-c 2</code> 运行依然没有看到 RTT 变化。这时候用<code>stap 'probe kernel.function("tcp_fastopen_cookie_gen") {printf("%d\n", $foc-&gt;len)}'</code> 命令发现这个最重要的生成 COOKIE 的函数(net/ipv4/tcp_fastopen.c里)居然一直没有被触发！</p>
-<p>认真阅读了一下调用这个函数的 <code>tcp_fastopen_check</code> 函数(net/ipv4/tcp_ipv4.c里)，原来前面首先有一步检查 sysctl 的逻辑：</p>
-<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">if</span> <span class="p">((</span><span class="n">sysctl_tcp_fastopen</span> <span class="o">&amp;</span> <span class="n">TFO_SERVER_ENABLE</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">||</span>
+<p>但是用 <code class="highlighter-rouge">-c 2</code> 运行依然没有看到 RTT 变化。这时候用<code class="highlighter-rouge">stap 'probe kernel.function("tcp_fastopen_cookie_gen") {printf("%d\n", $foc-&gt;len)}'</code> 命令发现这个最重要的生成 COOKIE 的函数(net/ipv4/tcp_fastopen.c里)居然一直没有被触发！</p>
+<p>认真阅读了一下调用这个函数的 <code class="highlighter-rouge">tcp_fastopen_check</code> 函数(net/ipv4/tcp_ipv4.c里)，原来前面首先有一步检查 sysctl 的逻辑：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="k">if</span> <span class="p">((</span><span class="n">sysctl_tcp_fastopen</span> <span class="o">&amp;</span> <span class="n">TFO_SERVER_ENABLE</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">||</span>
         <span class="n">fastopenq</span> <span class="o">==</span> <span class="nb">NULL</span> <span class="o">||</span> <span class="n">fastopenq</span><span class="o">-&gt;</span><span class="n">max_qlen</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span></code></pre></div>
-<p>这个 <code>TFO_SERVER_ENABLE</code> 常量是 2。而我电脑默认的 <code>net.ipv4.tcp_fastopen</code> 值是 1。1 只开启客户端支持 TFO，所以这里要改成 2(或者 3，如果你不打算把客户端搬到别的主机上测试的话)。</p>
-<p>重新开始 httping 测试，RTT 依然没有缩短。这时候的 stap 命令发现 <code>tcp_fastopen_cookie_gen</code> 函数虽然触发了，但是函数里真正干活的这段逻辑依然没有触发(即 <code>crypto_cipher_encrypt_one</code>)：</p>
-<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="kt">void</span> <span class="nf">tcp_fastopen_cookie_gen</span><span class="p">(</span><span class="n">__be32</span> <span class="n">addr</span><span class="p">,</span> <span class="k">struct</span> <span class="n">tcp_fastopen_cookie</span> <span class="o">*</span><span class="n">foc</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</code></pre>
+</div>
+<p>这个 <code class="highlighter-rouge">TFO_SERVER_ENABLE</code> 常量是 2。而我电脑默认的 <code class="highlighter-rouge">net.ipv4.tcp_fastopen</code> 值是 1。1 只开启客户端支持 TFO，所以这里要改成 2(或者 3，如果你不打算把客户端搬到别的主机上测试的话)。</p>
+<p>重新开始 httping 测试，RTT 依然没有缩短。这时候的 stap 命令发现 <code class="highlighter-rouge">tcp_fastopen_cookie_gen</code> 函数虽然触发了，但是函数里真正干活的这段逻辑依然没有触发(即 <code class="highlighter-rouge">crypto_cipher_encrypt_one</code>)：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">tcp_fastopen_cookie_gen</span><span class="p">(</span><span class="n">__be32</span> <span class="n">addr</span><span class="p">,</span> <span class="k">struct</span> <span class="n">tcp_fastopen_cookie</span> <span class="o">*</span><span class="n">foc</span><span class="p">)</span>
 <span class="p">{</span>
     <span class="n">__be32</span> <span class="n">peer_addr</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span> <span class="n">addr</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span> <span class="p">};</span>
     <span class="k">struct</span> <span class="n">tcp_fastopen_context</span> <span class="o">*</span><span class="n">ctx</span><span class="p">;</span>
@@ -92,16 +94,18 @@
         <span class="n">foc</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">=</span> <span class="n">TCP_FASTOPEN_COOKIE_SIZE</span><span class="p">;</span>
     <span class="p">}</span>
     <span class="n">rcu_read_unlock</span><span class="p">();</span>
-<span class="p">}</span></code></pre></div>
-<p>我试图通过 <code>stap 'probe kernel.function("tcp_fastopen_cookie_gen"){printf("%s\n", $$locals$$)}'</code> 来查看这个 <code>ctx</code> 是什么内容。输出显示 ctx 结构里的元素值都是问号。</p>
+<span class="p">}</span>
+</code></pre>
+</div>
+<p>我试图通过 <code class="highlighter-rouge">stap 'probe kernel.function("tcp_fastopen_cookie_gen"){printf("%s\n", $$locals$$)}'</code> 来查看这个 <code class="highlighter-rouge">ctx</code> 是什么内容。输出显示 ctx 结构里的元素值都是问号。</p>
 <p>目前就卡在这里。</p>
-<p>为了验证除了这步没有其他问题，我&rdquo;野蛮&rdquo;的通过 systemtap 修改了一下 <code>tcp_fastopen_cookie_gen</code> 里的变量。命令如下：</p>
-<p><code>
-stap 'probe kernel.function("tcp_fastopen_cookie_gen") { $foc-&gt;len = 8 }'
-</code></p>
-<p>赋值为 8，就是 <code>TCP_FASTOPEN_COOKIE_SIZE</code> 常量的值。</p>
+<p>为了验证除了这步没有其他问题，我&rdquo;野蛮&rdquo;的通过 systemtap 修改了一下 <code class="highlighter-rouge">tcp_fastopen_cookie_gen</code> 里的变量。命令如下：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>stap 'probe kernel.function("tcp_fastopen_cookie_gen") { $foc-&gt;len = 8 }'
+</code></pre>
+</div>
+<p>赋值为 8，就是 <code class="highlighter-rouge">TCP_FASTOPEN_COOKIE_SIZE</code> 常量的值。</p>
 <p>然后再运行测试，就发现 httping 的第二次运行的 RTT 时间减半了(最后那个 F 应该就是标记为 Fastopen 的意思吧)！可见目前问题就出在这里。</p>
-<pre><code>$ httping -F -g http://192.168.0.100 -c 2
+<div class="highlighter-rouge"><pre class="highlight"><code>$ httping -F -g http://192.168.0.100 -c 2
 PING 192.168.0.100:80 (/url):
 connected to 192.168.0.100:80 (154 bytes), seq=0 time= 45.60 ms 
 connected to 192.168.0.100:80 (154 bytes), seq=1 time= 23.43 ms  F
@@ -109,13 +113,14 @@ connected to 192.168.0.100:80 (154 bytes), seq=1 time= 23.43 ms  F
 2 connects, 2 ok, 0.00% failed, time 2069ms
 round-trip min/avg/max = 23.4/34.5/45.6 ms
 </code></pre>
-<p><strong>注：上面这个强制赋值 <code>foc-&gt;len</code> 没有改变其实 <code>foc-&gt;val</code> 是空的事实，所以只能是测试验证一下想法，真用的话多客户端之间会乱套的。</strong></p>
+</div>
+<p><strong>注：上面这个强制赋值 <code class="highlighter-rouge">foc-&gt;len</code> 没有改变其实 <code class="highlighter-rouge">foc-&gt;val</code> 是空的事实，所以只能是测试验证一下想法，真用的话多客户端之间会乱套的。</strong></p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2014/04/16/tcp-fastopen-1" title="TCP Fast Open 测试(1)">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/04/16/tcp-fastopen-1/" title="TCP Fast Open 测试(1)">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/04/24/yaml-dump-pm6" title="Perl6 的 YAML::Dumper 模块">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/04/24/yaml-dump-pm6/" title="Perl6 的 YAML::Dumper 模块">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -159,15 +164,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

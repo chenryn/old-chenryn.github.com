@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,51 +52,55 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>公司内部工具统一使用passport认证登录，于是写这么一个小plugin，用来给dancer做的网站使用统一认证。
-passport的原理很简单，将原先的页面url带入session转到passport的login，然后由passport通过user/password或者kerberos确认是否正确，并返回一个ticket参数，然后拿这个ticket再到passport的verify上校验一次username，正确的话写入session即可。代码如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="nn">Dancer::Plugin::Auth::</span><span class="n">Passport</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Dancer</span> <span class="s">&#39;:syntax&#39;</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Dancer::</span><span class="n">Plugin</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Furl</span><span class="p">;</span> 
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">our</span> <span class="nv">$VERSION</span> <span class="o">=</span> <span class="s">&#39;0.01&#39;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$settings</span> <span class="o">=</span> <span class="n">plugin_setting</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$PASSPORT_HOST</span> <span class="o">=</span> <span class="nv">$settings</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">passport_host</span><span class="p">}</span> <span class="o">||</span> <span class="s">&#39;passport.company.com&#39;</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">_auth_passport</span> <span class="p">{</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="o">!</span><span class="n">session</span><span class="p">(</span><span class="s">&#39;username&#39;</span><span class="p">)</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$req_url</span> <span class="o">=</span> <span class="n">request</span><span class="o">-&gt;</span><span class="n">scheme</span> <span class="o">.</span><span class="s">&#39;://&#39;</span><span class="o">.</span> <span class="n">request</span><span class="o">-&gt;</span><span class="n">header</span><span class="p">(</span><span class="s">&#39;Host&#39;</span><span class="p">)</span> <span class="o">.</span> <span class="n">request</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">;</span>
-        <span class="k">if</span> <span class="p">(</span> <span class="nb">defined</span><span class="p">(</span><span class="k">my</span> <span class="nv">$ticket</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;ticket&#39;</span><span class="p">})</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="k">my</span> <span class="nv">$passport_url</span> <span class="o">=</span> <span class="s">&quot;https://${PASSPORT_HOST}/verify.php?t=${ticket}&quot;</span><span class="p">;</span>
-            <span class="k">my</span> <span class="nv">$furl</span> <span class="o">=</span> <span class="n">Furl</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">timeout</span> <span class="o">=&gt;</span> <span class="mi">10</span><span class="p">,</span> <span class="n">headers</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="s">&#39;Referer&#39;</span> <span class="o">=&gt;</span> <span class="s">&quot;$req_url&quot;</span><span class="p">]</span> <span class="p">);</span>
-            <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="nv">$furl</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="nv">$passport_url</span><span class="p">);</span>
-            <span class="n">redirect</span> <span class="s">&quot;https://${PASSPORT_HOST}/login.php?forward=${req_url}&quot;</span> <span class="k">unless</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="n">is_success</span><span class="p">;</span>
-            <span class="n">session</span> <span class="n">username</span> <span class="o">=&gt;</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="n">content</span><span class="p">;</span>
-            <span class="n">redirect</span> <span class="n">session</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;original_url&#39;</span><span class="p">};</span>
-        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-            <span class="n">session</span> <span class="n">original_url</span> <span class="o">=&gt;</span> <span class="nv">$</span><span class="p">{</span><span class="n">req_url</span><span class="p">};</span>
-            <span class="n">redirect</span> <span class="s">&quot;https://${PASSPORT_HOST}/login.php?forward=${req_url}&quot;</span><span class="p">;</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-<span class="n">register</span> <span class="s">&#39;auth_passport&#39;</span> <span class="o">=&gt;</span> <span class="o">\&amp;</span><span class="n">_auth_passport</span><span class="p">;</span>
-<span class="n">register_plugin</span><span class="p">;</span>
-<span class="n">true</span><span class="p">;</span>
-<span class="cp">__END__</span></code></pre></div>
+    <p>公司内部工具统一使用passport认证登录，于是写这么一个小plugin，用来给dancer做的网站使用统一认证。<br />
+passport的原理很简单，将原先的页面url带入session转到passport的login，然后由passport通过user/password或者kerberos确认是否正确，并返回一个ticket参数，然后拿这个ticket再到passport的verify上校验一次username，正确的话写入session即可。代码如下：<br />
+```perl<br />
+package Dancer::Plugin::Auth::Passport;<br />
+use Dancer &lsquo;:syntax&rsquo;;<br />
+use Dancer::Plugin;<br />
+use Furl; <br />
+use warnings;<br />
+use strict;</p>
+<p>our $VERSION = &lsquo;0.01&rsquo;;</p>
+<p>my $settings = plugin_setting;<br />
+my $PASSPORT_HOST = $settings-&gt;{passport_host} || &lsquo;passport.company.com&rsquo;;</p>
+<p>sub _auth_passport {<br />
+    if ( !session(&lsquo;username&rsquo;) ) {<br />
+        my $req_url = request-&gt;scheme .&rsquo;://&rsquo;. request-&gt;header(&lsquo;Host&rsquo;) . request-&gt;uri;<br />
+        if ( defined(my $ticket = params-&gt;{&lsquo;ticket&rsquo;}) ) {<br />
+            my $passport_url = &ldquo;https://${PASSPORT_HOST}/verify.php?t=${ticket}&rdquo;;<br />
+            my $furl = Furl-&gt;new( timeout =&gt; 10, headers =&gt; [&lsquo;Referer&rsquo; =&gt; &ldquo;$req_url&rdquo;] );<br />
+            my $res = $furl-&gt;get($passport_url);<br />
+            redirect &ldquo;https://${PASSPORT_HOST}/login.php?forward=${req_url}&rdquo; unless $res-&gt;is_success;<br />
+            session username =&gt; $res-&gt;content;<br />
+            redirect session-&gt;{&lsquo;original_url&rsquo;};<br />
+        } else {<br />
+            session original_url =&gt; ${req_url};<br />
+            redirect &ldquo;https://${PASSPORT_HOST}/login.php?forward=${req_url}&rdquo;;<br />
+        };<br />
+    };<br />
+};</p>
+<p>register &lsquo;auth_passport&rsquo; =&gt; \&amp;_auth_passport;<br />
+register_plugin;</p>
+<p>true;<br />
+<strong>END</strong><br />
+```</p>
 <p>使用方法如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="n">DancerApp</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">Dancer</span> <span class="s">&#39;:syntax&#39;</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">Dancer::Plugin::Auth::</span><span class="n">Passport</span><span class="p">;</span>
-    <span class="n">hook</span> <span class="s">&#39;before&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="n">auth_passport</span> <span class="p">};</span>
-    <span class="n">get</span> <span class="s">&#39;/&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="k">return</span> <span class="s">&#39;Hello Passport&#39;</span> <span class="p">};</span>
-    <span class="n">true</span><span class="p">;</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nb">package</span> <span class="nv">DancerApp</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nv">Dancer</span> <span class="s">':syntax'</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Dancer::Plugin::Auth::</span><span class="nv">Passport</span><span class="p">;</span>
+    <span class="nv">hook</span> <span class="s">'before'</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nv">auth_passport</span> <span class="p">};</span>
+    <span class="nv">get</span> <span class="s">'/'</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="k">return</span> <span class="s">'Hello Passport'</span> <span class="p">};</span>
+    <span class="nv">true</span><span class="p">;</span>
+</code></pre>
+</div>
 <p>完毕。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/07/19/anyevent-fork-http-load-runner-demo" title="用AnyEvent和ForkManager写一个http协议的压测工具">&larr; Previous</a></li>
+        <li class="prev"><a href="/2012/07/19/anyevent-fork-http-load-runner-demo/" title="用AnyEvent和ForkManager写一个http协议的压测工具">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/07/30/plack-middleware-demo" title="一个Plack::Middleware的实例">Next &rarr;</a></li>
+        <li class="next"><a href="/2012/07/30/plack-middleware-demo/" title="一个Plack::Middleware的实例">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -140,15 +144,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -74,28 +74,32 @@
 <p>不需要添加面板，饼图可以直接悬浮出现！</p>
 <h1 id="url">动态的仪表盘和url参数</h1>
 <p>Kibana 3: Milestone 4现在可以通过URL参数获取输入！这个备受期待的特性体现为两个方式：模板化的仪表盘和脚本化的仪表盘。Kibana 3: Milestone 4附带两个可以和Logstash完美配合的示例，在此基础上你可以构建自己的仪表盘。模板化仪表盘的创建非常简单，导出当前仪表盘结构成文件，编辑文件然后保存添加进你的 app/dashboards 目录既可以了。比如，从 <a href="https://github.com/elasticsearch/kibana/blob/v3.0.0milestone4/src/app/dashboards/logstash.json">logstash.json</a> 里摘录下面一段：</p>
-<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="s2">&quot;0&quot;</span><span class="err">:</span> <span class="p">{</span>
-    <span class="nt">&quot;query&quot;</span><span class="p">:</span> <span class="s2">&quot;{&lt;span&gt;{&lt;/span&gt;ARGS.query || &#39;*&#39;}}&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;alias&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;color&quot;</span><span class="p">:</span> <span class="s2">&quot;#7EB26D&quot;</span><span class="p">,</span>
-    <span class="nt">&quot;id&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-    <span class="nt">&quot;pin&quot;</span><span class="p">:</span> <span class="kc">false</span>
-  <span class="p">}</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="w">  </span><span class="s2">"0"</span><span class="err">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nt">"query"</span><span class="p">:</span><span class="w"> </span><span class="s2">"{&lt;span&gt;{&lt;/span&gt;ARGS.query || '*'}}"</span><span class="p">,</span><span class="w">
+    </span><span class="nt">"alias"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span><span class="w">
+    </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#7EB26D"</span><span class="p">,</span><span class="w">
+    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w">
+    </span><span class="nt">"pin"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span></code></pre>
+</div>
 <p>模板化仪表盘用&rdquo;handlebar 语法&rdquo;添加动态区段到基于JSON的仪表盘结构里。比如这里我们就用一个表达式替换掉了查询键的内容：<em>使用URL里的请求参数，如果不存在，使用&rsquo;*&lsquo;。</em> 现在我们可以用下面这条URL访问这个仪表盘了：</p>
-<pre><code>http://kibana.example.com/index.html#/dashboard/file/logstash.json?query=extension:zip
+<div class="highlighter-rouge"><pre class="highlight"><code>http://kibana.example.com/index.html#/dashboard/file/logstash.json?query=extension:zip
 </code></pre>
+</div>
 <h1 id="section-4">更灵活的脚本化仪表盘</h1>
-<p>脚本化仪表盘在处理URL参数的时候更加强大，它能运用上Javascript的全部威力构建一个完整的仪表盘对象。同样用 app/dashboards 里的 <a href="https://github.com/elasticsearch/kibana/blob/v3.0.0milestone4/src/app/dashboards/logstash.js">logstash.js</a> 举例。因为脚本化仪表盘完全就是javascript，我们可以执行复杂的操作，比如切割URL参数。如下URL中，我们搜索_最近2天内的<code>HTML</code>, <code>CSS</code> 或者 <code>PHP</code>，然后在表格里显示 <code>request</code>, <code>response</code> 和 <code>user agent</code>。_注意URL本身路径从 <strong>file__变成了__script</strong>：</p>
-<pre><code>http://localhost:8000/index.html#/dashboard/script/logstash.js?query=html,css,php&amp;from=2d&amp;fields=request,response,agent
+<p>脚本化仪表盘在处理URL参数的时候更加强大，它能运用上Javascript的全部威力构建一个完整的仪表盘对象。同样用 app/dashboards 里的 <a href="https://github.com/elasticsearch/kibana/blob/v3.0.0milestone4/src/app/dashboards/logstash.js">logstash.js</a> 举例。因为脚本化仪表盘完全就是javascript，我们可以执行复杂的操作，比如切割URL参数。如下URL中，我们搜索_最近2天内的<code class="highlighter-rouge">HTML</code>, <code class="highlighter-rouge">CSS</code> 或者 <code class="highlighter-rouge">PHP</code>，然后在表格里显示 <code class="highlighter-rouge">request</code>, <code class="highlighter-rouge">response</code> 和 <code class="highlighter-rouge">user agent</code>。_注意URL本身路径从 <strong>file__变成了__script</strong>：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>http://localhost:8000/index.html#/dashboard/script/logstash.js?query=html,css,php&amp;from=2d&amp;fields=request,response,agent
 </code></pre>
+</div>
 <h1 id="section-5">立刻下载</h1>
 <p>Milestone 4对作者和使用者都是一个飞跃。它功能更强大，当然使用也更简单。Kibana 继续集成在 Logstash 里，最新发布的 <a href="http://logstash.net/docs/1.2.2/">Logstash 1.2.2</a> 中就带有。Kibana现在也可以直接用elasticsearch.org官网下载，地址见：<a href="http://www.elasticsearch.org/overview/kibana/installation/">http://www.elasticsearch.org/overview/kibana/installation/</a>。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2014/01/14/this-week-in-kibana-20130919" title="【翻译】2013 年 9 月的 kibana 周报">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/01/14/this-week-in-kibana-20130919/" title="【翻译】2013 年 9 月的 kibana 周报">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/01/22/explain-mojo-ioloop-delay-testing" title="Mojo::IOLoop::Delay 模块测试代码解释">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/01/22/explain-mojo-ioloop-delay-testing/" title="Mojo::IOLoop::Delay 模块测试代码解释">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -139,15 +143,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

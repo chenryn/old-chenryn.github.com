@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -66,43 +66,50 @@
 <p>其中，包括有三种内核，源代码编译支持3.8的，spec编译支持3.10的，以及已经打包完成的3.2的。</p>
 <p>我已经尝试过在 Fedora19 上通过源代码编译，似乎内核从3.8到3.10有些变化，编译失败了。(但是尝试过编译3.8的确实没问题)</p>
 <p>下面通过最简单的已经打包完成的3.2内核来快速部署 docker 到 CentOS6 上，以便尝鲜：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">rpm -e kernel-firmware
+<div class="highlighter-rouge"><pre class="highlight"><code>rpm -e kernel-firmware
 rpm -i http://get.docker.io/kernels/kernel-3.2.40_grsec_dotcloud-4.x86_64.rpm
-/sbin/dracut --add-drivers dm-mod --add-drivers linear <span class="s2">&quot;&quot;</span> 3.2.40-grsec-dotcloud
+/sbin/dracut --add-drivers dm-mod --add-drivers linear <span class="s2">""</span> 3.2.40-grsec-dotcloud
 grub-install /dev/sda1
-<span class="nb">echo</span> <span class="s2">&quot;blacklist evbug&quot;</span> &gt;&gt; /etc/modprobe.d/blacklist.conf
-<span class="nb">echo</span> <span class="s2">&quot;kernel.grsecurity.chroot_caps = 0&quot;</span> &gt;&gt; /etc/sysctl.conf
-<span class="nb">echo</span> <span class="s2">&quot;sysctl kernel.grsecurity.chroot_caps=1&quot;</span> &gt;&gt; /etc/rc.local
-<span class="nb">echo</span> <span class="s2">&quot;net.ipv4.ip_forward = 1&quot;</span> &gt;&gt; /etc/sysctl.conf
+<span class="nb">echo</span> <span class="s2">"blacklist evbug"</span> &gt;&gt; /etc/modprobe.d/blacklist.conf
+<span class="nb">echo</span> <span class="s2">"kernel.grsecurity.chroot_caps = 0"</span> &gt;&gt; /etc/sysctl.conf
+<span class="nb">echo</span> <span class="s2">"sysctl kernel.grsecurity.chroot_caps=1"</span> &gt;&gt; /etc/rc.local
+<span class="nb">echo</span> <span class="s2">"net.ipv4.ip_forward = 1"</span> &gt;&gt; /etc/sysctl.conf
 mkdir /cgroup
-<span class="nb">echo</span> <span class="s2">&quot;none /cgroup cgroup defaults 0 0&quot;</span> &gt;&gt; /etc/fstab
-cat &gt;&gt; /boot/grub/grub.conf<span class="s">&lt;&lt;EOF</span>
-<span class="s">title CentOS (3.2.40_grsec_dotcloud-4.x86_64)</span>
-<span class="s">	root (hd0,0)</span>
-<span class="s">	kernel /boot/vmlinuz-3.2.40-grsec-dotcloud ro root=LABEL=/ rd_NO_LUKS rd_NO_LVM LANG=en_US.UTF-8 rd_NO_MD SYSFONT=latarcyrheb-sun16 crashkernel=auto  KEYBOARDTYPE=pc KEYTABLE=us rd_NO_DM selinux=0</span>
-<span class="s">	initrd /boot/initramfs-3.2.40-grsec-dotcloud.img</span>
-<span class="s">EOF</span>
-reboot</code></pre></div>
-<p>内核的更新就是这些，记住这个包不支持 selinux，所以启动项里要加上 <code>selinux=0</code>。</p>
+<span class="nb">echo</span> <span class="s2">"none /cgroup cgroup defaults 0 0"</span> &gt;&gt; /etc/fstab
+cat &gt;&gt; /boot/grub/grub.conf<span class="sh">&lt;&lt;EOF
+title CentOS (3.2.40_grsec_dotcloud-4.x86_64)
+	root (hd0,0)
+	kernel /boot/vmlinuz-3.2.40-grsec-dotcloud ro root=LABEL=/ rd_NO_LUKS rd_NO_LVM LANG=en_US.UTF-8 rd_NO_MD SYSFONT=latarcyrheb-sun16 crashkernel=auto  KEYBOARDTYPE=pc KEYTABLE=us rd_NO_DM selinux=0
+	initrd /boot/initramfs-3.2.40-grsec-dotcloud.img
+EOF
+</span>reboot
+</code></pre>
+</div>
+<p>内核的更新就是这些，记住这个包不支持 selinux，所以启动项里要加上 <code class="highlighter-rouge">selinux=0</code>。</p>
 <p>然后重启登录重启并选择了新内核的主机，继续安装一些依赖工具：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">wget <span class="s2">&quot;ftp://ftp.pbone.net/mirror/ftp5.gwdg.de/pub/opensuse/repositories/home%3A/awk2007%3A/fixes/Fedora_17/src/aufs-util-9999-14.1.src.rpm&quot;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>wget <span class="s2">"ftp://ftp.pbone.net/mirror/ftp5.gwdg.de/pub/opensuse/repositories/home%3A/awk2007%3A/fixes/Fedora_17/src/aufs-util-9999-14.1.src.rpm"</span>
 sudo yum install glibc-static
 rpmbuild --rebuild aufs-util-9999-14.1.src.rpm
 rpm -U /root/rpmbuild/RPMS/x86_64/aufs-util-9999-14.1.x86_64.rpm
 wget ftp://ftp.univie.ac.at/systems/linux/dag/redhat/el6/en/x86_64/dag/RPMS/lxc-0.8.0-1.el6.rf.x86_64.rpm
 wget http://apt.sw.be/redhat/el6/en/x86_64/dag/RPMS/lxc-libs-0.8.0-1.el6.rf.x86_64.rpm
-rpm -U lxc-0.8.0-1.el6.rf.x86_64.rpm lxc-libs-0.8.0-1.el6.rf.x86_64.rpm</code></pre></div>
+rpm -U lxc-0.8.0-1.el6.rf.x86_64.rpm lxc-libs-0.8.0-1.el6.rf.x86_64.rpm
+</code></pre>
+</div>
 <p>然后下载 docker 的二进制文件运行，用源代码的话比较麻烦，docker 是用 golang 写的……</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">wget http://get.docker.io/builds/Linux/x86_64/docker-latest.tgz
+<div class="highlighter-rouge"><pre class="highlight"><code>wget http://get.docker.io/builds/Linux/x86_64/docker-latest.tgz
 tar xzf docker-latest.tgz
-<span class="nb">cd </span>docker-latest</code></pre></div>
+<span class="nb">cd </span>docker-latest
+</code></pre>
+</div>
 <p>启动 docker 进程，输出如下：</p>
-<pre><code>[root@localhost docker-latest]# ./docker -d &amp;
+<div class="highlighter-rouge"><pre class="highlight"><code>[root@localhost docker-latest]# ./docker -d &amp;
 2013/08/24 18:24:18 WARNING: You are running linux kernel version 3.2.40-grsec-dotcloud, which might be unstable running docker. Please upgrade your kernel to 3.8.0.
 2013/08/24 18:24:18 Listening for HTTP on /var/run/docker.sock (unix)
 </code></pre>
+</div>
 <p>然后就可以通过 docker 命令运行了，示例及输出如下所示：</p>
-<pre><code>[root@localhost docker-latest]# ./docker run -i -t busybox /bin/sh
+<div class="highlighter-rouge"><pre class="highlight"><code>[root@localhost docker-latest]# ./docker run -i -t busybox /bin/sh
 2013/08/24 18:24:30 POST /v1.4/containers/create
 2013/08/24 18:24:30 POST /v1.4/images/create?fromImage=busybox&amp;tag=
 Pulling repository busybox
@@ -122,14 +129,15 @@ bin    dev    etc    lib    lib64  proc   sbin   sys    tmp    usr
 / # cd /root
 /bin/sh: cd: can't cd to /root
 </code></pre>
+</div>
 <p>可以看到，现在登录进来是不能切换目录到 root 家目录的。</p>
 <p>docker 已经运行起来了，更多实例，就可以看着 docker.io 上的<a href="http://docs.docker.io/en/latest/examples/">文档</a>慢慢进行了</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/08/14/my-perl-workshop-experience" title="BeiJing Perl Workshop 2013 参会总结">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/08/14/my-perl-workshop-experience/" title="BeiJing Perl Workshop 2013 参会总结">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/08/26/running-perldancer-on-docker" title="在 Docker 上运行 PerlDancer 示例">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/08/26/running-perldancer-on-docker/" title="在 Docker 上运行 PerlDancer 示例">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -173,15 +181,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

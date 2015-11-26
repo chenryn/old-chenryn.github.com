@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -59,13 +59,14 @@
 <h2 id="grok">少用 Grok</h2>
 <p>感谢群里 @wood 童鞋提供的信息，Grok 在高压力情况下确实比较容易率先成为瓶颈。所以在日志格式可控的情况下，最好可以想办法跳过使用 Grok 的环节。在早先的 cookbook 里，就有通过自定义 LogFormat 成 JSON 样式的做法。我前年博客上也写过 nginx 上如此做的示例：<a href="http://chenlinux.com/2012/09/21/json-event-for-logstash/index.html">http://chenlinux.com/2012/09/21/json-event-for-logstash/index.html</a>。</p>
 <p>不过这次并没有采用这种方式，而是定义日志格式成下面的样子，因为这种分割线方式对 Hive 平台同样是友好的。</p>
-<pre><code>log_format syslog '$remote_addr|$host|$request_uri|$status|$request_time|$body_bytes_sent|'
+<div class="highlighter-rouge"><pre class="highlight"><code>log_format syslog '$remote_addr|$host|$request_uri|$status|$request_time|$body_bytes_sent|'
                   '$upstream_addr|$upstream_status|$upstream_response_time|'
                   '$http_referrer|$http_add_x_forwarded_for|$http_user_agent';
 access_log syslog:user:info:10.4.16.68:29125:tengine syslog ratio=0.1;
 </code></pre>
+</div>
 <p>那么不用 Grok 怎么做呢？这里有一个很炫酷的写法。下面是 logstash 配置里 filter 段的实例：</p>
-<pre><code>filter {
+<div class="highlighter-rouge"><pre class="highlight"><code>filter {
     ruby {
         remove_field =&gt; ['@version', 'priority', 'timestamp', 'logsource', 'severity', 'severity_label', 'facility', 'facility_label', 'pid','message']
         init =&gt; "@kname = ['client','servername','url','status','time','size','upstream','upstreamstatus','upstreamtime','referer','xff','useragent']"
@@ -81,22 +82,24 @@ access_log syslog:user:info:10.4.16.68:29125:tengine syslog ratio=0.1;
     }
 }
 </code></pre>
+</div>
 <p>而要达到跟这段 ruby+mutate 效果一致的 grok ，写法是这样的：</p>
-<pre><code>filter {
+<div class="highlighter-rouge"><pre class="highlight"><code>filter {
     grok {
         match =&gt; ["message", "%{IPORHOST:client}\|%{HOST:servername}\|%{URIPATHPARAM:url}\|%{NUMBER:status}\|(?:%{NUMBER:time:int}|-)\|(?:%{NUMBER:size}|-)\|(?:%{HOSTPORT:upstream}|-)\|(?:%{NUMBER:upstreamstatus}|-)\|(?:%{NUMBER:upstreamtime:int}|-)\|(?:%{URI:referer}|-)\|%{GREEDYDATA:xff}\|%{GREEDYDATA:useragent}"]
         remove_field =&gt; ['@version', 'priority', 'timestamp', 'logsource', 'severity', 'severity_label', 'facility', 'facility_label', 'pid','message']
     }
 }
 </code></pre>
+</div>
 <h1 id="syslog-">syslog 瓶颈</h1>
 <p>运行起来以后，通过 Kibana 看到的全网 tengine 带宽只有 60 MBps左右，这个结果跟通过 NgxAccounting 统计输出的结果差距太大了。明显是有问题。</p>
 <p>首先怀疑不会是 nginx.conf 通过 Puppet 下发重启的时候有问题吧？实际当然没有。</p>
-<p>这时候运行 <code>netstat -pln | grep 29125</code> 命令，发现 <code>Recv-Q</code> 已经达到了 228096，并且一致维持在这个数没有变化。</p>
+<p>这时候运行 <code class="highlighter-rouge">netstat -pln | grep 29125</code> 命令，发现 <code class="highlighter-rouge">Recv-Q</code> 已经达到了 228096，并且一致维持在这个数没有变化。</p>
 <p>由于之前对 ES 写入速度没太大信心，所以这时候的反应就是去查看 ES 服务器的状态，结果其实服务器 idle% 在 80% 以上，各种空闲，Kibana 上搜索反应也非常快。通过 top 命令看具体的线程情况，logstash 的 output/elasticsearch worker 本身占用资源就很少。包括后来实际也尝试了加大 output 的 workers 数量，加大 bin/logstash -w 的 filter worker 数量，其实都没用。</p>
 <p>那么只能是 input/syslog 就没能收进来了。</p>
 <p>之前写 filter 的时候，开过 -vv 模式，所以注意到过 input/syslog 里是利用 Logstash::Filter::Grok 来判定切割 syslog 内容的。按照前一节的说法，那确实可能是在收 syslog 的时候性能跟不上啊？</p>
-<p>于是去翻了一下 Logstash::Input::Syslog 的代码，主体逻辑很简单，就是 <code>Thread.new { UDPSocket.new }</code> 这样。也就是说是一个单线程监听 UDP 端口！</p>
+<p>于是去翻了一下 Logstash::Input::Syslog 的代码，主体逻辑很简单，就是 <code class="highlighter-rouge">Thread.new { UDPSocket.new }</code> 这样。也就是说是一个单线程监听 UDP 端口！</p>
 <p>然后我又下载了同为 Ruby 写的日志收集框架 fluentd 的 syslog 插件看看源代码，fluent-plugin-syslog 里，用的是 Cool.io 库作 UDP 异步处理。好吧，其实在此之前我只知道 EventMachine 库。。。不过由于 Logstash 是 JRuby 平台，又不清楚其 event 代码(以前基本只是看各种 plugin 的代码就够了)，担心这么把 em 加上去会不会不太好。所以在摸清 logstash 代码之前，先用自己最熟悉的手段，搞定这个问题：</p>
 <p><strong>用 Perl 的高性能 EV 库解决</strong></p>
 <p>前年我同样提到过 Perl 也有仿照 Logstash 写的框架叫 Message::Passing，这个框架就是用 AnyEvent 和 Moo 写的，性能绝对没问题。不过各种插件和文档比较潦草，要想兼容现在 logstash 1.4 的 schema 比较费劲。所以，最后我选择了自己根据 tengine 日志的情况单独写一个脚本，结果如下：</p>
@@ -107,9 +110,9 @@ access_log syslog:user:info:10.4.16.68:29125:tengine syslog ratio=0.1;
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2014/06/08/perl-script-for-avbot" title="配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/06/08/perl-script-for-avbot/" title="配合 avbot 的 HTTP 接口做自动应答的 Perl 脚本">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/06/12/perl-tips" title="Perl 编程的个人惯例">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/06/12/perl-tips/" title="Perl 编程的个人惯例">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -153,15 +156,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

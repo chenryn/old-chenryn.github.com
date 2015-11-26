@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -56,38 +56,42 @@
 <p>可能一般我们在 Kibana 上更多的是针对响应时间做数值统计，针对来源IP、域名或者客户端情况做分组统计。但是如果碰到这么个问题的时候呢——<strong>过滤所有动态请求的响应时间</strong>。</p>
 <p>这时候你可能会发现一个问题：我们肯定都是用 URL 里带有问号? 来作为过滤条件。但是实际是 Kibana 里一条数据都过滤不出来。</p>
 <p>于是我开测试库模拟了一下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c"># 插入两条数据</span>
-curl http://localhost:9200/test/log/1 -d <span class="s1">&#39;{&quot;url&quot;:&quot;http://locahost/index.html&quot;}&#39;</span>
-curl http://localhost:9200/test/log/2 -d <span class="s1">&#39;{&quot;url&quot;:&quot;http://locahost/index.php?key=value&quot;}&#39;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="c"># 插入两条数据</span>
+curl http://localhost:9200/test/log/1 -d <span class="s1">'{"url":"http://locahost/index.html"}'</span>
+curl http://localhost:9200/test/log/2 -d <span class="s1">'{"url":"http://locahost/index.php?key=value"}'</span>
 <span class="c"># 搜索显示全部数据</span>
-curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span><span class="m">1</span> -d <span class="s1">&#39;{&quot;query&quot;:{&quot;regexp&quot;:{&quot;url&quot;:{&quot;value&quot;:&quot;.*&quot;}}}}&#39;</span>
+curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span>1 -d <span class="s1">'{"query":{"regexp":{"url":{"value":".*"}}}}'</span>
 <span class="c"># 搜索返回请求格式解析失败</span>
-curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span><span class="m">1</span> -d <span class="s1">&#39;{&quot;query&quot;:{&quot;regexp&quot;:{&quot;url&quot;:{&quot;value&quot;:&quot;\?.*&quot;}}}}&#39;</span>
+curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span>1 -d <span class="s1">'{"query":{"regexp":{"url":{"value":"\?.*"}}}}'</span>
 <span class="c"># 搜索返回空数据</span>
-curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span><span class="m">1</span> -d <span class="s1">&#39;{&quot;query&quot;:{&quot;regexp&quot;:{&quot;url&quot;:{&quot;value&quot;:&quot;.*\\?.*&quot;}}}}&#39;</span></code></pre></div>
+curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span>1 -d <span class="s1">'{"query":{"regexp":{"url":{"value":".*\\?.*"}}}}'</span>
+</code></pre>
+</div>
 <p>后来发现问题出在分词上面。</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c"># 删除之前的测试数据和索引</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="c"># 删除之前的测试数据和索引</span>
 curl -XDELETE http://localhost:9200/test/log
 <span class="c"># 预定义索引类型的映射，url字段在索引的时候不分词</span>
-curl http://localhost:9200/test/log/_mapping -d <span class="s1">&#39;{&quot;log&quot;:{&quot;properties&quot;:{&quot;url&quot;:{&quot;index&quot;:&quot;not_analyzed&quot;,&quot;type&quot;:&quot;string&quot;}}}}&#39;</span>
+curl http://localhost:9200/test/log/_mapping -d <span class="s1">'{"log":{"properties":{"url":{"index":"not_analyzed","type":"string"}}}}'</span>
 <span class="c"># 还是插入两条数据</span>
-curl http://localhost:9200/test/log/1 -d <span class="s1">&#39;{&quot;url&quot;:&quot;http://locahost/index.html&quot;}&#39;</span>
-curl http://localhost:9200/test/log/2 -d <span class="s1">&#39;{&quot;url&quot;:&quot;http://locahost/index.php?key=value&quot;}&#39;</span>
+curl http://localhost:9200/test/log/1 -d <span class="s1">'{"url":"http://locahost/index.html"}'</span>
+curl http://localhost:9200/test/log/2 -d <span class="s1">'{"url":"http://locahost/index.php?key=value"}'</span>
 <span class="c"># 同样的搜索请求，返回了一条结果(index.php?这条)</span>
-curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span><span class="m">1</span> -d <span class="s1">&#39;{&quot;query&quot;:{&quot;regexp&quot;:{&quot;url&quot;:{&quot;value&quot;:&quot;.*\\?.*&quot;}}}}&#39;</span></code></pre></div>
+curl http://localhost:9200/test/log/_search?pretty<span class="o">=</span>1 -d <span class="s1">'{"query":{"regexp":{"url":{"value":".*\\?.*"}}}}'</span>
+</code></pre>
+</div>
 <p>上面这个搜索还可以简写成 Query DSL 的样式：</p>
-<p><code>
-curl 'http://localhost:9200/test/log/_search?q=url:/.*\\?.*/&amp;pretty=1'
-</code></p>
-<p>而在 Logstash 比较新的 1.3.3 版本之后，有自带的 template 定义，会对每个 fields 采用 <a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/_multi_fields.html">multi-fields</a> 特性，也就是除了默认分词的 <code>URL</code> 字段以外，还有一个 <code>URL.raw</code> 字段都是不分词的。所以只要过滤这个字段就可以了。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>curl 'http://localhost:9200/test/log/_search?q=url:/.*\\?.*/&amp;pretty=1'
+</code></pre>
+</div>
+<p>而在 Logstash 比较新的 1.3.3 版本之后，有自带的 template 定义，会对每个 fields 采用 <a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/_multi_fields.html">multi-fields</a> 特性，也就是除了默认分词的 <code class="highlighter-rouge">URL</code> 字段以外，还有一个 <code class="highlighter-rouge">URL.raw</code> 字段都是不分词的。所以只要过滤这个字段就可以了。</p>
 <p>(<em>注意，ES1.0版的multi-fields的template写法完全不一样了，所以要用这个特性的童鞋还是谨慎测试logstash和es的版本配套</em>)</p>
 <p>Medcl 大神提示我：<strong>不指定 mapping 的情况下，ES 默认采用 unigram 分词</strong>。也就是切成尽可能小的单词。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2014/03/07/genarate-fig-from-diagramo" title="转换 diagramo 绘制的拓扑图成 fig.yml 格式">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/03/07/genarate-fig-from-diagramo/" title="转换 diagramo 绘制的拓扑图成 fig.yml 格式">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/03/09/thoughts-after-docker-meetup" title="Docker Meetup 参会总结">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/03/09/thoughts-after-docker-meetup/" title="Docker Meetup 参会总结">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -131,15 +135,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

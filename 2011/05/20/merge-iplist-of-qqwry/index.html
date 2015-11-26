@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,57 +52,57 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>上篇提到纯真ip库有很多行是浪费的，比如下面这种：
-&lt;div class="highlight"&gt;&lt;pre&gt;<code class="language-yaml" data-lang="yaml"><span class="l-Scalar-Plain">223.214.0.0     223.215.255.255 安徽省 电信</span>
-<span class="l-Scalar-Plain">223.216.0.0     223.219.255.255 日本</span>
-<span class="l-Scalar-Plain">223.220.0.0     223.220.162.1   青海省 电信</span>
-<span class="l-Scalar-Plain">223.220.162.2   223.220.162.2   青海省海东地区 平安县九歌网吧</span>
-<span class="l-Scalar-Plain">223.220.162.3   223.221.255.255 青海省 电信</span></code>&lt;/pre&gt;&lt;/div&gt;</p>
-<p>很简单的223.220.0.0-223.221.255.255段，却被拆成了三行。于是在通过起始ip结束ip计算子网之前，还需要合并一下这些ip段。
-因为涉及ip比对，所以第一反应想到了mysql里有的inet_aton函数，去CPAN上搜了一下，发现有NetAddr::IP::Util模块有inet_aton函数，结果一用，发现居然生成的不是数字……于是从网上找到了pack的办法，如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="k">while</span><span class="p">(</span><span class="o">&lt;&gt;</span><span class="p">){</span>
-    <span class="k">next</span> <span class="k">unless</span> <span class="nv">$_</span> <span class="o">=~</span><span class="sr"> /^(\S+)\s+(\S+)\s+(\S+)/</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$low</span> <span class="o">=</span> <span class="nb">unpack</span><span class="p">(</span><span class="s">&#39;N&#39;</span><span class="p">,(</span><span class="nb">pack</span><span class="p">(</span><span class="s">&#39;C4&#39;</span><span class="p">,(</span><span class="nb">split</span><span class="p">(</span><span class="sr"> /\./</span><span class="p">,</span><span class="nv">$1</span><span class="p">)))));</span>
-<span class="c1">#下面这行是IP::QQWry模块里的写法</span>
-<span class="c1">#    print $1 * 256**3 + $2 * 256**2 + $3 * 256 + $4 if $1 =~ /(\d+)\.(\d+)\.(\d+)\.(\d+)/;;</span>
-    <span class="k">my</span> <span class="nv">$high</span> <span class="o">=</span> <span class="nb">unpack</span><span class="p">(</span><span class="s">&#39;N&#39;</span><span class="p">,(</span><span class="nb">pack</span><span class="p">(</span><span class="s">&#39;C4&#39;</span><span class="p">,(</span><span class="nb">split</span><span class="p">(</span><span class="sr"> /\./</span><span class="p">,</span><span class="nv">$2</span><span class="p">)))));</span>
-    <span class="k">next</span> <span class="k">if</span> <span class="nv">$low</span> <span class="o">==</span> <span class="nv">$high</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$addr</span> <span class="o">=</span> <span class="nv">$3</span><span class="p">;</span>
-    <span class="k">unless</span> <span class="p">(</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">high</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">low</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$low</span><span class="p">;</span>
-        <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">high</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$high</span><span class="p">;</span>
-        <span class="k">next</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="c1">#如果中间就隔几个ip的，可以无视之，合并就是了……</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nv">$low</span> <span class="o">-</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">high</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">16</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">high</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$high</span><span class="p">;</span>
-        <span class="k">next</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="nb">unshift</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">low</span><span class="p">}},</span> <span class="nv">$low</span><span class="p">;</span>
-    <span class="nb">unshift</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">high</span><span class="p">}},</span> <span class="nv">$high</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="k">foreach</span> <span class="nv">$addr</span> <span class="p">(</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$hash</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="k">while</span> <span class="p">(</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">low</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="k">print</span> <span class="nv">$addr</span> <span class="o">.</span> <span class="s">&quot;\t&quot;</span> <span class="o">.</span> <span class="o">&amp;</span><span class="n">nota</span><span class="p">(</span><span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">low</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">])</span> <span class="o">.</span> <span class="s">&quot;\t&quot;</span> <span class="o">.</span> <span class="o">&amp;</span><span class="n">nota</span><span class="p">(</span><span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$addr</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">high</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">])</span> <span class="p">,</span> <span class="s">&quot;\n&quot;</span><span class="p">;</span>
-        <span class="nv">$i</span><span class="o">++</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">nota</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$aton</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="nv">@a</span> <span class="o">=</span> <span class="nb">unpack</span><span class="p">(</span><span class="s">&#39;C4&#39;</span><span class="p">,(</span><span class="nb">pack</span><span class="p">(</span><span class="s">&#39;N&#39;</span><span class="p">,</span><span class="nv">$aton</span><span class="p">)));</span>
-    <span class="k">return</span> <span class="p">(</span><span class="nb">join</span> <span class="s">&quot;\.&quot;</span><span class="p">,</span><span class="nv">@a</span><span class="p">);</span>
-<span class="p">};</span></code></pre></div>
-<p>pack真复杂，基本看不懂perldoc，唉……</p>
-<p>最后汇报一下运行结果：
+    <p>上篇提到纯真ip库有很多行是浪费的，比如下面这种：<code class="highlighter-rouge">yaml
+223.214.0.0     223.215.255.255 安徽省 电信
+223.216.0.0     223.219.255.255 日本
+223.220.0.0     223.220.162.1   青海省 电信
+223.220.162.2   223.220.162.2   青海省海东地区 平安县九歌网吧
+223.220.162.3   223.221.255.255 青海省 电信</code><br />
+很简单的223.220.0.0-223.221.255.255段，却被拆成了三行。于是在通过起始ip结束ip计算子网之前，还需要合并一下这些ip段。<br />
+因为涉及ip比对，所以第一反应想到了mysql里有的inet_aton函数，去CPAN上搜了一下，发现有NetAddr::IP::Util模块有inet_aton函数，结果一用，发现居然生成的不是数字……于是从网上找到了pack的办法，如下：<br />
+<code class="highlighter-rouge">perl#!/usr/bin/perl -w
+while(&lt;&gt;){
+    next unless $_ =~ /^(\S+)\s+(\S+)\s+(\S+)/;
+    my $low = unpack('N',(pack('C4',(split( /\./,$1)))));
+#下面这行是IP::QQWry模块里的写法
+#    print $1 * 256**3 + $2 * 256**2 + $3 * 256 + $4 if $1 =~ /(\d+)\.(\d+)\.(\d+)\.(\d+)/;;
+    my $high = unpack('N',(pack('C4',(split( /\./,$2)))));
+    next if $low == $high;
+    my $addr = $3;
+    unless ( $hash-&gt;{$addr}-&gt;{high}-&gt;[0] ) {
+        $hash-&gt;{$addr}-&gt;{low}-&gt;[0] = $low;
+        $hash-&gt;{$addr}-&gt;{high}-&gt;[0] = $high;
+        next;
+    };
+#如果中间就隔几个ip的，可以无视之，合并就是了……
+    if ( $low - $hash-&gt;{$addr}-&gt;{high}-&gt;[0] &lt; 16 ) {
+        $hash-&gt;{$addr}-&gt;{high}-&gt;[0] = $high;
+        next;
+    };
+    unshift @{$hash-&gt;{$addr}-&gt;{low}}, $low;
+    unshift @{$hash-&gt;{$addr}-&gt;{high}}, $high;
+};
+foreach $addr ( keys %{$hash} ) {
+    my $i = 0;
+    while ( $hash-&gt;{$addr}-&gt;{low}-&gt;[$i] ) {
+        print $addr . "\t" . &amp;nota($hash-&gt;{$addr}-&gt;{low}-&gt;[$i]) . "\t" . &amp;nota($hash-&gt;{$addr}-&gt;{high}-&gt;[$i]) , "\n";
+        $i++;
+    }
+};
+sub nota {
+    my $aton = shift;
+    @a = unpack('C4',(pack('N',$aton)));
+    return (join "\.",@a);
+};</code><br />
+pack真复杂，基本看不懂perldoc，唉……</p>
+<p>最后汇报一下运行结果：<br />
 合并前一共428452行，合并后103008行。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/05/19/get-iplist-from-qqwry" title="从纯真数据库里获取ip列表">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/05/19/get-iplist-from-qqwry/" title="从纯真数据库里获取ip列表">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/05/27/analyze-the-xml-which-nmap-output" title="nmap扫描结果xml解析脚本">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/05/27/analyze-the-xml-which-nmap-output/" title="nmap扫描结果xml解析脚本">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -146,15 +146,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -55,41 +55,45 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>在选定sersync2进行command方式刷新后，需要对诸多域名的更新频率做个简单的分析，以了解编辑的操作习惯，方便选定调整时间、确定文件过期时间等等。</p>
-<p>经过测试，早command插件下，sersync输出的是file的全路径。考虑到实际情况是有大量servername和serveralias，运行如下脚本：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/bin/bash</span>
-<span class="nv">MODIFY_FILE</span><span class="o">=</span><span class="s2">&quot;$1&quot;</span>
-<span class="nv">MODIFY_DIR</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$MODIFY_FILE</span><span class="p">|</span>awk -F/ <span class="s1">&#39;{print $3}&#39;</span><span class="sb">`</span>
-<span class="nv">MODIFY_URI</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="nv">$MODIFY_FILE</span><span class="p">|</span>sed <span class="s1">&#39;s/\/backup\/.*.test.com\/htdocs//&#39;</span><span class="sb">`</span>
-<span class="nv">MODIFY_DOMAIN</span><span class="o">=</span><span class="sb">`</span>cat servername.list<span class="p">|</span>grep <span class="nv">$MODIFY_DIR</span><span class="p">|</span>awk <span class="s1">&#39;{print $2}&#39;</span><span class="sb">`</span>
-<span class="nv">IPLIST</span><span class="o">=</span><span class="s2">&quot;1.1.1.12</span>
-<span class="s2">1.1.1.79</span>
-<span class="s2">1.1.1.87</span>
-<span class="s2">1.1.1.21</span>
-<span class="s2">1.1.1.22</span>
-<span class="s2">1.1.1.23</span>
-<span class="s2">1.1.1.27</span>
-<span class="s2">1.1.1.80</span>
-<span class="s2">&quot;</span>
-<span class="nv">Time</span><span class="o">=</span><span class="sb">`</span>date +%Y%m%d<span class="sb">`</span>
-<span class="nv">Username</span><span class="o">=</span><span class="s1">&#39;test.com&#39;</span>
-<span class="nv">Userkey</span><span class="o">=</span><span class="s1">&#39;test&#39;</span>
-<span class="nv">Userpass</span><span class="o">=</span><span class="s1">&#39;test.com1234&#39;</span>
-<span class="nv">MD5</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> -n <span class="s2">&quot;$Time$Username$Userkey$Userpass&quot;</span><span class="p">|</span>md5sum<span class="p">|</span>awk <span class="s1">&#39;{print $1}&#39;</span><span class="sb">`</span>
-<span class="k">function</span> cache_purge <span class="o">{</span>
-<span class="k">for</span> i in <span class="nv">$IPLIST</span><span class="p">;</span><span class="k">do</span>
-/home/tools/squidclient -p <span class="m">80</span> -h <span class="nv">$i</span> -m purge <span class="s2">&quot;$1&quot;</span>
-<span class="k">done</span>
-curl -s -G -d <span class="s2">&quot;username=${Username}&amp;amp;md5=${MD5}&amp;amp;url_list=$1&quot;</span> http://cs.fastweb.com.cn/interface/push_portal.php
-<span class="o">}</span>
-<span class="k">for</span> i in <span class="sb">`</span><span class="nb">echo</span> <span class="nv">$MODIFY_DOMAIN</span><span class="p">|</span>sed <span class="s1">&#39;s/,/ /g&#39;</span><span class="sb">`</span><span class="p">;</span><span class="k">do</span>
-<span class="nv">PURGE_URL</span><span class="o">=</span><span class="s2">&quot;http://$i$MODIFY_URI&quot;</span>
-<span class="nb">echo</span> <span class="s2">&quot;`date +%F-%T` $PURGE_URL&quot;</span> &gt;&gt; purge.log
-cache_purge <span class="nv">$PURGE_URL</span>
-<span class="k">done</span></code></pre></div>
+<p>经过测试，早command插件下，sersync输出的是file的全路径。考虑到实际情况是有大量servername和serveralias，运行如下脚本：<br />
+```bash<br />
+#!/bin/bash<br />
+MODIFY_FILE=&rdquo;$1&rdquo;<br />
+MODIFY_DIR=<code class="highlighter-rouge">echo $MODIFY_FILE|awk -F/ '{print $3}'</code><br />
+MODIFY_URI=<code class="highlighter-rouge">echo $MODIFY_FILE|sed 's/\/backup\/.*.test.com\/htdocs//'</code><br />
+MODIFY_DOMAIN=<code class="highlighter-rouge">cat servername.list|grep $MODIFY_DIR|awk '{print $2}'</code></p>
+<p>IPLIST=&rdquo;1.1.1.12<br />
+1.1.1.79<br />
+1.1.1.87<br />
+1.1.1.21<br />
+1.1.1.22<br />
+1.1.1.23<br />
+1.1.1.27<br />
+1.1.1.80<br />
+&ldquo;<br />
+Time=<code class="highlighter-rouge">date +%Y%m%d</code><br />
+Username=&rsquo;test.com&rsquo;<br />
+Userkey=&rsquo;test&rsquo;<br />
+Userpass=&rsquo;test.com1234&rsquo;<br />
+MD5=<code class="highlighter-rouge">echo -n "$Time$Username$Userkey$Userpass"|md5sum|awk '{print $1}'</code></p>
+<p>function cache_purge {<br />
+for i in $IPLIST;do<br />
+/home/tools/squidclient -p 80 -h $i -m purge &ldquo;$1&rdquo;<br />
+done<br />
+curl -s -G -d &ldquo;username=${Username}&amp;md5=${MD5}&amp;url_list=$1&rdquo; http://cs.fastweb.com.cn/interface/push_portal.php<br />
+}</p>
+<p>for i in <code class="highlighter-rouge">echo $MODIFY_DOMAIN|sed 's/,/ /g'</code>;do<br />
+PURGE_URL=&rdquo;http://$i$MODIFY_URI&rdquo;<br />
+echo &ldquo;<code class="highlighter-rouge">date +%F-%T</code> $PURGE_URL&rdquo;&nbsp;&raquo; purge.log<br />
+cache_purge $PURGE_URL<br />
+done<br />
+```</p>
 <p>然后运行如下命令，分别得到html/js/css的每分钟更新量：（有点小瑕疵，即当某分钟html无更新时js和css也无法记录，不过这种概率应该不高）</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">cat /home/tools/purge.log <span class="p">|</span>awk -F<span class="s2">&quot;[:|-]&quot;</span> <span class="s1">&#39;/html/{a[$4&quot;:&quot;$5]++}/js/{b[$4&quot;:&quot;$5]++}/css/{c[$4&quot;:&quot;$5]++}END{for(i in a){print i,a[i],b[i],c[i]}}&#39;</span><span class="p">|</span>sort</code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>cat /home/tools/purge.log |awk -F<span class="s2">"[:|-]"</span> <span class="s1">'/html/{a[$4":"$5]++}/js/{b[$4":"$5]++}/css/{c[$4":"$5]++}END{for(i in a){print i,a[i],b[i],c[i]}}'</span>|sort
+</code></pre>
+</div>
 <p>得到文件类似如下：</p>
-<pre><code>11:23 28 15
+<div class="highlighter-rouge"><pre class="highlight"><code>11:23 28 15
 11:24 10 7
 11:25 224 37 13
 11:26 470 192
@@ -97,30 +101,33 @@ cache_purge <span class="nv">$PURGE_URL</span>
 11:28 441 77 2
 11:29 419 8
 </code></pre>
-<p>然后创建gnuplot.conf如下：</p>
-<div class="highlight"><pre><code class="language-tcl" data-lang="tcl"><span class="k">set</span> terminal png xFFEEDD size <span class="mi">2048</span><span class="err">,</span><span class="mi">512</span>
-<span class="k">set</span> output <span class="s2">&quot;log.png&quot;</span>
-<span class="k">set</span> autoscale
-<span class="k">set</span> xdata time
-<span class="k">set</span> timefmt <span class="s2">&quot;%H:%M&quot;</span>
-<span class="k">set</span> format x <span class="s2">&quot;%H:%M&quot;</span>
-<span class="k">set</span> xtics <span class="mi">10</span>
-<span class="k">set</span> mxtics <span class="mi">4</span>
-<span class="k">set</span> style data lines
-<span class="k">set</span> datafile missing <span class="s2">&quot;0&quot;</span>
-<span class="k">set</span> xlabel <span class="s2">&quot;time per day&quot;</span>
-<span class="k">set</span> ylabel <span class="s2">&quot;purge&quot;</span>
-<span class="k">set</span> title <span class="s2">&quot;DPD expires&quot;</span>
-<span class="k">set</span> grid
-<span class="nv">plot</span> <span class="s2">&quot;log&quot;</span> using <span class="mi">1</span><span class="o">:</span><span class="mi">2</span> title <span class="s2">&quot;html/min&quot;</span><span class="err">,</span><span class="s2">&quot;log&quot;</span> using <span class="mi">1</span><span class="o">:</span><span class="mi">3</span> title <span class="s2">&quot;js/min&quot;</span><span class="err">,</span><span class="s2">&quot;log&quot;</span> using <span class="mi">1</span><span class="o">:</span><span class="mi">4</span> title <span class="s2">&quot;css/min&quot;</span></code></pre></div>
-<p>运行 <code>cat gnuplot.conf|gnuplot</code> 就得到 log.png 了，如下：</p>
+</div>
+<p>然后创建gnuplot.conf如下：<br />
+<code class="highlighter-rouge">tcl
+set terminal png xFFEEDD size 2048,512
+set output "log.png"
+set autoscale
+set xdata time
+set timefmt "%H:%M"
+set format x "%H:%M"
+set xtics 10
+set mxtics 4
+set style data lines
+set datafile missing "0"
+set xlabel "time per day"
+set ylabel "purge"
+set title "DPD expires"
+set grid
+plot "log" using 1:2 title "html/min","log" using 1:3 title "js/min","log" using 1:4 title "css/min"
+</code></p>
+<p>运行 <code class="highlighter-rouge">cat gnuplot.conf|gnuplot</code> 就得到 log.png 了，如下：</p>
 <p><img src="/images/uploads/log.png" alt="gnuplot-log" /></p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/11/24/learning-weathermap-cacti-plugin-1" title="weathermap-cacti-plugin学习(1)">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/11/24/learning-weathermap-cacti-plugin-1/" title="weathermap-cacti-plugin学习(1)">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/11/26/learning-weathermap-cacti-plugin-2" title="weathermap-cacti-plugin学习(2)">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/11/26/learning-weathermap-cacti-plugin-2/" title="weathermap-cacti-plugin学习(2)">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -164,15 +171,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

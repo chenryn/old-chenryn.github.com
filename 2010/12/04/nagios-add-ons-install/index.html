@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,40 +53,44 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>给nagios安装几个add-ons，碰到一些一般安装教程上不会提及的问题，记录一下：</p>
-<p>1、ndoutils：
-在./configure通过后make一直error，因为不管是否&ndash;with-mysql-lib，也不管&ndash;with-mysql-lib=/usr/local/mysql/lib还是/usr/local/mysql/lib/mysql，甚至使用LDFLAGS=-I/usr/local/mysql/lib等等，最后在make的时候总还是会报出如下错误：
-../include/config.h:261:25: error: mysql/mysql.h: No such file or  directory
-../include/config.h:262:26: error: mysql/errmsg.h: No such file or  directory
+<p>1、ndoutils：<br />
+在./configure通过后make一直error，因为不管是否&ndash;with-mysql-lib，也不管&ndash;with-mysql-lib=/usr/local/mysql/lib还是/usr/local/mysql/lib/mysql，甚至使用LDFLAGS=-I/usr/local/mysql/lib等等，最后在make的时候总还是会报出如下错误：<br />
+../include/config.h:261:25: error: mysql/mysql.h: No such file or  directory<br />
+../include/config.h:262:26: error: mysql/errmsg.h: No such file or  directory<br />
 解决办法：编辑config.h文件的261和262行，把mysql/*.h的mysql/删除掉即可。</p>
-<p>make完成后，将相应文件cp到指定目录，启动ndomod会报错libmysqlclient.so.6.0.0动态链接库无法找到。网上一般都说ln -s /usr/local/mysql/lib/* /usr/lib;echo &lsquo;/usr/lib&rsquo;&nbsp;&raquo; /etc/ld.so.conf;ldconfig即可。其实还不行。
+<p>make完成后，将相应文件cp到指定目录，启动ndomod会报错libmysqlclient.so.6.0.0动态链接库无法找到。网上一般都说ln -s /usr/local/mysql/lib/* /usr/lib;echo &lsquo;/usr/lib&rsquo;&nbsp;&raquo; /etc/ld.so.conf;ldconfig即可。其实还不行。<br />
 解决办法：echo &lsquo;/usr/local/mysql/lib/mysql&rsquo; &gt; /etc/ld.so.conf.d/mysql.conf;ldconfig即可。因为通用办法的目录不够深。</p>
-<p>2、pnp4nagios：
-之前使用的pnp0.4.<em>版本，今天下的是pnp0.6.</em>版本。整个url设计发生了较大变化。各监控项页面的url从pnp4nagios/index.php?host=&amp;service=变成了/pnp4nagios/graph?host=&amp;service=。而这个graph（rrd图像的url是/pnp4nagios/image?***）则通过apache的mod_rewrite实现。
-pnp自己编译时可以make出来一个httpd.conf。其中相关Rewrite的包括：</p>
-<div class="highlight"><pre><code class="language-apache" data-lang="apache"><span class="nt">&lt;Directory</span> <span class="s">&#39;&quot;/usr/local/pnp4nagios/share/&quot;</span><span class="nt">&gt;</span>
-<span class="nb">RewriteEngine</span> <span class="k">On</span>
-<span class="nb">RewriteBase</span> <span class="sx">/pnp4nagios/</span>
-<span class="nb">RewriteRule</span> ^(application|modules|system) - [F,L]
-<span class="nb">RewriteCond</span> %{REQUEST_FILENAME} !-d
-<span class="nb">RewriteCond</span> %{REQUEST_FILENAME} !-f
-<span class="nb">RewriteRule</span> .* index.php$0 [PT,L]
-<span class="nt">&lt;/Directory&gt;</span></code></pre></div>
-<p>因为pnp编译时没有具体区分etc和share的路径，所以之后apache的发布路径也不同，为了方便，不再写directory。最后经过反复试验，可用配置如下：</p>
-<div class="highlight"><pre><code class="language-apache" data-lang="apache"><span class="nb">RewriteEngine</span> <span class="k">On</span>
-<span class="nb">RewriteRule</span> ^(application|modules|system) - [F,L]
-<span class="nb">RewriteCond</span> %{DOCUMENT_ROOT}/%{REQUEST_FILENAME} !-d
-<span class="nb">RewriteCond</span> %{DOCUMENT_ROOT}/%{REQUEST_FILENAME} !-f
-<span class="nb">RewriteRule</span> ^/nagios/pnp4nagios/(.*) <span class="sx">/nagios/pnp4nagios/index.php</span>$1 [PT,L]</code></pre></div>
-<p>试验中发现几个apache与nginx的不同：
-1、rewriterule的转向url不能用^标记起始端！
-2、PT的强制进入下一个处理器相当有用，不然会形成回环rewrite！
+<p>2、pnp4nagios：<br />
+之前使用的pnp0.4.<em>版本，今天下的是pnp0.6.</em>版本。整个url设计发生了较大变化。各监控项页面的url从pnp4nagios/index.php?host=&amp;service=变成了/pnp4nagios/graph?host=&amp;service=。而这个graph（rrd图像的url是/pnp4nagios/image?***）则通过apache的mod_rewrite实现。<br />
+pnp自己编译时可以make出来一个httpd.conf。其中相关Rewrite的包括：<br />
+<code class="highlighter-rouge">apache
+&lt;Directory '"/usr/local/pnp4nagios/share/"&gt;
+RewriteEngine On
+RewriteBase /pnp4nagios/
+RewriteRule ^(application|modules|system) - [F,L]
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule .* index.php$0 [PT,L]
+&lt;/Directory&gt;
+</code><br />
+因为pnp编译时没有具体区分etc和share的路径，所以之后apache的发布路径也不同，为了方便，不再写directory。最后经过反复试验，可用配置如下：<br />
+<code class="highlighter-rouge">apache
+RewriteEngine On
+RewriteRule ^(application|modules|system) - [F,L]
+RewriteCond %{DOCUMENT_ROOT}/%{REQUEST_FILENAME} !-d
+RewriteCond %{DOCUMENT_ROOT}/%{REQUEST_FILENAME} !-f
+RewriteRule ^/nagios/pnp4nagios/(.*) /nagios/pnp4nagios/index.php$1 [PT,L]
+</code></p>
+<p>试验中发现几个apache与nginx的不同：<br />
+1、rewriterule的转向url不能用^标记起始端！<br />
+2、PT的强制进入下一个处理器相当有用，不然会形成回环rewrite！<br />
 3、rewritecond里德%{REQUEST_FILENAME}默认是在rewritebase下的——而rewritebase只能在directory里使用。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/12/03/keepalived-problem-about-vrrp-delay" title="keepalived故障一例">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/12/03/keepalived-problem-about-vrrp-delay/" title="keepalived故障一例">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/12/10/intro-amcharts" title="flash绘图利器-amcharts">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/12/10/intro-amcharts/" title="flash绘图利器-amcharts">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -130,15 +134,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

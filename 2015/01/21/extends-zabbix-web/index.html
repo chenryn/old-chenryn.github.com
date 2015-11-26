@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -67,61 +67,72 @@
 </ol>
 <p>这其中的第 1、3 步都是有现成的 API 的，直接用 hostgroup.get 和 item.get 即可。主要说说第 2、5 步。</p>
 <h2 id="api">新增 API</h2>
-<p>前面说了，API 扩展其实就是通过 MySQL 操作完成。这里通过已知 groupid 获取 item 列表，放到 MySQL 里其实就是一行 select 语句：<code>SELECT DISTINCT key_ FROM items WHERE hostid IN (SELECT hostid FROM hosts_groups WHERE groupid='1');</code>。</p>
-<p>而要实现在界面上，最简单的方式，参考 <code>include/items.inc.php</code> 里的 <em>get_item_by_hostid</em> 方法，可以定义函数如下：</p>
-<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">function get_items_by_groupid($groupid) {</span>
-<span class="x">        $items = array();</span>
-<span class="x">        $sql = &#39;SELECT DISTINCT key_ FROM items WHERE hostid IN (&#39; .</span>
-<span class="x">                       &#39;SELECT hostid FROM hosts_groups WHERE groupid=&#39; . zbx_dbstr($groupid) .</span>
-<span class="x">                       &#39;)&#39;;</span>
-<span class="x">        $db_items = DBselect($sql);</span>
-<span class="x">        while ($item = DBfetch($db_items)) {</span>
-<span class="x">                array_push($items, $item[&#39;key_&#39;]);</span>
-<span class="x">        }</span>
-<span class="x">        return $items;</span>
-<span class="x">}</span></code></pre></div>
+<p>前面说了，API 扩展其实就是通过 MySQL 操作完成。这里通过已知 groupid 获取 item 列表，放到 MySQL 里其实就是一行 select 语句：<code class="highlighter-rouge">SELECT DISTINCT key_ FROM items WHERE hostid IN (SELECT hostid FROM hosts_groups WHERE groupid='1');</code>。</p>
+<p>而要实现在界面上，最简单的方式，参考 <code class="highlighter-rouge">include/items.inc.php</code> 里的 <em>get_item_by_hostid</em> 方法，可以定义函数如下：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>function get_items_by_groupid($groupid) {
+        $items = array();
+        $sql = 'SELECT DISTINCT key_ FROM items WHERE hostid IN (' .
+                       'SELECT hostid FROM hosts_groups WHERE groupid=' . zbx_dbstr($groupid) .
+                       ')';
+        $db_items = DBselect($sql);
+        while ($item = DBfetch($db_items)) {
+                array_push($items, $item['key_']);
+        }
+        return $items;
+}
+</code></pre>
+</div>
 <p>这就可用了。</p>
 <p>不过这个函数你只能在 require 了 items.inc.php 的 PHP 页面里使用，不能暴露成 RPC 接口。</p>
 <h3 id="rpc-">修改为 RPC 接口</h3>
 <p>首先要简介一下 zabbix 的 RPC 接口是怎么传递的：</p>
-<pre><code>api_jsonrpc.php
+<div class="highlighter-rouge"><pre class="highlight"><code>api_jsonrpc.php
 |-&gt; api/rpc/class.cjsonrpc.php
     |-&gt; api/rpc/class.czbxrpc.php
         |-&gt; include/classes/api/API.php
 </code></pre>
-<p>在 API.php 中，通过 <code>getObjectClassName</code> 方法，在本文件里的 <code>$classMap</code> 获取对象的类名。</p>
+</div>
+<p>在 API.php 中，通过 <code class="highlighter-rouge">getObjectClassName</code> 方法，在本文件里的 <code class="highlighter-rouge">$classMap</code> 获取对象的类名。</p>
 <p>所以，添加一个接口，分为几步：</p>
 <ol>
   <li>实现新的类；</li>
-  <li>在 API.php 的 <code>$classMap</code> 里添加对应键值对；</li>
-  <li>在 API.php 中添加返回对应类的方法(这步是为了能在其他代码里用 <code>API::Item()</code> 这样的调用方式)。</li>
+  <li>在 API.php 的 <code class="highlighter-rouge">$classMap</code> 里添加对应键值对；</li>
+  <li>在 API.php 中添加返回对应类的方法(这步是为了能在其他代码里用 <code class="highlighter-rouge">API::Item()</code> 这样的调用方式)。</li>
 </ol>
-<p>好，第一步，创建 <code>api/classes/CItemByGroup.php</code> 文件，内容如下：</p>
-<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="cp">&lt;?php</span>
+<p>好，第一步，创建 <code class="highlighter-rouge">api/classes/CItemByGroup.php</code> 文件，内容如下：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="cp">&lt;?php</span>
 <span class="k">class</span> <span class="nc">CItemByGroup</span> <span class="k">extends</span> <span class="nx">CZBXAPI</span> <span class="p">{</span>
         <span class="k">public</span> <span class="k">function</span> <span class="nf">get</span><span class="p">(</span><span class="nv">$groupid</span><span class="p">)</span> <span class="p">{</span>
                 <span class="nv">$items</span> <span class="o">=</span> <span class="k">array</span><span class="p">();</span>
-                <span class="nv">$sql</span> <span class="o">=</span> <span class="s1">&#39;SELECT DISTINCT key_ FROM items WHERE hostid IN (&#39;</span> <span class="o">.</span>
-                               <span class="s1">&#39;SELECT hostid FROM hosts_groups WHERE groupid=&#39;</span> <span class="o">.</span> <span class="nx">zbx_dbstr</span><span class="p">(</span><span class="nv">$groupid</span><span class="p">)</span> <span class="o">.</span>
-                               <span class="s1">&#39;)&#39;</span><span class="p">;</span>
+                <span class="nv">$sql</span> <span class="o">=</span> <span class="s1">'SELECT DISTINCT key_ FROM items WHERE hostid IN ('</span> <span class="o">.</span>
+                               <span class="s1">'SELECT hostid FROM hosts_groups WHERE groupid='</span> <span class="o">.</span> <span class="nx">zbx_dbstr</span><span class="p">(</span><span class="nv">$groupid</span><span class="p">)</span> <span class="o">.</span>
+                               <span class="s1">')'</span><span class="p">;</span>
                 <span class="nv">$db_items</span> <span class="o">=</span> <span class="nx">DBselect</span><span class="p">(</span><span class="nv">$sql</span><span class="p">);</span>
                 <span class="k">while</span> <span class="p">(</span><span class="nv">$item</span> <span class="o">=</span> <span class="nx">DBfetch</span><span class="p">(</span><span class="nv">$db_items</span><span class="p">))</span> <span class="p">{</span>
-                        <span class="nb">array_push</span><span class="p">(</span><span class="nv">$items</span><span class="p">,</span> <span class="nv">$item</span><span class="p">[</span><span class="s1">&#39;key_&#39;</span><span class="p">]);</span>
+                        <span class="nb">array_push</span><span class="p">(</span><span class="nv">$items</span><span class="p">,</span> <span class="nv">$item</span><span class="p">[</span><span class="s1">'key_'</span><span class="p">]);</span>
                 <span class="p">}</span>
                 <span class="k">return</span> <span class="nv">$items</span><span class="p">;</span>
         <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
-<p>第二步，添加 <code>$classMap</code> 键值对，内容如下：</p>
-<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">&#39;itembygroup&#39; =&gt; &#39;CItemByGroup&#39;,</span></code></pre></div>
+<span class="p">}</span>
+</code></pre>
+</div>
+<p>第二步，添加 <code class="highlighter-rouge">$classMap</code> 键值对，内容如下：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    'itembygroup' =&gt; 'CItemByGroup',
+</code></pre>
+</div>
 <p>第三步，添加对应方法，内容如下：</p>
-<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">/**</span>
-<span class="x">         * @return CItemByGroup</span>
-<span class="x">         */</span>
-<span class="x">        public static function ItemByGroup() {</span>
-<span class="x">                return self::getObject(&#39;itembygroup&#39;);</span>
-<span class="x">        }</span></code></pre></div>
-<p>这样，之前页面中直接使用 <code>get_items_by_groupid($groupid)</code> 的代码，就可以改写成：</p>
-<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$items = API::ItemByGroup()-&gt;get($groupid);</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>        /**
+         * @return CItemByGroup
+         */
+        public static function ItemByGroup() {
+                return self::getObject('itembygroup');
+        }
+</code></pre>
+</div>
+<p>这样，之前页面中直接使用 <code class="highlighter-rouge">get_items_by_groupid($groupid)</code> 的代码，就可以改写成：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>$items = API::ItemByGroup()-&gt;get($groupid);
+</code></pre>
+</div>
 <p>而在其他程序里，则可以用过 <strong>itembygroup.get</strong> 这个 RPC 接口获取相同结果了。</p>
 <h2 id="zabbix-web--helper-">Zabbix Web 的布局和各种 helper 函数</h2>
 <p>zatree 项目中完全自己写了整个页面，所以像授权啊、返回其他页啊都比较麻烦。所以我们尽量了解一下 zabbix web 本身是怎么写的页面，把数据融合到整体风格里面去。</p>
@@ -131,49 +142,53 @@
   <li>new CWidget</li>
   <li>include/page_footer.php</li>
 </ol>
-<p>header 和 footer 是很顾名思义的。不过 <code>page_header.php</code> 里，通过 <code>include/menu.inc.php</code> 的 <code>zbx_construct_menu()</code> 方法，会校验访问者的权限。</p>
+<p>header 和 footer 是很顾名思义的。不过 <code class="highlighter-rouge">page_header.php</code> 里，通过 <code class="highlighter-rouge">include/menu.inc.php</code> 的 <code class="highlighter-rouge">zbx_construct_menu()</code> 方法，会校验访问者的权限。</p>
 <h3 id="section">新增页面授权</h3>
-<p><code>menu.inc.php</code> 也很简单，跟前面 api 类似，也是一个大变量来控制菜单和页面的权限，这个变量叫 <code>$ZBX_MENU</code>。<code>$ZBX_MENU</code> 数组存放的，就是 zabbix web 顶部菜单大家看到的那几个标签，Monitoring、Report 等等。如果打算把页面加在顶部菜单上，那么就直接添加一个元素到 <code>$ZBX_MENU</code> 数组，如下：</p>
-<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">&#39;sort&#39; =&gt; array(</span>
-<span class="x">                &#39;label&#39;                 =&gt; _(&#39;Sort&#39;),</span>
-<span class="x">                &#39;user_type&#39;             =&gt; USER_TYPE_ZABBIX_USER,</span>
-<span class="x">                &#39;default_page_id&#39;       =&gt; 0,</span>
-<span class="x">                &#39;force_disable_all_nodes&#39;=&gt; true,</span>
-<span class="x">                &#39;pages&#39; =&gt; array(</span>
-<span class="x">                        array(</span>
-<span class="x">                                &#39;url&#39; =&gt; &#39;sort.php&#39;,&#39;label&#39; =&gt; _(&#39;Sort&#39;)</span>
-<span class="x">                        )</span>
-<span class="x">                )</span>
-<span class="x">         ),</span></code></pre></div>
-<p>如果打算加到到次级菜单，比如放到 Monitoring 下面，那么找到 <code>view</code> 元素(其 label 为 &ldquo;Monitoring&rdquo;)，在其 <code>pages</code> 数组里加上即可：</p>
-<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">&#39;pages&#39; =&gt; array(</span>
-<span class="x">			...</span>
-<span class="x">                        array(</span>
-<span class="x">                                &#39;url&#39; =&gt; &#39;sort.php&#39;,</span>
-<span class="x">                                &#39;label&#39; =&gt; _(&#39;Sort&#39;),</span>
-<span class="x">                        )</span>
-<span class="x">                )</span>
-<span class="x">        ),</span></code></pre></div>
+<p><code class="highlighter-rouge">menu.inc.php</code> 也很简单，跟前面 api 类似，也是一个大变量来控制菜单和页面的权限，这个变量叫 <code class="highlighter-rouge">$ZBX_MENU</code>。<code class="highlighter-rouge">$ZBX_MENU</code> 数组存放的，就是 zabbix web 顶部菜单大家看到的那几个标签，Monitoring、Report 等等。如果打算把页面加在顶部菜单上，那么就直接添加一个元素到 <code class="highlighter-rouge">$ZBX_MENU</code> 数组，如下：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>        'sort' =&gt; array(
+                'label'                 =&gt; _('Sort'),
+                'user_type'             =&gt; USER_TYPE_ZABBIX_USER,
+                'default_page_id'       =&gt; 0,
+                'force_disable_all_nodes'=&gt; true,
+                'pages' =&gt; array(
+                        array(
+                                'url' =&gt; 'sort.php','label' =&gt; _('Sort')
+                        )
+                )
+         ),
+</code></pre>
+</div>
+<p>如果打算加到到次级菜单，比如放到 Monitoring 下面，那么找到 <code class="highlighter-rouge">view</code> 元素(其 label 为 &ldquo;Monitoring&rdquo;)，在其 <code class="highlighter-rouge">pages</code> 数组里加上即可：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>                'pages' =&gt; array(
+			...
+                        array(
+                                'url' =&gt; 'sort.php',
+                                'label' =&gt; _('Sort'),
+                        )
+                )
+        ),
+</code></pre>
+</div>
 <h3 id="cwidget-">CWidget 及其他组件</h3>
 <p>zabbix 虽然没有使用特别明确的 MVC 框架，倒也不用大家到处自己去拼接输出 HTML 代码，它已经实现了很多 helper 函数。</p>
 <p>比如：</p>
 <ul>
-  <li>group 和 item 的选择器，可以用 <code>CComboBox()</code> 生成；</li>
-  <li>页面交互的表单，可以用 <code>CForm()</code> 生成；</li>
-  <li>数据展示的表格，可以用 <code>CTableInfo()</code> 生成；</li>
-  <li>history graph 的链接，可以用 <code>CLink()</code> 生成；</li>
+  <li>group 和 item 的选择器，可以用 <code class="highlighter-rouge">CComboBox()</code> 生成；</li>
+  <li>页面交互的表单，可以用 <code class="highlighter-rouge">CForm()</code> 生成；</li>
+  <li>数据展示的表格，可以用 <code class="highlighter-rouge">CTableInfo()</code> 生成；</li>
+  <li>history graph 的链接，可以用 <code class="highlighter-rouge">CLink()</code> 生成；</li>
 </ul>
-<p>然后，<code>CTableInfo()</code> 可以 <code>-&gt;addRow()</code>；<code>CForm()</code>、 <code>CComboBox()</code> 和 <code>CWidget()</code> 都可以 <code>-&gt;addItem()</code>。</p>
-<p>把各种元素都添加到 CWidget 里以后，调用 <code>-&gt;show()</code> 方法即可。</p>
-<p>此外，还提供有 <code>check_fields</code>, <code>get_request</code>, <code>validate_sort_and_sortorder</code>, <code>getPageSortOrder</code>, <code>make_sorting_header</code> 和 <code>order_result</code> 等方法帮助处理请求参数和数据表格展示。</p>
+<p>然后，<code class="highlighter-rouge">CTableInfo()</code> 可以 <code class="highlighter-rouge">-&gt;addRow()</code>；<code class="highlighter-rouge">CForm()</code>、 <code class="highlighter-rouge">CComboBox()</code> 和 <code class="highlighter-rouge">CWidget()</code> 都可以 <code class="highlighter-rouge">-&gt;addItem()</code>。</p>
+<p>把各种元素都添加到 CWidget 里以后，调用 <code class="highlighter-rouge">-&gt;show()</code> 方法即可。</p>
+<p>此外，还提供有 <code class="highlighter-rouge">check_fields</code>, <code class="highlighter-rouge">get_request</code>, <code class="highlighter-rouge">validate_sort_and_sortorder</code>, <code class="highlighter-rouge">getPageSortOrder</code>, <code class="highlighter-rouge">make_sorting_header</code> 和 <code class="highlighter-rouge">order_result</code> 等方法帮助处理请求参数和数据表格展示。</p>
 <p>最后效果如下：</p>
 <p><img src="/images/uploads/zabbix_sort_web.jpg" alt="" /></p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2015/01/06/implement-script-field-for-kibana3" title="给 Kibana3 添加脚本化字段支持">&larr; Previous</a></li>
+        <li class="prev"><a href="/2015/01/06/implement-script-field-for-kibana3/" title="给 Kibana3 添加脚本化字段支持">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2015/01/22/logstash-maxmind-java" title="JRuby 调用 maxmind-java 测试">Next &rarr;</a></li>
+        <li class="next"><a href="/2015/01/22/logstash-maxmind-java/" title="JRuby 调用 maxmind-java 测试">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -217,15 +232,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -58,162 +58,166 @@
 <p>注：有些变量是可以动态修改的，有些比如内存大小之类的必须重启才生效。</p>
 <p>用shell工具最方便，因为你单写个show，会提示你所有可以show的参数。一般性能方面就是http-stats/http-trans-stats/proxy-stats/cache-stats这几个。淘宝ssd分支在这里增加了一个SSD吞吐量和RAM缓存命中率的显示。不过一开始，你会发现RAM Cache HITs一直是0.00%！！询问作者后才知道，为了尽量提高性能，默认配置下RAM命中后不统计数据直接pass了……需要在records.config里配置CONFIG proxy.config.http.record_tcp_mem_hit = 1 才行——这配置records.config.default里还没有，呵呵～～</p>
 <p>长期监控来说，用shell工具就不方便了，就要改用line工具，不过这里line读取的API，官方文档里是不全的，有一个简单的办法，就是进src/mgmt/cli/ShowCmd.cc里去把Cli_RecordGetInt里的字符串全grep出来，然后慢慢挑拣吧～～</p>
-<p>下面是一个python的脚本，用来在ganglia里监控几个我个人认为比较重要的trafficserver性能参数的。</p>
-<div class="highlight"><pre><code class="language-python" data-lang="python"><span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">re</span>
-<span class="kn">import</span> <span class="nn">sys</span>
-<span class="kn">import</span> <span class="nn">time</span>
-<span class="n">ts_line</span> <span class="o">=</span> <span class="s">&#39;/usr/local/trafficserver-ssd/bin/traffic_line&#39;</span>
-<span class="k">def</span> <span class="nf">metric_read</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
-    <span class="n">command</span> <span class="o">=</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s"> -r </span><span class="si">%s</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ts_line</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
-    <span class="n">result</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">popen</span><span class="p">(</span><span class="n">command</span><span class="p">)</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">&quot;ratio|percent&quot;</span><span class="p">,</span><span class="n">name</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="mi">100</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-<span class="n">descriptors</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="p">{</span>
-        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Cache Bytes used&#39;</span><span class="p">,</span>
-        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.process.cache.bytes_used&#39;</span><span class="p">,</span>
-        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
-        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
-        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
-        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;Bytes&#39;</span><span class="p">,</span>
-        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
-        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
-        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
-    <span class="p">},</span>
-    <span class="p">{</span>
-        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Cache size&#39;</span><span class="p">,</span>
-        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.process.cache.bytes_total&#39;</span><span class="p">,</span>
-        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
-        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
-        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
-        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;Bytes&#39;</span><span class="p">,</span>
-        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
-        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
-        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
-    <span class="p">},</span>
-    <span class="p">{</span>
-        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Transactions per second&#39;</span><span class="p">,</span>
-        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.node.user_agent_xacts_per_second&#39;</span><span class="p">,</span>
-        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
-        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
-        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
-        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;requests/sec&#39;</span><span class="p">,</span>
-        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
-        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
-        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
-    <span class="p">},</span>
-    <span class="p">{</span>
-        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Document hit rate&#39;</span><span class="p">,</span>
-        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.node.cache_hit_ratio_avg_10s&#39;</span><span class="p">,</span>
-        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
-        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
-        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
-        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;%&#39;</span><span class="p">,</span>
-        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
-        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
-        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
-    <span class="p">},</span>
-    <span class="p">{</span>
-        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Bandwidth savings&#39;</span><span class="p">,</span>
-        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.node.bandwidth_hit_ratio_avg_10s&#39;</span><span class="p">,</span>
-        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
-        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
-        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
-        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;%&#39;</span><span class="p">,</span>
-        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
-        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
-        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
-    <span class="p">},</span>
-    <span class="p">{</span>
-        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Cache percent free&#39;</span><span class="p">,</span>
-        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.node.cache.percent_free&#39;</span><span class="p">,</span>
-        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
-        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
-        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
-        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;%&#39;</span><span class="p">,</span>
-        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
-        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
-        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
-    <span class="p">},</span>
-    <span class="p">{</span>
-        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Total document bytes from client&#39;</span><span class="p">,</span>
-        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.process.http.user_agent_response_document_total_size&#39;</span><span class="p">,</span>
-        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
-        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
-        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
-        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;Bytes&#39;</span><span class="p">,</span>
-        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
-        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
-        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
-    <span class="p">},</span>
-    <span class="p">{</span>
-        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;Total SSD Serve Bytes&#39;</span><span class="p">,</span>
-        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.process.http.ssd_serve_total_size&#39;</span><span class="p">,</span>
-        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
-        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
-        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
-        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;Bytes&#39;</span><span class="p">,</span>
-        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
-        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
-        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
-    <span class="p">},</span>
-    <span class="p">{</span>
-        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;RAM Cache Hits&#39;</span><span class="p">,</span>
-        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.node.cache_hit_mem_ratio&#39;</span><span class="p">,</span>
-        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
-        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
-        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
-        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;%&#39;</span><span class="p">,</span>
-        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
-        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
-        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
-    <span class="p">},</span>
-    <span class="p">{</span>
-        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;HTTP Transaction Fresh Speeds&#39;</span><span class="p">,</span>
-        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.node.http.transaction_msec_avg_10s.hit_fresh&#39;</span><span class="p">,</span>
-        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
-        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
-        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
-        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;ms&#39;</span><span class="p">,</span>
-        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
-        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
-        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
-    <span class="p">},</span>
-    <span class="p">{</span>
-        <span class="s">&#39;description&#39;</span><span class="p">:</span><span class="s">&#39;HTTP Transaction Now Cached Speeds&#39;</span><span class="p">,</span>
-        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="s">&#39;proxy.node.http.transaction_msec_avg_10s.miss_cold&#39;</span><span class="p">,</span>
-        <span class="s">&#39;call_back&#39;</span><span class="p">:</span> <span class="n">metric_read</span><span class="p">,</span>
-        <span class="s">&#39;time_max&#39;</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span>
-        <span class="s">&#39;value_type&#39;</span><span class="p">:</span><span class="s">&#39;float&#39;</span><span class="p">,</span>
-        <span class="s">&#39;units&#39;</span><span class="p">:</span><span class="s">&#39;ms&#39;</span><span class="p">,</span>
-        <span class="s">&#39;slope&#39;</span><span class="p">:</span><span class="s">&#39;both&#39;</span><span class="p">,</span>
-        <span class="s">&#39;format&#39;</span><span class="p">:</span><span class="s">&#39;</span><span class="si">%f</span><span class="s">&#39;</span><span class="p">,</span>
-        <span class="s">&#39;groups&#39;</span><span class="p">:</span><span class="s">&#39;trafficserver&#39;</span>
-    <span class="p">},</span>
-<span class="p">]</span>
-<span class="k">def</span> <span class="nf">metric_init</span><span class="p">(</span><span class="n">params</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">descriptors</span>
-<span class="k">def</span> <span class="nf">metric_cleanup</span><span class="p">():</span>
-    <span class="k">pass</span>
-<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&#39;__main__&#39;</span><span class="p">:</span>
-    <span class="n">metric_init</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
-    <span class="k">while</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">descriptors</span><span class="p">:</span>
-            <span class="n">v</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s">&#39;call_back&#39;</span><span class="p">](</span><span class="n">d</span><span class="p">[</span><span class="s">&#39;name&#39;</span><span class="p">])</span>
-            <span class="k">print</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> = </span><span class="si">%.2f</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s">&#39;name&#39;</span><span class="p">],</span> <span class="n">v</span><span class="p">)</span>
-        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-        <span class="k">print</span> <span class="s">&#39;-&#39;</span><span class="o">*</span><span class="mi">11</span></code></pre></div>
-<p>个人之前从来没写过python，这个脚本完全照葫芦画瓢，万幸确实可以运行……</p>
+<p>下面是一个python的脚本，用来在ganglia里监控几个我个人认为比较重要的trafficserver性能参数的。<br />
+```python<br />
+import os<br />
+import re<br />
+import sys<br />
+import time</p>
+<p>ts_line = &lsquo;/usr/local/trafficserver-ssd/bin/traffic_line&rsquo;</p>
+<p>def metric_read(name):<br />
+    command = &ldquo;%s -r %s&rdquo; % (ts_line, name)<br />
+    result = os.popen(command).readlines()<br />
+    if re.search(&ldquo;ratio|percent&rdquo;,name):<br />
+        return float(result[0]) * 100<br />
+    else:<br />
+        return float(result[0])</p>
+<p>descriptors = [<br />
+    {<br />
+        &lsquo;description&rsquo;:&rsquo;Cache Bytes used&rsquo;,<br />
+        &lsquo;name&rsquo;: &lsquo;proxy.process.cache.bytes_used&rsquo;,<br />
+        &lsquo;call_back&rsquo;: metric_read,<br />
+        &lsquo;time_max&rsquo;:10,<br />
+        &lsquo;value_type&rsquo;:&rsquo;float&rsquo;,<br />
+        &lsquo;units&rsquo;:&rsquo;Bytes&rsquo;,<br />
+        &lsquo;slope&rsquo;:&rsquo;both&rsquo;,<br />
+        &lsquo;format&rsquo;:&rsquo;%f&rsquo;,<br />
+        &lsquo;groups&rsquo;:&rsquo;trafficserver&rsquo;<br />
+    },<br />
+    {<br />
+        &lsquo;description&rsquo;:&rsquo;Cache size&rsquo;,<br />
+        &lsquo;name&rsquo;: &lsquo;proxy.process.cache.bytes_total&rsquo;,<br />
+        &lsquo;call_back&rsquo;: metric_read,<br />
+        &lsquo;time_max&rsquo;:10,<br />
+        &lsquo;value_type&rsquo;:&rsquo;float&rsquo;,<br />
+        &lsquo;units&rsquo;:&rsquo;Bytes&rsquo;,<br />
+        &lsquo;slope&rsquo;:&rsquo;both&rsquo;,<br />
+        &lsquo;format&rsquo;:&rsquo;%f&rsquo;,<br />
+        &lsquo;groups&rsquo;:&rsquo;trafficserver&rsquo;<br />
+    },<br />
+    {<br />
+        &lsquo;description&rsquo;:&rsquo;Transactions per second&rsquo;,<br />
+        &lsquo;name&rsquo;: &lsquo;proxy.node.user_agent_xacts_per_second&rsquo;,<br />
+        &lsquo;call_back&rsquo;: metric_read,<br />
+        &lsquo;time_max&rsquo;:10,<br />
+        &lsquo;value_type&rsquo;:&rsquo;float&rsquo;,<br />
+        &lsquo;units&rsquo;:&rsquo;requests/sec&rsquo;,<br />
+        &lsquo;slope&rsquo;:&rsquo;both&rsquo;,<br />
+        &lsquo;format&rsquo;:&rsquo;%f&rsquo;,<br />
+        &lsquo;groups&rsquo;:&rsquo;trafficserver&rsquo;<br />
+    },<br />
+    {<br />
+        &lsquo;description&rsquo;:&rsquo;Document hit rate&rsquo;,<br />
+        &lsquo;name&rsquo;: &lsquo;proxy.node.cache_hit_ratio_avg_10s&rsquo;,<br />
+        &lsquo;call_back&rsquo;: metric_read,<br />
+        &lsquo;time_max&rsquo;:10,<br />
+        &lsquo;value_type&rsquo;:&rsquo;float&rsquo;,<br />
+        &lsquo;units&rsquo;:&rsquo;%&rsquo;,<br />
+        &lsquo;slope&rsquo;:&rsquo;both&rsquo;,<br />
+        &lsquo;format&rsquo;:&rsquo;%f&rsquo;,<br />
+        &lsquo;groups&rsquo;:&rsquo;trafficserver&rsquo;<br />
+    },<br />
+    {<br />
+        &lsquo;description&rsquo;:&rsquo;Bandwidth savings&rsquo;,<br />
+        &lsquo;name&rsquo;: &lsquo;proxy.node.bandwidth_hit_ratio_avg_10s&rsquo;,<br />
+        &lsquo;call_back&rsquo;: metric_read,<br />
+        &lsquo;time_max&rsquo;:10,<br />
+        &lsquo;value_type&rsquo;:&rsquo;float&rsquo;,<br />
+        &lsquo;units&rsquo;:&rsquo;%&rsquo;,<br />
+        &lsquo;slope&rsquo;:&rsquo;both&rsquo;,<br />
+        &lsquo;format&rsquo;:&rsquo;%f&rsquo;,<br />
+        &lsquo;groups&rsquo;:&rsquo;trafficserver&rsquo;<br />
+    },<br />
+    {<br />
+        &lsquo;description&rsquo;:&rsquo;Cache percent free&rsquo;,<br />
+        &lsquo;name&rsquo;: &lsquo;proxy.node.cache.percent_free&rsquo;,<br />
+        &lsquo;call_back&rsquo;: metric_read,<br />
+        &lsquo;time_max&rsquo;:10,<br />
+        &lsquo;value_type&rsquo;:&rsquo;float&rsquo;,<br />
+        &lsquo;units&rsquo;:&rsquo;%&rsquo;,<br />
+        &lsquo;slope&rsquo;:&rsquo;both&rsquo;,<br />
+        &lsquo;format&rsquo;:&rsquo;%f&rsquo;,<br />
+        &lsquo;groups&rsquo;:&rsquo;trafficserver&rsquo;<br />
+    },<br />
+    {<br />
+        &lsquo;description&rsquo;:&rsquo;Total document bytes from client&rsquo;,<br />
+        &lsquo;name&rsquo;: &lsquo;proxy.process.http.user_agent_response_document_total_size&rsquo;,<br />
+        &lsquo;call_back&rsquo;: metric_read,<br />
+        &lsquo;time_max&rsquo;:10,<br />
+        &lsquo;value_type&rsquo;:&rsquo;float&rsquo;,<br />
+        &lsquo;units&rsquo;:&rsquo;Bytes&rsquo;,<br />
+        &lsquo;slope&rsquo;:&rsquo;both&rsquo;,<br />
+        &lsquo;format&rsquo;:&rsquo;%f&rsquo;,<br />
+        &lsquo;groups&rsquo;:&rsquo;trafficserver&rsquo;<br />
+    },<br />
+    {<br />
+        &lsquo;description&rsquo;:&rsquo;Total SSD Serve Bytes&rsquo;,<br />
+        &lsquo;name&rsquo;: &lsquo;proxy.process.http.ssd_serve_total_size&rsquo;,<br />
+        &lsquo;call_back&rsquo;: metric_read,<br />
+        &lsquo;time_max&rsquo;:10,<br />
+        &lsquo;value_type&rsquo;:&rsquo;float&rsquo;,<br />
+        &lsquo;units&rsquo;:&rsquo;Bytes&rsquo;,<br />
+        &lsquo;slope&rsquo;:&rsquo;both&rsquo;,<br />
+        &lsquo;format&rsquo;:&rsquo;%f&rsquo;,<br />
+        &lsquo;groups&rsquo;:&rsquo;trafficserver&rsquo;<br />
+    },<br />
+    {<br />
+        &lsquo;description&rsquo;:&rsquo;RAM Cache Hits&rsquo;,<br />
+        &lsquo;name&rsquo;: &lsquo;proxy.node.cache_hit_mem_ratio&rsquo;,<br />
+        &lsquo;call_back&rsquo;: metric_read,<br />
+        &lsquo;time_max&rsquo;:10,<br />
+        &lsquo;value_type&rsquo;:&rsquo;float&rsquo;,<br />
+        &lsquo;units&rsquo;:&rsquo;%&rsquo;,<br />
+        &lsquo;slope&rsquo;:&rsquo;both&rsquo;,<br />
+        &lsquo;format&rsquo;:&rsquo;%f&rsquo;,<br />
+        &lsquo;groups&rsquo;:&rsquo;trafficserver&rsquo;<br />
+    },<br />
+    {<br />
+        &lsquo;description&rsquo;:&rsquo;HTTP Transaction Fresh Speeds&rsquo;,<br />
+        &lsquo;name&rsquo;: &lsquo;proxy.node.http.transaction_msec_avg_10s.hit_fresh&rsquo;,<br />
+        &lsquo;call_back&rsquo;: metric_read,<br />
+        &lsquo;time_max&rsquo;:10,<br />
+        &lsquo;value_type&rsquo;:&rsquo;float&rsquo;,<br />
+        &lsquo;units&rsquo;:&rsquo;ms&rsquo;,<br />
+        &lsquo;slope&rsquo;:&rsquo;both&rsquo;,<br />
+        &lsquo;format&rsquo;:&rsquo;%f&rsquo;,<br />
+        &lsquo;groups&rsquo;:&rsquo;trafficserver&rsquo;<br />
+    },<br />
+    {<br />
+        &lsquo;description&rsquo;:&rsquo;HTTP Transaction Now Cached Speeds&rsquo;,<br />
+        &lsquo;name&rsquo;: &lsquo;proxy.node.http.transaction_msec_avg_10s.miss_cold&rsquo;,<br />
+        &lsquo;call_back&rsquo;: metric_read,<br />
+        &lsquo;time_max&rsquo;:10,<br />
+        &lsquo;value_type&rsquo;:&rsquo;float&rsquo;,<br />
+        &lsquo;units&rsquo;:&rsquo;ms&rsquo;,<br />
+        &lsquo;slope&rsquo;:&rsquo;both&rsquo;,<br />
+        &lsquo;format&rsquo;:&rsquo;%f&rsquo;,<br />
+        &lsquo;groups&rsquo;:&rsquo;trafficserver&rsquo;<br />
+    },<br />
+]</p>
+<p>def metric_init(params):<br />
+    return descriptors</p>
+<p>def metric_cleanup():<br />
+    pass</p>
+<p>if <strong>name</strong> == &lsquo;<strong>main</strong>&rsquo;:<br />
+    metric_init(None)</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>while 1:
+    for d in descriptors:
+        v = d['call_back'](d['name'])
+        print '%s = %.2f' % (d['name'], v)
+    time.sleep(2)
+    print '-'*11
+</code></pre>
+</div>
+<p>```<br />
+个人之前从来没写过python，这个脚本完全照葫芦画瓢，万幸确实可以运行……</p>
 <p>不过不太明白的就是，如果把def metric_read定义在descriptors数组后面，运行会报错。很奇怪python为什么会这样？</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/06/01/dist-logstash-and-elasticsearch" title="【Logstash系列】用rabbitmq和elasticsearch搭建分布式日志收集存储系统">&larr; Previous</a></li>
+        <li class="prev"><a href="/2012/06/01/dist-logstash-and-elasticsearch/" title="【Logstash系列】用rabbitmq和elasticsearch搭建分布式日志收集存储系统">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/06/08/intro-trafficserver-ssd-branch-in-taobao" title="淘宝TrafficServer的SSD分支测试与介绍">Next &rarr;</a></li>
+        <li class="next"><a href="/2012/06/08/intro-trafficserver-ssd-branch-in-taobao/" title="淘宝TrafficServer的SSD分支测试与介绍">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -257,15 +261,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,48 +53,50 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>之前已经用很多博文说过了 logstash 如何配合 elasticsearch 以及 kibana 来做日子分析和实时搜索。其实 logstash 上百个插件还有很多其他的玩法，绝不是局限在日志搜索统计方面的。今天就展示另一个做法。根据日志中的异常值出现频率报警。</p>
-<p>在 logstash 的官网上，针对这个问题采用的办法是讲异常值计数 output 到 <code>statsd</code> 中，然后可以用通过观测 <code>graphite</code> 图形变化来判断异常。(或者配合 nagios 的 <code>check_graphite</code> 插件？) 官网说明见：<a href="http://logstash.net/docs/1.1.13/tutorials/metrics-from-logs">http://logstash.net/docs/1.1.13/tutorials/metrics-from-logs</a></p>
+<p>在 logstash 的官网上，针对这个问题采用的办法是讲异常值计数 output 到 <code class="highlighter-rouge">statsd</code> 中，然后可以用通过观测 <code class="highlighter-rouge">graphite</code> 图形变化来判断异常。(或者配合 nagios 的 <code class="highlighter-rouge">check_graphite</code> 插件？) 官网说明见：<a href="http://logstash.net/docs/1.1.13/tutorials/metrics-from-logs">http://logstash.net/docs/1.1.13/tutorials/metrics-from-logs</a></p>
 <p>如果不想一直盯着页面看的话，可以利用另外几个插件来实现类似的做法，比如我要监控访问日志，如果其中 504 状态码<del>每分钟</del>超过 100 次，就报警出来。logstash 配置如下：</p>
-<p><strong>2014 年 08 月 20 日注：上面说法有误，<code>rate_1m</code> 的含义是：最近 1 分钟内的每秒速率！</strong></p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">input</span> <span class="p">{</span>
+<p><strong>2014 年 08 月 20 日注：上面说法有误，<code class="highlighter-rouge">rate_1m</code> 的含义是：最近 1 分钟内的每秒速率！</strong></p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="n">input</span> <span class="p">{</span>
         <span class="n">stdin</span> <span class="p">{</span>
-            <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;apache&quot;</span>
+            <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">"apache"</span>
         <span class="p">}</span>
     <span class="p">}</span>
     <span class="n">filter</span> <span class="p">{</span>
         <span class="n">grok</span> <span class="p">{</span>
-            <span class="n">pattern</span> <span class="o">=&gt;</span> <span class="s2">&quot;\[%{HTTPDATE:ts}\] %{NUMBER:status} %{IPORHOST:remotehost} %{URIHOST} %{WORD} %{URIPATHPARAM:url} HTTP/%{NUMBER} %{URIHOST:oh} %{NUMBER:responsetime:float} %{NUMBER:upstreamtime:float} (?:%{NUMBER:bytes:float}|-)&quot;</span>
-            <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;apache&quot;</span>
+            <span class="n">pattern</span> <span class="o">=&gt;</span> <span class="s2">"</span><span class="se">\[</span><span class="s2">%{HTTPDATE:ts}</span><span class="se">\]</span><span class="s2"> %{NUMBER:status} %{IPORHOST:remotehost} %{URIHOST} %{WORD} %{URIPATHPARAM:url} HTTP/%{NUMBER} %{URIHOST:oh} %{NUMBER:responsetime:float} %{NUMBER:upstreamtime:float} (?:%{NUMBER:bytes:float}|-)"</span>
+            <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">"apache"</span>
         <span class="p">}</span>
         <span class="n">metrics</span> <span class="p">{</span>
-            <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;apache&quot;</span>
-            <span class="n">meter</span> <span class="o">=&gt;</span> <span class="s2">&quot;error.%{status}&quot;</span>
-            <span class="n">add_tag</span> <span class="o">=&gt;</span> <span class="s2">&quot;metric&quot;</span>
+            <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">"apache"</span>
+            <span class="n">meter</span> <span class="o">=&gt;</span> <span class="s2">"error.%{status}"</span>
+            <span class="n">add_tag</span> <span class="o">=&gt;</span> <span class="s2">"metric"</span>
             <span class="n">ignore_older_than</span> <span class="o">=&gt;</span> <span class="mi">10</span>
         <span class="p">}</span>
         <span class="n">ruby</span> <span class="p">{</span>
-            <span class="n">tags</span> <span class="o">=&gt;</span> <span class="s2">&quot;metric&quot;</span>
-<span class="c1">#            code =&gt; &quot;event.cancel if event[&#39;@fields&#39;][&#39;error.504.rate_1m&#39;] &lt; 100&quot;</span>
+            <span class="n">tags</span> <span class="o">=&gt;</span> <span class="s2">"metric"</span>
+<span class="c1">#            code =&gt; "event.cancel if event['@fields']['error.504.rate_1m'] &lt; 100"</span>
 <span class="c1">#           2014/08/20: 每秒速率，所以要乘以60s。另，新版本没有了@fields，都存在顶级field里。</span>
-            <span class="n">code</span> <span class="o">=&gt;</span> <span class="s2">&quot;event.cancel if event[&#39;error.504.rate_1m&#39;]*60 &lt; 100&quot;</span>
+            <span class="n">code</span> <span class="o">=&gt;</span> <span class="s2">"event.cancel if event['error.504.rate_1m']*60 &lt; 100"</span>
         <span class="p">}</span>
     <span class="p">}</span>
     <span class="n">output</span> <span class="p">{</span>
         <span class="nb">exec</span> <span class="p">{</span>
-            <span class="n">tags</span> <span class="o">=&gt;</span> <span class="s2">&quot;metric&quot;</span>
-            <span class="n">command</span> <span class="o">=&gt;</span> <span class="s2">&quot;sendsms.pl -m &#39;%{error\.504\.rate_1m}&#39;&quot;</span>
+            <span class="n">tags</span> <span class="o">=&gt;</span> <span class="s2">"metric"</span>
+            <span class="n">command</span> <span class="o">=&gt;</span> <span class="s2">"sendsms.pl -m '%{error</span><span class="se">\.</span><span class="s2">504</span><span class="se">\.</span><span class="s2">rate_1m}'"</span>
         <span class="p">}</span>
-    <span class="p">}</span></code></pre></div>
-<p>其中关键在两个 filter。 metrics 插件可以每5秒(前天刚更新了源码，这个值可以自己指定了)更新一次统计值，支持 <code>meter</code> 和 <code>timer</code> 两种，<code>timer</code> 除了 <code>count</code> 和 <code>rate_1|5|15m</code> 外，还可以统计 <code>min|max|stddev|mean</code> 和 <code>p1|5|10|90|95|99</code> 等详细数据。</p>
-<p>ruby 插件则是直接 <code>eval</code> 写在 <code>code</code> 配置里的代码。</p>
-<p>需要注意的是： <code>output</code> 里使用的时候，需要用 <code>\</code> 转义 <code>.</code>。否则配置解析后会认为变量不存在。这是目前官网文档上写的有问题的地方。我已經跟作者提过，或许过些天会修改。</p>
+    <span class="p">}</span>
+</code></pre>
+</div>
+<p>其中关键在两个 filter。 metrics 插件可以每5秒(前天刚更新了源码，这个值可以自己指定了)更新一次统计值，支持 <code class="highlighter-rouge">meter</code> 和 <code class="highlighter-rouge">timer</code> 两种，<code class="highlighter-rouge">timer</code> 除了 <code class="highlighter-rouge">count</code> 和 <code class="highlighter-rouge">rate_1|5|15m</code> 外，还可以统计 <code class="highlighter-rouge">min|max|stddev|mean</code> 和 <code class="highlighter-rouge">p1|5|10|90|95|99</code> 等详细数据。</p>
+<p>ruby 插件则是直接 <code class="highlighter-rouge">eval</code> 写在 <code class="highlighter-rouge">code</code> 配置里的代码。</p>
+<p>需要注意的是： <code class="highlighter-rouge">output</code> 里使用的时候，需要用 <code class="highlighter-rouge">\</code> 转义 <code class="highlighter-rouge">.</code>。否则配置解析后会认为变量不存在。这是目前官网文档上写的有问题的地方。我已經跟作者提过，或许过些天会修改。</p>
 <p>值得一提的是：metrics 插件的输出是一个全新的 event，而不会去改变原先 grok 生成的 event。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/06/28/howto-get-peer-ipaddr-in-http-get" title="获取 Perl 程序中 GET 请求发向的具体 IP">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/06/28/howto-get-peer-ipaddr-in-http-get/" title="获取 Perl 程序中 GET 请求发向的具体 IP">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/07/22/intro-selenium-remote-driver" title="Selenium 测试框架介绍">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/07/22/intro-selenium-remote-driver/" title="Selenium 测试框架介绍">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -138,15 +140,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

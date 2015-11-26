@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,39 +53,39 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>Puppet 默认提供了相当多的资源类型，不过我们还可以更进一步的扩展这个庞大的阵营。比如在 <code>package</code> 类型的资源里，我们看到 puppet 除了系统级别的<code>yum</code>,<code>apt</code>之类意外，还提供了 <code>gem</code>,<code>pip</code> 来管理 ruby 和 python 的 package。那么很自然的，我们就可以进一步扩充 <code>package</code> 来管理 perl 的 package 。只需要新加一个 provider 就可以了。</p>
+    <p>Puppet 默认提供了相当多的资源类型，不过我们还可以更进一步的扩展这个庞大的阵营。比如在 <code class="highlighter-rouge">package</code> 类型的资源里，我们看到 puppet 除了系统级别的<code class="highlighter-rouge">yum</code>,<code class="highlighter-rouge">apt</code>之类意外，还提供了 <code class="highlighter-rouge">gem</code>,<code class="highlighter-rouge">pip</code> 来管理 ruby 和 python 的 package。那么很自然的，我们就可以进一步扩充 <code class="highlighter-rouge">package</code> 来管理 perl 的 package 。只需要新加一个 provider 就可以了。</p>
 <p>关于 provider 开发的原理说明，见 <a href="http://docs.puppetlabs.com/guides/provider_development.html">http://docs.puppetlabs.com/guides/provider_development.html</a>。</p>
-<p>下面是 <code>/etc/puppet/modules/production/myclass/lib/puppet/provider/package/cpan.rb</code> 的内容，他会被 puppet 以 <code>pluginsync</code> 的方式下发。</p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="c1"># 加载父类，这里是扩展 package 功能</span>
-<span class="nb">require</span> <span class="s1">&#39;puppet/provider/package&#39;</span>
-<span class="no">Puppet</span><span class="o">::</span><span class="no">Type</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="ss">:package</span><span class="p">)</span><span class="o">.</span><span class="n">provide</span> <span class="ss">:cpan</span><span class="p">,</span> <span class="ss">:parent</span> <span class="o">=&gt;</span> <span class="no">Puppet</span><span class="o">::</span><span class="no">Provider</span><span class="o">::</span><span class="no">Package</span> <span class="k">do</span>
-  <span class="n">desc</span> <span class="s2">&quot;CPAN modules support.  You can pass any `source` which `cpanm` support, </span>
-<span class="s2">    like URL, git repos and local tar.gz. If source is not present at all,</span>
-<span class="s2">    the module will be installed from the default CPAN source.</span>
-<span class="s2">    You must install App::cpanminus, App::pmodinfo, App::pmuninstall before.&quot;</span>
+<p>下面是 <code class="highlighter-rouge">/etc/puppet/modules/production/myclass/lib/puppet/provider/package/cpan.rb</code> 的内容，他会被 puppet 以 <code class="highlighter-rouge">pluginsync</code> 的方式下发。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="c1"># 加载父类，这里是扩展 package 功能</span>
+<span class="nb">require</span> <span class="s1">'puppet/provider/package'</span>
+<span class="no">Puppet</span><span class="o">::</span><span class="no">Type</span><span class="p">.</span><span class="nf">type</span><span class="p">(</span><span class="ss">:package</span><span class="p">).</span><span class="nf">provide</span> <span class="ss">:cpan</span><span class="p">,</span> <span class="ss">:parent</span> <span class="o">=&gt;</span> <span class="no">Puppet</span><span class="o">::</span><span class="no">Provider</span><span class="o">::</span><span class="no">Package</span> <span class="k">do</span>
+  <span class="n">desc</span> <span class="s2">"CPAN modules support.  You can pass any `source` which `cpanm` support, 
+    like URL, git repos and local tar.gz. If source is not present at all,
+    the module will be installed from the default CPAN source.
+    You must install App::cpanminus, App::pmodinfo, App::pmuninstall before."</span>
   <span class="n">has_feature</span> <span class="ss">:versionable</span>
   <span class="c1"># 下面这个是 Puppet::Provider 提供的私有方法，用来指定类内部适用的系统命令</span>
   <span class="c1"># puppet agent 会通过对这个的运行测试来确认该 provider 是否适用于本机</span>
   <span class="c1"># 所以在使用这个 provider 之前，要先通过其他方式在 node 上安装好这三个命令</span>
-  <span class="n">commands</span> <span class="ss">:cpanmcmd</span> <span class="o">=&gt;</span> <span class="s2">&quot;cpanm&quot;</span>
-  <span class="n">commands</span> <span class="ss">:pmodinfocmd</span> <span class="o">=&gt;</span> <span class="s2">&quot;pmodinfo&quot;</span>
-  <span class="n">commands</span> <span class="ss">:pmuninstallcmd</span> <span class="o">=&gt;</span> <span class="s2">&quot;pm-uninstall&quot;</span>
+  <span class="n">commands</span> <span class="ss">:cpanmcmd</span> <span class="o">=&gt;</span> <span class="s2">"cpanm"</span>
+  <span class="n">commands</span> <span class="ss">:pmodinfocmd</span> <span class="o">=&gt;</span> <span class="s2">"pmodinfo"</span>
+  <span class="n">commands</span> <span class="ss">:pmuninstallcmd</span> <span class="o">=&gt;</span> <span class="s2">"pm-uninstall"</span>
   <span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">pmodlist</span><span class="p">(</span><span class="n">options</span><span class="p">)</span>
-    <span class="n">pmodlist_command</span> <span class="o">=</span> <span class="o">[</span><span class="n">command</span><span class="p">(</span><span class="ss">:pmodinfocmd</span><span class="p">),</span><span class="o">]</span>
-    <span class="k">if</span> <span class="n">options</span><span class="o">[</span><span class="ss">:local</span><span class="o">]</span>
-      <span class="n">pmodlist_command</span> <span class="o">&lt;&lt;</span> <span class="s2">&quot;-l&quot;</span>
+    <span class="n">pmodlist_command</span> <span class="o">=</span> <span class="p">[</span><span class="n">command</span><span class="p">(</span><span class="ss">:pmodinfocmd</span><span class="p">),]</span>
+    <span class="k">if</span> <span class="n">options</span><span class="p">[</span><span class="ss">:local</span><span class="p">]</span>
+      <span class="n">pmodlist_command</span> <span class="o">&lt;&lt;</span> <span class="s2">"-l"</span>
     <span class="k">else</span>
-      <span class="n">pmodlist_command</span> <span class="o">&lt;&lt;</span> <span class="s2">&quot;-c&quot;</span>
+      <span class="n">pmodlist_command</span> <span class="o">&lt;&lt;</span> <span class="s2">"-c"</span>
     <span class="k">end</span>
-    <span class="k">if</span> <span class="nb">name</span> <span class="o">=</span> <span class="n">options</span><span class="o">[</span><span class="ss">:justme</span><span class="o">]</span>
+    <span class="k">if</span> <span class="nb">name</span> <span class="o">=</span> <span class="n">options</span><span class="p">[</span><span class="ss">:justme</span><span class="p">]</span>
       <span class="n">pmodlist_command</span> <span class="o">&lt;&lt;</span> <span class="nb">name</span>
       <span class="c1"># execute 是 Puppet::Util::Execution 提供的方法，接受数组传入，输出标准输出结果字符串</span>
-      <span class="n">list</span> <span class="o">=</span> <span class="o">[</span><span class="n">execute</span><span class="p">(</span><span class="n">pmodlist_command</span><span class="p">)</span><span class="o">].</span><span class="n">map</span> <span class="p">{</span><span class="o">|</span><span class="n">set</span><span class="o">|</span> <span class="n">pmodsplit</span><span class="p">(</span><span class="n">set</span><span class="p">)</span> <span class="p">}</span><span class="o">.</span><span class="n">reject</span> <span class="p">{</span><span class="o">|</span><span class="n">x</span><span class="o">|</span> <span class="n">x</span><span class="o">.</span><span class="n">nil?</span> <span class="p">}</span>
+      <span class="n">list</span> <span class="o">=</span> <span class="p">[</span><span class="n">execute</span><span class="p">(</span><span class="n">pmodlist_command</span><span class="p">)].</span><span class="nf">map</span> <span class="p">{</span><span class="o">|</span><span class="n">set</span><span class="o">|</span> <span class="n">pmodsplit</span><span class="p">(</span><span class="n">set</span><span class="p">)</span> <span class="p">}.</span><span class="nf">reject</span> <span class="p">{</span><span class="o">|</span><span class="n">x</span><span class="o">|</span> <span class="n">x</span><span class="p">.</span><span class="nf">nil?</span> <span class="p">}</span>
     <span class="k">else</span>
-      <span class="n">list</span> <span class="o">=</span> <span class="n">execute</span><span class="p">(</span><span class="n">pmodlist_command</span><span class="p">)</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">map</span> <span class="p">{</span><span class="o">|</span><span class="n">set</span><span class="o">|</span> <span class="n">pmodsplit</span><span class="p">(</span><span class="n">set</span><span class="p">)</span> <span class="p">}</span><span class="o">.</span><span class="n">reject</span> <span class="p">{</span><span class="o">|</span><span class="n">x</span><span class="o">|</span> <span class="n">x</span><span class="o">.</span><span class="n">nil?</span> <span class="p">}</span>
+      <span class="n">list</span> <span class="o">=</span> <span class="n">execute</span><span class="p">(</span><span class="n">pmodlist_command</span><span class="p">).</span><span class="nf">lines</span><span class="p">.</span><span class="nf">map</span> <span class="p">{</span><span class="o">|</span><span class="n">set</span><span class="o">|</span> <span class="n">pmodsplit</span><span class="p">(</span><span class="n">set</span><span class="p">)</span> <span class="p">}.</span><span class="nf">reject</span> <span class="p">{</span><span class="o">|</span><span class="n">x</span><span class="o">|</span> <span class="n">x</span><span class="p">.</span><span class="nf">nil?</span> <span class="p">}</span>
     <span class="k">end</span>
-    <span class="k">if</span> <span class="nb">name</span> <span class="o">=</span> <span class="n">options</span><span class="o">[</span><span class="ss">:justme</span><span class="o">]</span>
-      <span class="k">return</span> <span class="n">list</span><span class="o">.</span><span class="n">shift</span>
+    <span class="k">if</span> <span class="nb">name</span> <span class="o">=</span> <span class="n">options</span><span class="p">[</span><span class="ss">:justme</span><span class="p">]</span>
+      <span class="k">return</span> <span class="n">list</span><span class="p">.</span><span class="nf">shift</span>
     <span class="k">else</span>
       <span class="k">return</span> <span class="n">list</span>
     <span class="k">end</span>
@@ -95,9 +95,9 @@
       <span class="nb">name</span> <span class="o">=</span> <span class="vg">$1</span>
       <span class="c1"># 整个rb是从gem.rb复制过来的，gem list -r所有版本列成一行，split成一个数组</span>
       <span class="c1"># 这里为了改动少点，就照样做成数组</span>
-      <span class="n">versions</span> <span class="o">=</span> <span class="o">[</span><span class="vg">$2</span><span class="o">]</span>
+      <span class="n">versions</span> <span class="o">=</span> <span class="p">[</span><span class="vg">$2</span><span class="p">]</span>
       <span class="k">if</span> <span class="n">latest_version</span> <span class="o">=</span> <span class="vg">$3</span>
-        <span class="n">versions</span><span class="o">.</span><span class="n">unshift</span><span class="p">(</span><span class="vg">$4</span><span class="p">)</span>
+        <span class="n">versions</span><span class="p">.</span><span class="nf">unshift</span><span class="p">(</span><span class="vg">$4</span><span class="p">)</span>
       <span class="k">end</span>
       <span class="p">{</span>
         <span class="ss">:name</span>     <span class="o">=&gt;</span> <span class="nb">name</span><span class="p">,</span>
@@ -105,51 +105,54 @@
         <span class="ss">:provider</span> <span class="o">=&gt;</span> <span class="ss">:cpan</span>
       <span class="p">}</span>
     <span class="k">else</span>
-      <span class="no">Puppet</span><span class="o">.</span><span class="n">warning</span> <span class="s2">&quot;Could not match </span><span class="si">#{</span><span class="n">desc</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">unless</span> <span class="n">desc</span><span class="o">.</span><span class="n">chomp</span><span class="o">.</span><span class="n">empty?</span>
+      <span class="no">Puppet</span><span class="p">.</span><span class="nf">warning</span> <span class="s2">"Could not match </span><span class="si">#{</span><span class="n">desc</span><span class="si">}</span><span class="s2">"</span> <span class="k">unless</span> <span class="n">desc</span><span class="p">.</span><span class="nf">chomp</span><span class="p">.</span><span class="nf">empty?</span>
       <span class="kp">nil</span>
     <span class="k">end</span>
   <span class="k">end</span>
   <span class="c1"># 这个 instances 方法是 provider 必须提供，在package里就是本地模块的列表</span>
   <span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">instances</span><span class="p">(</span><span class="n">justme</span> <span class="o">=</span> <span class="kp">false</span><span class="p">)</span>
-    <span class="n">pmodlist</span><span class="p">(</span><span class="ss">:local</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span> <span class="k">do</span> <span class="o">|</span><span class="nb">hash</span><span class="o">|</span>
+    <span class="n">pmodlist</span><span class="p">(</span><span class="ss">:local</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">).</span><span class="nf">collect</span> <span class="k">do</span> <span class="o">|</span><span class="nb">hash</span><span class="o">|</span>
       <span class="kp">new</span><span class="p">(</span><span class="nb">hash</span><span class="p">)</span>
     <span class="k">end</span>
   <span class="k">end</span>
   <span class="c1"># 往下的方法都是 package 要求提供的</span>
   <span class="k">def</span> <span class="nf">install</span><span class="p">(</span><span class="n">useversion</span> <span class="o">=</span> <span class="kp">true</span><span class="p">)</span>
-    <span class="n">command</span> <span class="o">=</span> <span class="o">[</span><span class="n">command</span><span class="p">(</span><span class="ss">:cpanmcmd</span><span class="p">)</span><span class="o">]</span>
+    <span class="n">command</span> <span class="o">=</span> <span class="p">[</span><span class="n">command</span><span class="p">(</span><span class="ss">:cpanmcmd</span><span class="p">)]</span>
     <span class="c1"># cpanm 指定安装版本的命令格式是这样： cpanm Dancer@1.000</span>
-    <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span> <span class="o">+=</span> <span class="s1">&#39;@&#39;</span> <span class="o">+</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:ensure</span><span class="o">]</span> <span class="k">if</span> <span class="p">(</span><span class="o">!</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:ensure</span><span class="o">].</span><span class="n">is_a?</span> <span class="no">Symbol</span><span class="p">)</span> <span class="ow">and</span> <span class="n">useversion</span>
-    <span class="n">command</span> <span class="o">&lt;&lt;</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span>
+    <span class="n">resource</span><span class="p">[</span><span class="ss">:name</span><span class="p">]</span> <span class="o">+=</span> <span class="s1">'@'</span> <span class="o">+</span> <span class="n">resource</span><span class="p">[</span><span class="ss">:ensure</span><span class="p">]</span> <span class="k">if</span> <span class="p">(</span><span class="o">!</span> <span class="n">resource</span><span class="p">[</span><span class="ss">:ensure</span><span class="p">].</span><span class="nf">is_a?</span> <span class="no">Symbol</span><span class="p">)</span> <span class="n">and</span> <span class="n">useversion</span>
+    <span class="n">command</span> <span class="o">&lt;&lt;</span> <span class="n">resource</span><span class="p">[</span><span class="ss">:name</span><span class="p">]</span>
     <span class="n">output</span> <span class="o">=</span> <span class="n">execute</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
-    <span class="nb">self</span><span class="o">.</span><span class="n">fail</span> <span class="s2">&quot;Could not install: </span><span class="si">#{</span><span class="n">output</span><span class="o">.</span><span class="n">chomp</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">output</span><span class="o">.</span><span class="n">include?</span><span class="p">(</span><span class="s2">&quot;failed&quot;</span><span class="p">)</span>
+    <span class="nb">self</span><span class="p">.</span><span class="nf">fail</span> <span class="s2">"Could not install: </span><span class="si">#{</span><span class="n">output</span><span class="p">.</span><span class="nf">chomp</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">output</span><span class="p">.</span><span class="nf">include?</span><span class="p">(</span><span class="s2">"failed"</span><span class="p">)</span>
   <span class="k">end</span>
   <span class="k">def</span> <span class="nf">latest</span>
-    <span class="n">pmodinfo_options</span> <span class="o">=</span> <span class="p">{</span><span class="ss">:justme</span> <span class="o">=&gt;</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span><span class="p">}</span>
-    <span class="nb">hash</span> <span class="o">=</span> <span class="nb">self</span><span class="o">.</span><span class="n">class</span><span class="o">.</span><span class="n">pmodlist</span><span class="p">(</span><span class="n">pmodlist_options</span><span class="p">)</span>
+    <span class="n">pmodinfo_options</span> <span class="o">=</span> <span class="p">{</span><span class="ss">:justme</span> <span class="o">=&gt;</span> <span class="n">resource</span><span class="p">[</span><span class="ss">:name</span><span class="p">]}</span>
+    <span class="nb">hash</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="nf">class</span><span class="p">.</span><span class="nf">pmodlist</span><span class="p">(</span><span class="n">pmodlist_options</span><span class="p">)</span>
     <span class="c1"># 这里就是前面要用数组的原因了</span>
-    <span class="nb">hash</span><span class="o">[</span><span class="ss">:ensure</span><span class="o">][</span><span class="mi">0</span><span class="o">]</span>
+    <span class="nb">hash</span><span class="p">[</span><span class="ss">:ensure</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
   <span class="k">end</span>
   <span class="c1"># 请求本地是否存在具体某个包</span>
   <span class="k">def</span> <span class="nf">query</span>
-    <span class="nb">self</span><span class="o">.</span><span class="n">class</span><span class="o">.</span><span class="n">pmodlist</span><span class="p">(</span><span class="ss">:justme</span> <span class="o">=&gt;</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span><span class="p">,</span> <span class="ss">:local</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">)</span>
+    <span class="nb">self</span><span class="p">.</span><span class="nf">class</span><span class="p">.</span><span class="nf">pmodlist</span><span class="p">(</span><span class="ss">:justme</span> <span class="o">=&gt;</span> <span class="n">resource</span><span class="p">[</span><span class="ss">:name</span><span class="p">],</span> <span class="ss">:local</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">)</span>
   <span class="k">end</span>
   <span class="k">def</span> <span class="nf">uninstall</span>
-    <span class="n">pmuninstallcmd</span> <span class="n">resource</span><span class="o">[</span><span class="ss">:name</span><span class="o">]</span>
+    <span class="n">pmuninstallcmd</span> <span class="n">resource</span><span class="p">[</span><span class="ss">:name</span><span class="p">]</span>
   <span class="k">end</span>
   <span class="k">def</span> <span class="nf">update</span>
-    <span class="nb">self</span><span class="o">.</span><span class="n">install</span><span class="p">(</span><span class="kp">false</span><span class="p">)</span>
+    <span class="nb">self</span><span class="p">.</span><span class="nf">install</span><span class="p">(</span><span class="kp">false</span><span class="p">)</span>
   <span class="k">end</span>
-<span class="k">end</span></code></pre></div>
-<p>在一台没有安装 cpanm 等命令的主机上运行 <code>puppet agent --debug</code>，可以看到这么一行输出：</p>
-<pre><code>debug: Puppet::Type::Package::ProviderCpan: file cpanm does not exist
+<span class="k">end</span>
 </code></pre>
+</div>
+<p>在一台没有安装 cpanm 等命令的主机上运行 <code class="highlighter-rouge">puppet agent --debug</code>，可以看到这么一行输出：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>debug: Puppet::Type::Package::ProviderCpan: file cpanm does not exist
+</code></pre>
+</div>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/03/14/JPush-example" title="极光推送demo">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/03/14/JPush-example/" title="极光推送demo">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/03/18/logrotate-configuration-files-mode" title="logrotate 配置文件强制为 0644 属性">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/03/18/logrotate-configuration-files-mode/" title="logrotate 配置文件强制为 0644 属性">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -193,15 +196,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

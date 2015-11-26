@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -49,40 +49,45 @@
     <div class="date"><span>24 March 2010</span></div>
   </div>
   <div style='background-color: #FFF;'>
-    <p>今天发现nginx做多域名混跑的proxy_cache时有一个小问题：当一个非加速server_name的请求到达的时候，nginx不会像squid那样返回一个ERR_DNS_FAIL，反而假装很正常的返回一个页面：</p>
-<div class="highlight"><pre><code class="language-nginx" data-lang="nginx"><span class="k">http</span> <span class="p">{</span>
-    <span class="kn">server</span> <span class="p">{</span>
-        <span class="kn">server_name</span> <span class="s">www.aaa.com</span><span class="p">;</span>
-        <span class="kn">proxy_pass</span> <span class="s">http://1.1.1.1</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="kn">server</span> <span class="p">{</span>
-        <span class="kn">server_name</span> <span class="s">www.bbb.com</span><span class="p">;</span>
-        <span class="kn">proxy_pass</span> <span class="s">http://2.2.2.2</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
-<p>访问www.ccc.com的时候，nginx毫不犹豫的把www.aaa.com的页面内容返回给了client。在日志里记录：</p>
-<pre><code>MISS/200 GET http://www.ccc.com/ 1.1.1.1:80
+    <p>今天发现nginx做多域名混跑的proxy_cache时有一个小问题：当一个非加速server_name的请求到达的时候，nginx不会像squid那样返回一个ERR_DNS_FAIL，反而假装很正常的返回一个页面：<br />
+<code class="highlighter-rouge">nginx
+http {
+    server {
+        server_name www.aaa.com;
+        proxy_pass http://1.1.1.1;
+    }
+    server {
+        server_name www.bbb.com;
+        proxy_pass http://2.2.2.2;
+    }
+}
+</code><br />
+访问www.ccc.com的时候，nginx毫不犹豫的把www.aaa.com的页面内容返回给了client。在日志里记录：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>MISS/200 GET http://www.ccc.com/ 1.1.1.1:80
 </code></pre>
+</div>
 <p>如果把aaa和bbb的server{}顺序倒换，那ccc的回源地址就变成了2.2.2.2……</p>
 <p>也就是说，解析不出、定义不到的域名请求，自动返回排在第一位的server内容。</p>
-<p>解决办法也容易，在最上头，也定义一个自己的server，就可以了：</p>
-<div class="highlight"><pre><code class="language-nginx" data-lang="nginx"><span class="k">http</span> <span class="p">{</span>
-    <span class="kn">server</span> <span class="p">{</span>
-        <span class="kn">root</span> <span class="s">/cache</span><span class="p">;</span>
-        <span class="kn">rewrite</span> <span class="s">^(.*)</span> <span class="s">/error.htm</span> <span class="s">permanent</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="kn">server</span> <span class="p">{</span>
-        <span class="kn">……</span>
-    <span class="err">}</span>
-<span class="err">}</span></code></pre></div>
-<p>至于这个error.htm，有没有都一样，反正有就是301，没有就是404~~</p>
+<p>解决办法也容易，在最上头，也定义一个自己的server，就可以了：<br />
+<code class="highlighter-rouge">nginx
+http {
+    server {
+        root /cache;
+        rewrite ^(.*) /error.htm permanent;
+    }
+    server {
+        ……
+    }
+}
+</code><br />
+至于这个error.htm，有没有都一样，反正有就是301，没有就是404~~</p>
 <p>后面的web服务器为什么不检查Host直接给出内容，也是让人很郁闷的一点。或许IIS就是如此？</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/03/21/fms3-5" title="fms3.5试用">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/03/21/fms3-5/" title="fms3.5试用">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/03/24/diff-of-error_page-between-squid-nginx" title="squid和nginx的error_page差别">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/03/24/diff-of-error_page-between-squid-nginx/" title="squid和nginx的error_page差别">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -126,15 +131,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

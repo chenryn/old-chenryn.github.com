@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -49,124 +49,128 @@
     <div class="date"><span>30 September 2011</span></div>
   </div>
   <div style='background-color: #FFF;'>
-    <p>上回分析lbnamed的时候，开玩笑说自己也可以试试在模块基础上加点啥功能。国庆节前最后一天，没啥事情做，就写个小demo续貂。代码如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">autodie</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Sys::</span><span class="n">Hostname</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">YAML::</span><span class="n">Syck</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Net::IP::Match::</span><span class="n">Regexp</span> <span class="sx">qw( create_iprange_regexp match_ip )</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Stanford::</span><span class="n">DNS</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Stanford::</span><span class="n">DNSserver</span><span class="p">;</span>
-<span class="nv">$SIG</span><span class="p">{</span><span class="s">&#39;HUP&#39;</span><span class="p">}</span> <span class="o">=</span> <span class="s">&#39;catch_hup&#39;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$need_reload</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$hostmaster</span> <span class="o">=</span> <span class="s">&#39;domain.chenlinux.com&#39;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$soa</span>        <span class="o">=</span> <span class="n">rr_SOA</span><span class="p">(</span><span class="n">hostname</span><span class="p">(),</span> <span class="nv">$hostmaster</span><span class="p">,</span> <span class="nb">time</span><span class="p">(),</span> <span class="mi">3600</span><span class="p">,</span> <span class="mi">1800</span><span class="p">,</span> <span class="mi">86400</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">$ns</span>         <span class="o">=</span> <span class="nn">Stanford::</span><span class="n">DNSserver</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">listen_on</span> <span class="o">=&gt;</span> <span class="p">[</span> <span class="n">hostname</span><span class="p">()</span> <span class="p">],</span>
-<span class="c1">#                                           debug     =&gt; 1,</span>
-                                           <span class="n">loopfunc</span>  <span class="o">=&gt;</span> <span class="o">\&amp;</span><span class="n">conf_reload</span><span class="p">,</span>
-<span class="c1">#                                           daemon    =&gt; &#39;no&#39;,</span>
-                                         <span class="p">);</span>
-<span class="k">my</span> <span class="nv">$regexp</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">@domains</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$arealist</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$templist</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$config_path</span> <span class="o">=</span> <span class="s">&#39;/data/chenlinux.com/perl/&#39;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$ns_domain</span> <span class="o">=</span> <span class="s">&#39;test.domain.chenlinux.com&#39;</span><span class="p">;</span>
-<span class="nv">$ns</span><span class="o">-&gt;</span><span class="n">add_dynamic</span><span class="p">(</span><span class="s">&quot;$domain&quot;</span> <span class="o">=&gt;</span> <span class="o">\&amp;</span><span class="n">dyn_lb</span> <span class="p">)</span> <span class="k">foreach</span> <span class="k">my</span> <span class="nv">$domain</span> <span class="p">(</span> <span class="nv">@domains</span> <span class="p">);</span>
-<span class="nv">$ns</span><span class="o">-&gt;</span><span class="n">add_static</span><span class="p">(</span> <span class="s">&quot;$ns_domain&quot;</span><span class="p">,</span> <span class="n">T_SOA</span><span class="p">,</span> <span class="nv">$soa</span><span class="p">);</span>
-<span class="nv">$ns</span><span class="o">-&gt;</span><span class="n">add_static</span><span class="p">(</span> <span class="s">&quot;$ns_domain&quot;</span><span class="p">,</span> <span class="n">T_NS</span><span class="p">,</span> <span class="n">rr_NS</span><span class="p">(</span><span class="nv">$hostmaster</span><span class="p">));</span>
-<span class="nv">$ns</span><span class="o">-&gt;</span><span class="n">answer_queries</span><span class="p">();</span>
-<span class="k">sub </span><span class="nf">catch_hup</span> <span class="p">{</span>
-    <span class="nv">$need_reload</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">conf_reload</span> <span class="p">{</span>
-    <span class="k">if</span><span class="p">(</span> <span class="nv">$need_reload</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="n">load_config</span><span class="p">();</span>
-        <span class="nv">$need_reload</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">load_config</span> <span class="p">{</span>
-    <span class="nv">$regexp</span> <span class="o">=</span> <span class="n">ip2area</span><span class="p">(</span><span class="s">&quot;ip.list&quot;</span><span class="p">);</span>
-    <span class="nv">@domains</span> <span class="o">=</span> <span class="nb">grep</span> <span class="p">{</span><span class="sr">s/${config_path}config-(.+?)\.yml/$1/</span><span class="p">}</span> <span class="nb">glob</span><span class="p">(</span><span class="s">&quot;${config_path}*&quot;</span><span class="p">);</span>
-    <span class="k">foreach</span> <span class="k">my</span> <span class="nv">$domain</span> <span class="p">(</span> <span class="nv">@domains</span> <span class="p">)</span> <span class="p">{</span>
-      <span class="nv">$arealist</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$domain&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="n">LoadFile</span><span class="p">(</span><span class="s">&quot;${config_path}config-${domain}.yml&quot;</span><span class="p">);</span>
-      <span class="nv">@</span><span class="p">{</span><span class="nv">$templist</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$domain&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$_&quot;</span><span class="p">}}</span> <span class="o">=</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$arealist</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$domain&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$_&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;per&#39;</span><span class="p">}}</span> <span class="k">foreach</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$arealist</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$domain&quot;</span><span class="p">}};</span>
-  <span class="p">};</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">dyn_lb</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$domain</span><span class="p">,</span><span class="nv">$residual</span><span class="p">,</span><span class="nv">$qtype</span><span class="p">,</span><span class="nv">$qclass</span><span class="p">,</span><span class="nv">$dm</span><span class="p">,</span><span class="nv">$from</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$ttl</span> <span class="o">=</span> <span class="mi">3600</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="n">area2resolv</span><span class="p">(</span><span class="nv">$domain</span><span class="p">,</span> <span class="nv">$from</span><span class="p">);</span>
-    <span class="nv">$dm</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;answer&#39;</span><span class="p">}</span> <span class="o">.=</span> <span class="n">dns_answer</span><span class="p">(</span><span class="n">QPTR</span><span class="p">,</span> <span class="n">T_A</span><span class="p">,</span> <span class="n">C_IN</span><span class="p">,</span> <span class="nv">$ttl</span><span class="p">,</span> <span class="n">rr_A</span><span class="p">(</span><span class="nv">$ip</span><span class="p">));</span>
-    <span class="nv">$dm</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;ancount&#39;</span><span class="p">}</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">;</span>
-    <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">ip2area</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$file</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$area</span> <span class="o">=</span> <span class="p">{};</span>
-    <span class="k">my</span> <span class="nv">$last_area</span><span class="p">;</span>
-    <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;&lt;&#39;</span><span class="p">,</span> <span class="nv">$file</span><span class="p">;</span>
-    <span class="k">while</span><span class="p">(</span><span class="sr">&lt;$fh&gt;</span><span class="p">){</span>
-        <span class="k">if</span> <span class="p">(</span><span class="sr"> /^acl (\w+)/</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nv">$last_area</span> <span class="o">=</span> <span class="nv">$1</span><span class="p">;</span>
-        <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="sr"> /^((\d{1,3}\.?){4});/</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nv">$area</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$1&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$last_area</span><span class="p">;</span>
-        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-            <span class="k">next</span><span class="p">;</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$regexp</span> <span class="o">=</span> <span class="n">create_iprange_regexp</span><span class="p">(</span><span class="nv">$area</span><span class="p">);</span>
-    <span class="k">return</span> <span class="nv">$regexp</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">area2resolv</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$from</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$area</span> <span class="o">=</span> <span class="n">match_ip</span><span class="p">(</span> <span class="s">&quot;$from&quot;</span><span class="p">,</span> <span class="nv">$regexp</span> <span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$ip</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$len</span> <span class="o">=</span> <span class="nv">$#</span><span class="p">{</span><span class="nv">$arealist</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$domain&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$area&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;per&#39;</span><span class="p">}};</span>
-    <span class="k">for</span> <span class="p">(</span> <span class="mi">0</span> <span class="o">..</span> <span class="nv">$len</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="k">if</span> <span class="p">(</span> <span class="nv">$arealist</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$domain&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$area&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;per&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$_</span><span class="p">]</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nv">$ip</span> <span class="o">=</span> <span class="nv">$arealist</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$domain&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$area&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;ip&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$_</span><span class="p">];</span>
-            <span class="nv">$arealist</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$domain&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$area&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;per&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$_</span><span class="p">]</span><span class="o">--</span><span class="p">;</span>
-            <span class="k">last</span><span class="p">;</span>
-        <span class="p">};</span>
-        <span class="k">if</span> <span class="p">(</span> <span class="nv">$_</span> <span class="o">==</span> <span class="nv">$len</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nv">@</span><span class="p">{</span><span class="nv">$arealist</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$domain&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$area&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;per&#39;</span><span class="p">}}</span> <span class="o">=</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$templist</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$domain&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$area&quot;</span><span class="p">}};</span>
-            <span class="k">redo</span><span class="p">;</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-    <span class="k">return</span> <span class="n">ip_conv</span><span class="p">(</span><span class="s">&quot;$ip&quot;</span><span class="p">);</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">ip_conv</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">return</span> <span class="p">(</span><span class="nv">$1</span><span class="o">&lt;&lt;</span><span class="mi">24</span><span class="p">)</span><span class="o">|</span><span class="p">(</span><span class="nv">$2</span><span class="o">&lt;&lt;</span><span class="mi">16</span><span class="p">)</span><span class="o">|</span><span class="p">(</span><span class="nv">$3</span><span class="o">&lt;&lt;</span><span class="mi">8</span><span class="p">)</span><span class="o">|</span><span class="nv">$4</span> <span class="k">if</span> <span class="nv">$ip</span> <span class="o">=~</span> <span class="sr">m/(\d+)\.(\d+)\.(\d+)\.(\d+)/</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
-<p>其中调用的ip.list是bind9用的acl格式，即：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">acl cnc_beijing <span class="o">{</span>
-202.106.0.0/24<span class="p">;</span>
-...
-<span class="o">}</span>
-...</code></pre></div>
-<p>这种格式。
-调用的config-www.domain.com.yml是YAML格式定义的地区指向ip，即：</p>
-<div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="l-Scalar-Plain">ctc_hebei</span><span class="p-Indicator">:</span>
-    <span class="l-Scalar-Plain">ip</span><span class="p-Indicator">:</span>
-      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">10.168.168.1</span>
-      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">10.168.169.2</span>
-      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">10.168.170.3</span>
-    <span class="l-Scalar-Plain">per</span><span class="p-Indicator">:</span>
-      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">50</span>
-      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">30</span>
-      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">20</span></code></pre></div>
-<p>超级简单(其实是我没想到好的weight实现方式)的算法，就是找到这个ctc_hebei的时候，依次序返回ip，同时每返回一次对应的per就减1，减到0就换下一个ip，都0了就复原从头开始。</p>
+    <p>上回分析lbnamed的时候，开玩笑说自己也可以试试在模块基础上加点啥功能。国庆节前最后一天，没啥事情做，就写个小demo续貂。代码如下：<br />
+```perl<br />
+#!/usr/bin/perl<br />
+use warnings;<br />
+use strict;<br />
+use autodie;<br />
+use Sys::Hostname;<br />
+use YAML::Syck;<br />
+use Net::IP::Match::Regexp qw( create_iprange_regexp match_ip );<br />
+use Stanford::DNS;<br />
+use Stanford::DNSserver;<br />
+$SIG{&lsquo;HUP&rsquo;} = &lsquo;catch_hup&rsquo;;<br />
+my $need_reload;<br />
+my $hostmaster = &lsquo;domain.chenlinux.com&rsquo;;<br />
+my $soa        = rr_SOA(hostname(), $hostmaster, time(), 3600, 1800, 86400, 0);<br />
+my $ns         = Stanford::DNSserver-&gt;new( listen_on =&gt; [ hostname() ],<br />
+#                                           debug     =&gt; 1,<br />
+                                           loopfunc  =&gt; \&amp;conf_reload,<br />
+#                                           daemon    =&gt; &lsquo;no&rsquo;,<br />
+                                         );<br />
+my $regexp;<br />
+my @domains;<br />
+my $arealist;<br />
+my $templist;<br />
+my $config_path = &lsquo;/data/chenlinux.com/perl/&rsquo;;<br />
+my $ns_domain = &lsquo;test.domain.chenlinux.com&rsquo;;<br />
+$ns-&gt;add_dynamic(&ldquo;$domain&rdquo; =&gt; \&amp;dyn_lb ) foreach my $domain ( @domains );<br />
+$ns-&gt;add_static( &ldquo;$ns_domain&rdquo;, T_SOA, $soa);<br />
+$ns-&gt;add_static( &ldquo;$ns_domain&rdquo;, T_NS, rr_NS($hostmaster));</p>
+<p>$ns-&gt;answer_queries();</p>
+<p>sub catch_hup {<br />
+    $need_reload = 1;<br />
+};</p>
+<p>sub conf_reload {<br />
+    if( $need_reload ) {<br />
+        load_config();<br />
+        $need_reload = 0;<br />
+    };<br />
+};</p>
+<p>sub load_config {<br />
+    $regexp = ip2area(&ldquo;ip.list&rdquo;);<br />
+    @domains = grep {s/${config_path}config-(.+?).yml/$1/} glob(&ldquo;${config_path}*&rdquo;);<br />
+    foreach my $domain ( @domains ) {<br />
+      $arealist-&gt;{&ldquo;$domain&rdquo;} = LoadFile(&ldquo;${config_path}config-${domain}.yml&rdquo;);<br />
+      @{$templist-&gt;{&ldquo;$domain&rdquo;}-&gt;{&ldquo;$<em>&rdquo;}} = @{$arealist-&gt;{&ldquo;$domain&rdquo;}-&gt;{&ldquo;$</em>&rdquo;}-&gt;{&lsquo;per&rsquo;}} foreach keys %{$arealist-&gt;{&ldquo;$domain&rdquo;}};<br />
+  };<br />
+};</p>
+<p>sub dyn_lb {<br />
+    my ($domain,$residual,$qtype,$qclass,$dm,$from) = @_;<br />
+    my $ttl = 3600;<br />
+    my $ip = area2resolv($domain, $from);<br />
+    $dm-&gt;{&lsquo;answer&rsquo;} .= dns_answer(QPTR, T_A, C_IN, $ttl, rr_A($ip));<br />
+    $dm-&gt;{&lsquo;ancount&rsquo;} += 1;<br />
+    return 1;<br />
+};</p>
+<p>sub ip2area {<br />
+    my $file = shift;<br />
+    my $area = {};<br />
+    my $last_area;<br />
+    open my $fh, &lsquo;&lt;&rsquo;, $file;<br />
+    while(&lt;$fh&gt;){<br />
+        if ( /^acl (\w+)/ ) {<br />
+            $last_area = $1;<br />
+        } elsif ( /^((\d{1,3}.?){4});/ ) {<br />
+            $area-&gt;{&ldquo;$1&rdquo;} = $last_area;<br />
+        } else {<br />
+            next;<br />
+        };<br />
+    };<br />
+    my $regexp = create_iprange_regexp($area);<br />
+    return $regexp;<br />
+};</p>
+<p>sub area2resolv {<br />
+    my $from = shift;<br />
+    my $area = match_ip( &ldquo;$from&rdquo;, $regexp );<br />
+    my $ip;<br />
+    my $len = $#{$arealist-&gt;{&ldquo;$domain&rdquo;}-&gt;{&ldquo;$area&rdquo;}-&gt;{&lsquo;per&rsquo;}};<br />
+    for ( 0 .. $len ) {<br />
+        if ( $arealist-&gt;{&ldquo;$domain&rdquo;}-&gt;{&ldquo;$area&rdquo;}-&gt;{&lsquo;per&rsquo;}-&gt;[$<em>] ) {<br />
+            $ip = $arealist-&gt;{&ldquo;$domain&rdquo;}-&gt;{&ldquo;$area&rdquo;}-&gt;{&lsquo;ip&rsquo;}-&gt;[$</em>];<br />
+            $arealist-&gt;{&ldquo;$domain&rdquo;}-&gt;{&ldquo;$area&rdquo;}-&gt;{&lsquo;per&rsquo;}-&gt;[$<em>]&ndash;;<br />
+            last;<br />
+        };<br />
+        if ( $</em> == $len ) {<br />
+            @{$arealist-&gt;{&ldquo;$domain&rdquo;}-&gt;{&ldquo;$area&rdquo;}-&gt;{&lsquo;per&rsquo;}} = @{$templist-&gt;{&ldquo;$domain&rdquo;}-&gt;{&ldquo;$area&rdquo;}};<br />
+            redo;<br />
+        };<br />
+    };<br />
+    return ip_conv(&ldquo;$ip&rdquo;);<br />
+};</p>
+<p>sub ip_conv {<br />
+    my $ip = shift;<br />
+    return ($1&laquo;24)|($2&laquo;16)|($3&laquo;8)|$4 if $ip =~ m/(\d+).(\d+).(\d+).(\d+)/;<br />
+}<code class="highlighter-rouge">
+其中调用的ip.list是bind9用的acl格式，即：
+</code>bash<br />
+acl cnc_beijing {<br />
+202.106.0.0/24;<br />
+&hellip;<br />
+}<br />
+&hellip;<code class="highlighter-rouge">
+这种格式。
+调用的config-www.domain.com.yml是YAML格式定义的地区指向ip，即：
+</code>yaml<br />
+ctc_hebei:<br />
+    ip:<br />
+      - 10.168.168.1<br />
+      - 10.168.169.2<br />
+      - 10.168.170.3<br />
+    per:<br />
+      - 50<br />
+      - 30<br />
+      - 20<br />
+```<br />
+超级简单(其实是我没想到好的weight实现方式)的算法，就是找到这个ctc_hebei的时候，依次序返回ip，同时每返回一次对应的per就减1，减到0就换下一个ip，都0了就复原从头开始。</p>
 <p>严重缺失的地方：<del datetime="2011-10-13T05:40:51+00:00">读取不同域名配置；</del>对server的监控；<del datetime="2011-10-13T05:40:51+00:00">对config.yml的reload</del>。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/09/29/dancing-website-for-sync-dist-3" title="写个同步分发系统(三)">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/09/29/dancing-website-for-sync-dist-3/" title="写个同步分发系统(三)">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/10/17/notes-about-probind" title="ProBIND体验笔记">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/10/17/notes-about-probind/" title="ProBIND体验笔记">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -210,15 +214,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

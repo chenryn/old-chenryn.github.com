@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -54,32 +54,36 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>前段时间看到报道说，puppet 的作者本来是用 perl 完成的原型设计，后来改用的 ruby。所以我想，目前这个 puppet 的 DSL 设计，用 perl 来完成的话，应该如何做。</p>
-<p>这里碰到一个问题，就是 puppet 中 <code>resource_type</code> 的 <code>title</code> 后面有个冒号，这事儿比较麻烦，不过这时候我突然想到了 Perl6 ，稍微翻了一下文档，发现这事用 Perl6 来实现很容易：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="n">v6</span><span class="p">;</span>
+<p>这里碰到一个问题，就是 puppet 中 <code class="highlighter-rouge">resource_type</code> 的 <code class="highlighter-rouge">title</code> 后面有个冒号，这事儿比较麻烦，不过这时候我突然想到了 Perl6 ，稍微翻了一下文档，发现这事用 Perl6 来实现很容易：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">use</span> <span class="nv">v6</span><span class="p">;</span>
 <span class="k">sub </span><span class="nf">infix</span><span class="p">:&lt;:&gt;($a, %b){</span>
     <span class="k">return</span> <span class="nv">$a</span><span class="p">,</span> <span class="nv">%b</span><span class="p">;</span>
 <span class="p">};</span>
 <span class="k">sub </span><span class="nf">service</span><span class="p">(&amp;service) {</span>
-    <span class="k">my</span> <span class="nv">@res</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">service</span><span class="o">.</span><span class="p">();</span>
-    <span class="n">say</span> <span class="nv">@res</span><span class="o">.</span><span class="nb">shift</span> <span class="o">=&gt;</span> <span class="nv">@res</span><span class="o">.</span><span class="n">hash</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">@res</span> <span class="o">=</span> <span class="o">&amp;</span><span class="nv">service</span><span class="o">.</span><span class="p">();</span>
+    <span class="nv">say</span> <span class="nv">@res</span><span class="o">.</span><span class="nb">shift</span> <span class="o">=&gt;</span> <span class="nv">@res</span><span class="o">.</span><span class="nv">hash</span><span class="p">;</span>
 <span class="p">}</span>
-<span class="n">class</span> <span class="nn">nginx::</span><span class="n">install</span> <span class="p">{</span>
-	<span class="k">my</span> <span class="nv">$nginxparams</span> <span class="o">=</span> <span class="s">&quot;nginx&quot;</span><span class="p">;</span>
-	<span class="n">service</span> <span class="p">{</span> <span class="s">&quot;$nginxparams&quot;</span><span class="p">:</span>
-        <span class="n">conf</span> <span class="o">=&gt;</span> <span class="s">&quot;#&quot;</span><span class="p">,</span>
-        <span class="n">source</span> <span class="o">=&gt;</span> <span class="s">&quot;http&quot;</span> 
+<span class="nv">class</span> <span class="nn">nginx::</span><span class="nv">install</span> <span class="p">{</span>
+	<span class="k">my</span> <span class="nv">$nginxparams</span> <span class="o">=</span> <span class="s">"nginx"</span><span class="p">;</span>
+	<span class="nv">service</span> <span class="p">{</span> <span class="s">"$nginxparams"</span><span class="p">:</span>
+        <span class="nv">conf</span> <span class="o">=&gt;</span> <span class="s">"#"</span><span class="p">,</span>
+        <span class="nv">source</span> <span class="o">=&gt;</span> <span class="s">"http"</span> 
     <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span>
+</code></pre>
+</div>
 <p>运行结果如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">perl6</span> <span class="sr">/data/</span><span class="n">perl6</span><span class="sr">/script/</span><span class="n">puppet</span><span class="o">-</span><span class="n">style</span><span class="o">.</span><span class="n">pl</span>
-<span class="s">&quot;nginx&quot;</span> <span class="o">=&gt;</span> <span class="p">{</span><span class="s">&quot;conf&quot;</span> <span class="o">=&gt;</span> <span class="s">&quot;#&quot;</span><span class="p">,</span> <span class="s">&quot;source&quot;</span> <span class="o">=&gt;</span> <span class="s">&quot;http&quot;</span><span class="p">}</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="nv">perl6</span> <span class="sr">/data/</span><span class="nv">perl6</span><span class="sr">/script/</span><span class="nv">puppet</span><span class="o">-</span><span class="nv">style</span><span class="o">.</span><span class="nv">pl</span>
+<span class="s">"nginx"</span> <span class="o">=&gt;</span> <span class="p">{</span><span class="s">"conf"</span> <span class="o">=&gt;</span> <span class="s">"#"</span><span class="p">,</span> <span class="s">"source"</span> <span class="o">=&gt;</span> <span class="s">"http"</span><span class="p">}</span>
+</code></pre>
+</div>
 <p>当然实际上 puppet 要复杂很多，这里其实更多是为了说明 Perl6 如何自定义操作符~</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/04/01/use-mojo-commandline-for-rpmbuild" title="用 Mojo 命令行抓取数据完成自动更新 rpm 构建">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/04/01/use-mojo-commandline-for-rpmbuild/" title="用 Mojo 命令行抓取数据完成自动更新 rpm 构建">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/04/03/install-graphite" title="Graphite 安装">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/04/03/install-graphite/" title="Graphite 安装">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -123,15 +127,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

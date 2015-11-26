@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,46 +52,55 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>今天接到客户电话，说，主页已经提交过了刷新任务，上面的图片已经更新，但点击图片后链接到的页面内容还是老的……
-仔细一看，原来主页里的html是这么定义的：</p>
-<div class="highlight"><pre><code class="language-html" data-lang="html"><span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;http://msn.golfbox.cn/cache/922/36717.html&quot;</span> <span class="na">target=</span><span class="s">&quot;_blank&quot;</span><span class="nt">&gt;&lt;img</span> <span class="na">src=</span><span class="s">&quot;/upload/img/20100410/20100410144202.jpg&quot;</span> <span class="na">width=</span><span class="s">&quot;125&quot;</span> <span class="na">height=</span><span class="s">&quot;80&quot;</span> <span class="na">class=</span><span class="s">&quot;border_blue&quot;</span> <span class="nt">/&gt;&lt;/a&gt;</span></code></pre></div>
-<p>而http://msn.golfbox.cn/cache/922/36717.html的内容是这样：</p>
-<div class="highlight"><pre><code class="language-html" data-lang="html"><span class="nt">&lt;meta</span> <span class="na">http-equiv=</span><span class="s">&quot;Content-Type&quot;</span> <span class="na">content=</span><span class="s">&quot;text/html; charset=utf-8&quot;</span> <span class="nt">/&gt;&lt;script </span><span class="na">language=</span><span class="s">&quot;JavaScript&quot;</span><span class="nt">&gt;</span>
-<span class="err"> </span><span class="nx">location</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="s2">&quot;http://msn.golfbox.cn/cache/874/36804.html&quot;</span><span class="p">);</span>
-<span class="nt">&lt;/script&gt;</span></code></pre></div>
-<p>于是跟客户交流确认，他们网站的主页框架上比较固定的地方，都是采用这种方式，来提供内容更新的。。。
-他们又不肯给出具体更新了那些跳转页面，只好写个小脚本，去处理比对。如果有相同url的location.replace地址不统一的，就强制更新这些页面。</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/bin/bash</span>
-curl http://msn.golfbox.cn/ <span class="p">|</span>sed <span class="s1">&#39;s/\n//g&#39;</span><span class="p">|</span>sed <span class="s1">&#39;s/href=/\n/g&#39;</span><span class="p">|</span>grep <span class="s2">&quot;^&quot;</span>http://msn.golfbox.cn/cache<span class="s2">&quot;|awk -F&#39;&quot;</span><span class="s1">&#39; &#39;</span><span class="o">{</span>print <span class="nv">$2</span><span class="o">}</span><span class="s1">&#39;&gt;url</span>
-<span class="s1">for j in `cat url`;do</span>
-<span class="s1"> for i in `cat ip`;do</span>
-<span class="s1">  curl -x $i:80 $j|awk -F&#39;</span><span class="s2">&quot;&#39; &#39;/replace/{print &quot;</span><span class="s1">&#39;$j&#39;</span><span class="s2">&quot;,&quot;</span><span class="s1">&#39;$i&#39;</span><span class="s2">&quot;,$2}&#39;&gt;&gt;golfbox.log</span>
-<span class="s2">#  curl -x $i:80 -I $j|awk &#39;/Age/{print &quot;</span><span class="s1">&#39;$j&#39;</span><span class="s2">&quot;,&quot;</span><span class="s1">&#39;$i&#39;</span><span class="s2">&quot;,$2}&#39;&gt;&gt;age.log</span>
-<span class="s2"> done</span>
-<span class="s2">done</span>
-<span class="s2">cat golfbox.log |awk &#39;{if($1==a){if($3!=b){system(&quot;</span>/home/squid/bin/squidclient -p <span class="m">80</span> -h <span class="s2">&quot;$2&quot;</span> -m purge <span class="err">&quot;</span><span class="nv">$1</span><span class="o">)}}</span><span class="p">;</span><span class="nv">a</span><span class="o">=</span><span class="nv">$1</span><span class="p">;</span><span class="nv">b</span><span class="o">=</span><span class="nv">$3</span><span class="o">}</span><span class="err">&#39;</span></code></pre></div>
-<p>（该脚本有一个问题：如果刚好是第一台的url未更新，结果会反而去刷新那些已经更新了的服务器；所以应该是输出url，然后再用for do done去刷新所有服务器~如果curl可以在获取内容的同时获取Age就好了~所以最后用一个讨巧的办法：在ip列表的最开始放上客户源站的ip，这样就能保证最新了）
-以上是第一个。
-第二个：
-客户首页上还有一个问题：其右下角有跟随悬浮窗口，本来应该可以关闭的。但一点关闭，就提示javascrpt:iclose()错误页面。而用浏览器另存为html到桌面以后，再打开保存下来的页面，点击关闭就正常关闭了！
-经过查找，其中调用的js文件是http://msn.golfbox.cn/js/show.js，内容中关于javascrpt:iclose()的内容如下：</p>
-<div class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="kd">var</span> <span class="nx">sogouTall</span> <span class="o">=</span><span class="s1">&#39;&lt;div style=&quot;z-index:1000;position: absolute;display:none;&quot; id=&quot;sogoubox&quot;&gt;&#39;</span>
-<span class="err">  </span> <span class="o">+</span><span class="s1">&#39;&lt;a href=&quot;javascript:iclose();&quot; style=&quot;float:left; margin-left:190px&quot;&gt;关闭&lt;/a&gt;&#39;</span>
-<span class="err">  </span> <span class="o">+</span><span class="s1">&#39;&lt;div style=&quot;clear:both&quot;&gt;&#39;</span>
-<span class="err">  </span> <span class="o">+</span><span class="s1">&#39;&lt;a href=&quot;&lt;a href=&quot;http://new.msn.golfbox.cn/wd/&quot;&gt;http://new.msn.golfbox.cn/wd/&quot;&gt;&lt;img&lt;/a&gt; src=&quot;&lt;a href=&quot;http://new.msn.golfbox.cn/wd/dbtt.jpg&quot;&gt;http://new.msn.golfbox.cn/wd/dbtt.jpg&lt;/a&gt;&quot; style=&quot;width:220px;height:160px&quot;/&gt;&lt;/a&gt;&#39;</span>
-<span class="err">     </span> <span class="o">+</span> <span class="s1">&#39;&lt;input type=hidden name=&quot;sogouAccountId&quot; value=&quot;202014&quot;&gt;&#39;</span>
-<span class="err">  </span> <span class="o">+</span> <span class="s1">&#39;&#39;</span>
-<span class="err"> </span><span class="kd">function</span> <span class="nx">iclose</span><span class="p">()</span>
-<span class="err"> </span><span class="p">{</span>
-<span class="err">  </span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s1">&#39;sogoubox&#39;</span><span class="p">).</span><span class="nx">style</span><span class="p">.</span><span class="nx">display</span><span class="o">=</span><span class="s1">&#39;none&#39;</span><span class="p">;</span>
-<span class="err"> </span><span class="p">}</span></code></pre></div>
-<p>以我浅薄的web知识，是没看出来什么问题~~客户也莫名其妙，最好撤销掉这个窗口了</p>
+    <p>今天接到客户电话，说，主页已经提交过了刷新任务，上面的图片已经更新，但点击图片后链接到的页面内容还是老的……<br />
+仔细一看，原来主页里的html是这么定义的：<br />
+<code class="highlighter-rouge">html
+&lt;a href="http://msn.golfbox.cn/cache/922/36717.html" target="_blank"&gt;&lt;img src="/upload/img/20100410/20100410144202.jpg" width="125" height="80" class="border_blue" /&gt;&lt;/a&gt;
+</code><br />
+而http://msn.golfbox.cn/cache/922/36717.html的内容是这样：<br />
+```html</p>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<script language="JavaScript">
+ location.replace("http://msn.golfbox.cn/cache/874/36804.html");
+</script>
+<div class="highlighter-rouge"><pre class="highlight"><code>于是跟客户交流确认，他们网站的主页框架上比较固定的地方，都是采用这种方式，来提供内容更新的。。。
+他们又不肯给出具体更新了那些跳转页面，只好写个小脚本，去处理比对。如果有相同url的location.replace地址不统一的，就强制更新这些页面。
+```bash
+#!/bin/bash
+curl http://msn.golfbox.cn/ |sed 's/\n//g'|sed 's/href=/\n/g'|grep "^"http://msn.golfbox.cn/cache"|awk -F'"' '{print $2}'&gt;url
+for j in `cat url`;do
+ for i in `cat ip`;do
+  curl -x $i:80 $j|awk -F'"' '/replace/{print "'$j'","'$i'",$2}'&gt;&gt;golfbox.log
+#  curl -x $i:80 -I $j|awk '/Age/{print "'$j'","'$i'",$2}'&gt;&gt;age.log
+ done
+done
+cat golfbox.log |awk '{if($1==a){if($3!=b){system("/home/squid/bin/squidclient -p 80 -h "$2" -m purge "$1)}};a=$1;b=$3}'
+</code></pre>
+</div>
+<p>（该脚本有一个问题：如果刚好是第一台的url未更新，结果会反而去刷新那些已经更新了的服务器；所以应该是输出url，然后再用for do done去刷新所有服务器~如果curl可以在获取内容的同时获取Age就好了~所以最后用一个讨巧的办法：在ip列表的最开始放上客户源站的ip，这样就能保证最新了）<br />
+以上是第一个。<br />
+第二个：<br />
+客户首页上还有一个问题：其右下角有跟随悬浮窗口，本来应该可以关闭的。但一点关闭，就提示javascrpt:iclose()错误页面。而用浏览器另存为html到桌面以后，再打开保存下来的页面，点击关闭就正常关闭了！<br />
+经过查找，其中调用的js文件是http://msn.golfbox.cn/js/show.js，内容中关于javascrpt:iclose()的内容如下：<br />
+<code class="highlighter-rouge">javascript
+var sogouTall ='&lt;div style="z-index:1000;position: absolute;display:none;" id="sogoubox"&gt;'
+   +'&lt;a href="javascript:iclose();" style="float:left; margin-left:190px"&gt;关闭&lt;/a&gt;'
+   +'&lt;div style="clear:both"&gt;'
+   +'&lt;a href="&lt;a href="http://new.msn.golfbox.cn/wd/"&gt;http://new.msn.golfbox.cn/wd/"&gt;&lt;img&lt;/a&gt; src="&lt;a href="http://new.msn.golfbox.cn/wd/dbtt.jpg"&gt;http://new.msn.golfbox.cn/wd/dbtt.jpg&lt;/a&gt;" style="width:220px;height:160px"/&gt;&lt;/a&gt;'
+      + '&lt;input type=hidden name="sogouAccountId" value="202014"&gt;'
+   + ''
+ function iclose()
+ {
+  document.getElementById('sogoubox').style.display='none';
+ }
+</code><br />
+以我浅薄的web知识，是没看出来什么问题~~客户也莫名其妙，最好撤销掉这个窗口了</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/04/08/url_rewrite_concurrency" title="url_rewrite_concurrency">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/04/08/url_rewrite_concurrency/" title="url_rewrite_concurrency">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/04/12/intro-iscsi-1" title="iscsi试验（失败，慎入）">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/04/12/intro-iscsi-1/" title="iscsi试验（失败，慎入）">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -135,15 +144,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

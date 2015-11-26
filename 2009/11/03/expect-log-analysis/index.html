@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,47 +52,53 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>接着上次expect脚本那事儿往下走。
-由于不同服务的管理方法不同，上次关闭了ssh的外网登录以后，各地不断有服务器报出这样那样的问题。主管一发狠：“全面检查！”
-在检查中，还真发现不少问题。最突出的就是很多本应该上传到中心服务器的日志居然一直留在本机没动弹！时不时发作出来，就撑爆了根分区——这当然有分区规划不合理的问题。但在线业务，磁盘划分修改起来就不是那么方便了。于是退而求其次，定期监控日志文件大小吧。这回expect只要du
--sh一下就行了，方便的很。问题在下一步的分析。
-摘举exp.log中一次循环的执行结果如下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">The authenticity of host <span class="s1">&#39;1.2.3.4 (1.2.3.4)&#39;</span> can<span class="s1">&#39;t be established.</span>
-<span class="s1">RSA key fingerprint is</span>
-<span class="s1">bb:d5:81:e1:84:09:c5:32:f6:fb:e1:b3:d3:de:c3:53.</span>
-<span class="s1">Are you sure you want to continue connecting (yes/no)? yes</span>
-<span class="s1">Warning: Permanently added &#39;</span>1.2.3.4<span class="s1">&#39; (RSA) to the list of known hosts.</span>
-<span class="s1">root@1.2.3.4&#39;</span>s password:
-4.0K /home/apache2/logs/access_log</code></pre></div>
-<p>第一步，是用如下脚本，可以做到提取日志达到50M大小的服务器IP。</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/bin/bash</span>
-<span class="nv">nk</span><span class="o">=</span><span class="sb">`</span>sed -n -e <span class="s2">&quot;/50M/=&quot;</span> exp.log<span class="sb">`</span>
-<span class="nv">nnk</span><span class="o">=</span><span class="sb">`</span>expr <span class="nv">$nk</span> - 1<span class="sb">`</span>
-sed -n <span class="s2">&quot;$nnk&quot;</span>p<span class="s2">&quot;&quot;</span> exp.log<span class="p">|</span>awk -F<span class="s2">&quot;&#39;&quot;</span> <span class="s1">&#39;{print $1}&#39;</span><span class="p">|</span>awk -F<span class="s2">&quot;@&quot;</span> <span class="s1">&#39;{print $2}&#39;</span></code></pre></div>
-<p>但问题是：如果同时有两台到50M呢？或者在运行到它时，已经到50M以上呢？
-于是我想，以ls -sh显示大小，人眼好看，电脑不好认啊。如果用du -b，那大小相同的几率就应该小很多很多了。然后定一个阀值，进行比较循环就可以了。
-最后脚本如下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/bin/bash</span>
-<span class="k">for</span> ip in <span class="sb">`</span>cat ip.lst<span class="sb">`</span>
-<span class="k">do</span>
-./ssh.exp <span class="nv">$ip</span> &gt; /dev/null 2<span class="p">&amp;</span>&gt;1
-<span class="k">done</span>
-<span class="nv">bs</span><span class="o">=</span>400
-<span class="nv">size</span><span class="o">=</span><span class="sb">`</span>grep access exp.log <span class="p">|</span> awk <span class="s1">&#39;{if ($1&amp;gt;&#39;</span><span class="s2">&quot;$bs&quot;</span><span class="s1">&#39;){print $1}}&#39;</span><span class="sb">`</span>
-<span class="k">for</span> so in <span class="nv">$size</span>
-<span class="k">do</span>
-<span class="nv">nk</span><span class="o">=</span><span class="sb">`</span>sed -n -e <span class="s2">&quot;/$so/=&quot;</span> exp.log<span class="sb">`</span>
-<span class="nv">nnk</span><span class="o">=</span><span class="sb">`</span>expr <span class="nv">$nk</span> - 1<span class="sb">`</span>
-sed -n <span class="s2">&quot;$nnk&quot;</span>p<span class="s2">&quot;&quot;</span> exp.log <span class="p">|</span> awk -F<span class="s2">&quot;&#39;&quot;</span> <span class="s1">&#39;{print $1}&#39;</span><span class="p">|</span>awk -F@ <span class="s1">&#39;{print $2}&#39;</span>
-<span class="k">done</span></code></pre></div>
-<h1 id="sed-nsng-explogexpssh">本来想用sed &lsquo;N;s/n//g&rsquo; exp.log来合并行尾，省得调行号，但exp日志的格式因为ssh登录的提示信息不一而无法统一，只能放弃。</h1>
-<p>试验性的在ip.lst中输入了15个IP，运行结果显示出来了两个。成功。</p>
+    <p>接着上次expect脚本那事儿往下走。<br />
+由于不同服务的管理方法不同，上次关闭了ssh的外网登录以后，各地不断有服务器报出这样那样的问题。主管一发狠：“全面检查！”<br />
+在检查中，还真发现不少问题。最突出的就是很多本应该上传到中心服务器的日志居然一直留在本机没动弹！时不时发作出来，就撑爆了根分区——这当然有分区规划不合理的问题。但在线业务，磁盘划分修改起来就不是那么方便了。于是退而求其次，定期监控日志文件大小吧。这回expect只要du<br />
+-sh一下就行了，方便的很。问题在下一步的分析。<br />
+摘举exp.log中一次循环的执行结果如下：<br />
+<code class="highlighter-rouge">bash
+The authenticity of host '1.2.3.4 (1.2.3.4)' can't be established.
+RSA key fingerprint is
+bb:d5:81:e1:84:09:c5:32:f6:fb:e1:b3:d3:de:c3:53.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added '1.2.3.4' (RSA) to the list of known hosts.
+root@1.2.3.4's password:
+4.0K /home/apache2/logs/access_log
+</code><br />
+第一步，是用如下脚本，可以做到提取日志达到50M大小的服务器IP。<br />
+<code class="highlighter-rouge">bash
+#!/bin/bash
+nk=`sed -n -e "/50M/=" exp.log`
+nnk=`expr $nk - 1`
+sed -n "$nnk"p"" exp.log|awk -F"'" '{print $1}'|awk -F"@" '{print $2}'
+</code><br />
+但问题是：如果同时有两台到50M呢？或者在运行到它时，已经到50M以上呢？<br />
+于是我想，以ls -sh显示大小，人眼好看，电脑不好认啊。如果用du -b，那大小相同的几率就应该小很多很多了。然后定一个阀值，进行比较循环就可以了。<br />
+最后脚本如下：<br />
+<code class="highlighter-rouge">bash
+#!/bin/bash
+for ip in `cat ip.lst`
+do
+./ssh.exp $ip &gt; /dev/null 2&amp;&gt;1
+done
+bs=400
+size=`grep access exp.log | awk '{if ($1&amp;gt;'"$bs"'){print $1}}'`
+for so in $size
+do
+nk=`sed -n -e "/$so/=" exp.log`
+nnk=`expr $nk - 1`
+sed -n "$nnk"p"" exp.log | awk -F"'" '{print $1}'|awk -F@ '{print $2}'
+done
+</code><br />
+#本来想用sed &lsquo;N;s/n//g&rsquo; exp.log来合并行尾，省得调行号，但exp日志的格式因为ssh登录的提示信息不一而无法统一，只能放弃。<br />
+试验性的在ip.lst中输入了15个IP，运行结果显示出来了两个。成功。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2009/11/03/dollar-zero-in-awk" title="awk变量$0妙用">&larr; Previous</a></li>
+        <li class="prev"><a href="/2009/11/03/dollar-zero-in-awk/" title="awk变量$0妙用">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2009/11/03/expect-script-to-modify-ssh-configurations-of-cluster" title="expect脚本——批量修改ssh配置">Next &rarr;</a></li>
+        <li class="next"><a href="/2009/11/03/expect-script-to-modify-ssh-configurations-of-cluster/" title="expect脚本——批量修改ssh配置">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -136,15 +142,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

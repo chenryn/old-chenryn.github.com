@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,197 +53,253 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>首先要申明，rex 和 puppet 本质上是不同的，puppet 追求的是状态，rex 追求的是操作。puppet 用户经常关心的是 agent 运行了没，而 rex 用户关心的是怎么写 Rexfile 能让中控运行 rex 时的命令参数更简洁漂亮(个人感受==!)。所以哪怕在本文中列举的这些资源写法很类似，也请读者们注意：rex 的资源关键词命名，都是带有动作性的，比如 <code>create</code>，<code>add</code>，<code>install</code>，<code>upload</code>，<code>download</code>，<code>sync</code> 等等。甚至精确的说，rex 里这些不是资源(<code>Puppet::Types::***</code>)，他们是 <code>Rex::Commands::***</code>。</p>
-<p>因为 rex 基于并发 ssh 连接，所以它有一些操作是 puppet 所没有的，比如 <code>tail</code>，<code>file_append</code>，<code>fdisk</code>，<code>sysctl</code> 和 <code>iptables</code> 等等，这里暂时不列举。总的来说，本文目的是总结类似的部分，而不是不同的用法……</p>
+    <p>首先要申明，rex 和 puppet 本质上是不同的，puppet 追求的是状态，rex 追求的是操作。puppet 用户经常关心的是 agent 运行了没，而 rex 用户关心的是怎么写 Rexfile 能让中控运行 rex 时的命令参数更简洁漂亮(个人感受==!)。所以哪怕在本文中列举的这些资源写法很类似，也请读者们注意：rex 的资源关键词命名，都是带有动作性的，比如 <code class="highlighter-rouge">create</code>，<code class="highlighter-rouge">add</code>，<code class="highlighter-rouge">install</code>，<code class="highlighter-rouge">upload</code>，<code class="highlighter-rouge">download</code>，<code class="highlighter-rouge">sync</code> 等等。甚至精确的说，rex 里这些不是资源(<code class="highlighter-rouge">Puppet::Types::***</code>)，他们是 <code class="highlighter-rouge">Rex::Commands::***</code>。</p>
+<p>因为 rex 基于并发 ssh 连接，所以它有一些操作是 puppet 所没有的，比如 <code class="highlighter-rouge">tail</code>，<code class="highlighter-rouge">file_append</code>，<code class="highlighter-rouge">fdisk</code>，<code class="highlighter-rouge">sysctl</code> 和 <code class="highlighter-rouge">iptables</code> 等等，这里暂时不列举。总的来说，本文目的是总结类似的部分，而不是不同的用法……</p>
 <h1 id="cron-">Cron 资源</h1>
 <h3 id="puppet-">puppet 写法</h3>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">cron</span> <span class="p">{</span> <span class="s1">&#39;check_starttime&#39;</span><span class="p">:</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="n">cron</span> <span class="p">{</span> <span class="s1">'check_starttime'</span><span class="p">:</span>
         <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="n">present</span><span class="p">,</span>
         <span class="n">minute</span>  <span class="o">=&gt;</span> <span class="mi">30</span><span class="p">,</span>
-        <span class="n">hour</span>    <span class="o">=&gt;</span> <span class="s1">&#39;*/2&#39;</span><span class="p">,</span>
-        <span class="n">user</span>    <span class="o">=&gt;</span> <span class="s1">&#39;root&#39;</span><span class="p">,</span>
-        <span class="n">command</span> <span class="o">=&gt;</span> <span class="s1">&#39;sh /usr/local/bin/check_start_time.sh&#39;</span><span class="p">,</span>
-        <span class="nb">require</span> <span class="o">=&gt;</span> <span class="no">File</span><span class="o">[</span><span class="s1">&#39;/usr/local/bin/check_start_time.sh&#39;</span><span class="o">]</span><span class="p">,</span>
-    <span class="p">}</span></code></pre></div>
+        <span class="n">hour</span>    <span class="o">=&gt;</span> <span class="s1">'*/2'</span><span class="p">,</span>
+        <span class="n">user</span>    <span class="o">=&gt;</span> <span class="s1">'root'</span><span class="p">,</span>
+        <span class="n">command</span> <span class="o">=&gt;</span> <span class="s1">'sh /usr/local/bin/check_start_time.sh'</span><span class="p">,</span>
+        <span class="nb">require</span> <span class="o">=&gt;</span> <span class="no">File</span><span class="p">[</span><span class="s1">'/usr/local/bin/check_start_time.sh'</span><span class="p">],</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
 <h3 id="rex-">rex 写法</h3>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">cron</span> <span class="n">add</span> <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span> <span class="p">{</span>
-        <span class="n">minute</span>       <span class="o">=&gt;</span> <span class="s">&#39;5&#39;</span><span class="p">,</span>
-        <span class="n">hour</span>         <span class="o">=&gt;</span> <span class="s">&#39;*&#39;</span><span class="p">,</span>
-        <span class="n">day_of_month</span> <span class="o">=&gt;</span> <span class="s">&#39;*&#39;</span><span class="p">,</span>
-        <span class="n">month</span>        <span class="o">=&gt;</span> <span class="s">&#39;*&#39;</span><span class="p">,</span>
-        <span class="n">day_of_week</span>  <span class="o">=&gt;</span> <span class="s">&#39;*&#39;</span><span class="p">,</span>
-        <span class="n">command</span>      <span class="o">=&gt;</span> <span class="s">&#39;/path/to/your/cronjob&#39;</span><span class="p">,</span>
-    <span class="p">};</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">cron</span> <span class="nv">add</span> <span class="o">=&gt;</span> <span class="s">"root"</span><span class="p">,</span> <span class="p">{</span>
+        <span class="nv">minute</span>       <span class="o">=&gt;</span> <span class="s">'5'</span><span class="p">,</span>
+        <span class="nv">hour</span>         <span class="o">=&gt;</span> <span class="s">'*'</span><span class="p">,</span>
+        <span class="nv">day_of_month</span> <span class="o">=&gt;</span> <span class="s">'*'</span><span class="p">,</span>
+        <span class="nv">month</span>        <span class="o">=&gt;</span> <span class="s">'*'</span><span class="p">,</span>
+        <span class="nv">day_of_week</span>  <span class="o">=&gt;</span> <span class="s">'*'</span><span class="p">,</span>
+        <span class="nv">command</span>      <span class="o">=&gt;</span> <span class="s">'/path/to/your/cronjob'</span><span class="p">,</span>
+    <span class="p">};</span>
+</code></pre>
+</div>
 <h1 id="file-">File 资源</h1>
 <h3 id="puppet--1">puppet 写法</h3>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">file</span> <span class="p">{</span> <span class="s1">&#39;/etc/squid/squid.conf&#39;</span><span class="p">:</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="n">file</span> <span class="p">{</span> <span class="s1">'/etc/squid/squid.conf'</span><span class="p">:</span>
         <span class="k">ensure</span>    <span class="o">=&gt;</span> <span class="n">file</span><span class="p">,</span>
-        <span class="n">mode</span>      <span class="o">=&gt;</span> <span class="s1">&#39;0755&#39;</span><span class="p">,</span>
-        <span class="n">content</span>   <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s1">&#39;squid/squid.conf.erb&#39;</span><span class="p">),</span>
-        <span class="nb">require</span>   <span class="o">=&gt;</span> <span class="no">Package</span><span class="o">[</span><span class="s1">&#39;squid&#39;</span><span class="o">]</span><span class="p">,</span>
-        <span class="n">subscribe</span> <span class="o">=&gt;</span> <span class="no">Service</span><span class="o">[</span><span class="s1">&#39;squid&#39;</span><span class="o">]</span><span class="p">,</span>
-    <span class="p">}</span></code></pre></div>
+        <span class="n">mode</span>      <span class="o">=&gt;</span> <span class="s1">'0755'</span><span class="p">,</span>
+        <span class="n">content</span>   <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s1">'squid/squid.conf.erb'</span><span class="p">),</span>
+        <span class="nb">require</span>   <span class="o">=&gt;</span> <span class="no">Package</span><span class="p">[</span><span class="s1">'squid'</span><span class="p">],</span>
+        <span class="n">subscribe</span> <span class="o">=&gt;</span> <span class="no">Service</span><span class="p">[</span><span class="s1">'squid'</span><span class="p">],</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
 <h3 id="rex--1">rex 写法</h3>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">file</span> <span class="s">&quot;/etc/squid/squid.conf&quot;</span><span class="p">,</span>
-        <span class="n">content</span>   <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s">&quot;templates/squid.tpl&quot;</span><span class="p">,</span> <span class="n">vars</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">%var</span> <span class="p">),</span>
-        <span class="n">owner</span>     <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span>
-        <span class="n">group</span>     <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span>
-        <span class="n">mode</span>      <span class="o">=&gt;</span> <span class="mi">700</span><span class="p">,</span>
-        <span class="n">needs</span>     <span class="o">=&gt;</span> <span class="n">SquidPkgTask</span><span class="p">,</span>
-        <span class="n">on_change</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="n">service</span> <span class="n">squid</span> <span class="o">=&gt;</span> <span class="s">&#39;restart&#39;</span> <span class="p">};</span></code></pre></div>
-<p>这里的 <code>on_change</code> 是 File 资源独有的。</p>
-<p><strong>通用资源方面，rex 中在同一个 task 内，是按照书写顺序执行；在 task 之间，通过 <code>needs</code> 可以定义依赖。</strong></p>
-<p>另外 rex 还有 <code>before</code>，<code>after</code>，<code>around</code> 三个关键字作用于 task 上。不过这三个是在 rex 控制端执行，不是在远端主机上执行。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">file</span> <span class="s">"/etc/squid/squid.conf"</span><span class="p">,</span>
+        <span class="nv">content</span>   <span class="o">=&gt;</span> <span class="nv">template</span><span class="p">(</span><span class="s">"templates/squid.tpl"</span><span class="p">,</span> <span class="nv">vars</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">%var</span> <span class="p">),</span>
+        <span class="nv">owner</span>     <span class="o">=&gt;</span> <span class="s">"root"</span><span class="p">,</span>
+        <span class="nv">group</span>     <span class="o">=&gt;</span> <span class="s">"root"</span><span class="p">,</span>
+        <span class="nv">mode</span>      <span class="o">=&gt;</span> <span class="mi">700</span><span class="p">,</span>
+        <span class="nv">needs</span>     <span class="o">=&gt;</span> <span class="nv">SquidPkgTask</span><span class="p">,</span>
+        <span class="nv">on_change</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nv">service</span> <span class="nv">squid</span> <span class="o">=&gt;</span> <span class="s">'restart'</span> <span class="p">};</span>
+</code></pre>
+</div>
+<p>这里的 <code class="highlighter-rouge">on_change</code> 是 File 资源独有的。</p>
+<p><strong>通用资源方面，rex 中在同一个 task 内，是按照书写顺序执行；在 task 之间，通过 <code class="highlighter-rouge">needs</code> 可以定义依赖。</strong></p>
+<p>另外 rex 还有 <code class="highlighter-rouge">before</code>，<code class="highlighter-rouge">after</code>，<code class="highlighter-rouge">around</code> 三个关键字作用于 task 上。不过这三个是在 rex 控制端执行，不是在远端主机上执行。</p>
 <p>注意这里，这个 file 看起来没有使用操作性的动词，但其实他是下面这个写法的简写而已：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">install</span> <span class="n">file</span>  <span class="o">=&gt;</span> <span class="s">&#39;templates/etc/hosts.tpl&#39;</span><span class="p">,</span> <span class="p">{</span>
-        <span class="n">source</span>    <span class="o">=&gt;</span> <span class="s">&quot;/etc/hosts&quot;</span><span class="p">,</span>
-        <span class="n">owner</span>     <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span>
-        <span class="n">group</span>     <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span>
-        <span class="n">mode</span>      <span class="o">=&gt;</span> <span class="mi">700</span><span class="p">,</span>
-        <span class="n">on_change</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="n">say</span> <span class="s">&quot;Something was changed.&quot;</span> <span class="p">},</span>
-        <span class="n">template</span>  <span class="o">=&gt;</span> <span class="p">{</span>
-                        <span class="n">greeting</span> <span class="o">=&gt;</span> <span class="s">&quot;hello&quot;</span><span class="p">,</span>
-                        <span class="n">name</span>     <span class="o">=&gt;</span> <span class="s">&quot;Ben&quot;</span><span class="p">,</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">install</span> <span class="nv">file</span>  <span class="o">=&gt;</span> <span class="s">'templates/etc/hosts.tpl'</span><span class="p">,</span> <span class="p">{</span>
+        <span class="nv">source</span>    <span class="o">=&gt;</span> <span class="s">"/etc/hosts"</span><span class="p">,</span>
+        <span class="nv">owner</span>     <span class="o">=&gt;</span> <span class="s">"root"</span><span class="p">,</span>
+        <span class="nv">group</span>     <span class="o">=&gt;</span> <span class="s">"root"</span><span class="p">,</span>
+        <span class="nv">mode</span>      <span class="o">=&gt;</span> <span class="mi">700</span><span class="p">,</span>
+        <span class="nv">on_change</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nv">say</span> <span class="s">"Something was changed."</span> <span class="p">},</span>
+        <span class="nv">template</span>  <span class="o">=&gt;</span> <span class="p">{</span>
+                        <span class="nv">greeting</span> <span class="o">=&gt;</span> <span class="s">"hello"</span><span class="p">,</span>
+                        <span class="nv">name</span>     <span class="o">=&gt;</span> <span class="s">"Ben"</span><span class="p">,</span>
                      <span class="p">},</span>
-    <span class="p">};</span></code></pre></div>
+    <span class="p">};</span>
+</code></pre>
+</div>
 <p>另外，还有一个通过 SFTP 接口上传的写法：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">upload</span> <span class="s">&quot;hosts&quot;</span> <span class="o">=&gt;</span> <span class="s">&quot;/etc/&quot;</span><span class="p">;</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">upload</span> <span class="s">"hosts"</span> <span class="o">=&gt;</span> <span class="s">"/etc/"</span><span class="p">;</span>
+</code></pre>
+</div>
 <h1 id="package-">Package 资源</h1>
 <h3 id="puppet--2">puppet 写法</h3>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">package</span> <span class="p">{</span> <span class="s1">&#39;ganglia-gmond-modules-python-plugin&#39;</span><span class="p">:</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="n">package</span> <span class="p">{</span> <span class="s1">'ganglia-gmond-modules-python-plugin'</span><span class="p">:</span>
         <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="n">installed</span><span class="p">,</span>
-        <span class="nb">require</span> <span class="o">=&gt;</span> <span class="no">Class</span><span class="o">[</span><span class="s1">&#39;repos&#39;</span><span class="o">]</span><span class="p">,</span>
-    <span class="p">}</span></code></pre></div>
+        <span class="nb">require</span> <span class="o">=&gt;</span> <span class="no">Class</span><span class="p">[</span><span class="s1">'repos'</span><span class="p">],</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
 <h3 id="rex--2">rex 写法</h3>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">repository</span> <span class="n">add</span> <span class="o">=&gt;</span> <span class="n">myrepo</span><span class="p">,</span>
-        <span class="n">url</span> <span class="o">=&gt;</span> <span class="s">&#39;http://rex.linux-files.org/CentOS/$releasever/rex/$basearch/&#39;</span><span class="p">;</span>
-    <span class="n">update_package_db</span><span class="p">;</span>
-    <span class="n">install</span> <span class="nb">package</span> <span class="o">=&gt;</span> <span class="s">&#39;vim&#39;</span><span class="p">;</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">repository</span> <span class="nv">add</span> <span class="o">=&gt;</span> <span class="nv">myrepo</span><span class="p">,</span>
+        <span class="nv">url</span> <span class="o">=&gt;</span> <span class="s">'http://rex.linux-files.org/CentOS/$releasever/rex/$basearch/'</span><span class="p">;</span>
+    <span class="nv">update_package_db</span><span class="p">;</span>
+    <span class="nv">install</span> <span class="nb">package</span> <span class="o">=&gt;</span> <span class="s">'vim'</span><span class="p">;</span>
+</code></pre>
+</div>
 <h1 id="class-">Class 定义</h1>
 <h3 id="puppet--3">puppet 写法</h3>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="n">squid</span> <span class="p">{</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="k">class</span> <span class="n">squid</span> <span class="p">{</span>
         <span class="kp">include</span> <span class="n">squid</span><span class="o">::</span><span class="n">install</span>
-    <span class="p">}</span></code></pre></div>
+    <span class="p">}</span>
+</code></pre>
+</div>
 <h3 id="rex--3">rex 写法</h3>
 <p>rex 执行的 Rexfile 其实就是 perl 的模块文件，所以写法就是标准的 perl 写法。</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="n">Squid</span> <span class="p">{</span>
-        <span class="nb">require</span> <span class="nn">Squid::</span><span class="n">Install</span><span class="p">;</span>
-    <span class="p">}</span></code></pre></div>
-<p>呼呼，新版本的 Perl 中可以用 <code>{}</code> 来包裹 package 定义的内容，看起来是不是更像一些？不过 CentOS6 的 5.10 版还不支持，所以通用起见，还是这样写吧：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="n">Squid</span><span class="p">;</span>
-    <span class="nb">require</span> <span class="nn">Squid::</span><span class="n">Install</span><span class="p">;</span>
-    <span class="mi">1</span><span class="p">;</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nb">package</span> <span class="nv">Squid</span> <span class="p">{</span>
+        <span class="nb">require</span> <span class="nn">Squid::</span><span class="nv">Install</span><span class="p">;</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
+<p>呼呼，新版本的 Perl 中可以用 <code class="highlighter-rouge"><span class="p">{}</span></code> 来包裹 package 定义的内容，看起来是不是更像一些？不过 CentOS6 的 5.10 版还不支持，所以通用起见，还是这样写吧：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nb">package</span> <span class="nv">Squid</span><span class="p">;</span>
+    <span class="nb">require</span> <span class="nn">Squid::</span><span class="nv">Install</span><span class="p">;</span>
+    <span class="mi">1</span><span class="p">;</span>
+</code></pre>
+</div>
 <h1 id="directory-">Directory 资源</h1>
 <h3 id="puppet--4">puppet 写法</h3>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">file</span> <span class="p">{</span> <span class="s1">&#39;murder-client&#39;</span><span class="p">:</span>
-        <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="s1">&#39;directory&#39;</span><span class="p">,</span>
-        <span class="n">path</span>    <span class="o">=&gt;</span> <span class="s1">&#39;/usr/local/murder&#39;</span><span class="p">,</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="n">file</span> <span class="p">{</span> <span class="s1">'murder-client'</span><span class="p">:</span>
+        <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="s1">'directory'</span><span class="p">,</span>
+        <span class="n">path</span>    <span class="o">=&gt;</span> <span class="s1">'/usr/local/murder'</span><span class="p">,</span>
         <span class="n">recurse</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
         <span class="n">purge</span>   <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
-        <span class="n">source</span>  <span class="o">=&gt;</span> <span class="s1">&#39;puppet:///modules/murder/dist&#39;</span><span class="p">,</span>
-    <span class="p">}</span></code></pre></div>
+        <span class="n">source</span>  <span class="o">=&gt;</span> <span class="s1">'puppet:///modules/murder/dist'</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
 <h3 id="rex--4">rex 写法</h3>
 <p>rex 中采用 rsync 来完成目录文件的同步：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">mkdir</span><span class="p">(</span><span class="s">&#39;/usr/local/murder&#39;</span><span class="p">);</span>
-    <span class="n">sync</span> <span class="s">&#39;dist/*&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;/usr/local/murder&#39;</span><span class="p">,</span> <span class="p">{</span>
-        <span class="n">exclude</span>    <span class="o">=&gt;</span> <span class="s">&quot;*.sw*&quot;</span><span class="p">,</span>
-        <span class="n">parameters</span> <span class="o">=&gt;</span> <span class="s">&#39;--backup --delete&#39;</span><span class="p">,</span>
-    <span class="p">};</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nb">mkdir</span><span class="p">(</span><span class="s">'/usr/local/murder'</span><span class="p">);</span>
+    <span class="nv">sync</span> <span class="s">'dist/*'</span> <span class="o">=&gt;</span> <span class="s">'/usr/local/murder'</span><span class="p">,</span> <span class="p">{</span>
+        <span class="nv">exclude</span>    <span class="o">=&gt;</span> <span class="s">"*.sw*"</span><span class="p">,</span>
+        <span class="nv">parameters</span> <span class="o">=&gt;</span> <span class="s">'--backup --delete'</span><span class="p">,</span>
+    <span class="p">};</span>
+</code></pre>
+</div>
 <h1 id="shell-">Shell 资源</h1>
 <h3 id="puppet--5">puppet 写法</h3>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="nb">exec</span> <span class="p">{</span><span class="s1">&#39;init-reload&#39;</span><span class="p">:</span>
-        <span class="n">command</span>     <span class="o">=&gt;</span> <span class="s1">&#39;/sbin/initctl reload-configuration &amp;&amp; /sbin/initctl start svscan&#39;</span><span class="p">,</span>
-        <span class="n">subscribe</span>   <span class="o">=&gt;</span> <span class="no">File</span><span class="o">[</span><span class="s1">&#39;/etc/init/svscan.conf&#39;</span><span class="o">]</span><span class="p">,</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nb">exec</span> <span class="p">{</span><span class="s1">'init-reload'</span><span class="p">:</span>
+        <span class="n">command</span>     <span class="o">=&gt;</span> <span class="s1">'/sbin/initctl reload-configuration &amp;&amp; /sbin/initctl start svscan'</span><span class="p">,</span>
+        <span class="n">subscribe</span>   <span class="o">=&gt;</span> <span class="no">File</span><span class="p">[</span><span class="s1">'/etc/init/svscan.conf'</span><span class="p">],</span>
         <span class="n">refreshonly</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
-    <span class="p">}</span></code></pre></div>
+    <span class="p">}</span>
+</code></pre>
+</div>
 <h3 id="rex--5">rex 写法</h3>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">run</span> <span class="s">&quot;cmd&quot;</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">run</span> <span class="s">"cmd"</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
         <span class="k">my</span> <span class="p">(</span><span class="nv">$out</span><span class="p">,</span> <span class="nv">$err</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="p">};</span></code></pre></div>
-<p>这个回调函数可以不要，那么 <code>run</code> 命令返回输出到变量。这种用法在单行命令中最常用，比如这样：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">rex -H <span class="s1">&#39;192.168.0.[10..30]&#39;</span> -e <span class="s1">&#39;say run &quot;df -h&quot;&#39;</span></code></pre></div>
+    <span class="p">};</span>
+</code></pre>
+</div>
+<p>这个回调函数可以不要，那么 <code class="highlighter-rouge">run</code> 命令返回输出到变量。这种用法在单行命令中最常用，比如这样：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    rex -H <span class="s1">'192.168.0.[10..30]'</span> -e <span class="s1">'say run "df -h"'</span>
+</code></pre>
+</div>
 <h1 id="usergroup-">User/Group 资源</h1>
 <h3 id="puppet--6">puppet 写法</h3>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">group</span> <span class="p">{</span><span class="s1">&#39;puppet&#39;</span><span class="p">:</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="n">group</span> <span class="p">{</span><span class="s1">'puppet'</span><span class="p">:</span>
         <span class="k">ensure</span> <span class="o">=&gt;</span> <span class="n">present</span><span class="p">,</span>
         <span class="n">gid</span>    <span class="o">=&gt;</span> <span class="mi">501</span><span class="p">,</span>
         <span class="nb">system</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
     <span class="p">}</span>
-    <span class="n">user</span> <span class="p">{</span><span class="s1">&#39;puppet&#39;</span><span class="p">:</span>
+    <span class="n">user</span> <span class="p">{</span><span class="s1">'puppet'</span><span class="p">:</span>
         <span class="k">ensure</span> <span class="o">=&gt;</span> <span class="n">present</span><span class="p">,</span>
         <span class="n">uid</span>    <span class="o">=&gt;</span> <span class="mi">501</span><span class="p">,</span>
         <span class="nb">system</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
-        <span class="n">groups</span> <span class="o">=&gt;</span> <span class="o">[</span><span class="s1">&#39;puppet&#39;</span><span class="p">,</span> <span class="s1">&#39;...&#39;</span><span class="o">]</span><span class="p">,</span>
-        <span class="n">expiry</span> <span class="o">=&gt;</span> <span class="s1">&#39;2013-05-30&#39;</span><span class="p">,</span>
+        <span class="n">groups</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="s1">'puppet'</span><span class="p">,</span> <span class="s1">'...'</span><span class="p">],</span>
+        <span class="n">expiry</span> <span class="o">=&gt;</span> <span class="s1">'2013-05-30'</span><span class="p">,</span>
         <span class="n">managehome</span> <span class="o">=&gt;</span> <span class="kp">false</span><span class="p">,</span>
-    <span class="p">}</span></code></pre></div>
+    <span class="p">}</span>
+</code></pre>
+</div>
 <h3 id="rex--6">rex 写法</h3>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">create_group</span> <span class="s">&#39;puppet&#39;</span><span class="p">,</span> <span class="p">{</span>
-        <span class="n">gid</span>    <span class="o">=&gt;</span> <span class="mi">501</span><span class="p">,</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">create_group</span> <span class="s">'puppet'</span><span class="p">,</span> <span class="p">{</span>
+        <span class="nv">gid</span>    <span class="o">=&gt;</span> <span class="mi">501</span><span class="p">,</span>
         <span class="nb">system</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
     <span class="p">}</span>
-    <span class="n">create_user</span> <span class="s">&#39;puppet&#39;</span><span class="p">,</span>
-       <span class="n">uid</span> <span class="o">=&gt;</span> <span class="mi">501</span><span class="p">,</span>
-       <span class="n">home</span> <span class="o">=&gt;</span> <span class="s">&#39;/etc/puppet&#39;</span><span class="p">,</span>
-       <span class="n">expire</span> <span class="o">=&gt;</span> <span class="s">&#39;2013-05-30&#39;</span><span class="p">,</span>
-       <span class="n">groups</span>  <span class="o">=&gt;</span> <span class="p">[</span><span class="s">&#39;puppet&#39;</span><span class="p">,</span> <span class="s">&#39;...&#39;</span><span class="p">],</span>
-       <span class="n">password</span> <span class="o">=&gt;</span> <span class="s">&#39;blahblah&#39;</span><span class="p">,</span>
+    <span class="nv">create_user</span> <span class="s">'puppet'</span><span class="p">,</span>
+       <span class="nv">uid</span> <span class="o">=&gt;</span> <span class="mi">501</span><span class="p">,</span>
+       <span class="nv">home</span> <span class="o">=&gt;</span> <span class="s">'/etc/puppet'</span><span class="p">,</span>
+       <span class="nv">expire</span> <span class="o">=&gt;</span> <span class="s">'2013-05-30'</span><span class="p">,</span>
+       <span class="nv">groups</span>  <span class="o">=&gt;</span> <span class="p">[</span><span class="s">'puppet'</span><span class="p">,</span> <span class="s">'...'</span><span class="p">],</span>
+       <span class="nv">password</span> <span class="o">=&gt;</span> <span class="s">'blahblah'</span><span class="p">,</span>
        <span class="nb">system</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
-       <span class="n">no_create_home</span> <span class="o">=&gt;</span> <span class="n">TRUE</span><span class="p">,</span>
-       <span class="n">ssh_key</span> <span class="o">=&gt;</span> <span class="s">&quot;ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQChUw...&quot;</span><span class="p">;</span></code></pre></div>
+       <span class="nv">no_create_home</span> <span class="o">=&gt;</span> <span class="nv">TRUE</span><span class="p">,</span>
+       <span class="nv">ssh_key</span> <span class="o">=&gt;</span> <span class="s">"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQChUw..."</span><span class="p">;</span>
+</code></pre>
+</div>
 <h1 id="service-">Service 资源</h1>
 <h3 id="puppet--7">puppet 写法</h3>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">service</span> <span class="p">{</span><span class="s1">&#39;nginx&#39;</span><span class="p">:</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="n">service</span> <span class="p">{</span><span class="s1">'nginx'</span><span class="p">:</span>
         <span class="k">ensure</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
         <span class="n">enable</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
-    <span class="p">}</span></code></pre></div>
+    <span class="p">}</span>
+</code></pre>
+</div>
 <h3 id="rex--7">rex 写法</h3>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">service</span> <span class="n">apache2</span> <span class="o">=&gt;</span> <span class="n">ensure</span> <span class="o">=&gt;</span> <span class="s">&quot;started&quot;</span><span class="p">;</span>
-    <span class="n">service</span> <span class="n">apache2</span> <span class="o">=&gt;</span> <span class="s">&quot;start&quot;</span><span class="p">;</span></code></pre></div>
-<p>再次可见，rex 认为 <code>service</code> 命令和 <code>chkconfig</code>/<code>update-rc.d</code> 命令是两件事情，所以要分开两个写法。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">service</span> <span class="nv">apache2</span> <span class="o">=&gt;</span> <span class="nv">ensure</span> <span class="o">=&gt;</span> <span class="s">"started"</span><span class="p">;</span>
+    <span class="nv">service</span> <span class="nv">apache2</span> <span class="o">=&gt;</span> <span class="s">"start"</span><span class="p">;</span>
+</code></pre>
+</div>
+<p>再次可见，rex 认为 <code class="highlighter-rouge">service</code> 命令和 <code class="highlighter-rouge">chkconfig</code>/<code class="highlighter-rouge">update-rc.d</code> 命令是两件事情，所以要分开两个写法。</p>
 <h1 id="mount-">Mount 资源</h1>
 <h3 id="puppet--8">puppet 写法</h3>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">mount</span> <span class="p">{</span><span class="s1">&#39;/mnt/sda6&#39;</span><span class="p">:</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="n">mount</span> <span class="p">{</span><span class="s1">'/mnt/sda6'</span><span class="p">:</span>
         <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="n">present</span><span class="p">;</span>
-        <span class="n">device</span>  <span class="o">=&gt;</span> <span class="s1">&#39;/dev/sda6&#39;</span><span class="p">,</span>
-        <span class="n">fstype</span>  <span class="o">=&gt;</span> <span class="s1">&#39;ext3&#39;</span><span class="p">,</span>
-        <span class="n">options</span> <span class="o">=&gt;</span> <span class="s1">&#39;noatime,async&#39;</span><span class="p">;</span>
-    <span class="p">}</span></code></pre></div>
+        <span class="n">device</span>  <span class="o">=&gt;</span> <span class="s1">'/dev/sda6'</span><span class="p">,</span>
+        <span class="n">fstype</span>  <span class="o">=&gt;</span> <span class="s1">'ext3'</span><span class="p">,</span>
+        <span class="n">options</span> <span class="o">=&gt;</span> <span class="s1">'noatime,async'</span><span class="p">;</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
 <h3 id="rex--8">rex 写法</h3>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">mount</span> <span class="s">&quot;/dev/sda6&quot;</span><span class="p">,</span> <span class="s">&quot;/mnt/sda6&quot;</span><span class="p">,</span>
-       <span class="n">fs</span> <span class="o">=&gt;</span> <span class="s">&quot;ext3&quot;</span><span class="p">,</span>
-       <span class="n">options</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw/noatime async/</span><span class="p">];</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">mount</span> <span class="s">"/dev/sda6"</span><span class="p">,</span> <span class="s">"/mnt/sda6"</span><span class="p">,</span>
+       <span class="nv">fs</span> <span class="o">=&gt;</span> <span class="s">"ext3"</span><span class="p">,</span>
+       <span class="nv">options</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="sx">qw/noatime async/</span><span class="p">];</span>
+</code></pre>
+</div>
 <h1 id="facts-">Facts 变量和模板</h1>
 <h3 id="puppet--9">puppet 写法</h3>
-<p>在 puppet 中，Facts 变量有两种用法，一个是 <code>*.pp</code> 里的写法：</p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="vg">$:</span><span class="ss">:lsbdistid</span></code></pre></div>
-<p>另一种是在 <code>*.erb</code> 里的写法，值得注意的是变量的作用域：</p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="o">&lt;</span><span class="sx">%= scope::lookupvar(&#39;ipaddress&#39;) %&gt;</span>
-<span class="sx">    &lt;%=</span> <span class="n">scope</span><span class="o">::</span><span class="n">lookupvar</span><span class="p">(</span><span class="s1">&#39;nginx::name&#39;</span><span class="p">)</span> <span class="o">%&gt;</span></code></pre></div>
+<p>在 puppet 中，Facts 变量有两种用法，一个是 <code class="highlighter-rouge">*.pp</code> 里的写法：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="vg">$:</span><span class="ss">:lsbdistid</span>
+</code></pre>
+</div>
+<p>另一种是在 <code class="highlighter-rouge">*.erb</code> 里的写法，值得注意的是变量的作用域：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="o">&lt;</span><span class="sx">%= scope::lookupvar('ipaddress') %&gt;
+    &lt;%=</span> <span class="n">scope</span><span class="o">::</span><span class="n">lookupvar</span><span class="p">(</span><span class="s1">'nginx::name'</span><span class="p">)</span> <span class="o">%&gt;</span>
+</code></pre>
+</div>
 <h3 id="rex--9">rex 写法</h3>
 <p>在 rex 中，远端主机的系统状态有多种获取方式，比如：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1"># 全部，这些变量默认会传递给 template</span>
-    <span class="k">my</span> <span class="nv">$sysinfo</span> <span class="o">=</span> <span class="nn">Rex::Helper::System::</span><span class="n">info</span><span class="p">;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="c1"># 全部，这些变量默认会传递给 template</span>
+    <span class="k">my</span> <span class="nv">$sysinfo</span> <span class="o">=</span> <span class="nn">Rex::Helper::System::</span><span class="nv">info</span><span class="p">;</span>
     <span class="c1"># 实际就是从上面info里取具体的变量</span>
-    <span class="k">my</span> <span class="nv">$lsd</span> <span class="o">=</span> <span class="n">get_operating_system</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$lsd</span> <span class="o">=</span> <span class="nv">get_operating_system</span><span class="p">;</span>
     <span class="c1"># 这个慎用，会死人的</span>
-    <span class="k">my</span> <span class="nv">@ns</span> <span class="o">=</span> <span class="n">netstat</span><span class="p">;</span></code></pre></div>
-<p>也可以使用 <code>set</code> 指令，这种变量和使用 perl 标准 <code>my $name</code> 方式不同的是它可以直接在模板中读取：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">set</span> <span class="n">name</span> <span class="o">=&gt;</span> <span class="s">&#39;CDN&#39;</span><span class="p">;</span></code></pre></div>
+    <span class="k">my</span> <span class="nv">@ns</span> <span class="o">=</span> <span class="nv">netstat</span><span class="p">;</span>
+</code></pre>
+</div>
+<p>也可以使用 <code class="highlighter-rouge">set</code> 指令，这种变量和使用 perl 标准 <code class="highlighter-rouge">my $name</code> 方式不同的是它可以直接在模板中读取：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">set</span> <span class="nv">name</span> <span class="o">=&gt;</span> <span class="s">'CDN'</span><span class="p">;</span>
+</code></pre>
+</div>
 <p>至于 rex 的模板，它默认没有使用 CPAN 上任何一种现成的模块，而是自己实现了一个，写法如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">template</span><span class="p">(</span><span class="s">&#39;your.tpl&#39;</span><span class="p">,</span> <span class="n">yourvars</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">%hash</span> <span class="p">);</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">template</span><span class="p">(</span><span class="s">'your.tpl'</span><span class="p">,</span> <span class="nv">yourvars</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">%hash</span> <span class="p">);</span>
+</code></pre>
+</div>
 <p>然后在模板中这样引用：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">My</span> <span class="n">variable</span> <span class="n">is</span> <span class="o">&lt;</span><span class="nv">%</span><span class="err">=</span> <span class="err">$</span><span class="nv">::yourvars</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">key</span><span class="p">}</span> <span class="nv">%</span><span class="err">&gt;</span>
-    <span class="nv">My</span> <span class="n">name</span> <span class="n">is</span> <span class="o">&lt;</span><span class="nv">%</span><span class="err">=</span> <span class="err">$</span><span class="nv">::name</span> <span class="nv">%</span><span class="err">&gt;</span>
-    <span class="nv">My</span> <span class="n">lsd</span> <span class="n">is</span> <span class="o">&lt;</span><span class="nv">%</span><span class="err">=</span> <span class="err">$</span><span class="nv">::operatingsystem</span> <span class="nv">%</span><span class="err">&gt;</span></code></pre></div>
-<p>明显有模仿 puppet 的痕迹，传递进模版的变量以 <code>$::</code> 开头，个人比较汗……</p>
-<p>所以个人建议还是更换成 CPAN 上的流行模板，比如 <code>Text::Xslate</code> 或者 <code>Text::MicroTemplate</code> 等等，使用 <code>set_template_option</code> 即可。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">My</span> <span class="nv">variable</span> <span class="nv">is</span> <span class="o">&lt;</span><span class="nv">%</span><span class="err">=</span> <span class="err">$</span><span class="nv">::yourvars</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">key</span><span class="p">}</span> <span class="nv">%</span><span class="err">&gt;</span>
+    <span class="nv">My</span> <span class="nv">name</span> <span class="nv">is</span> <span class="o">&lt;</span><span class="nv">%</span><span class="err">=</span> <span class="err">$</span><span class="nv">::name</span> <span class="nv">%</span><span class="err">&gt;</span>
+    <span class="nv">My</span> <span class="nv">lsd</span> <span class="nv">is</span> <span class="o">&lt;</span><span class="nv">%</span><span class="err">=</span> <span class="err">$</span><span class="nv">::operatingsystem</span> <span class="nv">%</span><span class="err">&gt;</span>
+</code></pre>
+</div>
+<p>明显有模仿 puppet 的痕迹，传递进模版的变量以 <code class="highlighter-rouge">$::</code> 开头，个人比较汗……</p>
+<p>所以个人建议还是更换成 CPAN 上的流行模板，比如 <code class="highlighter-rouge">Text::Xslate</code> 或者 <code class="highlighter-rouge">Text::MicroTemplate</code> 等等，使用 <code class="highlighter-rouge">set_template_option</code> 即可。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/05/27/use-rex-box-replace-vagrant" title="使用 Rex::Box 代替 Vagrant 的工作">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/05/27/use-rex-box-replace-vagrant/" title="使用 Rex::Box 代替 Vagrant 的工作">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/06/12/translate-85-operational-rules" title="【翻译】运维的85条规则">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/06/12/translate-85-operational-rules/" title="【翻译】运维的85条规则">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -287,15 +343,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

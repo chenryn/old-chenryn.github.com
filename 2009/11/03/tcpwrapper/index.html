@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -64,21 +64,23 @@
 <ol>
   <li>配置文件：/etc/hosts.allow</li>
 </ol>
-<p>（本来还有个hosts.deny的）
+<p>（本来还有个hosts.deny的）<br />
 编写规则是“servicename:hostname[:shellcmd]”</p>
 <p>tcpwrapper监控的是inetd里的启动服务，用telnet举例如下</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">telnet:ALL
+<div class="highlighter-rouge"><pre class="highlight"><code>telnet:ALL
 EXCEPT LOCAL, .M-gtuiw.com
-<span class="nb">echo</span> <span class="s2">&quot;request from %d@%h:&quot;</span> &gt;&gt; /var/log/telnet.log<span class="p">;</span>
-<span class="k">if</span> <span class="o">[</span> %h !<span class="o">=</span> <span class="s2">&quot;OS.M-gtuiw.com:&quot;</span> <span class="o">]</span> <span class="p">;</span> <span class="k">then</span>
-    finge -l @%h &gt;&gt; /var/log/telnet.log
-<span class="k">fi</span></code></pre></div>
+<span class="nb">echo</span> <span class="s2">"request from %d@%h:"</span> &gt;&gt; /var/log/telnet.log;
+<span class="k">if</span> <span class="o">[</span> %h !<span class="o">=</span> <span class="s2">"OS.M-gtuiw.com:"</span> <span class="o">]</span> ; <span class="k">then
+    </span>finge -l @%h &gt;&gt; /var/log/telnet.log
+<span class="k">fi</span>
+</code></pre>
+</div>
 <p>意即允许除了本机和M-gtuiw.com域下主机以外的所有telnet请求，并以“请求来自服务名@主机名”的方式记录进日志。（注意：EXCEPT也可以用在servicename后面）</p>
 <p>和iptables一样（好像说反了，其实应该是iptables和tcpd一样），这个allow和deny的规则也是讲究先来后到的，所以会有个ALL:ALL:deny收尾（如果单有deny文件，就在里头写ALL:ALL就可以了）。</p>
 <ol>
   <li>调试</li>
 </ol>
-<p>tcpdchk -v可以看到tcpd的全部规则设置和错误提示
+<p>tcpdchk -v可以看到tcpd的全部规则设置和错误提示<br />
 tcpdmatch servicename hostname可以具体查询某条规则</p>
 <ol>
   <li>inetd服务配置</li>
@@ -88,21 +90,23 @@ tcpdmatch servicename hostname可以具体查询某条规则</p>
 <ol>
   <li>日志结果，直接摘抄一段如下：</li>
 </ol>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">Jul <span class="m">31</span> 22:00:52 <span class="o">[</span>url<span class="o">]</span>www.test.org<span class="o">[</span>/url<span class="o">]</span> in.telnetd<span class="o">[</span>4365<span class="o">]</span>: connect from 10.68.32.1
-Jul <span class="m">31</span> 22:02:10 <span class="o">[</span>url<span class="o">]</span>www.test.org<span class="o">[</span>/url<span class="o">]</span> in.telnetd<span class="o">[</span>4389<span class="o">]</span>: connect from 10.68.32.5
-Jul <span class="m">31</span> 22:04:58 <span class="o">[</span>url<span class="o">]</span>www.test.org<span class="o">[</span>/url<span class="o">]</span> in.ftpd<span class="o">[</span>4429<span class="o">]</span>: connect from 10.68.32.3</code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>Jul 31 22:00:52 <span class="o">[</span>url]www.test.org[/url] <span class="k">in</span>.telnetd[4365]: connect from 10.68.32.1
+Jul 31 22:02:10 <span class="o">[</span>url]www.test.org[/url] <span class="k">in</span>.telnetd[4389]: connect from 10.68.32.5
+Jul 31 22:04:58 <span class="o">[</span>url]www.test.org[/url] <span class="k">in</span>.ftpd[4429]: connect from 10.68.32.3
+</code></pre>
+</div>
 <p>以上说了这么多，都是unix上的，最后来一句，在linux上，xinetd就是这个inetd+tcpwrapper了。何况还有强大的iptables……它可不像tcpwrapper只能管tcp协议的服务哦~~</p>
 <p>参考文章：</p>
-<p><a href="http://jianjian.blog.51cto.com/35031/41949">http://jianjian.blog.51cto.com/35031/41949</a>
-<a href="http://echo.sharera.com/blog/BlogTopic/9379.htm">http://echo.sharera.com/blog/BlogTopic/9379.htm</a>
-<a href="http://blog.chinaunix.net/u/26264/showart_971334.html">http://blog.chinaunix.net/u/26264/showart_971334.html</a>
+<p><a href="http://jianjian.blog.51cto.com/35031/41949">http://jianjian.blog.51cto.com/35031/41949</a><br />
+<a href="http://echo.sharera.com/blog/BlogTopic/9379.htm">http://echo.sharera.com/blog/BlogTopic/9379.htm</a><br />
+<a href="http://blog.chinaunix.net/u/26264/showart_971334.html">http://blog.chinaunix.net/u/26264/showart_971334.html</a><br />
 http://www.linuxdiyf.com/viewarticle.php?id=18335</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2009/11/03/some-useful-shell-techniques" title="shell处理技巧">&larr; Previous</a></li>
+        <li class="prev"><a href="/2009/11/03/some-useful-shell-techniques/" title="shell处理技巧">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2009/11/03/test-squid-by-http_load" title="squid压力测试">Next &rarr;</a></li>
+        <li class="next"><a href="/2009/11/03/test-squid-by-http_load/" title="squid压力测试">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -146,15 +150,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

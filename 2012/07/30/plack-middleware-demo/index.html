@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,91 +52,96 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>做一个文件上传的网页，想稍微华丽一点，显示进度条出来。在Apache和Catalyst下都有现成的模块，不过Dancer上还没有。看了一下代码，Dancer::Request里没有像Catalyst那样暴露prepare_body_chunk方法。所以需要在plack上利用psgi.input来做。尽量重用现有代码，所以progress.css和progress.js都直接从Catalyst/Plugin/UploadProgress/example/Upload/root/static/里复制。</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="nn">Plack::Middleware::</span><span class="n">UploadProgress</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">CHI</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Carp</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">HTTP::</span><span class="n">Body</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Plack::</span><span class="n">Request</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Plack::</span><span class="n">TempBuffer</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">parent</span> <span class="sx">qw(Plack::Middleware)</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">call</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span> <span class="nv">$self</span><span class="p">,</span> <span class="nv">$env</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$rm</span> <span class="o">=</span> <span class="nv">$env</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">REQUEST_METHOD</span><span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$ct</span> <span class="o">=</span> <span class="nv">$env</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">CONTENT_TYPE</span><span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$cl</span> <span class="o">=</span> <span class="nv">$env</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">CONTENT_LENGTH</span><span class="p">};</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nv">$rm</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^post$#i and (</span>
-         <span class="nv">$ct</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^application/x-www-form-urlencoded#i or</span>
-         <span class="nv">$ct</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^multipart/form-data#i )</span>
-     <span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$cache</span> <span class="o">=</span> <span class="n">CHI</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">driver</span> <span class="o">=&gt;</span> <span class="s">&#39;Memory&#39;</span><span class="p">,</span> <span class="n">global</span> <span class="o">=&gt;</span> <span class="mi">1</span> <span class="p">);</span>
-        <span class="k">my</span> <span class="nv">$req</span> <span class="o">=</span> <span class="nn">Plack::</span><span class="n">Request</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="nv">$env</span><span class="p">);</span>
-        <span class="k">my</span> <span class="nv">$id</span> <span class="o">=</span> <span class="nv">$req</span><span class="o">-&gt;</span><span class="n">param</span><span class="p">(</span><span class="s">&#39;progress_id&#39;</span><span class="p">);</span>
-        <span class="k">my</span> <span class="nv">$body</span> <span class="o">=</span> <span class="nn">HTTP::</span><span class="n">Body</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="nv">$ct</span><span class="p">,</span> <span class="nv">$cl</span><span class="p">);</span>
-        <span class="nv">$env</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;plack.request.http.body&#39;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$body</span><span class="p">;</span>
-        <span class="nv">$body</span><span class="o">-&gt;</span><span class="n">cleanup</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
-        <span class="k">my</span> <span class="nv">$input</span> <span class="o">=</span> <span class="nv">$env</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;psgi.input&#39;</span><span class="p">};</span>
-        <span class="k">my</span> <span class="nv">$buffer</span><span class="p">;</span>
-        <span class="k">if</span> <span class="p">(</span><span class="nv">$env</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;psgix.input.buffered&#39;</span><span class="p">})</span> <span class="p">{</span>
-            <span class="nv">$input</span><span class="o">-&gt;</span><span class="nb">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
-        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-            <span class="nv">$buffer</span> <span class="o">=</span> <span class="nn">Plack::</span><span class="n">TempBuffer</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="nv">$cl</span><span class="p">);</span>
-        <span class="p">}</span>
-        <span class="k">my</span> <span class="nv">$spin</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-        <span class="k">while</span> <span class="p">(</span><span class="nv">$cl</span><span class="p">)</span> <span class="p">{</span>
-            <span class="nv">$input</span><span class="o">-&gt;</span><span class="nb">read</span><span class="p">(</span><span class="k">my</span> <span class="nv">$chunk</span><span class="p">,</span> <span class="nv">$cl</span> <span class="o">&lt;</span> <span class="mi">8192</span> <span class="p">?</span> <span class="nv">$cl</span> <span class="p">:</span> <span class="mi">8192</span><span class="p">);</span>
-            <span class="k">my</span> <span class="nv">$read</span> <span class="o">=</span> <span class="nb">length</span> <span class="nv">$chunk</span><span class="p">;</span>
-            <span class="nv">$cl</span> <span class="o">-=</span> <span class="nv">$read</span><span class="p">;</span>
-            <span class="nv">$body</span><span class="o">-&gt;</span><span class="n">add</span><span class="p">(</span><span class="nv">$chunk</span><span class="p">);</span>
-            <span class="nv">$buffer</span><span class="o">-&gt;</span><span class="k">print</span><span class="p">(</span><span class="nv">$chunk</span><span class="p">)</span> <span class="k">if</span> <span class="nv">$buffer</span><span class="p">;</span>
-            <span class="k">my</span> <span class="nv">$progress</span> <span class="o">=</span> <span class="nv">$cache</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;upload_progress_&#39;</span> <span class="o">.</span> <span class="nv">$id</span><span class="p">);</span>
-            <span class="k">if</span> <span class="p">(</span> <span class="o">!</span><span class="nb">defined</span> <span class="nv">$progress</span> <span class="p">)</span> <span class="p">{</span>
-                <span class="nv">$progress</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="n">size</span>     <span class="o">=&gt;</span> <span class="nv">$body</span><span class="o">-&gt;</span><span class="n">content_length</span><span class="p">,</span>
-                    <span class="n">received</span> <span class="o">=&gt;</span> <span class="nb">length</span> <span class="nv">$chunk</span><span class="p">,</span>
-                <span class="p">};</span>
-                <span class="nv">$cache</span><span class="o">-&gt;</span><span class="n">set</span><span class="p">(</span> <span class="s">&#39;upload_progress_&#39;</span> <span class="o">.</span> <span class="nv">$id</span><span class="p">,</span> <span class="nv">$progress</span> <span class="p">);</span>
-            <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-                <span class="nv">$progress</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">received</span><span class="p">}</span> <span class="o">+=</span> <span class="nv">$read</span><span class="p">;</span>
-                <span class="nv">$cache</span><span class="o">-&gt;</span><span class="n">set</span><span class="p">(</span> <span class="s">&#39;upload_progress_&#39;</span> <span class="o">.</span> <span class="nv">$id</span><span class="p">,</span> <span class="nv">$progress</span> <span class="p">);</span>
-            <span class="p">};</span>
-            <span class="k">if</span> <span class="p">(</span><span class="nv">$read</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="nv">$spin</span><span class="o">++</span> <span class="o">&gt;</span> <span class="mi">2000</span><span class="p">)</span> <span class="p">{</span>
-                <span class="nn">Carp::</span><span class="n">croak</span> <span class="s">&quot;Bad Content-Length: maybe client disconnect? ($cl bytes remaining)&quot;</span><span class="p">;</span>
-            <span class="p">}</span>
-        <span class="p">};</span>
-        <span class="k">if</span> <span class="p">(</span><span class="nv">$buffer</span><span class="p">)</span> <span class="p">{</span>
-            <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">env</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;psgix.input.buffered&#39;</span><span class="p">}</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-            <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">env</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;psgi.input&#39;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$buffer</span><span class="o">-&gt;</span><span class="n">rewind</span><span class="p">;</span>
-        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-            <span class="nv">$input</span><span class="o">-&gt;</span><span class="nb">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
-        <span class="p">}</span>
-    <span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$res</span> <span class="o">=</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">app</span><span class="o">-&gt;</span><span class="p">(</span><span class="nv">$env</span><span class="p">);</span>
-    <span class="k">return</span> <span class="nv">$res</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="n">true</span><span class="p">;</span></code></pre></div>
-<p>上面的代码，progress部分基本摘抄自Catalyst::Plugin::UploadProgress模块，chunk部分基本摘抄自Plack::Middleware::CSRFBlock模块，当然它也基本摘抄自Plack::Request模块~~
+    <p>做一个文件上传的网页，想稍微华丽一点，显示进度条出来。在Apache和Catalyst下都有现成的模块，不过Dancer上还没有。看了一下代码，Dancer::Request里没有像Catalyst那样暴露prepare_body_chunk方法。所以需要在plack上利用psgi.input来做。尽量重用现有代码，所以progress.css和progress.js都直接从Catalyst/Plugin/UploadProgress/example/Upload/root/static/里复制。<br />
+```perl<br />
+package Plack::Middleware::UploadProgress;<br />
+use strict;<br />
+use CHI;<br />
+use Carp;<br />
+use HTTP::Body;<br />
+use Plack::Request;<br />
+use Plack::TempBuffer;<br />
+use parent qw(Plack::Middleware);</p>
+<p>sub call {<br />
+    my ( $self, $env ) = @_;<br />
+    my $rm = $env-&gt;{REQUEST_METHOD};<br />
+    my $ct = $env-&gt;{CONTENT_TYPE};<br />
+    my $cl = $env-&gt;{CONTENT_LENGTH};<br />
+    if ( $rm =~ m#^post$#i and (<br />
+         $ct =~ m#^application/x-www-form-urlencoded#i or<br />
+         $ct =~ m#^multipart/form-data#i )<br />
+     ) {<br />
+        my $cache = CHI-&gt;new( driver =&gt; &lsquo;Memory&rsquo;, global =&gt; 1 );<br />
+        my $req = Plack::Request-&gt;new($env);<br />
+        my $id = $req-&gt;param(&lsquo;progress_id&rsquo;);</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    my $body = HTTP::Body-&gt;new($ct, $cl);
+    $env-&gt;{'plack.request.http.body'} = $body;
+    $body-&gt;cleanup(1);
+    my $input = $env-&gt;{'psgi.input'};
+    my $buffer;
+    if ($env-&gt;{'psgix.input.buffered'}) {
+        $input-&gt;seek(0, 0);
+    } else {
+        $buffer = Plack::TempBuffer-&gt;new($cl);
+    }
+    my $spin = 0;
+    while ($cl) {
+        $input-&gt;read(my $chunk, $cl &lt; 8192 ? $cl : 8192);
+        my $read = length $chunk;
+        $cl -= $read;
+        $body-&gt;add($chunk);
+        $buffer-&gt;print($chunk) if $buffer;
+        my $progress = $cache-&gt;get('upload_progress_' . $id);
+        if ( !defined $progress ) {
+            $progress = {
+                size     =&gt; $body-&gt;content_length,
+                received =&gt; length $chunk,
+            };
+            $cache-&gt;set( 'upload_progress_' . $id, $progress );
+        } else {
+            $progress-&gt;{received} += $read;
+            $cache-&gt;set( 'upload_progress_' . $id, $progress );
+        };
+        if ($read == 0 &amp;&amp; $spin++ &gt; 2000) {
+            Carp::croak "Bad Content-Length: maybe client disconnect? ($cl bytes remaining)";
+        }
+    };
+    if ($buffer) {
+        $self-&gt;env-&gt;{'psgix.input.buffered'} = 1;
+        $self-&gt;env-&gt;{'psgi.input'} = $buffer-&gt;rewind;
+    } else {
+        $input-&gt;seek(0, 0);
+    }
+};
+my $res = $self-&gt;app-&gt;($env);
+return $res; }
+</code></pre>
+</div>
+<p>true;<br />
+```</p>
+<p>上面的代码，progress部分基本摘抄自Catalyst::Plugin::UploadProgress模块，chunk部分基本摘抄自Plack::Middleware::CSRFBlock模块，当然它也基本摘抄自Plack::Request模块~~<br />
 上面写的不全，没有关于GET /progress?progress_id=*的json输出处理。不过这部分也可以在DancerApp.pm里直接写get &lsquo;/progress&rsquo; =&gt; sub {};，最后申明，这代码刚写完，没测……CHI或许应该用memcached而不是memory~</p>
-<p>在DancerApp/bin/app.pl里这么配置：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="n">Dancer</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">DancerApp</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Plack::</span><span class="n">Builder</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$app</span> <span class="o">=</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$env</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$req</span> <span class="o">=</span> <span class="nn">Dancer::</span><span class="n">Request</span><span class="o">-</span><span class="k">new</span><span class="p">(</span> <span class="n">env</span> <span class="o">=&gt;</span> <span class="nv">$env</span> <span class="p">);</span>
-<span class="p">};</span>
-<span class="n">builder</span> <span class="p">{</span>
-    <span class="n">enable</span> <span class="s">&quot;Plack::Middleware::UploadProgress&quot;</span><span class="p">;</span>
-    <span class="nv">$app</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="n">dance</span><span class="p">;</span></code></pre></div>
+<p>在DancerApp/bin/app.pl里这么配置：<br />
+```perl<br />
+use Dancer;<br />
+use DancerApp;<br />
+use Plack::Builder;</p>
+<p>my $app = sub {<br />
+    my $env = shift;<br />
+    my $req = Dancer::Request-new( env =&gt; $env );<br />
+};</p>
+<p>builder {<br />
+    enable &ldquo;Plack::Middleware::UploadProgress&rdquo;;<br />
+    $app;<br />
+};</p>
+<p>dance;<br />
+```</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/07/30/dancer-plugin-demo" title="一个Dancer::Plugin的实例">&larr; Previous</a></li>
+        <li class="prev"><a href="/2012/07/30/dancer-plugin-demo/" title="一个Dancer::Plugin的实例">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/08/20/coro-async-pool-demo" title="Coro::Semaphore和async_pool示例">Next &rarr;</a></li>
+        <li class="next"><a href="/2012/08/20/coro-async-pool-demo/" title="Coro::Semaphore和async_pool示例">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -180,15 +185,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

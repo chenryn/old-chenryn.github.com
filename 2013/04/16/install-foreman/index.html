@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -54,32 +54,36 @@
   <div style='background-color: #FFF;'>
     <p>foreman 是社区比较推荐的一款 puppet 辅助工具。可以用来实现 ENC 控制，class 编写，Facts 变量统计和 reports 分析查询等等。</p>
 <p>鉴于我一直以来都是用 gem 安装 puppet，所以这里也就没法通过 yum/apt 来安装 foreman，只能源码操作了：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">git clone https://github.com/theforeman/foreman.git -b develop
+<div class="highlighter-rouge"><pre class="highlight"><code>    git clone https://github.com/theforeman/foreman.git -b develop
     <span class="nb">cd </span>foreman
     bundle install --without postgresql mysql mysql2 
     cp config/settings.yaml.example config/settings.yaml
     cp config/database.yml.example config/database.yml
     <span class="nv">RAILS_ENV</span><span class="o">=</span>production bundle <span class="nb">exec </span>rake db:migrate
     rake puppet:import:hosts_and_facts <span class="nv">RAILS_ENV</span><span class="o">=</span>production
-    ./script/rails server -p <span class="m">3333</span> -e production -d</code></pre></div>
+    ./script/rails server -p 3333 -e production -d
+</code></pre>
+</div>
 <p>然后就可以通过3333端口访问并查看刚才导入的 Facts 变量了，默认的用户名密码是 admin/changeme。</p>
 <p>新版本的 foreman，必须使用 smart-proxy 才能接收 reports。所以还要继续安装：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">git clone git://github.com/theforeman/smart-proxy.git
+<div class="highlighter-rouge"><pre class="highlight"><code>    git clone git://github.com/theforeman/smart-proxy.git
     <span class="nb">cd </span>smart-proxy
-    sed -i <span class="s1">&#39;s/^#:puppet:.*/:puppet: true/&#39;</span> config/settings.yml
-    ./bin/smart-proxy.rb</code></pre></div>
-<p>foreman 提供了一个 <a href="https://raw.github.com/theforeman/puppet-foreman/master/templates/foreman-report.rb.erb">ruby 脚本</a>，用来扩充 puppet 的 reports 功能。下载放到对应的 <code>${GEM_PATH}/gems/puppet-${version}/lib/puppet/reports/</code> 下，然后修改其中的 <code>$foreman_url</code> 变量即可。</p>
-<p>我们也可以在 puppet 自带的 http.rb 基础上稍微修改得到相同效果，总的来说，就是通过 POST 方法，提交 <code>report =&gt; self.to_yaml</code> 到 <code>$foreman_url/reports/create?format=yml</code> 就可以了。</p>
-<p>然后在 foreman 页面上配置 smart-proxy 地址。注意这里有个小坑：__如果你填写的是域名，那么解析出来的 ip 还要被反解验证一次。__我当初为了 puppet master 迁移方便，给 master 配置了一个单独的域名，包括 <code>puppet cert</code> 生成证书时也特意指定用这个域名，但是默认的 hostname 其实是另一个域名的。于是在此悲剧了很久。。。</p>
-<p>错误的现象是：采用 <code>puppet master</code> 启动时，功能一切正常；采用 <code>rackup</code> + Nginx 代理的方式启动时，默认的 store 功能正常，而采用 foreman 接收 reports 的话，可以在 <code>rackup</code> 的访问日志中看到 POST 200 的记录，<code>foreman</code> 里却没有接到请求。</p>
+    sed -i <span class="s1">'s/^#:puppet:.*/:puppet: true/'</span> config/settings.yml
+    ./bin/smart-proxy.rb
+</code></pre>
+</div>
+<p>foreman 提供了一个 <a href="https://raw.github.com/theforeman/puppet-foreman/master/templates/foreman-report.rb.erb">ruby 脚本</a>，用来扩充 puppet 的 reports 功能。下载放到对应的 <code class="highlighter-rouge">${GEM_PATH}/gems/puppet-${version}/lib/puppet/reports/</code> 下，然后修改其中的 <code class="highlighter-rouge">$foreman_url</code> 变量即可。</p>
+<p>我们也可以在 puppet 自带的 http.rb 基础上稍微修改得到相同效果，总的来说，就是通过 POST 方法，提交 <code class="highlighter-rouge">report =&gt; self.to_yaml</code> 到 <code class="highlighter-rouge">$foreman_url/reports/create?format=yml</code> 就可以了。</p>
+<p>然后在 foreman 页面上配置 smart-proxy 地址。注意这里有个小坑：__如果你填写的是域名，那么解析出来的 ip 还要被反解验证一次。__我当初为了 puppet master 迁移方便，给 master 配置了一个单独的域名，包括 <code class="highlighter-rouge">puppet cert</code> 生成证书时也特意指定用这个域名，但是默认的 hostname 其实是另一个域名的。于是在此悲剧了很久。。。</p>
+<p>错误的现象是：采用 <code class="highlighter-rouge">puppet master</code> 启动时，功能一切正常；采用 <code class="highlighter-rouge">rackup</code> + Nginx 代理的方式启动时，默认的 store 功能正常，而采用 foreman 接收 reports 的话，可以在 <code class="highlighter-rouge">rackup</code> 的访问日志中看到 POST 200 的记录，<code class="highlighter-rouge">foreman</code> 里却没有接到请求。</p>
 <p>目前还不清楚为什么两种不同方式启动 puppet 的 master 会对 smart-proxy 造成什么区别影响，但是修改 foreman 里配置的 smart-proxy 地址为默认 hostname 而不是单独的域名后，就成功了。</p>
-<p>另外一个使用上的小问题。foreman 页面上的 Reports 标签的 <code>&lt;a href=""&gt;</code> 属性默认是带搜索参数 eventful 的。也就是说优先展示的是有事件发生的日志，比如 failed，restart 等等；而不是直接以日期排序。</p>
+<p>另外一个使用上的小问题。foreman 页面上的 Reports 标签的 <code class="highlighter-rouge">&lt;a href=""&gt;</code> 属性默认是带搜索参数 eventful 的。也就是说优先展示的是有事件发生的日志，比如 failed，restart 等等；而不是直接以日期排序。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/04/03/install-graphite" title="Graphite 安装">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/04/03/install-graphite/" title="Graphite 安装">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/04/19/something-dive-to-perl" title="Newbie::Gift 所用知识总结">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/04/19/something-dive-to-perl/" title="Newbie::Gift 所用知识总结">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -123,15 +127,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

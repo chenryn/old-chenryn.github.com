@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,133 +52,120 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>为了跟第三方监控做对比和作为备用，准备自己通过页面js返回数据做个监控。首先第一步，整理一个足够自己用的ip库。
-首先，考虑调用会比较频繁，打算把内容尽可能归并，到省级运营商即可；
+    <p>为了跟第三方监控做对比和作为备用，准备自己通过页面js返回数据做个监控。首先第一步，整理一个足够自己用的ip库。<br />
+首先，考虑调用会比较频繁，打算把内容尽可能归并，到省级运营商即可；<br />
 其次，未知归并完会有多大的情况下，考虑到qqwry的地区都是中文，打算统一使用电话区号代替地区，运营商也有一位数字代替，ip采用inet-aton网络值代替；这样每条记录的字节数固定，可以方便采用seek和sysread提高读取某条记录的速度。</p>
 <hr />
-<p>前几步工作和之前整理ip库给dns用的时候一样，导出qqwry.txt，约42w条，24MB大小。
-然后从网上搜一下全国电话区号，以各省省会(首府)的区号为准，存成一个quhao.txt，为了之后处理方便，只保留前两个中文，好在中国的省份里也只有内蒙古和黑龙江是三个字，留两位不至于影响阅读，txt内容如下：</p>
-<div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="l-Scalar-Plain">北京 0010</span> 
-<span class="l-Scalar-Plain">上海 0021</span>
-<span class="l-Scalar-Plain">天津 0022</span>
-<span class="l-Scalar-Plain">重庆 0023</span>
-<span class="l-Scalar-Plain">安徽 0551</span>
-<span class="l-Scalar-Plain">福建 0591</span>
-<span class="l-Scalar-Plain">甘肃 0931</span>
-<span class="l-Scalar-Plain">广东 0020</span>
-<span class="l-Scalar-Plain">广西 0771</span>
-<span class="l-Scalar-Plain">贵州 0851</span>
-<span class="l-Scalar-Plain">海南 0898</span>
-<span class="l-Scalar-Plain">河北 0311</span>
-<span class="l-Scalar-Plain">河南 0371</span>
-<span class="l-Scalar-Plain">黑龙 0451</span>
-<span class="l-Scalar-Plain">湖北 0027</span>
-<span class="l-Scalar-Plain">湖南 0731</span>
-<span class="l-Scalar-Plain">吉林 0431</span>
-<span class="l-Scalar-Plain">江苏 0025</span>
-<span class="l-Scalar-Plain">江西 0791</span>
-<span class="l-Scalar-Plain">辽宁 0024</span>
-<span class="l-Scalar-Plain">内蒙 0471</span>
-<span class="l-Scalar-Plain">宁夏 0951</span>
-<span class="l-Scalar-Plain">青海 0971</span>
-<span class="l-Scalar-Plain">山东 0531</span>
-<span class="l-Scalar-Plain">山西 0351</span>
-<span class="l-Scalar-Plain">陕西 0029</span>
-<span class="l-Scalar-Plain">四川 0028</span>
-<span class="l-Scalar-Plain">西藏 0891</span>
-<span class="l-Scalar-Plain">新疆 0991</span>
-<span class="l-Scalar-Plain">云南 0871</span>
-<span class="l-Scalar-Plain">浙江 0571</span></code></pre></div>
-<p>然后用如下perl脚本归并：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">my</span><span class="p">(</span><span class="nv">$quhao</span><span class="p">,</span> <span class="nv">$qqwry</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@ARGV</span><span class="p">;</span>
-<span class="nv">$code</span> <span class="o">=</span> <span class="n">read_area_code</span><span class="p">(</span><span class="nv">$quhao</span><span class="p">);</span>
-<span class="n">overwrite_iplist</span><span class="p">(</span><span class="nv">$qqwry</span><span class="p">,</span> <span class="nv">$code</span><span class="p">);</span>
-<span class="k">sub </span><span class="nf">inet_aton</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$short</span> <span class="o">=</span> <span class="nb">sprintf</span> <span class="s">&quot;%010s&quot;</span><span class="p">,</span> <span class="nv">$1</span> <span class="o">*</span> <span class="mi">256</span><span class="o">**</span><span class="mi">3</span> <span class="o">+</span> <span class="nv">$2</span> <span class="o">*</span> <span class="mi">256</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="nv">$3</span> <span class="o">*</span> <span class="mi">256</span> <span class="o">+</span> <span class="nv">$4</span> <span class="k">if</span> <span class="nv">$ip</span> <span class="o">=~</span><span class="sr"> /(\d+)\.(\d+)\.(\d+)\.(\d+)/</span><span class="p">;</span>
-    <span class="k">return</span> <span class="nv">$short</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">read_area_code</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$file</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$area_code</span> <span class="o">=</span> <span class="p">{};</span>
-    <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span><span class="s">&#39;&lt;&#39;</span><span class="p">,</span><span class="s">&quot;$file&quot;</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;Cannot open $file&quot;</span><span class="p">;</span>
-    <span class="k">while</span> <span class="p">(</span><span class="sr">&lt;$fh&gt;</span><span class="p">)</span> <span class="p">{</span>
-	<span class="nb">chomp</span><span class="p">;</span>
-        <span class="k">my</span><span class="p">(</span><span class="nv">$area</span><span class="p">,</span><span class="nv">$code</span><span class="p">)</span> <span class="o">=</span> <span class="nb">split</span><span class="p">;</span>
-	<span class="nv">$area_code</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$area&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="s">&quot;$code&quot;</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="nb">close</span> <span class="nv">$fh</span><span class="p">;</span>
-    <span class="k">return</span> <span class="nv">$area_code</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">overwrite_iplist</span> <span class="p">{</span>
-    <span class="k">my</span><span class="p">(</span><span class="nv">$iplist</span><span class="p">,</span> <span class="nv">$area_code</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">my</span><span class="p">(</span><span class="nv">$last_begin_ip_n</span><span class="p">,</span> <span class="nv">$last_end_ip_n</span><span class="p">,</span> <span class="nv">$last_province_n</span><span class="p">,</span> <span class="nv">$last_isp_n</span><span class="p">);</span>
-    <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span><span class="s">&#39;&lt;&#39;</span><span class="p">,</span><span class="s">&quot;$iplist&quot;</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;Cannoet open $iplist&quot;</span><span class="p">;</span>
-    <span class="k">while</span> <span class="p">(</span><span class="sr">&lt;$fh&gt;</span><span class="p">)</span> <span class="p">{</span>
-	<span class="nb">chomp</span><span class="p">;</span>
-	<span class="k">my</span><span class="p">(</span><span class="nv">$begin_ip</span><span class="p">,</span> <span class="nv">$end_ip</span><span class="p">,</span> <span class="nv">$area</span><span class="p">,</span> <span class="nv">$isp</span><span class="p">)</span> <span class="o">=</span> <span class="nb">split</span><span class="p">;</span>
-	<span class="k">my</span><span class="p">(</span><span class="nv">$province_n</span><span class="p">,</span> <span class="nv">$isp_n</span><span class="p">);</span>
-	<span class="k">my</span> <span class="nv">$begin_ip_n</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">inet_aton</span><span class="p">(</span><span class="s">&quot;$begin_ip&quot;</span><span class="p">);</span>
-	<span class="k">my</span> <span class="nv">$end_ip_n</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">inet_aton</span><span class="p">(</span><span class="s">&quot;$end_ip&quot;</span><span class="p">);</span>
-        <span class="k">next</span> <span class="k">if</span> <span class="p">(</span><span class="nv">$end_ip_n</span> <span class="o">-</span> <span class="nv">$begin_ip_n</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">32</span><span class="p">;</span>
-	<span class="k">if</span> <span class="p">(</span> <span class="nv">$area</span> <span class="o">=~</span><span class="sr"> /学/</span> <span class="p">)</span> <span class="p">{</span>
-	    <span class="nv">$isp_n</span> <span class="o">=</span> <span class="mi">4</span><span class="p">;</span>                                          <span class="c1">#教育网, 因为清华北大等学校记录在area里了，所以这步提前设定 </span>
-	<span class="p">};</span>
-	<span class="k">if</span> <span class="p">(</span> <span class="nv">$isp</span> <span class="o">=~</span> <span class="sr">m/电信/</span> <span class="p">)</span> <span class="p">{</span>
-	    <span class="nv">$isp_n</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>                                          <span class="c1">#电信 </span>
-	<span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$isp</span> <span class="o">=~</span> <span class="sr">m/联通/</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="nv">$isp_n</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>                                          <span class="c1">#联通(包括原网通) </span>
-	<span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$isp</span> <span class="o">=~</span> <span class="sr">m/铁通|移动/</span> <span class="p">)</span> <span class="p">{</span>
-	    <span class="nv">$isp_n</span> <span class="o">=</span> <span class="mi">3</span><span class="p">;</span>                                          <span class="c1">#移动(包括原铁通) </span>
-	<span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$isp</span> <span class="o">=~</span> <span class="sr">m/学/</span> <span class="p">)</span> <span class="p">{</span>
-	    <span class="nv">$isp_n</span> <span class="o">=</span> <span class="mi">4</span><span class="p">;</span>                                          <span class="c1">#教育网 </span>
-	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-	    <span class="nv">$isp_n</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>                                          <span class="c1">#国外地址及其他未能识别的国内运营商 </span>
-	<span class="p">};</span>
-        <span class="k">my</span> <span class="nv">$province</span> <span class="o">=</span> <span class="nb">substr</span><span class="p">(</span><span class="nv">$area</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">);</span>                      <span class="c1">#中文用2字节，所以对原始记录获取前四字节即为省份名</span>
-	<span class="k">if</span> <span class="p">(</span> <span class="nb">exists</span> <span class="nv">$area_code</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$province&quot;</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-	    <span class="nv">$province_n</span> <span class="o">=</span> <span class="nv">$area_code</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$province&quot;</span><span class="p">};</span>             <span class="c1">#国内已知电话区号的省份 </span>
-	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-	    <span class="nv">$province_n</span> <span class="o">=</span> <span class="s">&#39;0000&#39;</span><span class="p">;</span>                                <span class="c1">#港澳台及外国，可能有其他未能识别的国内地址 </span>
-	<span class="p">};</span>
-        <span class="c1">#下段为合并网段，之前dns时也用过</span>
-	<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nv">$last_province_n</span><span class="p">)</span> <span class="p">{</span>
-	    <span class="p">(</span><span class="nv">$last_begin_ip_n</span><span class="p">,</span> <span class="nv">$last_end_ip_n</span><span class="p">,</span> <span class="nv">$last_province_n</span><span class="p">,</span> <span class="nv">$last_isp_n</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$begin_ip_n</span><span class="p">,</span> <span class="nv">$end_ip_n</span><span class="p">,</span> <span class="nv">$province_n</span><span class="p">,</span> <span class="nv">$isp_n</span><span class="p">);</span>
-	<span class="p">};</span>
-        <span class="k">if</span> <span class="p">(</span> <span class="nv">$last_province_n</span> <span class="o">==</span> <span class="nv">$province_n</span> <span class="o">&amp;&amp;</span> <span class="nv">$last_isp_n</span> <span class="o">==</span> <span class="nv">$isp_n</span> <span class="p">)</span> <span class="p">{</span>
-	    <span class="nv">$last_end_ip_n</span> <span class="o">=</span> <span class="nv">$end_ip_n</span><span class="p">;</span>
-	<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-	    <span class="nb">printf</span> <span class="s">&quot;%010s %010s %04s %s\n&quot;</span><span class="p">,</span> <span class="nv">$last_begin_ip_n</span><span class="p">,</span> <span class="nv">$last_end_ip_n</span><span class="p">,</span> <span class="nv">$last_province_n</span><span class="p">,</span> <span class="nv">$last_isp_n</span><span class="p">;</span>
-	    <span class="p">(</span><span class="nv">$last_begin_ip_n</span><span class="p">,</span> <span class="nv">$last_end_ip_n</span><span class="p">,</span> <span class="nv">$last_province_n</span><span class="p">,</span> <span class="nv">$last_isp_n</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$begin_ip_n</span><span class="p">,</span> <span class="nv">$end_ip_n</span><span class="p">,</span> <span class="nv">$province_n</span><span class="p">,</span> <span class="nv">$isp_n</span><span class="p">);</span>
-	<span class="p">};</span>
-    <span class="p">};</span>
-    <span class="nb">close</span> <span class="nv">$fh</span><span class="p">;</span>
-<span class="p">};</span></code></pre></div>
-<p>最后运行如下命令即可获得精简ip库：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">perl overwrite.pl quhao.txt qqwry.txt &gt; newip.txt</code></pre></div>
-<p>对比一下大小和行数：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">[</span>root@cdn2 ~<span class="o">]</span><span class="c"># ll</span>
--rw-r--r-- <span class="m">1</span> root root   <span class="m">539226</span> Jul <span class="m">25</span> 18:18 newer.txt
--rw-r--r-- <span class="m">1</span> root root  <span class="m">9058928</span> May <span class="m">15</span> 13:13 QQWry.dat
--rw-r--r-- <span class="m">1</span> root root <span class="m">24753935</span> Jul <span class="m">25</span> 15:26 qqwry.txt
--rw-r--r-- <span class="m">1</span> root root      <span class="m">340</span> Jul <span class="m">25</span> 15:03 quhao.txt
--rw-r--r-- <span class="m">1</span> root root     <span class="m">2439</span> Jul <span class="m">25</span> 18:17 test.pl
-<span class="o">[</span>root@cdn2 ~<span class="o">]</span><span class="c"># wc -l *</span>
-   <span class="m">18594</span> newer.txt
-   <span class="m">34727</span> QQWry.dat
-  <span class="m">428454</span> qqwry.txt
-      <span class="m">30</span> quhao.txt
-      <span class="m">72</span> test.pl</code></pre></div>
-<p>好了，一天一天来，明天实现在这527KB的文件里快速定位ip……</p>
+<p>前几步工作和之前整理ip库给dns用的时候一样，导出qqwry.txt，约42w条，24MB大小。<br />
+然后从网上搜一下全国电话区号，以各省省会(首府)的区号为准，存成一个quhao.txt，为了之后处理方便，只保留前两个中文，好在中国的省份里也只有内蒙古和黑龙江是三个字，留两位不至于影响阅读，txt内容如下：<br />
+<code class="highlighter-rouge">yaml北京 0010 
+上海 0021
+天津 0022
+重庆 0023
+安徽 0551
+福建 0591
+甘肃 0931
+广东 0020
+广西 0771
+贵州 0851
+海南 0898
+河北 0311
+河南 0371
+黑龙 0451
+湖北 0027
+湖南 0731
+吉林 0431
+江苏 0025
+江西 0791
+辽宁 0024
+内蒙 0471
+宁夏 0951
+青海 0971
+山东 0531
+山西 0351
+陕西 0029
+四川 0028
+西藏 0891
+新疆 0991
+云南 0871
+浙江 0571</code><br />
+然后用如下perl脚本归并：<br />
+```perl#!/usr/bin/perl<br />
+use strict;<br />
+use warnings;<br />
+my($quhao, $qqwry) = @ARGV;<br />
+$code = read_area_code($quhao);<br />
+overwrite_iplist($qqwry, $code);<br />
+sub inet_aton {<br />
+    my $ip = shift;<br />
+    my $short = sprintf &ldquo;%010s&rdquo;, $1 * 256<strong>3 + $2 * 256</strong>2 + $3 * 256 + $4 if $ip =~ /(\d+).(\d+).(\d+).(\d+)/;<br />
+    return $short;<br />
+};</p>
+<p>sub read_area_code {<br />
+    my $file = shift;<br />
+    my $area_code = {};<br />
+    open my $fh,&rsquo;&lt;&rsquo;,&rdquo;$file&rdquo; or die &ldquo;Cannot open $file&rdquo;;<br />
+    while (&lt;$fh&gt;) {<br />
+	chomp;<br />
+        my($area,$code) = split;<br />
+	$area_code-&gt;{&ldquo;$area&rdquo;} = &ldquo;$code&rdquo;;<br />
+    }<br />
+    close $fh;<br />
+    return $area_code;<br />
+};</p>
+<p>sub overwrite_iplist {<br />
+    my($iplist, $area_code) = @_;<br />
+    my($last_begin_ip_n, $last_end_ip_n, $last_province_n, $last_isp_n);<br />
+    open my $fh,&rsquo;&lt;&rsquo;,&rdquo;$iplist&rdquo; or die &ldquo;Cannoet open $iplist&rdquo;;<br />
+    while (&lt;$fh&gt;) {<br />
+	chomp;<br />
+	my($begin_ip, $end_ip, $area, $isp) = split;<br />
+	my($province_n, $isp_n);<br />
+	my $begin_ip_n = &amp;inet_aton(&ldquo;$begin_ip&rdquo;);<br />
+	my $end_ip_n = &amp;inet_aton(&ldquo;$end_ip&rdquo;);<br />
+        next if ($end_ip_n - $begin_ip_n) &lt; 32;<br />
+	if ( $area =~ /学/ ) {<br />
+	    $isp_n = 4;                                          #教育网, 因为清华北大等学校记录在area里了，所以这步提前设定 <br />
+	};<br />
+	if ( $isp =~ m/电信/ ) {<br />
+	    $isp_n = 1;                                          #电信 <br />
+	} elsif ( $isp =~ m/联通/ ) {<br />
+            $isp_n = 2;                                          #联通(包括原网通) <br />
+	} elsif ( $isp =~ m/铁通|移动/ ) {<br />
+	    $isp_n = 3;                                          #移动(包括原铁通) <br />
+	} elsif ( $isp =~ m/学/ ) {<br />
+	    $isp_n = 4;                                          #教育网 <br />
+	} else {<br />
+	    $isp_n = 0;                                          #国外地址及其他未能识别的国内运营商 <br />
+	};</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    my $province = substr($area, 0, 4);                      #中文用2字节，所以对原始记录获取前四字节即为省份名
+if ( exists $area_code-&gt;{"$province"} ) {
+    $province_n = $area_code-&gt;{"$province"};             #国内已知电话区号的省份 
+} else {
+    $province_n = '0000';                                #港澳台及外国，可能有其他未能识别的国内地址 
+};
+    #下段为合并网段，之前dns时也用过
+if (!$last_province_n) {
+    ($last_begin_ip_n, $last_end_ip_n, $last_province_n, $last_isp_n) = ($begin_ip_n, $end_ip_n, $province_n, $isp_n);
+};
+    if ( $last_province_n == $province_n &amp;&amp; $last_isp_n == $isp_n ) {
+    $last_end_ip_n = $end_ip_n;
+} else {
+    printf "%010s %010s %04s %s\n", $last_begin_ip_n, $last_end_ip_n, $last_province_n, $last_isp_n;
+    ($last_begin_ip_n, $last_end_ip_n, $last_province_n, $last_isp_n) = ($begin_ip_n, $end_ip_n, $province_n, $isp_n);
+};
+};
+close $fh; }; ``` 最后运行如下命令即可获得精简ip库： ```bashperl overwrite.pl quhao.txt qqwry.txt &gt; newip.txt``` 对比一下大小和行数： ```bash[root@cdn2 ~]# ll -rw-r--r-- 1 root root   539226 Jul 25 18:18 newer.txt -rw-r--r-- 1 root root  9058928 May 15 13:13 QQWry.dat -rw-r--r-- 1 root root 24753935 Jul 25 15:26 qqwry.txt -rw-r--r-- 1 root root      340 Jul 25 15:03 quhao.txt -rw-r--r-- 1 root root     2439 Jul 25 18:17 test.pl [root@cdn2 ~]# wc -l *    18594 newer.txt    34727 QQWry.dat   428454 qqwry.txt
+  30 quhao.txt
+  72 test.pl``` 好了，一天一天来，明天实现在这527KB的文件里快速定位ip……
+</code></pre>
+</div>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/07/21/some-tests-about-perl" title="perl小测试题(转自CU)">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/07/21/some-tests-about-perl/" title="perl小测试题(转自CU)">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/07/26/seek-iplist-for-self-monitor" title="cdn自主监控(二):快速查找ip对应信息">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/07/26/seek-iplist-for-self-monitor/" title="cdn自主监控(二):快速查找ip对应信息">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -222,15 +209,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

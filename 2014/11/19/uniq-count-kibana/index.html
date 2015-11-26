@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -58,10 +58,10 @@
 <p>其实 Elasticsearch 从 1.1.0 版本开始已经可以做到<a href="http://www.elasticsearch.org/blog/count-elasticsearch/">去重统计</a>了。但是 kibana3 本身是在 0.90 版本基础上实现的，所以也就没办法了。</p>
 <p>今天抽出时间，把 histogram 面板的代码重写了一遍，用 aggregations 接口替换了 facets 接口。改造完成后，再加上去重就很容易了。</p>
 <p>aggregations 接口最大的特点是层级关系。不过也不是可以完全随便嵌套的，原先 date_histogram facets 里的 global 参数，被拆分成了 global aggregation，但是这个 global aggregation 就强制要求必须用在顶层。所以最后 request 相关代码就变成了这个样子：</p>
-<div class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="kd">var</span> <span class="nx">aggr</span> <span class="o">=</span> <span class="nx">$scope</span><span class="p">.</span><span class="nx">ejs</span><span class="p">.</span><span class="nx">DateHistogramAggregation</span><span class="p">(</span><span class="nx">q</span><span class="p">.</span><span class="nx">id</span><span class="p">);</span>
-<span class="k">if</span><span class="p">(</span><span class="nx">$scope</span><span class="p">.</span><span class="nx">panel</span><span class="p">.</span><span class="nx">mode</span> <span class="o">===</span> <span class="s1">&#39;count&#39;</span><span class="p">)</span> <span class="p">{</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="kd">var</span> <span class="nx">aggr</span> <span class="o">=</span> <span class="nx">$scope</span><span class="p">.</span><span class="nx">ejs</span><span class="p">.</span><span class="nx">DateHistogramAggregation</span><span class="p">(</span><span class="nx">q</span><span class="p">.</span><span class="nx">id</span><span class="p">);</span>
+<span class="k">if</span><span class="p">(</span><span class="nx">$scope</span><span class="p">.</span><span class="nx">panel</span><span class="p">.</span><span class="nx">mode</span> <span class="o">===</span> <span class="s1">'count'</span><span class="p">)</span> <span class="p">{</span>
   <span class="nx">aggr</span> <span class="o">=</span> <span class="nx">aggr</span><span class="p">.</span><span class="nx">field</span><span class="p">(</span><span class="nx">$scope</span><span class="p">.</span><span class="nx">panel</span><span class="p">.</span><span class="nx">time_field</span><span class="p">);</span>
-<span class="p">}</span> <span class="k">else</span> <span class="k">if</span><span class="p">(</span><span class="nx">$scope</span><span class="p">.</span><span class="nx">panel</span><span class="p">.</span><span class="nx">mode</span> <span class="o">===</span> <span class="s1">&#39;uniq&#39;</span><span class="p">)</span> <span class="p">{</span>
+<span class="p">}</span> <span class="k">else</span> <span class="k">if</span><span class="p">(</span><span class="nx">$scope</span><span class="p">.</span><span class="nx">panel</span><span class="p">.</span><span class="nx">mode</span> <span class="o">===</span> <span class="s1">'uniq'</span><span class="p">)</span> <span class="p">{</span>
   <span class="nx">aggr</span> <span class="o">=</span> <span class="nx">aggr</span><span class="p">.</span><span class="nx">field</span><span class="p">(</span><span class="nx">$scope</span><span class="p">.</span><span class="nx">panel</span><span class="p">.</span><span class="nx">time_field</span><span class="p">).</span><span class="nx">agg</span><span class="p">(</span><span class="nx">$scope</span><span class="p">.</span><span class="nx">ejs</span><span class="p">.</span><span class="nx">CardinalityAggregation</span><span class="p">(</span><span class="nx">q</span><span class="p">.</span><span class="nx">id</span><span class="p">).</span><span class="nx">field</span><span class="p">(</span><span class="nx">$scope</span><span class="p">.</span><span class="nx">panel</span><span class="p">.</span><span class="nx">value_field</span><span class="p">));</span>
 <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
   <span class="nx">aggr</span> <span class="o">=</span> <span class="nx">aggr</span><span class="p">.</span><span class="nx">field</span><span class="p">(</span><span class="nx">$scope</span><span class="p">.</span><span class="nx">panel</span><span class="p">.</span><span class="nx">time_field</span><span class="p">).</span><span class="nx">agg</span><span class="p">(</span><span class="nx">$scope</span><span class="p">.</span><span class="nx">ejs</span><span class="p">.</span><span class="nx">StatsAggregation</span><span class="p">(</span><span class="nx">q</span><span class="p">.</span><span class="nx">id</span><span class="p">).</span><span class="nx">field</span><span class="p">(</span><span class="nx">$scope</span><span class="p">.</span><span class="nx">panel</span><span class="p">.</span><span class="nx">value_field</span><span class="p">));</span>
@@ -72,14 +72,16 @@
       <span class="nx">aggr</span><span class="p">.</span><span class="nx">interval</span><span class="p">(</span><span class="nx">_interval</span><span class="p">)</span>
     <span class="p">)</span>
   <span class="p">)</span>
-<span class="p">).</span><span class="nx">size</span><span class="p">(</span><span class="nx">$scope</span><span class="p">.</span><span class="nx">panel</span><span class="p">.</span><span class="nx">annotate</span><span class="p">.</span><span class="nx">enable</span> <span class="o">?</span> <span class="nx">$scope</span><span class="p">.</span><span class="nx">panel</span><span class="p">.</span><span class="nx">annotate</span><span class="p">.</span><span class="nx">size</span> <span class="o">:</span> <span class="mi">0</span><span class="p">);</span></code></pre></div>
+<span class="p">).</span><span class="nx">size</span><span class="p">(</span><span class="nx">$scope</span><span class="p">.</span><span class="nx">panel</span><span class="p">.</span><span class="nx">annotate</span><span class="p">.</span><span class="nx">enable</span> <span class="p">?</span> <span class="nx">$scope</span><span class="p">.</span><span class="nx">panel</span><span class="p">.</span><span class="nx">annotate</span><span class="p">.</span><span class="nx">size</span> <span class="p">:</span> <span class="mi">0</span><span class="p">);</span>
+</code></pre>
+</div>
 <p>完整的代码已经提交到 github，见 <a href="https://github.com/chenryn/kibana-authorization/commit/6cb4d28a6c610d28680fffdb81c9f6c83cfaf488">https://github.com/chenryn/kibana-authorization/commit/6cb4d28a6c610d28680fffdb81c9f6c83cfaf488</a></p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2014/11/18/kibana4-beta-2-get-now" title="【翻译】Kibana 4 beta 2 发布">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/11/18/kibana4-beta-2-get-now/" title="【翻译】Kibana 4 beta 2 发布">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/11/20/phantomjs-snapshot" title="用 phantomjs 截图">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/11/20/phantomjs-snapshot/" title="用 phantomjs 截图">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -123,15 +125,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

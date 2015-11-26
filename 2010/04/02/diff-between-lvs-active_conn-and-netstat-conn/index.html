@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -49,12 +49,12 @@
     <div class="date"><span>02 April 2010</span></div>
   </div>
   <div style='background-color: #FFF;'>
-    <p>曾经有过一组高并发请求的服务器，在lvs上看到单台 activeconn 约等于 220000；同时，在RS上执行 <code>netstat -s -t|grep "connections established"</code> 结果大概是 65000，而 <code>squidclient mgr:5min|grep client_http.requests</code> 结果却只有 180。后来说起并发数的时候，有些茫然，到底哪个才算是呢？</p>
-<p>今天在squid-user里问起，居然有幸碰见另一位中国订阅者，夏兄随后提供给我一个06年的帖子，所述甚详。算是解惑了~
+    <p>曾经有过一组高并发请求的服务器，在lvs上看到单台 activeconn 约等于 220000；同时，在RS上执行 <code class="highlighter-rouge">netstat -s -t|grep "connections established"</code> 结果大概是 65000，而 <code class="highlighter-rouge">squidclient mgr:5min|grep client_http.requests</code> 结果却只有 180。后来说起并发数的时候，有些茫然，到底哪个才算是呢？</p>
+<p>今天在squid-user里问起，居然有幸碰见另一位中国订阅者，夏兄随后提供给我一个06年的帖子，所述甚详。算是解惑了~<br />
 <a href="http://www.linuxsir.org/bbs/showthread.php?t=248500">http://www.linuxsir.org/bbs/showthread.php?t=248500</a></p>
-<p>原来 lvs 默认有个超时时间，可以用 <code>ipvsadm -L --timeout</code> 查看，默认是 <code>900 120 300</code> ，分别是 <code>TCP TCPFIN UDP</code> 的时间。</p>
+<p>原来 lvs 默认有个超时时间，可以用 <code class="highlighter-rouge">ipvsadm -L --timeout</code> 查看，默认是 <code class="highlighter-rouge">900 120 300</code> ，分别是 <code class="highlighter-rouge">TCP TCPFIN UDP</code> 的时间。</p>
 <p>而RS上参数如下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">net.ipv4.tcp_keepalive_time <span class="o">=</span> 600
+<div class="highlighter-rouge"><pre class="highlight"><code>net.ipv4.tcp_keepalive_time <span class="o">=</span> 600
 net.ipv4.route.gc_timeout <span class="o">=</span> 100
 net.ipv4.tcp_fin_timeout <span class="o">=</span> 30
 net.ipv4.netfilter.ip_conntrack_tcp_timeout_close <span class="o">=</span> 10
@@ -67,14 +67,16 @@ net.ipv4.netfilter.ip_conntrack_tcp_timeout_established <span class="o">=</span>
 net.ipv4.netfilter.ip_conntrack_tcp_timeout_syn_recv <span class="o">=</span> 60
 net.ipv4.netfilter.ip_conntrack_tcp_timeout_syn_sent <span class="o">=</span> 120
 net.ipv4.netfilter.ip_conntrack_udp_timeout_stream <span class="o">=</span> 180
-net.ipv4.netfilter.ip_conntrack_udp_timeout <span class="o">=</span> 30</code></pre></div>
-<p>可见 RS 的超时时间（仅指 <code>ESTABLISHED</code> ）比 LVS 小了 3 倍。再加上 <code>WAIT</code> 和 <code>SYN_RECV</code> 等状态，差不多就是 220000/65000 的比例了。而 squid 的 RPS 是按秒计算的，<code>180*300=~55000</code> ，在数量级上和 netstat 的结果也就差不多了~ </p>
+net.ipv4.netfilter.ip_conntrack_udp_timeout <span class="o">=</span> 30
+</code></pre>
+</div>
+<p>可见 RS 的超时时间（仅指 <code class="highlighter-rouge">ESTABLISHED</code> ）比 LVS 小了 3 倍。再加上 <code class="highlighter-rouge">WAIT</code> 和 <code class="highlighter-rouge">SYN_RECV</code> 等状态，差不多就是 220000/65000 的比例了。而 squid 的 RPS 是按秒计算的，<code class="highlighter-rouge">180*300=~55000</code> ，在数量级上和 netstat 的结果也就差不多了~</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/03/30/purge-script-by-perl" title="perl边学边练（purge脚本）">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/03/30/purge-script-by-perl/" title="perl边学边练（purge脚本）">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/04/03/a-unfound-option-of-date-command" title="date的一个怪问题">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/04/03/a-unfound-option-of-date-command/" title="date的一个怪问题">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -118,15 +120,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

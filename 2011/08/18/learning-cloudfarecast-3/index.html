@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -49,38 +49,40 @@
     <div class="date"><span>18 August 2011</span></div>
   </div>
   <div style='background-color: #FFF;'>
-    <p>第三篇，看web部分。主程序cloudforecast_web里主要就是调用CloudForecast::Web的run()函数，接下来去看CloudForecast::Web。
-照例还是加载配置，然后这里主要多了两个accessor：allowfrom和front_proxy。用来定制acl和代理的。从下文可以看到，分别是采用了Plack::Middleware::Access和Plack::Middleware::ReverseProxy两个模块进行控制。
-然后是主要部分，通过Plack::Builder建立$app：
-1、初始化:&rdquo;my $app = $self-&gt;psgi;&rdquo;，这里是调用父层&rdquo;use Shirahata -base;&rdquo;的psgi()函数完成的。稍后再看这个。
-2、包装:取出前面说的allowfrom和front_proxy部分后，代码如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nv">$app</span> <span class="o">=</span> <span class="n">builder</span> <span class="p">{</span>
-        <span class="n">enable</span> <span class="s">&#39;Plack::Middleware::Lint&#39;</span><span class="p">;</span>
-        <span class="n">enable</span> <span class="s">&#39;Plack::Middleware::StackTrace&#39;</span><span class="p">;</span>
-        <span class="n">enable</span> <span class="s">&#39;Plack::Middleware::Static&#39;</span><span class="p">,</span>
-            <span class="n">path</span> <span class="o">=&gt;</span> <span class="sx">qr{^/(favicon\.ico$|static/)}</span><span class="p">,</span>
-            <span class="n">root</span> <span class="o">=&gt;</span><span class="nn">Path::Class::</span><span class="n">dir</span><span class="p">(</span><span class="nv">$self</span><span class="o">-&gt;</span><span class="n">root_dir</span><span class="p">,</span> <span class="s">&#39;htdocs&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">stringify</span><span class="p">;</span>
-        <span class="nv">$app</span><span class="p">;</span>
-    <span class="p">};</span></code></pre></div>
-<p>真实加载顺序是倒序的，先加载Static.pm，用来服务静态文件，意即url路径为^/static/.*的，实际documentroot为./htdocs/；然后加载StackTrace.pm，用于开发调试的时候，向标准输出输出错误跟踪信息；最后是Lint.pm，用于检查请求/响应的格式是否正确。
-然后是加载运行，使用Plack::Loader运行上面build出来的$app。方法如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">my</span> <span class="nv">$loader</span> <span class="o">=</span> <span class="nn">Plack::</span><span class="n">Loader</span><span class="o">-&gt;</span><span class="n">load</span><span class="p">(</span>
-        <span class="s">&#39;Starlet&#39;</span><span class="p">,</span>
-        <span class="n">port</span> <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">port</span> <span class="o">||</span> <span class="mi">5000</span><span class="p">,</span>
-        <span class="n">host</span> <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">host</span> <span class="o">||</span> <span class="mi">0</span><span class="p">,</span>
-        <span class="n">max_workers</span> <span class="o">=&gt;</span> <span class="mi">2</span><span class="p">,</span>
-    <span class="p">);</span>
-    <span class="nv">$loader</span><span class="o">-&gt;</span><span class="n">run</span><span class="p">(</span><span class="nv">$app</span><span class="p">);</span></code></pre></div>
-<p>主要是两个参数，第一个是用来运行plack的服务器模块名称，常见的有starman/twiggy/corona/perlbal等等，这里写的这个Starlet，是基于HTTP::Server::PSGI模块添加预派生(prefork)/热部署(Server::Starter)/优雅重启等功能的一个服务器模块，原来叫的名字是&rdquo;Plack::Server::Standalone::Prefork::Server::Starter&rdquo;(简称PSSPSS)……</p>
-<p>然后去看前面说到的Shirahata.pm里的psgi()函数。
-这个Shirahata似乎是作者自己完成的一个框架？反正我在cpan上没看到。psgi()里调用build_app()完成主要功能，其中使用了Router::Simple完成route功能，Data::Section::Simple(提取文件中_DATA_下的内容)和HTML::FillInForm::Lite()、Text::Xslate完成template功能，Plack::Request和Plack::Response完成请求响应功能，最终返回一个&rdquo;$psgi_res;&rdquo;。
+    <p>第三篇，看web部分。主程序cloudforecast_web里主要就是调用CloudForecast::Web的run()函数，接下来去看CloudForecast::Web。<br />
+照例还是加载配置，然后这里主要多了两个accessor：allowfrom和front_proxy。用来定制acl和代理的。从下文可以看到，分别是采用了Plack::Middleware::Access和Plack::Middleware::ReverseProxy两个模块进行控制。<br />
+然后是主要部分，通过Plack::Builder建立$app：<br />
+1、初始化:&rdquo;my $app = $self-&gt;psgi;&rdquo;，这里是调用父层&rdquo;use Shirahata -base;&rdquo;的psgi()函数完成的。稍后再看这个。<br />
+2、包装:取出前面说的allowfrom和front_proxy部分后，代码如下：<br />
+<code class="highlighter-rouge">perl
+    $app = builder {
+        enable 'Plack::Middleware::Lint';
+        enable 'Plack::Middleware::StackTrace';
+        enable 'Plack::Middleware::Static',
+            path =&gt; qr{^/(favicon\.ico$|static/)},
+            root =&gt;Path::Class::dir($self-&gt;root_dir, 'htdocs')-&gt;stringify;
+        $app;
+    };</code><br />
+真实加载顺序是倒序的，先加载Static.pm，用来服务静态文件，意即url路径为^/static/.*的，实际documentroot为./htdocs/；然后加载StackTrace.pm，用于开发调试的时候，向标准输出输出错误跟踪信息；最后是Lint.pm，用于检查请求/响应的格式是否正确。<br />
+然后是加载运行，使用Plack::Loader运行上面build出来的$app。方法如下：<br />
+<code class="highlighter-rouge">perl
+    my $loader = Plack::Loader-&gt;load(
+        'Starlet',
+        port =&gt; $self-&gt;port || 5000,
+        host =&gt; $self-&gt;host || 0,
+        max_workers =&gt; 2,
+    );
+    $loader-&gt;run($app);</code><br />
+主要是两个参数，第一个是用来运行plack的服务器模块名称，常见的有starman/twiggy/corona/perlbal等等，这里写的这个Starlet，是基于HTTP::Server::PSGI模块添加预派生(prefork)/热部署(Server::Starter)/优雅重启等功能的一个服务器模块，原来叫的名字是&rdquo;Plack::Server::Standalone::Prefork::Server::Starter&rdquo;(简称PSSPSS)……</p>
+<p>然后去看前面说到的Shirahata.pm里的psgi()函数。<br />
+这个Shirahata似乎是作者自己完成的一个框架？反正我在cpan上没看到。psgi()里调用build_app()完成主要功能，其中使用了Router::Simple完成route功能，Data::Section::Simple(提取文件中_DATA_下的内容)和HTML::FillInForm::Lite()、Text::Xslate完成template功能，Plack::Request和Plack::Response完成请求响应功能，最终返回一个&rdquo;$psgi_res;&rdquo;。<br />
 一堆模块没一个看过的……不细究了……</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/08/18/learning-cloudfarecast-2" title="CloudForecast学习笔记(二)">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/08/18/learning-cloudfarecast-2/" title="CloudForecast学习笔记(二)">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/08/25/nginx-diff-response-via-filesize" title="用nginx区分文件大小做出不同响应">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/08/25/nginx-diff-response-via-filesize/" title="用nginx区分文件大小做出不同响应">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -124,15 +126,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -54,94 +54,110 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>Vagrant 是近来 devops 界内非常流行和火爆的工具，它和 puppet/chef 的结合，成为运维开发和测试，甚至预热部署的重要手段。比如在 cloudfoundry 官方放弃使用 <code>vcap_setup</code> 脚本部署后，社区大多对其 <code>BOSH</code> 不买账，转而研究使用 vagrant 部署了。</p>
+    <p>Vagrant 是近来 devops 界内非常流行和火爆的工具，它和 puppet/chef 的结合，成为运维开发和测试，甚至预热部署的重要手段。比如在 cloudfoundry 官方放弃使用 <code class="highlighter-rouge">vcap_setup</code> 脚本部署后，社区大多对其 <code class="highlighter-rouge">BOSH</code> 不买账，转而研究使用 vagrant 部署了。</p>
 <p>对于 perl 运维人员，使用 Rex 工具做集群管理的话，其实完全不用再使用 vagrant 了。因为 Rex 自带有 Box 功能。完全可以一体化工作。下面从 Rex 官网上半翻译半截取两篇文章，展示 Rex::Box 的使用。两篇原文分别是：</p>
 <ol>
   <li><a href="http://box.rexify.org/guide">http://box.rexify.org/guide</a></li>
   <li><a href="http://www.rexify.org/howtos/use_boxes_with_any_box_provider.html">http://www.rexify.org/howtos/use_boxes_with_any_box_provider.html</a></li>
 </ol>
 <h1 id="section">环境准备</h1>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">rexify <span class="nv">$project</span>-name --template box
+<div class="highlighter-rouge"><pre class="highlight"><code>rexify <span class="nv">$project</span>-name --template box
 <span class="nb">cd</span> <span class="nv">$project</span>-name
-rex init --name<span class="o">=</span><span class="nv">$vm</span>-name --url<span class="o">=</span><span class="nv">$url</span>-to-prebuild-vm-image</code></pre></div>
+rex init --name<span class="o">=</span><span class="nv">$vm</span>-name --url<span class="o">=</span><span class="nv">$url</span>-to-prebuild-vm-image
+</code></pre>
+</div>
 <h1 id="section-1">虚拟机定义</h1>
 <p>这里有两种方式，一种是类似 Vagrantfile 定义的 Rexfile 写法：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">set</span> <span class="n">box</span> <span class="o">=&gt;</span> <span class="s">&quot;VBox&quot;</span><span class="p">;</span>
-<span class="n">task</span> <span class="n">mytask</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-   <span class="n">box</span> <span class="p">{</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="nv">set</span> <span class="nv">box</span> <span class="o">=&gt;</span> <span class="s">"VBox"</span><span class="p">;</span>
+<span class="nv">task</span> <span class="nv">mytask</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
+   <span class="nv">box</span> <span class="p">{</span>
       <span class="k">my</span> <span class="p">(</span><span class="nv">$box</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-      <span class="nv">$box</span><span class="o">-&gt;</span><span class="n">name</span><span class="p">(</span><span class="s">&quot;boxname&quot;</span><span class="p">);</span>
-      <span class="nv">$box</span><span class="o">-&gt;</span><span class="n">url</span><span class="p">(</span><span class="s">&quot;http://box.rexify.org/box/base-image.box&quot;</span><span class="p">);</span>
-      <span class="nv">$box</span><span class="o">-&gt;</span><span class="n">network</span><span class="p">(</span><span class="mi">1</span> <span class="o">=&gt;</span> <span class="p">{</span>
-        <span class="n">type</span> <span class="o">=&gt;</span> <span class="s">&quot;bridged&quot;</span>      <span class="c1"># 默认是 &quot;nat&quot;,</span>
-        <span class="n">bridge</span> <span class="o">=&gt;</span> <span class="s">&quot;eth0&quot;</span><span class="p">,</span>
+      <span class="nv">$box</span><span class="o">-&gt;</span><span class="nv">name</span><span class="p">(</span><span class="s">"boxname"</span><span class="p">);</span>
+      <span class="nv">$box</span><span class="o">-&gt;</span><span class="nv">url</span><span class="p">(</span><span class="s">"http://box.rexify.org/box/base-image.box"</span><span class="p">);</span>
+      <span class="nv">$box</span><span class="o">-&gt;</span><span class="nv">network</span><span class="p">(</span><span class="mi">1</span> <span class="o">=&gt;</span> <span class="p">{</span>
+        <span class="nv">type</span> <span class="o">=&gt;</span> <span class="s">"bridged"</span>      <span class="c1"># 默认是 "nat",</span>
+        <span class="nv">bridge</span> <span class="o">=&gt;</span> <span class="s">"eth0"</span><span class="p">,</span>
       <span class="p">});</span>
-      <span class="nv">$box</span><span class="o">-&gt;</span><span class="n">forward_port</span><span class="p">(</span><span class="n">ssh</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="mi">2222</span><span class="p">,</span> <span class="mi">22</span><span class="p">]);</span>
-      <span class="nv">$box</span><span class="o">-&gt;</span><span class="n">share_folder</span><span class="p">(</span><span class="n">boxhome</span> <span class="o">=&gt;</span> <span class="s">&quot;/path/to/myuser&quot;</span><span class="p">);</span>
-      <span class="nv">$box</span><span class="o">-&gt;</span><span class="n">auth</span><span class="p">(</span>
-        <span class="n">user</span> <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span>
-        <span class="n">password</span> <span class="o">=&gt;</span> <span class="s">&quot;box&quot;</span><span class="p">,</span>
+      <span class="nv">$box</span><span class="o">-&gt;</span><span class="nv">forward_port</span><span class="p">(</span><span class="nv">ssh</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="mi">2222</span><span class="p">,</span> <span class="mi">22</span><span class="p">]);</span>
+      <span class="nv">$box</span><span class="o">-&gt;</span><span class="nv">share_folder</span><span class="p">(</span><span class="nv">boxhome</span> <span class="o">=&gt;</span> <span class="s">"/path/to/myuser"</span><span class="p">);</span>
+      <span class="nv">$box</span><span class="o">-&gt;</span><span class="nv">auth</span><span class="p">(</span>
+        <span class="nv">user</span> <span class="o">=&gt;</span> <span class="s">"root"</span><span class="p">,</span>
+        <span class="nv">password</span> <span class="o">=&gt;</span> <span class="s">"box"</span><span class="p">,</span>
       <span class="p">);</span>
-      <span class="nv">$box</span><span class="o">-&gt;</span><span class="n">setup</span><span class="p">(</span><span class="sx">qw/setup_frontend/</span><span class="p">);</span>
+      <span class="nv">$box</span><span class="o">-&gt;</span><span class="nv">setup</span><span class="p">(</span><span class="sx">qw/setup_frontend/</span><span class="p">);</span>
    <span class="p">};</span>
-<span class="p">};</span></code></pre></div>
+<span class="p">};</span>
+</code></pre>
+</div>
 <p>另一种是采用 YAML 配置：</p>
-<div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">VBox</span>
-<span class="l-Scalar-Plain">vms</span><span class="p-Indicator">:</span>
-   <span class="l-Scalar-Plain">fe01</span><span class="p-Indicator">:</span>
-      <span class="l-Scalar-Plain">url</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">http://box.rexify.org/box/ubuntu-server-12.10-amd64.ova</span>
-      <span class="l-Scalar-Plain">network</span><span class="p-Indicator">:</span>
-         <span class="l-Scalar-Plain">1</span><span class="p-Indicator">:</span>
-            <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">bridged</span>
-            <span class="l-Scalar-Plain">bridge</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">eth0</span>
-      <span class="l-Scalar-Plain">setup</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">setup_frontend</span>
-   <span class="l-Scalar-Plain">db01</span><span class="p-Indicator">:</span>
-      <span class="l-Scalar-Plain">url</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">http://box.rexify.org/box/ubuntu-server-12.10-amd64.ova</span>
-      <span class="l-Scalar-Plain">network</span><span class="p-Indicator">:</span>
-         <span class="l-Scalar-Plain">1</span><span class="p-Indicator">:</span>
-            <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">bridged</span>
-            <span class="l-Scalar-Plain">bridge</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">eth0</span>
-      <span class="l-Scalar-Plain">setup</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">setup_db</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="s">type</span><span class="pi">:</span> <span class="s">VBox</span>
+<span class="s">vms</span><span class="pi">:</span>
+   <span class="s">fe01</span><span class="pi">:</span>
+      <span class="s">url</span><span class="pi">:</span> <span class="s">http://box.rexify.org/box/ubuntu-server-12.10-amd64.ova</span>
+      <span class="s">network</span><span class="pi">:</span>
+         <span class="s">1</span><span class="pi">:</span>
+            <span class="s">type</span><span class="pi">:</span> <span class="s">bridged</span>
+            <span class="s">bridge</span><span class="pi">:</span> <span class="s">eth0</span>
+      <span class="s">setup</span><span class="pi">:</span> <span class="s">setup_frontend</span>
+   <span class="s">db01</span><span class="pi">:</span>
+      <span class="s">url</span><span class="pi">:</span> <span class="s">http://box.rexify.org/box/ubuntu-server-12.10-amd64.ova</span>
+      <span class="s">network</span><span class="pi">:</span>
+         <span class="s">1</span><span class="pi">:</span>
+            <span class="s">type</span><span class="pi">:</span> <span class="s">bridged</span>
+            <span class="s">bridge</span><span class="pi">:</span> <span class="s">eth0</span>
+      <span class="s">setup</span><span class="pi">:</span> <span class="s">setup_db</span>
+</code></pre>
+</div>
 <h1 id="section-2">虚拟机初始化</h1>
-<p>在 Vagrant 中有一个概念叫 provision，也就是在虚拟机第一次运行时，通过 shell/puppet/chef 等进行初始化操作。Rex::Box 自然是通过 Rex 本身来进行这个任务。也就是上例中的 <code>setup</code> 定义的 task 名称。</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">task</span> <span class="s">&#39;setup_frontend&#39;</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="n">install</span> <span class="n">nginx</span><span class="p">;</span>
-    <span class="n">file</span> <span class="s">&#39;/etc/nginx.conf&#39;</span><span class="p">,</span>
-        <span class="n">content</span>   <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s">&#39;template/httpd.conf.tpl&#39;</span><span class="p">),</span>
-        <span class="n">owner</span>     <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span>
-        <span class="n">group</span>     <span class="o">=&gt;</span> <span class="s">&quot;root&quot;</span><span class="p">,</span>
-        <span class="n">on_change</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="n">service</span> <span class="n">nginx</span> <span class="o">=&gt;</span> <span class="s">&quot;restart&quot;</span><span class="p">;</span> <span class="p">};</span>
-<span class="p">};</span></code></pre></div>
+<p>在 Vagrant 中有一个概念叫 provision，也就是在虚拟机第一次运行时，通过 shell/puppet/chef 等进行初始化操作。Rex::Box 自然是通过 Rex 本身来进行这个任务。也就是上例中的 <code class="highlighter-rouge">setup</code> 定义的 task 名称。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="nv">task</span> <span class="s">'setup_frontend'</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="nv">install</span> <span class="nv">nginx</span><span class="p">;</span>
+    <span class="nv">file</span> <span class="s">'/etc/nginx.conf'</span><span class="p">,</span>
+        <span class="nv">content</span>   <span class="o">=&gt;</span> <span class="nv">template</span><span class="p">(</span><span class="s">'template/httpd.conf.tpl'</span><span class="p">),</span>
+        <span class="nv">owner</span>     <span class="o">=&gt;</span> <span class="s">"root"</span><span class="p">,</span>
+        <span class="nv">group</span>     <span class="o">=&gt;</span> <span class="s">"root"</span><span class="p">,</span>
+        <span class="nv">on_change</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nv">service</span> <span class="nv">nginx</span> <span class="o">=&gt;</span> <span class="s">"restart"</span><span class="p">;</span> <span class="p">};</span>
+<span class="p">};</span>
+</code></pre>
+</div>
 <p>因为 rex 本身是通过 ssh 管理，所以在 setup 之前，必须定义好如何 auth，自己做的镜像不说了，通过 rexify.org 下载的默认镜像，就是默认的 root/box 了。</p>
-<p>说到镜像，其实 vagrant 的 <code>.box</code> 也就是 <code>.ova</code> ，都是把 virtualbox 的 <code>.vmdk</code> 和 <code>.ovf</code> 打了个包而已。</p>
-<p>当然，也可以在 task 写 shell，通过 <code>run</code> 的方式，其实 run 应该也是 Rex 最常用的 task 了。</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">task</span> <span class="s">&#39;setup_frontend&#39;</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="n">run</span> <span class="s">&quot;echo Hello, world&quot;</span><span class="p">;</span>
-<span class="p">};</span></code></pre></div>
+<p>说到镜像，其实 vagrant 的 <code class="highlighter-rouge">.box</code> 也就是 <code class="highlighter-rouge">.ova</code> ，都是把 virtualbox 的 <code class="highlighter-rouge">.vmdk</code> 和 <code class="highlighter-rouge">.ovf</code> 打了个包而已。</p>
+<p>当然，也可以在 task 写 shell，通过 <code class="highlighter-rouge">run</code> 的方式，其实 run 应该也是 Rex 最常用的 task 了。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="nv">task</span> <span class="s">'setup_frontend'</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="nv">run</span> <span class="s">"echo Hello, world"</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre>
+</div>
 <h1 id="section-3">虚拟机使用</h1>
 <p>定义完成后，就可以使用 init 配置虚拟机环境，然后 start/stop 管理虚拟机。</p>
 <p>比如在使用 YAML 配置的时候，配置环境的 Rexfile 最后是这样的：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="nn">Rex::Commands::</span><span class="n">Box</span> <span class="n">init_file</span> <span class="o">=&gt;</span> <span class="s">&quot;box.yml&quot;</span><span class="p">;</span>
-<span class="n">group</span> <span class="n">myboxes</span> <span class="o">=&gt;</span> <span class="nb">map</span> <span class="p">{</span> <span class="n">get_box</span><span class="p">(</span><span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">name</span><span class="p">})</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">ip</span><span class="p">}</span> <span class="p">}</span> <span class="n">list_boxes</span><span class="p">;</span>
-<span class="n">task</span> <span class="s">&quot;box&quot;</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
-   <span class="n">boxes</span> <span class="s">&quot;init&quot;</span><span class="p">;</span>
-<span class="p">};</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">use</span> <span class="nn">Rex::Commands::</span><span class="nv">Box</span> <span class="nv">init_file</span> <span class="o">=&gt;</span> <span class="s">"box.yml"</span><span class="p">;</span>
+<span class="nv">group</span> <span class="nv">myboxes</span> <span class="o">=&gt;</span> <span class="nb">map</span> <span class="p">{</span> <span class="nv">get_box</span><span class="p">(</span><span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">name</span><span class="p">})</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">ip</span><span class="p">}</span> <span class="p">}</span> <span class="nv">list_boxes</span><span class="p">;</span>
+<span class="nv">task</span> <span class="s">"box"</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+   <span class="nv">boxes</span> <span class="s">"init"</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre>
+</div>
 <p>像要做成命令行管理也比较简单，比如启动和停止虚拟机的 task 这样写：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">task</span> <span class="s">&quot;stop&quot;</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="nv">task</span> <span class="s">"stop"</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
     <span class="k">my</span> <span class="nv">$param</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="n">boxes</span> <span class="n">stop</span> <span class="o">=&gt;</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">name</span><span class="p">};</span>
-<span class="p">};</span></code></pre></div>
+    <span class="nv">boxes</span> <span class="nv">stop</span> <span class="o">=&gt;</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">name</span><span class="p">};</span>
+<span class="p">};</span>
+</code></pre>
+</div>
 <p>就可以在命令行直接这样启动某个虚拟机了：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">rex stop --name<span class="o">=</span>myvbox</code></pre></div>
-<p>事实上，本文最开头的默认 box 模板生成的命令，就是通过前一步生成的 Rexfile 里定义的 <code>task "init", sub {...};</code> 实现的。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>rex stop --name<span class="o">=</span>myvbox
+</code></pre>
+</div>
+<p>事实上，本文最开头的默认 box 模板生成的命令，就是通过前一步生成的 Rexfile 里定义的 <code class="highlighter-rouge">task "init", sub {...};</code> 实现的。</p>
 <p><strong>2013 年 07 月 23 日附注：</strong></p>
 <p>虽然如此，但是 Vagrant 目前已经成为开源社区风头正劲的一个产品，其开放的 plugin 机制导致周边产品大量出现，已经形成了一个不错的社区氛围。还是建议大家了解 Vagrant 。目前 vagrant-plugin 列表见：<a href="https://github.com/mitchellh/vagrant/wiki/Available-Vagrant-Plugins">https://github.com/mitchellh/vagrant/wiki/Available-Vagrant-Plugins</a>。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/05/14/mojo-and-gocr-for-buildhr-telephone" title="用mojo抓取数据并gocr替换图片内容">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/05/14/mojo-and-gocr-for-buildhr-telephone/" title="用mojo抓取数据并gocr替换图片内容">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/05/28/compare-dsl-of-puppet-with-rex" title="puppet和rex的常用资源写法类比">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/05/28/compare-dsl-of-puppet-with-rex/" title="puppet和rex的常用资源写法类比">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -185,15 +201,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,60 +53,72 @@
 <p>但是 puppet 中有些配置确实修改比较频繁，文件操作不得不说是一件不甚方便的事情，于是重新考虑通过类参数的方式来灵活化某些配置的操作。</p>
 <h1 id="section">修改前</h1>
 <h3 id="nginxmanifestsinitpp">nginx/manifests/init.pp</h3>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="n">nginx</span> <span class="p">{</span>
-    <span class="kp">include</span> <span class="s2">&quot;nginx::${::role}&quot;</span>
-<span class="p">}</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">class</span> <span class="n">nginx</span> <span class="p">{</span>
+    <span class="kp">include</span> <span class="s2">"nginx::${::role}"</span>
+<span class="p">}</span>
+</code></pre>
+</div>
 <h3 id="nginxmanifestsloadbalancerpp">nginx/manifests/loadbalancer.pp</h3>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="n">nginx</span><span class="o">::</span><span class="n">loadbalancer</span> <span class="p">{</span>
-    <span class="vg">$iplist</span> <span class="o">=</span> <span class="o">[</span><span class="s1">&#39;192.168.0.2:80&#39;</span><span class="o">]</span>
-    <span class="n">file</span> <span class="p">{</span> <span class="s1">&#39;nginx.conf&#39;</span><span class="p">:</span>
-        <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s1">&#39;nginx/nginx.conf.erb&#39;</span><span class="p">),</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">class</span> <span class="n">nginx</span><span class="o">::</span><span class="n">loadbalancer</span> <span class="p">{</span>
+    <span class="vg">$iplist</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'192.168.0.2:80'</span><span class="p">]</span>
+    <span class="n">file</span> <span class="p">{</span> <span class="s1">'nginx.conf'</span><span class="p">:</span>
+        <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s1">'nginx/nginx.conf.erb'</span><span class="p">),</span>
     <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span>
+</code></pre>
+</div>
 <h3 id="enc-nginxhostname">enc nginxhostname</h3>
-<div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="nn">---</span>
-<span class="l-Scalar-Plain">classes</span><span class="p-Indicator">:</span>
-  <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">nginx</span>
-  <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">base</span>
-<span class="l-Scalar-Plain">environment</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">production</span>
-<span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
-  <span class="l-Scalar-Plain">role</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">loadbalancer</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="nn">---</span>
+<span class="s">classes</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">nginx</span>
+  <span class="pi">-</span> <span class="s">base</span>
+<span class="s">environment</span><span class="pi">:</span> <span class="s">production</span>
+<span class="s">parameters</span><span class="pi">:</span>
+  <span class="s">role</span><span class="pi">:</span> <span class="s">loadbalancer</span>
+</code></pre>
+</div>
 <h1 id="section-1">修改后</h1>
 <h3 id="nginxmanifestsinitpp-1">nginx/manifests/init.pp</h3>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="n">nginx</span> <span class="p">(</span><span class="vg">$iplist</span> <span class="o">=</span> <span class="o">[]</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">class</span> <span class="p">{</span> <span class="s2">&quot;nginx::${::role}&quot;</span><span class="p">:</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">class</span> <span class="n">nginx</span> <span class="p">(</span><span class="vg">$iplist</span> <span class="o">=</span> <span class="p">[])</span> <span class="p">{</span>
+    <span class="k">class</span> <span class="p">{</span> <span class="s2">"nginx::${::role}"</span><span class="p">:</span>
         <span class="n">iplist</span> <span class="o">=&gt;</span> <span class="vg">$iplist</span>
     <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span>
+</code></pre>
+</div>
 <h3 id="nginxmanifestsloadbalancerpp-1">nginx/manifests/loadbalancer.pp</h3>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="n">nginx</span><span class="o">::</span><span class="n">loadbalancer</span> <span class="p">(</span><span class="vg">$iplist</span> <span class="o">=</span> <span class="o">[]</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">file</span> <span class="p">{</span> <span class="s1">&#39;nginx.conf&#39;</span><span class="p">:</span>
-        <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s1">&#39;nginx/nginx.conf.erb&#39;</span><span class="p">),</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">class</span> <span class="n">nginx</span><span class="o">::</span><span class="n">loadbalancer</span> <span class="p">(</span><span class="vg">$iplist</span> <span class="o">=</span> <span class="p">[])</span> <span class="p">{</span>
+    <span class="n">file</span> <span class="p">{</span> <span class="s1">'nginx.conf'</span><span class="p">:</span>
+        <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s1">'nginx/nginx.conf.erb'</span><span class="p">),</span>
     <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span>
+</code></pre>
+</div>
 <h3 id="enc-nginxhostname-1">enc nginxhostname</h3>
-<div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="nn">---</span>
-<span class="l-Scalar-Plain">classes</span><span class="p-Indicator">:</span>
-  <span class="l-Scalar-Plain">nginx</span><span class="p-Indicator">:</span>
-    <span class="l-Scalar-Plain">iplist</span><span class="p-Indicator">:</span>
-      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">192.168.0.2:80</span>
-  <span class="l-Scalar-Plain">base</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">~</span>
-<span class="l-Scalar-Plain">environment</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">production</span>
-<span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
-  <span class="l-Scalar-Plain">role</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">loadbalancer</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="nn">---</span>
+<span class="s">classes</span><span class="pi">:</span>
+  <span class="s">nginx</span><span class="pi">:</span>
+    <span class="s">iplist</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">192.168.0.2:80</span>
+  <span class="s">base</span><span class="pi">:</span> <span class="s">~</span>
+<span class="s">environment</span><span class="pi">:</span> <span class="s">production</span>
+<span class="s">parameters</span><span class="pi">:</span>
+  <span class="s">role</span><span class="pi">:</span> <span class="s">loadbalancer</span>
+</code></pre>
+</div>
 <h1 id="section-2">要点</h1>
 <ol>
   <li>虽然真正需要 $iplist 的是下面的一个子类，但是 ENC 传值是给的父类，所以需要一层层传递下去；</li>
   <li>ENC 中给类传参，类就要写成哈希形式，否则是数组形式；</li>
-  <li>有参数的类，在调用的时候无法使用 <code>include</code> 形式的写法，只能用资源调用形式的写法。</li>
+  <li>有参数的类，在调用的时候无法使用 <code class="highlighter-rouge">include</code> 形式的写法，只能用资源调用形式的写法。</li>
 </ol>
-<p>修改中出现了一个很搞笑的错误，因为是在 vim 里批量转换，结果子类名字后面多了一个空格，成了<code>class { "nginx::${::role} ":</code>这样。结果 puppet 一直返回报错说 &ldquo;Invalid Parameter&rdquo;。这时候一个习惯性的思维造成了误会：我们一般会认为<code>:</code>后面的那一行行键值对才是 parameter，但其实这里子类名也是 <code>class</code> 这个资源调用的 parameter。当然，如果可以在这里报一个 <code>Class Not Found</code> 就更好了。</p>
+<p>修改中出现了一个很搞笑的错误，因为是在 vim 里批量转换，结果子类名字后面多了一个空格，成了<code class="highlighter-rouge">class { "nginx::${::role} ":</code>这样。结果 puppet 一直返回报错说 &ldquo;Invalid Parameter&rdquo;。这时候一个习惯性的思维造成了误会：我们一般会认为<code class="highlighter-rouge">:</code>后面的那一行行键值对才是 parameter，但其实这里子类名也是 <code class="highlighter-rouge">class</code> 这个资源调用的 parameter。当然，如果可以在这里报一个 <code class="highlighter-rouge">Class Not Found</code> 就更好了。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/11/04/perl-unpack-tongdaxin" title="用 Perl 读取通达信日线数据">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/11/04/perl-unpack-tongdaxin/" title="用 Perl 读取通达信日线数据">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/12/09/add-mailinglist-command-to-gitolite" title="为 gitolite 实现 mailinglist 命令行操控">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/12/09/add-mailinglist-command-to-gitolite/" title="为 gitolite 实现 mailinglist 命令行操控">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -150,15 +162,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

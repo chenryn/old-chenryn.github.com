@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,59 +53,59 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>某应用的碎文件生成太多，大量消耗inode，不得不做迁移调整。
-原先的使用的NetApp存储，虽然可以调节inode，但是有一个上限，最高就是40000000——说实话真的挺小的啊~~
-一个同样大小的普通服务器ext3文件系统，在没有强行指定的情况下，inode都有将近3个亿，是netapp的7倍。
+    <p>某应用的碎文件生成太多，大量消耗inode，不得不做迁移调整。<br />
+原先的使用的NetApp存储，虽然可以调节inode，但是有一个上限，最高就是40000000——说实话真的挺小的啊~~<br />
+一个同样大小的普通服务器ext3文件系统，在没有强行指定的情况下，inode都有将近3个亿，是netapp的7倍。<br />
 了解了一下ext3文件系统在分区时指定inode最大可用数的情况，大致可以理解为小于可用空间大小/256。详细分析测试情况见：http://blog.wgzhao.com/2008/04/13/how-much-inodes-do-you-need.html，大意是inode个数由block大小和单个inode的字节决定。理论上最小block是1024，实际（采用-N强行指定的话）可能是256左右。</p>
-<p>之前在做sersync的时候，发现开启xfs支持就可以对netapp使用inotify功能。因此可以认为netapp使用是（至少在inode上）类似xfs的文件系统。最终决定测试一个reiserfs和xfs在inode方面的情况——这两个文件系统都是非分布式的动态inode的文件系统。
-RHEL5默认是不支持这两个fs的。需要plus一下。方法见http://www.gnutoolbox.com/reiserfs-centos/和http://wiki.centos.org/AdditionalResources/Repositories/CentOSPlus的说明。一步一步照做即可。
-随后在vmware上添加一块10G的硬盘sdb，fdisk分区成sdb1和sdb2，分别mkfs.reiser和mkfs.xfs两个分区，挂载在/mnt1和/mnt2上。
-这个时候df -h和df -i查看如下：
-[root@localhost ~]# df -i
-Filesystem            Inodes   IUsed   IFree IUse% Mounted on
-/dev/sda3            1240320  144694 1095626   12% /
-/dev/sda1              26104      40   26064    1% /boot
-/tmpfs                 64314       1   64313    1% /dev/shm
-/dev/sdb1                  0       0       0    -  /mnt1
-/dev/sdb2             562240    2368  559872    1% /mnt2
-[root@localhost ~]# df -h
-Filesystem            Size  Used Avail Use% Mounted on
-/dev/sda3              19G  4.8G   14G  27% /
-/dev/sda1              99M   17M   77M  18% /boot
-/tmpfs                252M     0  252M   0% /dev/shm
-/dev/sdb1             471M  33M  438M   7% /mnt1
-/dev/sdb2             545M   28M  517M   6% /mnt2
-另开窗口，分别运行for((i=1;i&lt;562240;i++));do touch /mnt1/a<em>$i;done和for((i=1;i&lt;562240;i++));do touch /mnt2/b</em>$i;done——为了加速，实际开了四个窗口，每个命令都是同时运行两个。
-一段时间后，mnt2的终端显示No space。于是中止。
-此时df -i和df -h的结果如下：
-[root@localhost ~]# df -i
-Filesystem            Inodes   IUsed   IFree IUse% Mounted on
-/dev/sda3            1240320  144694 1095626   12% /
-/dev/sda1              26104      40   26064    1% /boot
-/tmpfs                 64314       1   64313    1% /dev/shm
-/dev/sdb1                  0       0       0    -  /mnt1
-/dev/sdb2             124032  123397     635  100% /mnt2
-[root@localhost ~]# df -h
-Filesystem            Size  Used Avail Use% Mounted on
-/dev/sda3              19G  4.8G   14G  27% /
-/dev/sda1              99M   17M   77M  18% /boot
-/tmpfs                252M     0  252M   0% /dev/shm
-/dev/sdb1             471M   60M  411M  13% /mnt1
-/dev/sdb2             545M  545M  144K 100% /mnt2
-可以发现，xfs的空间没有变化（说这句是因为ext3在强制inode数变大的时候，可用空间会变小），但inode总数“神奇”的缩水了4倍！！
-继续等待，直到mnt1的for循环执行完成，这时候df -h结果如下：[root@localhost ~]# df -h
-Filesystem            Size  Used Avail Use% Mounted on
-/dev/sda3              19G  4.8G   14G  27% /
-/dev/sda1              99M   17M   77M  18% /boot
-/tmpfs                252M     0  252M   0% /dev/shm
-/dev/sdb1             471M  134M  338M  29% /mnt
+<p>之前在做sersync的时候，发现开启xfs支持就可以对netapp使用inotify功能。因此可以认为netapp使用是（至少在inode上）类似xfs的文件系统。最终决定测试一个reiserfs和xfs在inode方面的情况——这两个文件系统都是非分布式的动态inode的文件系统。<br />
+RHEL5默认是不支持这两个fs的。需要plus一下。方法见http://www.gnutoolbox.com/reiserfs-centos/和http://wiki.centos.org/AdditionalResources/Repositories/CentOSPlus的说明。一步一步照做即可。<br />
+随后在vmware上添加一块10G的硬盘sdb，fdisk分区成sdb1和sdb2，分别mkfs.reiser和mkfs.xfs两个分区，挂载在/mnt1和/mnt2上。<br />
+这个时候df -h和df -i查看如下：<br />
+[root@localhost ~]# df -i<br />
+Filesystem            Inodes   IUsed   IFree IUse% Mounted on<br />
+/dev/sda3            1240320  144694 1095626   12% /<br />
+/dev/sda1              26104      40   26064    1% /boot<br />
+/tmpfs                 64314       1   64313    1% /dev/shm<br />
+/dev/sdb1                  0       0       0    -  /mnt1<br />
+/dev/sdb2             562240    2368  559872    1% /mnt2<br />
+[root@localhost ~]# df -h<br />
+Filesystem            Size  Used Avail Use% Mounted on<br />
+/dev/sda3              19G  4.8G   14G  27% /<br />
+/dev/sda1              99M   17M   77M  18% /boot<br />
+/tmpfs                252M     0  252M   0% /dev/shm<br />
+/dev/sdb1             471M  33M  438M   7% /mnt1<br />
+/dev/sdb2             545M   28M  517M   6% /mnt2<br />
+另开窗口，分别运行for((i=1;i&lt;562240;i++));do touch /mnt1/a_$i;done和for((i=1;i&lt;562240;i++));do touch /mnt2/b_$i;done——为了加速，实际开了四个窗口，每个命令都是同时运行两个。<br />
+一段时间后，mnt2的终端显示No space。于是中止。<br />
+此时df -i和df -h的结果如下：<br />
+[root@localhost ~]# df -i<br />
+Filesystem            Inodes   IUsed   IFree IUse% Mounted on<br />
+/dev/sda3            1240320  144694 1095626   12% /<br />
+/dev/sda1              26104      40   26064    1% /boot<br />
+/tmpfs                 64314       1   64313    1% /dev/shm<br />
+/dev/sdb1                  0       0       0    -  /mnt1<br />
+/dev/sdb2             124032  123397     635  100% /mnt2<br />
+[root@localhost ~]# df -h<br />
+Filesystem            Size  Used Avail Use% Mounted on<br />
+/dev/sda3              19G  4.8G   14G  27% /<br />
+/dev/sda1              99M   17M   77M  18% /boot<br />
+/tmpfs                252M     0  252M   0% /dev/shm<br />
+/dev/sdb1             471M   60M  411M  13% /mnt1<br />
+/dev/sdb2             545M  545M  144K 100% /mnt2<br />
+可以发现，xfs的空间没有变化（说这句是因为ext3在强制inode数变大的时候，可用空间会变小），但inode总数“神奇”的缩水了4倍！！<br />
+继续等待，直到mnt1的for循环执行完成，这时候df -h结果如下：[root@localhost ~]# df -h<br />
+Filesystem            Size  Used Avail Use% Mounted on<br />
+/dev/sda3              19G  4.8G   14G  27% /<br />
+/dev/sda1              99M   17M   77M  18% /boot<br />
+/tmpfs                252M     0  252M   0% /dev/shm<br />
+/dev/sdb1             471M  134M  338M  29% /mnt<br />
 根据最后的结果算471<em>1024/562240/2=0.43K， 545</em>1024/124032=4.5K。看来对于空文件，reiserfs很压缩，而xfs则老老实实的做block了。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/04/05/learning-suse-linux-enterprise-desktop-system-analysis-and-tuning-guide" title="《SUSE Linux Enterprise Desktop System Analysis and Tuning Guide》读书笔记">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/04/05/learning-suse-linux-enterprise-desktop-system-analysis-and-tuning-guide/" title="《SUSE Linux Enterprise Desktop System Analysis and Tuning Guide》读书笔记">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/05/06/awk_variable_example_in_linux_system_script" title="linux系统脚本中的awk一例">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/05/06/awk_variable_example_in_linux_system_script/" title="linux系统脚本中的awk一例">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -149,15 +149,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

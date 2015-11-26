@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -49,23 +49,25 @@
     <div class="date"><span>04 November 2013</span></div>
   </div>
   <div style='background-color: #FFF;'>
-    <p>之前看 skyline 的报警机制的时候，为了寻找测试数据，曾经想到是不是可以用股价走势。其实股价走势分析也是一个很深的编程领域，有些选股软件一份就好几千的卖。当然我这里没兴趣和时间搞那么复杂了。简单的说一下如何从通达信的存档里读取日线数据，说到底还是 <code>pack/unpack</code> 的运用：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!perl</span>
-<span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;&lt;&#39;</span><span class="p">,</span> <span class="s">&#39;C:\new_sxzq_v6\vipdoc\sh\lday\sh000001.day&#39;</span><span class="p">;</span>
+    <p>之前看 skyline 的报警机制的时候，为了寻找测试数据，曾经想到是不是可以用股价走势。其实股价走势分析也是一个很深的编程领域，有些选股软件一份就好几千的卖。当然我这里没兴趣和时间搞那么复杂了。简单的说一下如何从通达信的存档里读取日线数据，说到底还是 <code class="highlighter-rouge">pack/unpack</code> 的运用：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="c1">#!perl</span>
+<span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">'&lt;'</span><span class="p">,</span> <span class="s">'C:\new_sxzq_v6\vipdoc\sh\lday\sh000001.day'</span><span class="p">;</span>
 <span class="k">while</span> <span class="p">(</span> <span class="nb">sysread</span> <span class="nv">$fh</span><span class="p">,</span> <span class="k">my</span> <span class="nv">$buf</span><span class="p">,</span> <span class="mi">32</span> <span class="p">)</span> <span class="p">{</span>
 <span class="c1"># 日期，开盘，最高，最低，收盘，成交金额，成交量，预留位</span>
     <span class="k">my</span> <span class="p">(</span> <span class="nv">$date</span><span class="p">,</span> <span class="nv">$open</span><span class="p">,</span> <span class="nv">$high</span><span class="p">,</span> <span class="nv">$low</span><span class="p">,</span> <span class="nv">$close</span><span class="p">,</span> <span class="nv">$amount</span><span class="p">,</span> <span class="nv">$vol</span><span class="p">,</span> <span class="nv">$reserved</span> <span class="p">)</span> <span class="o">=</span>
-      <span class="nb">unpack</span><span class="p">(</span> <span class="s">&#39;Ii4fi2&#39;</span><span class="p">,</span> <span class="nv">$buf</span> <span class="p">);</span>
-    <span class="nb">printf</span> <span class="s">&quot;%s %.2f %.2f %.2f %.2f %d %d\n&quot;</span><span class="p">,</span> <span class="nv">$date</span><span class="p">,</span> <span class="nv">$open</span> <span class="sr">/ 100, $high /</span> <span class="mi">100</span><span class="p">,</span>
+      <span class="nb">unpack</span><span class="p">(</span> <span class="s">'Ii4fi2'</span><span class="p">,</span> <span class="nv">$buf</span> <span class="p">);</span>
+    <span class="nb">printf</span> <span class="s">"%s %.2f %.2f %.2f %.2f %d %d\n"</span><span class="p">,</span> <span class="nv">$date</span><span class="p">,</span> <span class="nv">$open</span> <span class="sr">/ 100, $high /</span> <span class="mi">100</span><span class="p">,</span>
       <span class="nv">$low</span> <span class="sr">/ 100, $close /</span> <span class="mi">100</span><span class="p">,</span> <span class="nv">$amount</span><span class="p">,</span> <span class="nv">$vol</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
-<p>注意这里一定要一边 <code>sysread</code> 一边 <code>while</code>，否则一只股票的历史(上例中是上证指数)都没读完就会内存溢出的。</p>
+<span class="p">}</span>
+</code></pre>
+</div>
+<p>注意这里一定要一边 <code class="highlighter-rouge">sysread</code> 一边 <code class="highlighter-rouge">while</code>，否则一只股票的历史(上例中是上证指数)都没读完就会内存溢出的。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/10/26/selinux-affect-to-apache-documentroot" title="selinux 对 webserver 文件发布的影响">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/10/26/selinux-affect-to-apache-documentroot/" title="selinux 对 webserver 文件发布的影响">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/11/04/puppet-class-parameter" title="Puppet 的类参数传递">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/11/04/puppet-class-parameter/" title="Puppet 的类参数传递">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -109,15 +111,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

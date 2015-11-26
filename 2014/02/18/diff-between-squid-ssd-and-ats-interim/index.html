@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -54,7 +54,7 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>最近重新捡起来两年前做的 cache 软件测试对比，把原先的 trafficserver 淘宝分支升级到了现在的社区主分支，主要区别就是配置文件里不再直接叫 <code>ssd.storage</code>，而是正规化的起了一个名字叫<code>interim cache layer</code>。</p>
+    <p>最近重新捡起来两年前做的 cache 软件测试对比，把原先的 trafficserver 淘宝分支升级到了现在的社区主分支，主要区别就是配置文件里不再直接叫 <code class="highlighter-rouge">ssd.storage</code>，而是正规化的起了一个名字叫<code class="highlighter-rouge">interim cache layer</code>。</p>
 <p>运行结果和当初类似，SATA 盘的 ioutil% 依然是远高于鄙司自创的 squid-ssd 方案。</p>
 <p>于是沉下心来思考了一下为什么会有这么大的差距。</p>
 <p>首先，squid-ssd 的设计其实非常简单，参照 Facebook 的 flashcache 原理扩展了 squid 原有的 COSS 存储引擎而已。所以我们先回忆一下 flashcache 的原理：</p>
@@ -63,36 +63,36 @@
   <li>Writethrough 模式，<strong>数据同时写到 ssd 和 sata 硬盘</strong>，官方文档的说明是：</li>
 </ol>
 <blockquote>
-  <p>safest, all writes are cached to ssd but also written to disk
-immediately. If your ssd has slower write performance than your disk (likely
-for early generation SSDs purchased in 2008-2010), this may limit your system
+  <p>safest, all writes are cached to ssd but also written to disk<br />
+immediately. If your ssd has slower write performance than your disk (likely<br />
+for early generation SSDs purchased in 2008-2010), this may limit your system<br />
 write performance. All disk reads are cached (tunable).</p>
 </blockquote>
 <ol>
   <li>Writearound 模式，<strong>数据绕过 ssd，直接写到 sata 设备上</strong>，官方文档的说明是：</li>
 </ol>
 <blockquote>
-  <p>again, very safe, writes are not written to ssd but directly to
-disk. Disk blocks will only be cached after they are read. All disk reads
+  <p>again, very safe, writes are not written to ssd but directly to<br />
+disk. Disk blocks will only be cached after they are read. All disk reads<br />
 are cached (tunable).</p>
 </blockquote>
 <ol>
   <li>Writeback 模式，<strong>数据一开始只写到 ssd 上，然后根据缓存策略再移到 sata 设备上</strong>，官方文档的说明是：</li>
 </ol>
 <blockquote>
-  <p>fastest but less safe. Writes only go to the ssd initially, and
-based on various policies are written to disk later. All disk reads are
+  <p>fastest but less safe. Writes only go to the ssd initially, and<br />
+based on various policies are written to disk later. All disk reads are<br />
 cached (tunable).</p>
 </blockquote>
 <p>squid-ssd 方案，学习的是 Writeback 模式，这种模式极大的缓解了普通 sata 设备的读写压力，牺牲了一定的数据安全。但是作为 CDN 缓存软件，本身就不需要保证这点 —— 这应该是源站来保证的。</p>
 <p>相反，阅读了 ats 的文档说明后，发现 ats 的 interim 方案学习的是 Writearound 模式，而且默认的 tunable 那点还设的比较高， sata 设备上一个缓存对象要累积 2 次读取请求(最低可以修改到1，不能到0)后，才会缓存到 ssd 设备里去。</p>
-<p>这一点从另一个细节上也可以反映出来：ats 的监控数据中，<code>proxy.process.cache.bytes_total</code> 是只计算了 <code>storage.config</code> 里写的那些 sata 设备容量的，不包括 interim 在的 ssd 设备容量。</p>
+<p>这一点从另一个细节上也可以反映出来：ats 的监控数据中，<code class="highlighter-rouge">proxy.process.cache.bytes_total</code> 是只计算了 <code class="highlighter-rouge">storage.config</code> 里写的那些 sata 设备容量的，不包括 interim 在的 ssd 设备容量。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2014/02/08/whats-cooking-kibana-20140127" title="【翻译】Kibana 发生什么事了？">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/02/08/whats-cooking-kibana-20140127/" title="【翻译】Kibana 发生什么事了？">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/02/19/ngx-accounting-to-logstash" title="用 logstash 统计 Nginx 的 http_accounting 模块输出">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/02/19/ngx-accounting-to-logstash/" title="用 logstash 统计 Nginx 的 http_accounting 模块输出">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -136,15 +136,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

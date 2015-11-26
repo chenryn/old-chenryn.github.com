@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -55,42 +55,43 @@
     <p>半年前，Kibana3.4 版刚出来的时候，曾经在官方博客上描述了一个新功能，当时我的翻译见：<a href="/2014/01/15/kibana3-milestone4-20131105/">【翻译】Kibana3 里程碑 4</a>。</p>
 <p>今天我实际使用了一下这个新功能，感觉还是蛮有用的，单独拿出来记录一下用法和一些没在之前文章里提到的细节。</p>
 <h2 id="section">使用方法</h2>
-<p>使用方法其实在官方描述里已经比较清楚了。就是在原本的 <code>http://127.0.0.1:9292/#/dashboard/file/logstash.json</code> 地址后面，再加上请求参数 <code>?query=***</code> 即可。</p>
+<p>使用方法其实在官方描述里已经比较清楚了。就是在原本的 <code class="highlighter-rouge">http://127.0.0.1:9292/#/dashboard/file/logstash.json</code> 地址后面，再加上请求参数 <code class="highlighter-rouge">?query=***</code> 即可。</p>
 <h2 id="section-1">注意事项</h2>
 <p>看起来好像太过简单，不过用起来其实还是有点注意事项的：</p>
 <ul>
   <li>Kibana 目前不支持对保存在 Elasticsearch 中的 dashboard 做这个事情。</li>
 </ul>
-<p>所以一定得保存成 <code>yourname.json</code> 文件放入 <code>app/dashboards/</code> 目录里才行。</p>
+<p>所以一定得保存成 <code class="highlighter-rouge">yourname.json</code> 文件放入 <code class="highlighter-rouge">app/dashboards/</code> 目录里才行。</p>
 <ul>
   <li>静态的 JSON 文件其实是利用模板技术。</li>
 </ul>
 <p>所以直接导出得到的 JSON 文件还不能直接起作用。需要稍微做一点修改。</p>
-<p>你可以打开默认可用的 <code>logstash.json</code> 文件，看看有什么奇特的地方，没错，就是下面这样：</p>
-<pre><code>"query": "{&lt;span&gt;{&lt;/span&gt;ARGS.query || '*'}}"
+<p>你可以打开默认可用的 <code class="highlighter-rouge">logstash.json</code> 文件，看看有什么奇特的地方，没错，就是下面这样：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>"query": "{&lt;span&gt;{&lt;/span&gt;ARGS.query || '*'}}"
 </code></pre>
-<p>而你自己保存下来的 JSON，这里都会是具体的数据。所以，要让自己的 JSON 布局也支持动态仪表板的话，按照这个写法也都加上 <code>ARGS.query</code> 就好了！</p>
-<p>从 logstash.json 里还可以看到，除了 <code>?query=</code> 以外，其实还支持 <code>from=</code> 参数，默认是 <code>24h</code>。</p>
+</div>
+<p>而你自己保存下来的 JSON，这里都会是具体的数据。所以，要让自己的 JSON 布局也支持动态仪表板的话，按照这个写法也都加上 <code class="highlighter-rouge">ARGS.query</code> 就好了！</p>
+<p>从 logstash.json 里还可以看到，除了 <code class="highlighter-rouge">?query=</code> 以外，其实还支持 <code class="highlighter-rouge">from=</code> 参数，默认是 <code class="highlighter-rouge">24h</code>。</p>
 <ul>
   <li>query 参数的特殊字符问题。</li>
 </ul>
-<p>比如我之前在搜索框里输入的 querystring 是这样的：<code>type:mweibo_action AND urlpath:"/2/statuses/friends_timeline.json"</code> 。</p>
-<p>那么实际用的时候，如果写成这样一个 url：<code>http://127.0.0.1:9292/#/dashboard/file/logstash.json?query=type:mweibo_action AND urlpath:"/2/statuses/friends_timeline.json"</code>，实际是不对的。我一度怀疑是不是 urlpath 里的 <code>/</code> 导致的问题，后来发现，其实是 <code>"</code> 在进 JSON 文件模板变量替换的时候给当做只是字符串赋值引号的作用，就不再作为字符串本身传递给 Elasticsearch 作为请求内容本身了。<strong>所以需要用 <code>\</code> 给 <code>"</code> 做转义。</strong></p>
-<p>(这里一定要有 <code>"</code> 的原因是，ES 的 querystring 里，<code>field:/regex/</code> 是正则匹配搜索的语法，刚好 url 也是以 <code>/</code> 开头的)</p>
-<p>所以可用的 url 应该是：<code>http://127.0.0.1:9292/#/dashboard/file/logstash.json?query=type:mweibo_action AND urlpath:\"/2/statuses/friends_timeline.json\"</code>！</p>
-<p>经过 url_encode 之后就变成了：<code>http://127.0.0.1:9292/#/dashboard/file/logstash.json?query=type:mweibo_action%20AND%20urlpath:%5C%22%2F2%2Fstatuses%2Ffriends_timeline.json%5C%22</code></p>
+<p>比如我之前在搜索框里输入的 querystring 是这样的：<code class="highlighter-rouge">type:mweibo_action AND urlpath:"/2/statuses/friends_timeline.json"</code> 。</p>
+<p>那么实际用的时候，如果写成这样一个 url：<code class="highlighter-rouge">http://127.0.0.1:9292/#/dashboard/file/logstash.json?query=type:mweibo_action AND urlpath:"/2/statuses/friends_timeline.json"</code>，实际是不对的。我一度怀疑是不是 urlpath 里的 <code class="highlighter-rouge">/</code> 导致的问题，后来发现，其实是 <code class="highlighter-rouge">"</code> 在进 JSON 文件模板变量替换的时候给当做只是字符串赋值引号的作用，就不再作为字符串本身传递给 Elasticsearch 作为请求内容本身了。<strong>所以需要用 <code class="highlighter-rouge">\</code> 给 <code class="highlighter-rouge">"</code> 做转义。</strong></p>
+<p>(这里一定要有 <code class="highlighter-rouge">"</code> 的原因是，ES 的 querystring 里，<code class="highlighter-rouge">field:/regex/</code> 是正则匹配搜索的语法，刚好 url 也是以 <code class="highlighter-rouge">/</code> 开头的)</p>
+<p>所以可用的 url 应该是：<code class="highlighter-rouge">http://127.0.0.1:9292/#/dashboard/file/logstash.json?query=type:mweibo_action AND urlpath:\"/2/statuses/friends_timeline.json\"</code>！</p>
+<p>经过 url_encode 之后就变成了：<code class="highlighter-rouge">http://127.0.0.1:9292/#/dashboard/file/logstash.json?query=type:mweibo_action%20AND%20urlpath:%5C%22%2F2%2Fstatuses%2Ffriends_timeline.json%5C%22</code></p>
 <p>这样就可以了！</p>
 <ul>
   <li>用 JSON 的局限。</li>
 </ul>
-<p>动态仪表板其实有两种用法，这里只用到了 <code>file/logstash.json</code> 静态文件方式，这种方式只支持一个 query 条件，也没有太多的附加参数支持。而 <code>script/logstash.js</code> 方式，支持多个 query 条件，以及 index、pattern、interval、timefield 等更多的参数选项。</p>
-<p>当然，研究一下 angularjs 的用法，给 JSON 文件里也加上 <code>ARGS.query</code> 的 <code>split</code> 方法，也不算太难。</p>
+<p>动态仪表板其实有两种用法，这里只用到了 <code class="highlighter-rouge">file/logstash.json</code> 静态文件方式，这种方式只支持一个 query 条件，也没有太多的附加参数支持。而 <code class="highlighter-rouge">script/logstash.js</code> 方式，支持多个 query 条件，以及 index、pattern、interval、timefield 等更多的参数选项。</p>
+<p>当然，研究一下 angularjs 的用法，给 JSON 文件里也加上 <code class="highlighter-rouge">ARGS.query</code> 的 <code class="highlighter-rouge">split</code> 方法，也不算太难。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2014/07/27/using-pdl-on-macbook" title="在 MacBook 上使用 PDL 绘图">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/07/27/using-pdl-on-macbook/" title="在 MacBook 上使用 PDL 绘图">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/08/18/intro-range-facet-and-implement-panel-for-it" title="用 ES 的 RangeFacets 接口实现一个查看区间占比的 Kibana 面板">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/08/18/intro-range-facet-and-implement-panel-for-it/" title="用 ES 的 RangeFacets 接口实现一个查看区间占比的 Kibana 面板">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -134,15 +135,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

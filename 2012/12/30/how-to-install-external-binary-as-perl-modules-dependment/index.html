@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,84 +52,96 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>Perl 社区并不是所有的东西都发布在 CPAN 上。甚至专门有一个 <code>Module::ThirdParty</code> 模块记录这些非 CPAN 的 perl 项目列表。其中最有名的应该就属写博客的 <code>Movable Type</code> 和做监控的 <code>SmokePing</code> 了。</p>
-<p>但是如果个人图方便又想把 smokeping 打包方便部署使用的时候，就会发现一点小问题：打包成rpm，很多 perl 的依赖模块不一定在系统 repo 里存在；打包成 perl 的模块，smokeping 最常用的几个 probe 比如 fping、curl 什么的，又是非 perl 程序，cpanm 没法解决这个 <code>requires_external_bin</code> ，最多只能报错退出。</p>
+    <p>Perl 社区并不是所有的东西都发布在 CPAN 上。甚至专门有一个 <code class="highlighter-rouge">Module::ThirdParty</code> 模块记录这些非 CPAN 的 perl 项目列表。其中最有名的应该就属写博客的 <code class="highlighter-rouge">Movable Type</code> 和做监控的 <code class="highlighter-rouge">SmokePing</code> 了。</p>
+<p>但是如果个人图方便又想把 smokeping 打包方便部署使用的时候，就会发现一点小问题：打包成rpm，很多 perl 的依赖模块不一定在系统 repo 里存在；打包成 perl 的模块，smokeping 最常用的几个 probe 比如 fping、curl 什么的，又是非 perl 程序，cpanm 没法解决这个 <code class="highlighter-rouge">requires_external_bin</code> ，最多只能报错退出。</p>
 <p>其实这里可以采取一些别的办法，虽然笨一些，但是解决问题。</p>
 <p>首先还是让我们创建一个示例模块：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">cpanm Module::Starter Module::Build
-    module-starter --module Alien::FPing --author<span class="o">=</span><span class="s2">&quot;Jeff Rao&quot;</span> --email<span class="o">=</span><span class="s2">&quot;myname@gmail.com&quot;</span> --mb</code></pre></div>
-<p>然后就会在本目录下创建一个 Alien-FPing 目录，自带好了 <code>Build.PL</code> 等模块文件。这里使用了 <code>Alien::</code> 的名字空间，是一个潜规则，有些项目依赖 C 源码的库和头文件，就用 perl 包一层来安装，都放在这个空间下，比如 <code>Alien::V8</code>, <code>Alien::Gearmand</code>, <code>Alien::IE7</code> 等等。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    cpanm Module::Starter Module::Build
+    module-starter --module Alien::FPing --author<span class="o">=</span><span class="s2">"Jeff Rao"</span> --email<span class="o">=</span><span class="s2">"myname@gmail.com"</span> --mb
+</code></pre>
+</div>
+<p>然后就会在本目录下创建一个 Alien-FPing 目录，自带好了 <code class="highlighter-rouge">Build.PL</code> 等模块文件。这里使用了 <code class="highlighter-rouge">Alien::</code> 的名字空间，是一个潜规则，有些项目依赖 C 源码的库和头文件，就用 perl 包一层来安装，都放在这个空间下，比如 <code class="highlighter-rouge">Alien::V8</code>, <code class="highlighter-rouge">Alien::Gearmand</code>, <code class="highlighter-rouge">Alien::IE7</code> 等等。</p>
 <p>现在让我们下载 fping 的源码放到模块里：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">mkdir Alien-FPing/src
-    wget http://www.fping.org/dist/fping-3.4.tar.gz -O Alien-FPing/src/fping-3.4.tar.gz</code></pre></div>
-<p>接下来应该就是编写 <code>Build.PL</code> 了。不过为了尽量让 <code>Build.PL</code> 看起来简洁而且一眼看出目的。我们最好把编译操作单独定义一个模块来使用：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="nn">Alien::FPing::</span><span class="n">Build</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">base</span> <span class="sx">qw(Module::Build)</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">File::</span><span class="n">Spec</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">Archive::</span><span class="n">Tar</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$RootDir</span> <span class="o">=</span> <span class="nn">File::</span><span class="n">Spec</span><span class="o">-&gt;</span><span class="n">rel2abs</span><span class="p">(</span><span class="s">&quot;.&quot;</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$SrcDir</span> <span class="o">=</span> <span class="nn">File::</span><span class="n">Spec</span><span class="o">-&gt;</span><span class="n">catdir</span><span class="p">(</span><span class="nv">$RootDir</span><span class="p">,</span> <span class="s">&quot;src&quot;</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$FPingVersion</span> <span class="o">=</span> <span class="s">&#39;3.4&#39;</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$FPingName</span> <span class="o">=</span> <span class="s">&quot;fping-${FPingVersion}&quot;</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$FPingSrc</span> <span class="o">=</span> <span class="s">&quot;${FPingName}.tar.gz&quot;</span><span class="p">;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    mkdir Alien-FPing/src
+    wget http://www.fping.org/dist/fping-3.4.tar.gz -O Alien-FPing/src/fping-3.4.tar.gz
+</code></pre>
+</div>
+<p>接下来应该就是编写 <code class="highlighter-rouge">Build.PL</code> 了。不过为了尽量让 <code class="highlighter-rouge">Build.PL</code> 看起来简洁而且一眼看出目的。我们最好把编译操作单独定义一个模块来使用：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nb">package</span> <span class="nn">Alien::FPing::</span><span class="nv">Build</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nv">base</span> <span class="sx">qw(Module::Build)</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">File::</span><span class="nv">Spec</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Archive::</span><span class="nv">Tar</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$RootDir</span> <span class="o">=</span> <span class="nn">File::</span><span class="nv">Spec</span><span class="o">-&gt;</span><span class="nv">rel2abs</span><span class="p">(</span><span class="s">"."</span><span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$SrcDir</span> <span class="o">=</span> <span class="nn">File::</span><span class="nv">Spec</span><span class="o">-&gt;</span><span class="nv">catdir</span><span class="p">(</span><span class="nv">$RootDir</span><span class="p">,</span> <span class="s">"src"</span><span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$FPingVersion</span> <span class="o">=</span> <span class="s">'3.4'</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$FPingName</span> <span class="o">=</span> <span class="s">"fping-${FPingVersion}"</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$FPingSrc</span> <span class="o">=</span> <span class="s">"${FPingName}.tar.gz"</span><span class="p">;</span>
     <span class="k">sub </span><span class="nf">ACTION_build</span> <span class="p">{</span>
         <span class="k">my</span> <span class="nv">$self</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
         <span class="nb">chdir</span><span class="p">(</span><span class="nv">$SrcDir</span><span class="p">);</span>
-        <span class="k">if</span> <span class="p">(</span>  <span class="o">!-</span><span class="n">x</span> <span class="s">&quot;/usr/sbin/fping&quot;</span> <span class="ow">and</span> <span class="o">!-</span><span class="n">d</span> <span class="nv">$FPingName</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="k">my</span> <span class="nv">$tar</span> <span class="o">=</span> <span class="nn">Archive::</span><span class="n">Tar</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">();</span>
+        <span class="k">if</span> <span class="p">(</span>  <span class="o">!-</span><span class="nv">x</span> <span class="s">"/usr/sbin/fping"</span> <span class="ow">and</span> <span class="o">!-</span><span class="nv">d</span> <span class="nv">$FPingName</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="k">my</span> <span class="nv">$tar</span> <span class="o">=</span> <span class="nn">Archive::</span><span class="nv">Tar</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">();</span>
             <span class="nv">$tar</span><span class="o">-&gt;</span><span class="nb">read</span><span class="p">(</span><span class="nv">$FPingSrc</span><span class="p">);</span>
-            <span class="nv">$tar</span><span class="o">-&gt;</span><span class="n">extract</span><span class="p">();</span>
+            <span class="nv">$tar</span><span class="o">-&gt;</span><span class="nv">extract</span><span class="p">();</span>
             <span class="nb">chdir</span><span class="p">(</span><span class="nv">$FPingName</span><span class="p">);</span>
-            <span class="nb">system</span><span class="p">(</span><span class="s">&#39;./configure&#39;</span><span class="p">,</span> <span class="s">&#39;--prefix=/usr/&#39;</span><span class="p">,</span> <span class="s">&#39;--enable-ipv6&#39;</span><span class="p">);</span>
-            <span class="nb">system</span><span class="p">(</span><span class="s">&#39;make&#39;</span><span class="p">);</span>
-            <span class="nb">system</span><span class="p">(</span><span class="s">&#39;make install&#39;</span><span class="p">);</span>
+            <span class="nb">system</span><span class="p">(</span><span class="s">'./configure'</span><span class="p">,</span> <span class="s">'--prefix=/usr/'</span><span class="p">,</span> <span class="s">'--enable-ipv6'</span><span class="p">);</span>
+            <span class="nb">system</span><span class="p">(</span><span class="s">'make'</span><span class="p">);</span>
+            <span class="nb">system</span><span class="p">(</span><span class="s">'make install'</span><span class="p">);</span>
         <span class="p">}</span>
-        <span class="nv">$self</span><span class="o">-&gt;</span><span class="nn">SUPER::</span><span class="n">ACTION_build</span><span class="p">();</span>
+        <span class="nv">$self</span><span class="o">-&gt;</span><span class="nn">SUPER::</span><span class="nv">ACTION_build</span><span class="p">();</span>
     <span class="p">};</span>
-    <span class="mi">1</span><span class="p">;</span></code></pre></div>
-<p>几乎就是调用 shell 而已，唯一需要讲一下的就是这个 <code>ACTION_build</code>。这是 <code>Module::Build</code> 定义好的提供给 <code>subclass</code> 用的方法，事实上 <code>./Build help</code> 看得到的所有 action 都有类似的方法可以用。</p>
+    <span class="mi">1</span><span class="p">;</span>
+</code></pre>
+</div>
+<p>几乎就是调用 shell 而已，唯一需要讲一下的就是这个 <code class="highlighter-rouge">ACTION_build</code>。这是 <code class="highlighter-rouge">Module::Build</code> 定义好的提供给 <code class="highlighter-rouge">subclass</code> 用的方法，事实上 <code class="highlighter-rouge">./Build help</code> 看得到的所有 action 都有类似的方法可以用。</p>
 <p>然后稍微修改一下 Build.PL 如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="mf">5.006</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">warnings</span> <span class="n">FATAL</span> <span class="o">=&gt;</span> <span class="s">&#39;all&#39;</span><span class="p">;</span>
-    <span class="k">use</span> <span class="n">lib</span> <span class="s">&#39;inc&#39;</span><span class="p">;</span>
-    <span class="k">use</span> <span class="nn">Alien::FPing::</span><span class="n">Build</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$builder</span> <span class="o">=</span> <span class="nn">Alien::FPing::</span><span class="n">Build</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
-        <span class="n">module_name</span>         <span class="o">=&gt;</span> <span class="s">&#39;Alien::FPing&#39;</span><span class="p">,</span>
-        <span class="n">license</span>             <span class="o">=&gt;</span> <span class="s">&#39;perl&#39;</span><span class="p">,</span>
-        <span class="n">dist_author</span>         <span class="o">=&gt;</span> <span class="sx">q{Jeff Rao &lt;myname@gmail.com&gt;}</span><span class="p">,</span>
-        <span class="n">dist_version_from</span>   <span class="o">=&gt;</span> <span class="s">&#39;lib/Alien/FPing.pm&#39;</span><span class="p">,</span>
-        <span class="n">release_status</span>      <span class="o">=&gt;</span> <span class="s">&#39;stable&#39;</span><span class="p">,</span>
-        <span class="n">configure_requires</span> <span class="o">=&gt;</span> <span class="p">{</span>
-            <span class="s">&#39;Module::Build&#39;</span> <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="k">use</span> <span class="mf">5.006</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nv">strict</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nv">warnings</span> <span class="nv">FATAL</span> <span class="o">=&gt;</span> <span class="s">'all'</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nv">lib</span> <span class="s">'inc'</span><span class="p">;</span>
+    <span class="k">use</span> <span class="nn">Alien::FPing::</span><span class="nv">Build</span><span class="p">;</span>
+    <span class="k">my</span> <span class="nv">$builder</span> <span class="o">=</span> <span class="nn">Alien::FPing::</span><span class="nv">Build</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
+        <span class="nv">module_name</span>         <span class="o">=&gt;</span> <span class="s">'Alien::FPing'</span><span class="p">,</span>
+        <span class="nv">license</span>             <span class="o">=&gt;</span> <span class="s">'perl'</span><span class="p">,</span>
+        <span class="nv">dist_author</span>         <span class="o">=&gt;</span> <span class="sx">q{Jeff Rao &lt;myname@gmail.com&gt;}</span><span class="p">,</span>
+        <span class="nv">dist_version_from</span>   <span class="o">=&gt;</span> <span class="s">'lib/Alien/FPing.pm'</span><span class="p">,</span>
+        <span class="nv">release_status</span>      <span class="o">=&gt;</span> <span class="s">'stable'</span><span class="p">,</span>
+        <span class="nv">configure_requires</span> <span class="o">=&gt;</span> <span class="p">{</span>
+            <span class="s">'Module::Build'</span> <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span>
         <span class="p">},</span>
-        <span class="n">build_requires</span> <span class="o">=&gt;</span> <span class="p">{</span>
-            <span class="s">&#39;Test::More&#39;</span> <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="nv">build_requires</span> <span class="o">=&gt;</span> <span class="p">{</span>
+            <span class="s">'Test::More'</span> <span class="o">=&gt;</span> <span class="mi">0</span><span class="p">,</span>
         <span class="p">},</span>
-        <span class="n">requires</span> <span class="o">=&gt;</span> <span class="p">{</span>
-            <span class="c1">#&#39;ABC&#39;              =&gt; 1.6,</span>
-            <span class="c1">#&#39;Foo::Bar::Module&#39; =&gt; 5.0401,</span>
+        <span class="nv">requires</span> <span class="o">=&gt;</span> <span class="p">{</span>
+            <span class="c1">#'ABC'              =&gt; 1.6,</span>
+            <span class="c1">#'Foo::Bar::Module' =&gt; 5.0401,</span>
         <span class="p">},</span>
-        <span class="n">add_to_cleanup</span>     <span class="o">=&gt;</span> <span class="p">[</span> <span class="s">&#39;Alien-FPing-*&#39;</span> <span class="p">],</span>
-        <span class="n">create_makefile_pl</span> <span class="o">=&gt;</span> <span class="s">&#39;traditional&#39;</span><span class="p">,</span>
+        <span class="nv">add_to_cleanup</span>     <span class="o">=&gt;</span> <span class="p">[</span> <span class="s">'Alien-FPing-*'</span> <span class="p">],</span>
+        <span class="nv">create_makefile_pl</span> <span class="o">=&gt;</span> <span class="s">'traditional'</span><span class="p">,</span>
     <span class="p">);</span>
-    <span class="nv">$builder</span><span class="o">-&gt;</span><span class="n">create_build_script</span><span class="p">();</span></code></pre></div>
-<p>把 <code>Module::Build</code> 替换成 <code>Alien::FPing::Build</code> 而已，其他都不用动。</p>
-<p>然后试一下吧：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nb">cd </span>Alien-FPing
+    <span class="nv">$builder</span><span class="o">-&gt;</span><span class="nv">create_build_script</span><span class="p">();</span>
+</code></pre>
+</div>
+<p>把 <code class="highlighter-rouge">Module::Build</code> 替换成 <code class="highlighter-rouge">Alien::FPing::Build</code> 而已，其他都不用动。</p>
+<p>然后试一下吧：<br />
+<code class="highlighter-rouge">bash
+    cd Alien-FPing
     perl Build.PL
-    ./Build</code></pre></div>
-<p>看到编译输出，并且成功安装有 <code>/usr/sbin/fping</code> 了吧。现在可以打包了。注意默认生成的 ignore.txt 里，是排除掉了 inc 目录的，需要去除掉，然后修改 <code>MANIFEST</code> 文件加入 inc 和 src 里的文件，然后再打包出来的 perl 模块就可以直接用了。</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">sed -i <span class="s1">&#39;/inc/d&#39;</span> ignore.txt
-    <span class="nb">echo</span> <span class="s1">&#39;inc/Alien/FPing/Build.pm&#39;</span> &gt;&gt; MANIFEST
-    <span class="nb">echo</span> <span class="s1">&#39;src/fping-3.4.tar.gz&#39;</span> &gt;&gt; MANIFEST
-    ./Build dist</code></pre></div>
+    ./Build
+</code></p>
+<p>看到编译输出，并且成功安装有 <code class="highlighter-rouge">/usr/sbin/fping</code> 了吧。现在可以打包了。注意默认生成的 ignore.txt 里，是排除掉了 inc 目录的，需要去除掉，然后修改 <code class="highlighter-rouge">MANIFEST</code> 文件加入 inc 和 src 里的文件，然后再打包出来的 perl 模块就可以直接用了。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    sed -i <span class="s1">'/inc/d'</span> ignore.txt
+    <span class="nb">echo</span> <span class="s1">'inc/Alien/FPing/Build.pm'</span> &gt;&gt; MANIFEST
+    <span class="nb">echo</span> <span class="s1">'src/fping-3.4.tar.gz'</span> &gt;&gt; MANIFEST
+    ./Build dist
+</code></pre>
+</div>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/12/22/simple-local-website-for-sysadmin-advent-clone" title="给 Sysadmin Advent 快速搭建本地浏览网站">&larr; Previous</a></li>
+        <li class="prev"><a href="/2012/12/22/simple-local-website-for-sysadmin-advent-clone/" title="给 Sysadmin Advent 快速搭建本地浏览网站">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/12/30/report-of-this-year" title="2012 年个人总结">Next &rarr;</a></li>
+        <li class="next"><a href="/2012/12/30/report-of-this-year/" title="2012 年个人总结">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -173,15 +185,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

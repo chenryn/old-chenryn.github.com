@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,12 +53,12 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>监控大户 Etsy 最近有公布了一个全新的监控分析系统，叫 Kale，博客地址：<a href="http://codeascraft.com/2013/06/11/introducing-kale/">http://codeascraft.com/2013/06/11/introducing-kale/</a>。</p>
-<p>上一篇博客介绍了安装部署和数据导入的方法。但是对 <code>skyline</code> 组件的过滤原理没有做研究。今天花了点时间看 wiki 和源码，大概搞清楚了 <code>skyline</code> 的工作方式。很有趣，值得记录一下。</p>
-<p>同样作为时间序列存储的 <code>rrdtool</code> 和 <code>graphite</code>，都偏重在预测算法，也就是说根据现有数据推测下一个数据应该是多少；而 <code>skyline</code> 则是根据现有数据统计最新数据是否异常。</p>
-<p>目前，<code>skyline</code> 一共提供了 7  个异常检测算法，如果有 5 个以上认为是异常，那么 <code>skyline</code> 就认为这个序列异常了。(当然，这都是可以修改的)</p>
-<p>异常检测算法实际写在了 <code>src/analyzer/algorithms.py</code> 里，包括有：</p>
+<p>上一篇博客介绍了安装部署和数据导入的方法。但是对 <code class="highlighter-rouge">skyline</code> 组件的过滤原理没有做研究。今天花了点时间看 wiki 和源码，大概搞清楚了 <code class="highlighter-rouge">skyline</code> 的工作方式。很有趣，值得记录一下。</p>
+<p>同样作为时间序列存储的 <code class="highlighter-rouge">rrdtool</code> 和 <code class="highlighter-rouge">graphite</code>，都偏重在预测算法，也就是说根据现有数据推测下一个数据应该是多少；而 <code class="highlighter-rouge">skyline</code> 则是根据现有数据统计最新数据是否异常。</p>
+<p>目前，<code class="highlighter-rouge">skyline</code> 一共提供了 7  个异常检测算法，如果有 5 个以上认为是异常，那么 <code class="highlighter-rouge">skyline</code> 就认为这个序列异常了。(当然，这都是可以修改的)</p>
+<p>异常检测算法实际写在了 <code class="highlighter-rouge">src/analyzer/algorithms.py</code> 里，包括有：</p>
 <h3 id="firsthouraverage">first_hour_average</h3>
-<p>这是最简单的。先求本周期内最前面的第一个小时的平均值和标准差，然后和最新的三个值的平均值(<code>tail_avg()</code>，这是后面多数算法都通用的做法)做比较。如果 <code>tail_avg</code> 和 第一小时平均值的差距大于 3 倍的标准差，那么认定为异常。</p>
+<p>这是最简单的。先求本周期内最前面的第一个小时的平均值和标准差，然后和最新的三个值的平均值(<code class="highlighter-rouge">tail_avg()</code>，这是后面多数算法都通用的做法)做比较。如果 <code class="highlighter-rouge">tail_avg</code> 和 第一小时平均值的差距大于 3 倍的标准差，那么认定为异常。</p>
 <h3 id="simplestddevfrommovingaverage">simple_stddev_from_moving_average</h3>
 <p>把上面算法的范围扩大化，求的是整个周期内全部数据的平均值和标准差。</p>
 <h3 id="stddevfrommovingaverage">stddev_from_moving_average</h3>
@@ -75,7 +75,7 @@
 <p>在代码中本来还计算了一次序列的指数加权移动平均值，但是算完了却没用，感觉怪怪的。</p>
 <h3 id="leastsquares">least_squares</h3>
 <p>采用最小二乘法拟近时间序列，然后用实际值减去拟近值得到新序列。然后判断新序列的最后三个值的平均值是否大于 3 倍的新序列标准差。</p>
-<p>所谓最小二乘法，简单说就是对一个 [x, y] 序列，会有一对常数 [m, c]，让 <code>Y = mx + c</code> 等式中的 Y 和 y 在全序列上最接近。</p>
+<p>所谓最小二乘法，简单说就是对一个 [x, y] 序列，会有一对常数 [m, c]，让 <code class="highlighter-rouge">Y = mx + c</code> 等式中的 Y 和 y 在全序列上最接近。</p>
 <h3 id="histogrambins">histogram_bins</h3>
 <p>将整个周期序列的数据按照直方图统计法归入 15 个直方中，然后看最后三个值的平均值属于这 15 个直方的具体哪个。如果这个直方中包含的数据小于 20 个，判断为异常。</p>
 <p>从算法中可以知道，如果周期内数据量不够，很容易被判断为异常的。</p>
@@ -104,9 +104,9 @@
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/06/18/etsy-kale-intro" title="【Etsy 的 Kale 系统】简介、部署和应用">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/06/18/etsy-kale-intro/" title="【Etsy 的 Kale 系统】简介、部署和应用">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/06/20/rex-task-params-for-dynamic-server-group" title="通过 Rex 命令行参数向动态服务器组发起任务">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/06/20/rex-task-params-for-dynamic-server-group/" title="通过 Rex 命令行参数向动态服务器组发起任务">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -150,15 +150,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

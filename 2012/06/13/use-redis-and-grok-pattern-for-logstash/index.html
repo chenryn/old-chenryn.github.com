@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -55,52 +55,58 @@
     <p>之前提到，用RabbitMQ作为消息队列。但是这个东西实在太过高精尖，不懂erlang不会调优的情况下，很容易挂掉——基本上我这里试验结果跑不了半小时日志传输就断了。所以改用简单易行的redis来干这个活。</p>
 <p>之前的lib里，有inputs/redis.rb和outputs/redis.rb两个库，不过output有依赖，所以要先gem安装redis库，可以修改Gemfile，取消掉相关行的注释，搜redis即可。</p>
 <p>然后修改agent.conf：</p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">input</span> <span class="p">{</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="n">input</span> <span class="p">{</span>
   <span class="n">file</span> <span class="p">{</span>
-    <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;nginx&quot;</span>
-    <span class="n">path</span> <span class="o">=&gt;</span> <span class="o">[</span><span class="s2">&quot;/var/log/nginx/access.log&quot;</span> <span class="o">]</span>
+    <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">"nginx"</span>
+    <span class="n">path</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="s2">"/var/log/nginx/access.log"</span> <span class="p">]</span>
   <span class="p">}</span>
 <span class="p">}</span>
 <span class="n">output</span> <span class="p">{</span>
   <span class="n">redis</span> <span class="p">{</span>
-    <span class="n">host</span> <span class="o">=&gt;</span> <span class="s2">&quot;MyHome-1.domain.com&quot;</span>
-    <span class="n">data_type</span> <span class="o">=&gt;</span> <span class="s2">&quot;channel&quot;</span>
-    <span class="n">key</span> <span class="o">=&gt;</span> <span class="s2">&quot;nginx&quot;</span>
-    <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;nginx&quot;</span>
+    <span class="n">host</span> <span class="o">=&gt;</span> <span class="s2">"MyHome-1.domain.com"</span>
+    <span class="n">data_type</span> <span class="o">=&gt;</span> <span class="s2">"channel"</span>
+    <span class="n">key</span> <span class="o">=&gt;</span> <span class="s2">"nginx"</span>
+    <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">"nginx"</span>
   <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span>
+</code></pre>
+</div>
 <p>启动方式还是一样。</p>
 <p>接着修改server.conf:</p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">input</span> <span class="p">{</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="n">input</span> <span class="p">{</span>
   <span class="n">redis</span> <span class="p">{</span>
-    <span class="n">host</span> <span class="o">=&gt;</span> <span class="s2">&quot;MyHome-1.domain.com&quot;</span>
-    <span class="n">data_type</span> <span class="o">=&gt;</span> <span class="s2">&quot;channel&quot;</span>
-    <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;nginx&quot;</span>
-    <span class="n">key</span> <span class="o">=&gt;</span> <span class="s2">&quot;nginx&quot;</span>
+    <span class="n">host</span> <span class="o">=&gt;</span> <span class="s2">"MyHome-1.domain.com"</span>
+    <span class="n">data_type</span> <span class="o">=&gt;</span> <span class="s2">"channel"</span>
+    <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">"nginx"</span>
+    <span class="n">key</span> <span class="o">=&gt;</span> <span class="s2">"nginx"</span>
   <span class="p">}</span>
 <span class="p">}</span>
 <span class="n">filter</span> <span class="p">{</span>
   <span class="n">grok</span> <span class="p">{</span>
-    <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">&quot;nginx&quot;</span>
-    <span class="n">pattern</span> <span class="o">=&gt;</span> <span class="s2">&quot;%{NGINXACCESS}&quot;</span>
-    <span class="n">patterns_dir</span> <span class="o">=&gt;</span> <span class="o">[</span><span class="s2">&quot;/usr/local/logstash/etc/patterns&quot;</span><span class="o">]</span>
+    <span class="n">type</span> <span class="o">=&gt;</span> <span class="s2">"nginx"</span>
+    <span class="n">pattern</span> <span class="o">=&gt;</span> <span class="s2">"%{NGINXACCESS}"</span>
+    <span class="n">patterns_dir</span> <span class="o">=&gt;</span> <span class="p">[</span><span class="s2">"/usr/local/logstash/etc/patterns"</span><span class="p">]</span>
   <span class="p">}</span>
 <span class="p">}</span>
 <span class="n">output</span> <span class="p">{</span>
   <span class="n">elasticsearch</span> <span class="p">{</span> <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span>
+</code></pre>
+</div>
 <p>然后创建Grok的patterns目录，主要就是github上clone下来的那个咯~在目录下新建一个叫nginx的文件，内容如下：</p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="no">NGINXURI</span> <span class="sx">%{URIPATH}</span><span class="p">(</span><span class="sc">?:</span><span class="sx">%{URIPARAM}</span><span class="p">)</span><span class="o">*</span>
-<span class="no">NGINXACCESS</span> <span class="p">\</span><span class="o">[</span><span class="sx">%{HTTPDATE}</span><span class="p">\</span><span class="o">]</span> <span class="sx">%{NUMBER:code}</span> <span class="sx">%{IP:client}</span> <span class="sx">%{HOSTNAME}</span> <span class="sx">%{WORD:method}</span> <span class="sx">%{NGINXURI:req}</span> <span class="sx">%{URIPROTO}</span><span class="o">/</span><span class="sx">%{NUMBER:version}</span> <span class="sx">%{IP:upstream}</span><span class="p">(</span><span class="ss">:%</span><span class="p">{</span><span class="ss">POSINT</span><span class="p">:</span><span class="n">port</span><span class="p">})?</span> <span class="sx">%{NUMBER:upstime}</span> <span class="sx">%{NUMBER:reqtime}</span> <span class="sx">%{NUMBER:size}</span> <span class="s2">&quot;(%{URIPROTO}://%{HOST:referer}%{NGINXURI:referer}|-)&quot;</span> <span class="sx">%{QS:useragent}</span> <span class="s2">&quot;(%{IP:x_forwarder_for}|-)&quot;</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="no">NGINXURI</span> <span class="sx">%{URIPATH}</span><span class="p">(</span><span class="sc">?:</span><span class="o">%</span><span class="p">{</span><span class="no">URIPARAM</span><span class="p">})</span><span class="o">*</span>
+<span class="no">NGINXACCESS</span> <span class="p">\[</span><span class="sx">%{HTTPDATE}</span><span class="p">\]</span> <span class="o">%</span><span class="p">{</span><span class="no">NUMBER</span><span class="ss">:code</span><span class="p">}</span> <span class="o">%</span><span class="p">{</span><span class="no">IP</span><span class="ss">:client</span><span class="p">}</span> <span class="o">%</span><span class="p">{</span><span class="no">HOSTNAME</span><span class="p">}</span> <span class="o">%</span><span class="p">{</span><span class="no">WORD</span><span class="ss">:method</span><span class="p">}</span> <span class="o">%</span><span class="p">{</span><span class="no">NGINXURI</span><span class="ss">:req</span><span class="p">}</span> <span class="o">%</span><span class="p">{</span><span class="no">URIPROTO</span><span class="p">}</span><span class="o">/</span><span class="sx">%{NUMBER:version}</span> <span class="sx">%{IP:upstream}</span><span class="p">(</span><span class="ss">:%</span><span class="p">{</span><span class="no">POSINT</span><span class="ss">:port</span><span class="p">})?</span> <span class="sx">%{NUMBER:upstime}</span> <span class="sx">%{NUMBER:reqtime}</span> <span class="sx">%{NUMBER:size}</span> <span class="s2">"(%{URIPROTO}://%{HOST:referer}%{NGINXURI:referer}|-)"</span> <span class="o">%</span><span class="p">{</span><span class="no">QS</span><span class="ss">:useragent</span><span class="p">}</span> <span class="s2">"(%{IP:x_forwarder_for}|-)"</span>
+</code></pre>
+</div>
 <p>Grok正则的编写，可以参考<a href="https://github.com/logstash/logstash/wiki/Testing-your-Grok-patterns-%28--logstash-1.1.0-and-above-%29">wiki</a>进行测试。</p>
 <p>也可以不写配置文件，直接用&ndash;grok-patterns-path参数启动即可。</p>
 <p>ps: 考察了一下statsd，发现它也要另存一份数据，放弃掉。转研究Kibana界面和Elasticsearch的分布式。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/06/10/install-mogilefs" title="MogileFS安装">&larr; Previous</a></li>
+        <li class="prev"><a href="/2012/06/10/install-mogilefs/" title="MogileFS安装">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/06/14/intro-stf" title="STF介绍">Next &rarr;</a></li>
+        <li class="next"><a href="/2012/06/14/intro-stf/" title="STF介绍">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -144,15 +150,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

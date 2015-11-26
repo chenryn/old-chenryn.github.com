@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,48 +53,54 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>今天继续啃weathermap的php代码，因为lib的readdata里return了$inbw和$outbw，尝试在之前理解的ReadConfig()相应match处加上了一段 <code>if($inbw=='0'){$this-&gt;width=0;$linematched++;}elseif</code>……等几分钟后cache过期，一看weathermap效果，所有的链路曲线箭头图都变成了一根直线~~然后仔细看了看这串if之前的while，发现原来weathermap不是每次针对数据进行config匹配，而是统一读取一次config。也就是说ReadConfig()里的任何修改都会对全局起作用。</p>
-<p>既然在源头的配置参数无法修改，那么就只能在末端的绘图的时候做出改变了，找到 <code>draw_curve()</code> 函数，这个函数就是画线的。最终由 <code>Draw()</code> 函数分别调用 <code>calc_curve</code> 描点，<code>draw_curve</code> 连线，<code>drawlabel</code> 画框。<code>Draw()</code> 内容是一个顺序处理过程，在最后的 <code>drawlabel()</code> 前面，可以很清晰的看到 <code>$task[*]</code> 是怎么取出的：</p>
-<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$outbound=array($q1_x,$q1_y,0,0,$this-&gt;outpercent,$this-&gt;bandwidth_out,$q1_angle);</span>
-<span class="x">$inbound=array($q3_x,$q3_y,0,0,$this-&gt;inpercent,$this-&gt;bandwidth_in,$q3_angle);</span></code></pre></div>
-<p>那么在draw_curve()前面，依葫芦画瓢来上一段就好了：</p>
-<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">if(($this-&gt;bandwidth_out == &#39;0&#39;) &amp;&amp; ($this-&gt;bandwidth_in == &#39;0&#39;))</span>
-<span class="x">{</span>
-<span class="x">    $link_width=&#39;0&#39;;</span>
-<span class="x">}</span>
-<span class="x">else</span>
-<span class="x">{</span>
-<span class="x">    $link_width=$this-&gt;width;</span>
-<span class="x">}</span>
-<span class="x">draw_curve($im, $this-&gt;curvepoints, $link_width, $outline_colour, $comment_colour, array($link_in_colour, $link_out_colour), $this-&gt;name, $map);</span></code></pre></div>
+    <p>今天继续啃weathermap的php代码，因为lib的readdata里return了$inbw和$outbw，尝试在之前理解的ReadConfig()相应match处加上了一段 <code class="highlighter-rouge">if($inbw=='0'){$this-&gt;width=0;$linematched++;}elseif</code>……等几分钟后cache过期，一看weathermap效果，所有的链路曲线箭头图都变成了一根直线~~然后仔细看了看这串if之前的while，发现原来weathermap不是每次针对数据进行config匹配，而是统一读取一次config。也就是说ReadConfig()里的任何修改都会对全局起作用。</p>
+<p>既然在源头的配置参数无法修改，那么就只能在末端的绘图的时候做出改变了，找到 <code class="highlighter-rouge">draw_curve()</code> 函数，这个函数就是画线的。最终由 <code class="highlighter-rouge">Draw()</code> 函数分别调用 <code class="highlighter-rouge">calc_curve</code> 描点，<code class="highlighter-rouge">draw_curve</code> 连线，<code class="highlighter-rouge">drawlabel</code> 画框。<code class="highlighter-rouge">Draw()</code> 内容是一个顺序处理过程，在最后的 <code class="highlighter-rouge">drawlabel()</code> 前面，可以很清晰的看到 <code class="highlighter-rouge">$task[*]</code> 是怎么取出的：<br />
+<code class="highlighter-rouge">php
+$outbound=array($q1_x,$q1_y,0,0,$this-&gt;outpercent,$this-&gt;bandwidth_out,$q1_angle);
+$inbound=array($q3_x,$q3_y,0,0,$this-&gt;inpercent,$this-&gt;bandwidth_in,$q3_angle);
+</code><br />
+那么在draw_curve()前面，依葫芦画瓢来上一段就好了：<br />
+<code class="highlighter-rouge">php
+if(($this-&gt;bandwidth_out == '0') &amp;&amp; ($this-&gt;bandwidth_in == '0'))
+{
+    $link_width='0';
+}
+else
+{
+    $link_width=$this-&gt;width;
+}
+draw_curve($im, $this-&gt;curvepoints, $link_width, $outline_colour, $comment_colour, array($link_in_colour, $link_out_colour), $this-&gt;name, $map);
+</code></p>
 <p>这个改完当然不能看到效果，看到就该排障去了~不过可以采用一点变通的方法来验证一下，比如某些线路现在比较空闲，我们就把预定的阀值0（断网的流量）改大一些，刚好超过某个空载线路即可了：</p>
-<p>比如改成 <code>if ( $this-&gt;bandwidth_out &lt; '1000' )</code> 的话，weathermap效果变成如下：</p>
+<p>比如改成 <code class="highlighter-rouge">if ( $this-&gt;bandwidth_out &lt; '1000' )</code> 的话，weathermap效果变成如下：</p>
 <p><img src="/images/uploads/qqe688aae59bbee69caae591bde5908d.jpg" alt="wethermap" /></p>
 <p>其中两条流量小于1000bits的线路，其width就变成了0，只留下一条直线了~~</p>
-<p>至于为了 <code>width==0</code> 却还留下了一条线，这就跟weathermap的绘图方式有关了。<code>draw_curve</code> 中是这么利用gd画图的：</p>
+<p>至于为了 <code class="highlighter-rouge">width==0</code> 却还留下了一条线，这就跟weathermap的绘图方式有关了。<code class="highlighter-rouge">draw_curve</code> 中是这么利用gd画图的：</p>
 <ol>
   <li>根据node的位置，获取在二维空间上的x轴、y轴坐标，在两个node之间通过打点的方式进行矢量连线；</li>
   <li>获取设定的width，将之前的坐标点平移相应的位置，再次打点；</li>
   <li>在连线的中点处绘制箭头；</li>
   <li>填充颜色。</li>
 </ol>
-<p>如果要完全去除掉这根连线，或许可以在 <code>draw_curve</code> 中设定其连线长度为0？在 <code>draw_curve()</code> 中有一个变量叫 <code>$totaldistance</code>，指的是两个node之间的距离，之后包括箭头、文字等，都是以这个变量*50%来计算的。添加 <code>if($this-&gt;bandwidth_out&lt;1000){$totaldistance=0}</code>，等了十分钟再刷新，可图片依然没有更新！</p>
-<p>继续看 <code>$totaldistance</code> 是怎么得出的，看到了 <code>$this-&gt;curvepoints</code>，而 <code>$this-&gt;curvepoints</code> 是通过 <code>calc_curve($xpoints, $ypoints)</code> 返回的。那么在 <code>Draw()</code> 中继续修改 <code>$this-&gt;curvepoints</code> 即可。变通一下上面的测试代码如下：</p>
-<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">$link_width=$this-&gt;width;</span>
-<span class="x">$this-&gt;curvepoints = calc_curve($xpoints, $ypoints);</span>
-<span class="x">if ( $this-&gt;bandwidth_out &lt; &#39;2000&#39; )</span>
-<span class="x">{</span>
-<span class="x">    $link_width=0; //没有连线的话，宽度设啥都一样了~</span>
-<span class="x">    $this-&gt;curvepoints = array( );</span>
-<span class="x">}</span></code></pre></div>
-<p>稍后刷新页面，看到原来的连线已经不见了~ 不过从效果图来看，少了连线反而不起眼了，还不如留着一根线容易引起警觉……</p>
+<p>如果要完全去除掉这根连线，或许可以在 <code class="highlighter-rouge">draw_curve</code> 中设定其连线长度为0？在 <code class="highlighter-rouge">draw_curve()</code> 中有一个变量叫 <code class="highlighter-rouge">$totaldistance</code>，指的是两个node之间的距离，之后包括箭头、文字等，都是以这个变量*50%来计算的。添加 <code class="highlighter-rouge">if($this-&gt;bandwidth_out&lt;1000){$totaldistance=0}</code>，等了十分钟再刷新，可图片依然没有更新！</p>
+<p>继续看 <code class="highlighter-rouge">$totaldistance</code> 是怎么得出的，看到了 <code class="highlighter-rouge">$this-&gt;curvepoints</code>，而 <code class="highlighter-rouge">$this-&gt;curvepoints</code> 是通过 <code class="highlighter-rouge">calc_curve($xpoints, $ypoints)</code> 返回的。那么在 <code class="highlighter-rouge">Draw()</code> 中继续修改 <code class="highlighter-rouge">$this-&gt;curvepoints</code> 即可。变通一下上面的测试代码如下：<br />
+<code class="highlighter-rouge">php
+$link_width=$this-&gt;width;
+$this-&gt;curvepoints = calc_curve($xpoints, $ypoints);
+if ( $this-&gt;bandwidth_out &lt; '2000' )
+{
+    $link_width=0; //没有连线的话，宽度设啥都一样了~
+    $this-&gt;curvepoints = array( );
+}
+</code><br />
+稍后刷新页面，看到原来的连线已经不见了~ 不过从效果图来看，少了连线反而不起眼了，还不如留着一根线容易引起警觉……</p>
 <p><img src="/images/uploads/qqe688aae59bbee69caae591bde5908d1.jpg" alt="new-weathermap" /></p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/12/12/learning-cache-control-from-mop-com" title="从猫扑论坛看终极页的缓存控制">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/12/12/learning-cache-control-from-mop-com/" title="从猫扑论坛看终极页的缓存控制">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/12/16/diff-between-for-while" title="for/while循环的区别">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/12/16/diff-between-for-while/" title="for/while循环的区别">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -138,15 +144,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

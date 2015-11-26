@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,52 +53,58 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>话接上篇，在su和omd start之后，可以看到挂载的一个目录。其/omd是/opt/omd的软连接。目录结构如下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">[</span>monitor@localhost tmp<span class="o">]</span><span class="nv">$ </span>ll /opt/omd/sites/dyxmonitor/
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="o">[</span>monitor@localhost tmp]<span class="nv">$ </span>ll /opt/omd/sites/dyxmonitor/
 total 12
-lrwxrwxrwx  <span class="m">1</span> monitor dyxmonitor   <span class="m">11</span> Dec <span class="m">19</span> 18:15 bin -&gt; version/bin
-drwxr-xr-x <span class="m">21</span> monitor dyxmonitor <span class="m">4096</span> Dec <span class="m">19</span> 18:15 etc
-lrwxrwxrwx  <span class="m">1</span> monitor dyxmonitor   <span class="m">15</span> Dec <span class="m">19</span> 18:15 include -&gt; version/include
-lrwxrwxrwx  <span class="m">1</span> monitor dyxmonitor   <span class="m">11</span> Dec <span class="m">19</span> 18:15 lib -&gt; version/lib
-drwxr-xr-x  <span class="m">5</span> monitor dyxmonitor <span class="m">4096</span> Dec <span class="m">19</span> 18:15 <span class="nb">local</span>
-lrwxrwxrwx  <span class="m">1</span> monitor dyxmonitor   <span class="m">13</span> Dec <span class="m">19</span> 18:15 share -&gt; version/share
-drwxr-xr-x <span class="m">14</span> monitor dyxmonitor  <span class="m">300</span> Dec <span class="m">19</span> 23:32 tmp
-drwxr-xr-x <span class="m">12</span> monitor dyxmonitor <span class="m">4096</span> Dec <span class="m">19</span> 18:15 var
-lrwxrwxrwx  <span class="m">1</span> monitor dyxmonitor   <span class="m">19</span> Dec <span class="m">19</span> 18:15 version -&gt; ../../versions/0.50</code></pre></div>
+lrwxrwxrwx  1 monitor dyxmonitor   11 Dec 19 18:15 bin -&gt; version/bin
+drwxr-xr-x 21 monitor dyxmonitor 4096 Dec 19 18:15 etc
+lrwxrwxrwx  1 monitor dyxmonitor   15 Dec 19 18:15 include -&gt; version/include
+lrwxrwxrwx  1 monitor dyxmonitor   11 Dec 19 18:15 lib -&gt; version/lib
+drwxr-xr-x  5 monitor dyxmonitor 4096 Dec 19 18:15 <span class="nb">local
+</span>lrwxrwxrwx  1 monitor dyxmonitor   13 Dec 19 18:15 share -&gt; version/share
+drwxr-xr-x 14 monitor dyxmonitor  300 Dec 19 23:32 tmp
+drwxr-xr-x 12 monitor dyxmonitor 4096 Dec 19 18:15 var
+lrwxrwxrwx  1 monitor dyxmonitor   19 Dec 19 18:15 version -&gt; ../../versions/0.50
+</code></pre>
+</div>
 <p>软连接的部分，都是所有omd共用的；tmp就是挂载的tmpfs用来加速数据读写的；var是日志和由前端生成的数据(比如rrd)存放地点；etc是配置文件存放地点，具体内容包括：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">[</span>monitor@localhost etc<span class="o">]</span><span class="nv">$ </span>ls
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="o">[</span>monitor@localhost etc]<span class="nv">$ </span>ls
 apache       cron.d       htpasswd  logrotate.conf  mod-gearman  nsca        rc.d            thruk
 check_mk     dokuwiki     init.d    logrotate.d     nagios       omd         rrdcached.conf  xinetd.conf
-check_multi  environment  jmx4perl  mk-livestatus   nagvis       pnp4nagios  shinken         xinetd.d</code></pre></div>
-<p>其中，htpasswd定义了auth的用户名密码，默认是omdadmin:omd；
-rrdcached.conf定义了rrdcached的过期时间，用来缓解rrdtools的压力；
-apache/mode.conf是/opt/omd/apache/monitor.conf里Include的文件，实质是apache/apache-own.conf的软连接；调用了apache/proxy-port.conf来反向代理5000端口的实质页面。
+check_multi  environment  jmx4perl  mk-livestatus   nagvis       pnp4nagios  shinken         xinetd.d
+</code></pre>
+</div>
+<p>其中，htpasswd定义了auth的用户名密码，默认是omdadmin:omd；<br />
+rrdcached.conf定义了rrdcached的过期时间，用来缓解rrdtools的压力；<br />
+apache/mode.conf是/opt/omd/apache/monitor.conf里Include的文件，实质是apache/apache-own.conf的软连接；调用了apache/proxy-port.conf来反向代理5000端口的实质页面。<br />
 apache/apache.conf是真正的5000端口运行的配置文件，里面Include了apache/conf.d/*.conf——这些conf都是外面不同插件目录里的apache.conf的软连接：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">[</span>monitor@localhost conf.d<span class="o">]</span><span class="nv">$ </span>ll
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="o">[</span>monitor@localhost conf.d]<span class="nv">$ </span>ll
 total 24
--rw-r--r-- <span class="m">1</span> monitor monitor <span class="m">119</span> Dec <span class="m">19</span> 18:15 01_python.conf
--rw-r--r-- <span class="m">1</span> monitor monitor <span class="m">482</span> Dec <span class="m">19</span> 18:15 02_fcgid.conf
--rw-r--r-- <span class="m">1</span> monitor monitor <span class="m">252</span> Dec <span class="m">19</span> 18:15 auth.conf
-lrwxrwxrwx <span class="m">1</span> monitor monitor  <span class="m">26</span> Dec <span class="m">19</span> 18:15 check_mk.conf -&gt; ../../check_mk/apache.conf
-lrwxrwxrwx <span class="m">1</span> monitor monitor  <span class="m">26</span> Dec <span class="m">19</span> 18:15 dokuwiki.conf -&gt; ../../dokuwiki/apache.conf
-lrwxrwxrwx <span class="m">1</span> monitor monitor  <span class="m">25</span> Dec <span class="m">19</span> 23:29 nagios.conf -&gt; ../../shinken/apache.conf
-lrwxrwxrwx <span class="m">1</span> monitor monitor  <span class="m">24</span> Dec <span class="m">19</span> 18:15 nagvis.conf -&gt; ../../nagvis/apache.conf
--rw-r--r-- <span class="m">1</span> monitor monitor <span class="m">519</span> Dec <span class="m">19</span> 18:15 omd.conf
-lrwxrwxrwx <span class="m">1</span> monitor monitor  <span class="m">28</span> Dec <span class="m">19</span> 18:15 pnp4nagios.conf -&gt; ../../pnp4nagios/apache.conf
--rw-r--r-- <span class="m">1</span> monitor monitor <span class="m">117</span> Dec <span class="m">19</span> 18:15 site.conf
-lrwxrwxrwx <span class="m">1</span> monitor monitor  <span class="m">23</span> Dec <span class="m">19</span> 18:15 thruk.conf -&gt; ../../thruk/apache.conf
--rw-r--r-- <span class="m">1</span> monitor monitor <span class="m">283</span> Dec <span class="m">19</span> 18:15 var_www.conf</code></pre></div>
-<p>另外，在etc下还有omd/site.conf配置文件。这是本site的主配置文件，看起来可能不太清楚，所以omd提供了更直观的修改办法，那就是仿UI的omd config命令：
-<img src="/images/uploads/omd.png" alt="" title="omd" width="300" height="173" class="alignnone size-medium wp-image-2830" />
-通过这种类似setup的方式直接搞定就可以了。
-默认情况下，web页面的首页访问url地址是/monitor/omd/，这个页面上列出了classic nagios、check_mk、nagvis、pnp4nagios和dokuwiki的访问效果截图和地址，可以点击进入查看。然后再用omd config定义Web UI的default选择就是了。一旦定义完成，配置会自动修改，下次再访问/monitor/omd/，就会自动跳转了。
-注：/monitor/是因为我create的site名字是monitor
+-rw-r--r-- 1 monitor monitor 119 Dec 19 18:15 01_python.conf
+-rw-r--r-- 1 monitor monitor 482 Dec 19 18:15 02_fcgid.conf
+-rw-r--r-- 1 monitor monitor 252 Dec 19 18:15 auth.conf
+lrwxrwxrwx 1 monitor monitor  26 Dec 19 18:15 check_mk.conf -&gt; ../../check_mk/apache.conf
+lrwxrwxrwx 1 monitor monitor  26 Dec 19 18:15 dokuwiki.conf -&gt; ../../dokuwiki/apache.conf
+lrwxrwxrwx 1 monitor monitor  25 Dec 19 23:29 nagios.conf -&gt; ../../shinken/apache.conf
+lrwxrwxrwx 1 monitor monitor  24 Dec 19 18:15 nagvis.conf -&gt; ../../nagvis/apache.conf
+-rw-r--r-- 1 monitor monitor 519 Dec 19 18:15 omd.conf
+lrwxrwxrwx 1 monitor monitor  28 Dec 19 18:15 pnp4nagios.conf -&gt; ../../pnp4nagios/apache.conf
+-rw-r--r-- 1 monitor monitor 117 Dec 19 18:15 site.conf
+lrwxrwxrwx 1 monitor monitor  23 Dec 19 18:15 thruk.conf -&gt; ../../thruk/apache.conf
+-rw-r--r-- 1 monitor monitor 283 Dec 19 18:15 var_www.conf
+</code></pre>
+</div>
+<p>另外，在etc下还有omd/site.conf配置文件。这是本site的主配置文件，看起来可能不太清楚，所以omd提供了更直观的修改办法，那就是仿UI的omd config命令：<br />
+<img src="/images/uploads/omd.png" alt="" title="omd" width="300" height="173" class="alignnone size-medium wp-image-2830" /><br />
+通过这种类似setup的方式直接搞定就可以了。<br />
+默认情况下，web页面的首页访问url地址是/monitor/omd/，这个页面上列出了classic nagios、check_mk、nagvis、pnp4nagios和dokuwiki的访问效果截图和地址，可以点击进入查看。然后再用omd config定义Web UI的default选择就是了。一旦定义完成，配置会自动修改，下次再访问/monitor/omd/，就会自动跳转了。<br />
+注：/monitor/是因为我create的site名字是monitor<br />
 另，修改config后，发现mod_gearman不可用。原因是omd的rpm发布里没有带gearmand的实现，必须自己另外搞定gearman的jobserver~~</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/12/19/omd_intro_install_on_centos5" title="OMD系列(一)简介与安装">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/12/19/omd_intro_install_on_centos5/" title="OMD系列(一)简介与安装">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/12/20/shinken_discovery_runner" title="OMD系列(三)shinken的discovery配置与运行">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/12/20/shinken_discovery_runner/" title="OMD系列(三)shinken的discovery配置与运行">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -142,15 +148,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

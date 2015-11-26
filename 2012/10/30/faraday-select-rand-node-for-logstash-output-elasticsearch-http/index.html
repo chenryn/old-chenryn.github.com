@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -61,42 +61,46 @@
 </ul>
 <p>总之，就是减少集群内部的网络传输。</p>
 <p>介于logstash的应用是一直持续往es写数据的，所以replica调整这招用不上，顶多加大refresh时间而已。所以可以动手的地方主要就是第三条了。</p>
-<p>正好去翻了一下perl的Elasticsearch.pm的POD。发现原来perl模块本色默认就是这么做的。new的时候定义的server，是用来发送请求获取集群所有alive的nodes。然后会从这个nodes列表里选择(随机)一个创建真正的链接返回。获取nodes的API如下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">curl http://192.168.1.33:9200/_cluster/nodes?pretty<span class="o">=</span>1
-<span class="o">{</span>
-  <span class="s2">&quot;ok&quot;</span> : <span class="nb">true</span>,
-  <span class="s2">&quot;cluster_name&quot;</span> : <span class="s2">&quot;logstash&quot;</span>,
-  <span class="s2">&quot;nodes&quot;</span> : <span class="o">{</span>
-    <span class="s2">&quot;he6ipuA3SDeNmOQYIr-bjg&quot;</span> : <span class="o">{</span>
-      <span class="s2">&quot;name&quot;</span> : <span class="s2">&quot;Afari, Jamal&quot;</span>,
-      <span class="s2">&quot;transport_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.33:9300]&quot;</span>,
-      <span class="s2">&quot;hostname&quot;</span> : <span class="s2">&quot;ES-33.domain.com&quot;</span>,
-      <span class="s2">&quot;http_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.33:9200]&quot;</span>
-    <span class="o">}</span>,
-    <span class="s2">&quot;WXK68VX0ThmNnozq0uioQw&quot;</span> : <span class="o">{</span>
-      <span class="s2">&quot;name&quot;</span> : <span class="s2">&quot;Harker, Quincy&quot;</span>,
-      <span class="s2">&quot;transport_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.68:9300]&quot;</span>,
-      <span class="s2">&quot;hostname&quot;</span> : <span class="s2">&quot;ES-68.domain.com&quot;</span>,
-      <span class="s2">&quot;http_address&quot;</span> : <span class="s2">&quot;inet[/192.168.1.68:9200]&quot;</span>
-    <span class="o">}</span>
-  <span class="o">}</span>
-<span class="o">}</span></code></pre></div>
-<p>这样显然可以在cluster较大的时候分担index的压力(search的时候压力在集群本身的cpu上)。我打算给我的pure-ruby branch里的faraday版的Logstash::Outputs::ElasticsearchHTTP也加上这个功能。</p>
+<p>正好去翻了一下perl的Elasticsearch.pm的POD。发现原来perl模块本色默认就是这么做的。new的时候定义的server，是用来发送请求获取集群所有alive的nodes。然后会从这个nodes列表里选择(随机)一个创建真正的链接返回。获取nodes的API如下：<br />
+<code class="highlighter-rouge">bash
+curl http://192.168.1.33:9200/_cluster/nodes?pretty=1
+{
+  "ok" : true,
+  "cluster_name" : "logstash",
+  "nodes" : {
+    "he6ipuA3SDeNmOQYIr-bjg" : {
+      "name" : "Afari, Jamal",
+      "transport_address" : "inet[/192.168.1.33:9300]",
+      "hostname" : "ES-33.domain.com",
+      "http_address" : "inet[/192.168.1.33:9200]"
+    },
+    "WXK68VX0ThmNnozq0uioQw" : {
+      "name" : "Harker, Quincy",
+      "transport_address" : "inet[/192.168.1.68:9300]",
+      "hostname" : "ES-68.domain.com",
+      "http_address" : "inet[/192.168.1.68:9200]"
+    }
+  }
+}
+</code><br />
+这样显然可以在cluster较大的时候分担index的压力(search的时候压力在集群本身的cpu上)。我打算给我的pure-ruby branch里的faraday版的Logstash::Outputs::ElasticsearchHTTP也加上这个功能。</p>
 <hr />
-<p>大致简单实现如下：</p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">def</span> <span class="nf">select_rand_host</span>
-    <span class="nb">require</span> <span class="s2">&quot;json&quot;</span>
-    <span class="k">begin</span>
-      <span class="n">response</span> <span class="o">=</span> <span class="vi">@agent</span><span class="o">.</span><span class="n">get</span> <span class="s1">&#39;/_cluster/nodes&#39;</span>
-      <span class="n">nodelist</span> <span class="o">=</span> <span class="no">JSON</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">body</span><span class="p">)</span><span class="o">[</span><span class="s1">&#39;nodes&#39;</span><span class="o">].</span><span class="n">values</span>
-      <span class="n">livenode</span> <span class="o">=</span> <span class="n">nodelist</span><span class="o">[</span><span class="nb">rand</span><span class="p">(</span><span class="n">nodelist</span><span class="o">.</span><span class="n">length</span><span class="p">)</span><span class="o">][</span><span class="s2">&quot;http_address&quot;</span><span class="o">].</span><span class="n">split</span><span class="p">(</span><span class="sr">/\[|\]/</span><span class="p">)</span><span class="o">[</span><span class="mi">1</span><span class="o">]</span>
-      <span class="vi">@agent</span> <span class="o">=</span> <span class="no">Faraday</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">:url</span> <span class="o">=&gt;</span> <span class="s2">&quot;http:/</span><span class="si">#{</span><span class="n">livenode</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="k">do</span> <span class="o">|</span><span class="n">faraday</span><span class="o">|</span>
-        <span class="n">faraday</span><span class="o">.</span><span class="n">use</span> <span class="no">Faraday</span><span class="o">::</span><span class="no">Adapter</span><span class="o">::</span><span class="no">EMHttp</span>
-      <span class="k">end</span>
-    <span class="k">end</span>
-  <span class="k">end</span></code></pre></div>
-<p>然后在<code>def register</code>里和<code>def flush</code>的<code>retry</code>前面都加上<code>select_rand_host()</code>就好了。当然比起perl的ElasticSearch::Transport里各种检查各种排除，我这个还是简单多了……
-另，在Ruby1.9里从数组返回随机元素可以直接调用<code>.sample</code>，真赞。不过谁让我都是1.8.7的版本呢……</p>
+<p>大致简单实现如下：<br />
+<code class="highlighter-rouge">ruby
+  def select_rand_host
+    require "json"
+    begin
+      response = @agent.get '/_cluster/nodes'
+      nodelist = JSON.parse(response.body)['nodes'].values
+      livenode = nodelist[rand(nodelist.length)]["http_address"].split(/\[|\]/)[1]
+      @agent = Faraday.new(:url =&gt; "http:/#{livenode}") do |faraday|
+        faraday.use Faraday::Adapter::EMHttp
+      end
+    end
+  end
+</code><br />
+然后在<code class="highlighter-rouge">def register</code>里和<code class="highlighter-rouge">def flush</code>的<code class="highlighter-rouge">retry</code>前面都加上<code class="highlighter-rouge">select_rand_host()</code>就好了。当然比起perl的ElasticSearch::Transport里各种检查各种排除，我这个还是简单多了……<br />
+另，在Ruby1.9里从数组返回随机元素可以直接调用<code class="highlighter-rouge">.sample</code>，真赞。不过谁让我都是1.8.7的版本呢……</p>
 <p><strong>2012 年 12 月 30 日附注：</strong></p>
 <p>之后我在 maillist 里联系了 logstash 的作者。不过作者表示：第一，需要自选 node 功能的，建议使用 output/elasticsearch 因为这个是用的 java 客户端，直接会把自己作为一个 node 加入 ES 的 cluster。第二，ruby 的 http 模块他都不喜欢，所以全部项目里的相关部分他都只用自己写的 ftw 模块 ==!</p>
 <p><strong>2013 年 02 月 26 日附注：</strong></p>
@@ -104,9 +108,9 @@
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/10/26/systemtap-and-file-descriptor" title="用systemtap调试文件描述符限制">&larr; Previous</a></li>
+        <li class="prev"><a href="/2012/10/26/systemtap-and-file-descriptor/" title="用systemtap调试文件描述符限制">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/11/09/chrome-app-demo" title="Chrome的APP简单用法">Next &rarr;</a></li>
+        <li class="next"><a href="/2012/11/09/chrome-app-demo/" title="Chrome的APP简单用法">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -150,15 +154,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

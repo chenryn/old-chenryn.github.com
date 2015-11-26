@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -57,46 +57,48 @@
 <ol>
   <li>检查系统Fastcgi进程运行情况</li>
 </ol>
-<p>除了第一种情况，fastcgi进程数不够用、php执行时间长、或者是php-cgi进程死掉也可能造成nginx的502错误
-运行以下命令判断是否接近FastCGI进程，如果fastcgi进程数接近配置文件中设置的数值，表明worker进程数设置太少
+<p>除了第一种情况，fastcgi进程数不够用、php执行时间长、或者是php-cgi进程死掉也可能造成nginx的502错误<br />
+运行以下命令判断是否接近FastCGI进程，如果fastcgi进程数接近配置文件中设置的数值，表明worker进程数设置太少<br />
 netstat -anpo | grep &ldquo;php-cgi&rdquo; | wc -l</p>
 <ol>
   <li>FastCGI执行时间过长</li>
 </ol>
 <p>根据实际情况调高以下参数值</p>
-<p>fastcgi_connect_timeout 300;  <br />
-fastcgi_send_timeout 300;  <br />
-fastcgi_read_timeout 300;    </p>
+<p>fastcgi_connect_timeout 300;    <br />
+fastcgi_send_timeout 300;    <br />
+fastcgi_read_timeout 300;</p>
 <ol>
   <li>头部太大</li>
 </ol>
 <p>nginx和apache一样，有前端缓冲限制，可以调整缓冲参数</p>
-<p>fastcgi_buffer_size 32k;
+<p>fastcgi_buffer_size 32k;<br />
 fastcgi_buffers 8 32k;</p>
 <p>如果你使用的是nginx的负载均衡Proxying，调整</p>
-<p>proxy_buffer_size  16k;
+<p>proxy_buffer_size  16k;<br />
 proxy_buffers 4 16k;</p>
 <ol>
   <li>https转发配置错误</li>
 </ol>
-<p>正确的配置方法</p>
-<div class="highlight"><pre><code class="language-nginx" data-lang="nginx"><span class="k">server_name</span> <span class="s">www.xok.la</span><span class="p">;</span>
-<span class="k">location</span> <span class="s">/myproj/repos</span> <span class="p">{</span>
-    <span class="kn">set</span> <span class="nv">$fixed_destination</span> <span class="nv">$http_destination</span><span class="p">;</span>
-    <span class="kn">if</span> <span class="s">(</span> <span class="nv">$http_destination</span> <span class="p">~</span><span class="sr">*</span> <span class="s">^https(.*)</span>$ <span class="s">)</span> <span class="p">{</span>
-        <span class="kn">set</span> <span class="nv">$fixed_destination</span> <span class="s">http</span><span class="nv">$1</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="nv">$host</span><span class="p">;</span>
-    <span class="kn">proxy_set_header</span> <span class="s">X-Real-IP</span> <span class="nv">$remote_addr</span><span class="p">;</span>
-    <span class="kn">proxy_set_header</span> <span class="s">Destination</span> <span class="nv">$fixed_destination</span><span class="p">;</span>
-    <span class="kn">proxy_pass</span> <span class="s">http://subversion_hosts</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
+<p>正确的配置方法<br />
+<code class="highlighter-rouge">nginx
+server_name www.xok.la;
+location /myproj/repos {
+    set $fixed_destination $http_destination;
+    if ( $http_destination ~* ^https(.*)$ ) {
+        set $fixed_destination http$1;
+    }
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Destination $fixed_destination;
+    proxy_pass http://subversion_hosts;
+}
+</code></p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2009/12/27/zz-diff-cdn-between-china-and-usa" title="看上去很美——国内CDN现状与美国对比（转）">&larr; Previous</a></li>
+        <li class="prev"><a href="/2009/12/27/zz-diff-cdn-between-china-and-usa/" title="看上去很美——国内CDN现状与美国对比（转）">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2009/12/30/a-location-example-of-squid_session" title="squid_session（首次访问跳转）">Next &rarr;</a></li>
+        <li class="next"><a href="/2009/12/30/a-location-example-of-squid_session/" title="squid_session（首次访问跳转）">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -140,15 +142,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

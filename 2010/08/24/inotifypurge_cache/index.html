@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,52 +53,54 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>linux内核从2.6.13开始，加入了inotify特性。对目录、文件的各种修改，都会发出inotify信号。包括
-    IN_ACCESS
-    IN_MODIFY
-    IN_ATTRIB
-    IN_CLOSE_WRITE
-    IN_CLOSE_NOWRITE
-    IN_OPEN
-    IN_MOVED_FROM
-    IN_MOVED_TO
-    IN_CREATE
-    IN_DELETE
-    IN_DELETE_SELF
-    IN_MOVE_SELF
-    IN_UNMOUNT
-    IN_CLOSE
-    IN_MOVE
-目前最常见的inotify应用，就是和rsync配合进行实时同步。
-而对web发布路径进行inotify监听的话，可以实时PURGE掉前端cache，保证网民访问的实效性。内容更新周期不固定的一些网站，大可以设定长一些的expires（也不要太长，不然浏览器端本身的缓存影响比较大），然后通过inotify监听来强制控制缓存时间，应该是比较有效果的。
-最早的思路，先用perl的Linux::Inotify模块watch目录，read出每次event的name；再用IO::Socket模块向squid发送&rdquo;PURGE $url HTTP/1.0\n\n&rdquo;请求，最后用WWW::Curl::Form模块POST数据到CDN的刷新接口。洋洋洒洒好几十行后，发现利用inotify-tools、curl、squidclient等现成的工具，写成的shell脚本更加简单而且方便。
-先修改squid.conf，添加web服务器ip的purge权限，重读配置；
-在web服务器上，从sourceforge下载inotify-tools源码编译：wget http://github.com/downloads/rvoicilas/inotify-tools/inotify-tools-3.14.tar.gz &amp;&amp; tar zxf inotify-tools-3.14.tar.gz &amp;&amp; cd inotify-tools-3.14 &amp;&amp; ./configure &ndash;prefix=/usr &amp;&amp; make &amp;&amp; make install
-从squid上scp /usr/local/squid/bin/squidclient 到web服务器上；
-要是没有curl的话，yum install一个。
-最后创建inotify-purge.sh脚本如下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/bin/bash</span>
-<span class="nv">WEB_DIR</span><span class="o">=</span>/path/to/example
-<span class="nv">IPLIST</span><span class="o">=</span><span class="s2">&quot;1.2.3.4</span>
-<span class="s2">1.2.3.5</span>
-<span class="s2">1.2.3.6</span>
-<span class="s2">1.2.3.7</span>
-<span class="s2">1.2.3.8</span>
-<span class="s2">&quot;</span>
-inotifywait -mrq --format <span class="s1">&#39;%f&#39;</span> -e modify,delete,create,move <span class="k">${</span><span class="nv">WEB_DIR</span><span class="k">}</span> <span class="p">|</span> <span class="k">while</span> <span class="nb">read </span>file
-<span class="k">do</span>
-    <span class="nv">PURGE_URL</span><span class="o">=</span><span class="sb">`</span><span class="nb">echo</span> <span class="s2">&quot;http://dvs.china.com/$file&quot;</span><span class="sb">`</span>
-    <span class="k">for</span> i in <span class="nv">$IPLIST</span><span class="p">;</span><span class="k">do</span>
-        /home/tools/squidclient -p <span class="m">80</span> -h <span class="nv">$i</span> -m purge <span class="s2">&quot;$PURGE_URL&quot;</span>
-    <span class="k">done</span>
-    curl -s -d <span class="s2">&quot;username=test&amp;amp;password=123456&amp;amp;type=1&amp;amp;url=$PURGE_URL&quot;</span> http://pushwt.dnion.com/cdnUrlPush.do
-<span class="k">done</span></code></pre></div>
+    <p>linux内核从2.6.13开始，加入了inotify特性。对目录、文件的各种修改，都会发出inotify信号。包括<br />
+    IN_ACCESS<br />
+    IN_MODIFY<br />
+    IN_ATTRIB<br />
+    IN_CLOSE_WRITE<br />
+    IN_CLOSE_NOWRITE<br />
+    IN_OPEN<br />
+    IN_MOVED_FROM<br />
+    IN_MOVED_TO<br />
+    IN_CREATE<br />
+    IN_DELETE<br />
+    IN_DELETE_SELF<br />
+    IN_MOVE_SELF<br />
+    IN_UNMOUNT<br />
+    IN_CLOSE<br />
+    IN_MOVE<br />
+目前最常见的inotify应用，就是和rsync配合进行实时同步。<br />
+而对web发布路径进行inotify监听的话，可以实时PURGE掉前端cache，保证网民访问的实效性。内容更新周期不固定的一些网站，大可以设定长一些的expires（也不要太长，不然浏览器端本身的缓存影响比较大），然后通过inotify监听来强制控制缓存时间，应该是比较有效果的。<br />
+最早的思路，先用perl的Linux::Inotify模块watch目录，read出每次event的name；再用IO::Socket模块向squid发送&rdquo;PURGE $url HTTP/1.0\n\n&rdquo;请求，最后用WWW::Curl::Form模块POST数据到CDN的刷新接口。洋洋洒洒好几十行后，发现利用inotify-tools、curl、squidclient等现成的工具，写成的shell脚本更加简单而且方便。<br />
+先修改squid.conf，添加web服务器ip的purge权限，重读配置；<br />
+在web服务器上，从sourceforge下载inotify-tools源码编译：wget http://github.com/downloads/rvoicilas/inotify-tools/inotify-tools-3.14.tar.gz &amp;&amp; tar zxf inotify-tools-3.14.tar.gz &amp;&amp; cd inotify-tools-3.14 &amp;&amp; ./configure &ndash;prefix=/usr &amp;&amp; make &amp;&amp; make install<br />
+从squid上scp /usr/local/squid/bin/squidclient 到web服务器上；<br />
+要是没有curl的话，yum install一个。<br />
+最后创建inotify-purge.sh脚本如下：<br />
+```bash<br />
+#!/bin/bash<br />
+WEB_DIR=/path/to/example<br />
+IPLIST=&rdquo;1.2.3.4<br />
+1.2.3.5<br />
+1.2.3.6<br />
+1.2.3.7<br />
+1.2.3.8<br />
+&ldquo;</p>
+<p>inotifywait -mrq &ndash;format &lsquo;%f&rsquo; -e modify,delete,create,move ${WEB_DIR} | while read file<br />
+do<br />
+    PURGE_URL=<code class="highlighter-rouge">echo "http://dvs.china.com/$file"</code><br />
+    for i in $IPLIST;do<br />
+        /home/tools/squidclient -p 80 -h $i -m purge &ldquo;$PURGE_URL&rdquo;<br />
+    done<br />
+    curl -s -d &ldquo;username=test&amp;password=123456&amp;type=1&amp;url=$PURGE_URL&rdquo; http://pushwt.dnion.com/cdnUrlPush.do<br />
+done<br />
+```</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/08/13/intro-pnp4nagios" title="nagios绘图">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/08/13/intro-pnp4nagios/" title="nagios绘图">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/08/24/intro-pmap" title="pmap命令">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/08/24/intro-pmap/" title="pmap命令">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -142,15 +144,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

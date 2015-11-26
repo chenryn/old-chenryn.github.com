@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -49,52 +49,59 @@
     <div class="date"><span>12 April 2010</span></div>
   </div>
   <div style='background-color: #FFF;'>
-    <p>聊天时听同事提及iscsi。回来后借助百度和谷歌大概了解了一下是网络存储，就赶紧下了软件包作测试。</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">wget http://downloads.sourceforge.net/project/iscsitarget/iscsitarget/1.4.19/iscsitarget-1.4.19.tar.gz
+    <p>聊天时听同事提及iscsi。回来后借助百度和谷歌大概了解了一下是网络存储，就赶紧下了软件包作测试。<br />
+<code class="highlighter-rouge">bash
+wget http://downloads.sourceforge.net/project/iscsitarget/iscsitarget/1.4.19/iscsitarget-1.4.19.tar.gz
 tar zxvf iscsitarget-1.4.19.tar.gz
-<span class="nb">cd </span>iscsitarget-1.4.19
-make <span class="o">&amp;&amp;</span> make install</code></pre></div>
-<p>就完成了服务器端的安装，然后修改配置文件/etc/iet/ietd.conf，方便起见，就写最基本的三行：</p>
-<pre><code>Target iqn.2010-04.com.test:storage.xvdb1
+cd iscsitarget-1.4.19
+make &amp;&amp; make install
+</code><br />
+就完成了服务器端的安装，然后修改配置文件/etc/iet/ietd.conf，方便起见，就写最基本的三行：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>Target iqn.2010-04.com.test:storage.xvdb1
 Lun 0 Path=/dev/xvdb1,Type=fileio
 Alias Test
 </code></pre>
+</div>
 <p>启动服务/etc/init.d/iscsi-target start，netstat查看，发现有3260端口的监听了。</p>
 <p>然后是客户端，更容易，直接yum install iscsi-initiator-utils就够了。然后启动服务/etc/init.d/iscsid start。</p>
 <p>然后链接服务器，iscsiadm -m discovery -t st -p 10.12.13.86，可以搜索到了。不过居然出现两个，分别是服务器内外网ip搜索的值。两个办法。</p>
 <p>一个是定义客户端/var/lib/iscsi/iface/ieth0文件如下：</p>
-<pre><code>iface.iscsi_ifacename = ieth0
+<div class="highlighter-rouge"><pre class="highlight"><code>iface.iscsi_ifacename = ieth0
 iface.net_ifacename = eth0
 iface.hwaddress = default
 iface.transport_name = tcp
 </code></pre>
+</div>
 <p>然后用iscsiadm -m discovery -t st -p 10.12.13.86 -I ieth0命令搜索；</p>
 <p>一个是定义服务端/etc/iet/targets.allow文件如下：</p>
-<pre><code>ALL 10.12.13.0/24
+<div class="highlighter-rouge"><pre class="highlight"><code>ALL 10.12.13.0/24
 </code></pre>
+</div>
 <p>然后/etc/init.d/iscsi-target restart就可以了。</p>
 <p>最后搜索结果如下：</p>
-<pre><code>10.12.13.86:3260,1 iqn.2010-04.com.rao:storage.xvdb1
+<div class="highlighter-rouge"><pre class="highlight"><code>10.12.13.86:3260,1 iqn.2010-04.com.rao:storage.xvdb1
 </code></pre>
+</div>
 <p>在客户端用iscsiadm -m node -p 10.12.13.86 &ndash;targetname iqn.2010-04.com.rao:storage.xvdb1 &ndash;login命令，就可以连上磁盘了。然后用fdisk -l命令可以看到如下输出：</p>
-<pre><code>Disk /dev/sda: 750.1 GB, 750153729024 bytes
+<div class="highlighter-rouge"><pre class="highlight"><code>Disk /dev/sda: 750.1 GB, 750153729024 bytes
 </code></pre>
-<p>试验到目前为止一切正常。然后再mount这个sda的时候，赫然提示没有格式化！！
-好吧，fdisk /dev/sda然后mkfs.ext3 /dev/sda1再mount /dev/sda1 /mnt。
+</div>
+<p>试验到目前为止一切正常。然后再mount这个sda的时候，赫然提示没有格式化！！<br />
+好吧，fdisk /dev/sda然后mkfs.ext3 /dev/sda1再mount /dev/sda1 /mnt。<br />
 OK，返回服务器端，mount，居然提示ext3错误~~</p>
-<p>再开一台，同样到mount的时候，又一次提示没有格式化。
-难道iscsi和nfs不一样，压根不能多客户端同时连接一块磁盘？？？
-还是说因为iscsi默认是sda，而虚拟机是xvda，之间有冲突？？？
-于是返回谷歌搜索“iscsi xen”，结果看来应该是第一种了。
-<a href="http://www.performancemagic.com/iscsi-xen-howto/index.html">xen和iscsi的常见合用</a>
-，是在Domain0上链接iscsi，然后基于不同的target分别create虚拟机模板和虚拟机磁盘，进一步可以保证虚拟平台出问题时，可以迅速的转移到另一个虚拟平台上。
+<p>再开一台，同样到mount的时候，又一次提示没有格式化。<br />
+难道iscsi和nfs不一样，压根不能多客户端同时连接一块磁盘？？？<br />
+还是说因为iscsi默认是sda，而虚拟机是xvda，之间有冲突？？？<br />
+于是返回谷歌搜索“iscsi xen”，结果看来应该是第一种了。<br />
+<a href="http://www.performancemagic.com/iscsi-xen-howto/index.html">xen和iscsi的常见合用</a><br />
+，是在Domain0上链接iscsi，然后基于不同的target分别create虚拟机模板和虚拟机磁盘，进一步可以保证虚拟平台出问题时，可以迅速的转移到另一个虚拟平台上。<br />
 而后看到<a target="_blank" href="http://www.sansky.net/">存储部落</a>中的介绍，iscsi可以同样理解为裸设备，要达到网络共享，需要配套另外的共享软件~比如GFS</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/04/10/refresh-problem-of-js-location_replace" title="客户页面小故障">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/04/10/refresh-problem-of-js-location_replace/" title="客户页面小故障">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/04/15/anti_hotlinking-in-apache-by-mod_perl" title="apache防盗链（mod_perl试用）">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/04/15/anti_hotlinking-in-apache-by-mod_perl/" title="apache防盗链(modperl试用)">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -138,15 +145,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

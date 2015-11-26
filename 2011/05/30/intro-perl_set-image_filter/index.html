@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,36 +52,37 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>第一个测试，关于http_perl_module。之前写过一篇关于nginx忽略大小写的博文，今天被朋友问上门来，url是类似/Upload/Dir/2011/123_D.jpg的形式。如果单纯的lc($r-&gt;uri)，得到的url会变成/upload/dir/2011/123_d.jpg，目录是不存在的。所以要稍微改进一下。如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">perl_set</span> <span class="nv">$url</span> <span class="s">&#39;</span>
-<span class="s">        sub {</span>
-<span class="s">            my $r = shift;</span>
-<span class="s">            return $1.lc($2) if ($r-&gt;uri =~ m/^(.+\/)([^\/]+)$/);</span>
-<span class="s">            return $r-&gt;uri;</span>
-<span class="s">        }</span>
-<span class="s">    &#39;</span><span class="p">;</span></code></pre></div>
-<p>这样就行了。</p>
-<p>另一个测试，关于http_image_filter_module。配置语句很简单，就一行image_filter [size|resize|corp] wight height;就行了——如果图片太大，那还要加大image_filter_buffer，默认1M，大于这个大小的图片就不会缩略了。
-比如配置如下：</p>
-<div class="highlight"><pre><code class="language-nginx" data-lang="nginx"><span class="k">location</span> <span class="s">/</span> <span class="p">{</span>
-            <span class="kn">root</span>   <span class="s">/var/www/html</span><span class="p">;</span>
-            <span class="kn">index</span>  <span class="s">index.html</span> <span class="s">index.htm</span><span class="p">;</span>
-        <span class="p">}</span>
-        <span class="k">location</span> <span class="p">~</span><span class="sr">*</span> <span class="s">^/small/w_(\d+)/h_(\d+)/(.*)</span>$ <span class="p">{</span>
-            <span class="kn">rewrite</span> <span class="s">/small/w_(\d+)/h_(\d+)/(.*)</span>$ <span class="s">/</span><span class="nv">$3</span> <span class="s">break</span><span class="p">;</span>
-            <span class="kn">image_filter</span> <span class="s">resize</span> <span class="nv">$1</span> <span class="nv">$2</span><span class="p">;</span>
-            <span class="kn">root</span>   <span class="s">/var/www/html</span><span class="p">;</span>
-            <span class="kn">index</span>  <span class="s">index.html</span> <span class="s">index.htm</span><span class="p">;</span>
-        <span class="p">}</span></code></pre></div>
-<p>这样通过/small/w_100/h_50/path/to/text.jpg，就能访问到/path/to/text.jpg的100*50大小的缩略图了。
-如果只需要修改h或者w，其他的等比缩略，把另一项写成&rsquo;-&lsquo;即可。
+    <p>第一个测试，关于http_perl_module。之前写过一篇关于nginx忽略大小写的博文，今天被朋友问上门来，url是类似/Upload/Dir/2011/123_D.jpg的形式。如果单纯的lc($r-&gt;uri)，得到的url会变成/upload/dir/2011/123_d.jpg，目录是不存在的。所以要稍微改进一下。如下：<br />
+<code class="highlighter-rouge">perl    perl_set $url '
+        sub {
+            my $r = shift;
+            return $1.lc($2) if ($r-&gt;uri =~ m/^(.+\/)([^\/]+)$/);
+            return $r-&gt;uri;
+        }
+    ';</code><br />
+这样就行了。</p>
+<p>另一个测试，关于http_image_filter_module。配置语句很简单，就一行image_filter [size|resize|corp] wight height;就行了——如果图片太大，那还要加大image_filter_buffer，默认1M，大于这个大小的图片就不会缩略了。<br />
+比如配置如下：<br />
+<code class="highlighter-rouge">nginx
+        location / {
+            root   /var/www/html;
+            index  index.html index.htm;
+        }
+        location ~* ^/small/w_(\d+)/h_(\d+)/(.*)$ {
+            rewrite /small/w_(\d+)/h_(\d+)/(.*)$ /$3 break;
+            image_filter resize $1 $2;
+            root   /var/www/html;
+            index  index.html index.htm;
+        }</code><br />
+这样通过/small/w_100/h_50/path/to/text.jpg，就能访问到/path/to/text.jpg的100*50大小的缩略图了。<br />
+如果只需要修改h或者w，其他的等比缩略，把另一项写成&rsquo;-&lsquo;即可。<br />
 其他参数介绍：test，返回是否真的是图片；corp，截取图片的一部分；size，以json格式返回图片的长宽数据。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/05/27/analyze-the-xml-which-nmap-output" title="nmap扫描结果xml解析脚本">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/05/27/analyze-the-xml-which-nmap-output/" title="nmap扫描结果xml解析脚本">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/06/01/intro-html-template" title="HTML::Template试用">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/06/01/intro-html-template/" title="HTML::Template试用">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -125,15 +126,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

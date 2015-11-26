@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -54,23 +54,31 @@
   <div style='background-color: #FFF;'>
     <p>google 之前推出了一个 netoops 的 patch，可以让 linux kernel 在崩溃的时候通过 udp 协议把信息发送到远端主机上。我之前在 CentOS6.2 的内核上做过测试，详细做法可以参见淘宝内核组 wiki 的<a href="http://kernel.taobao.org/index.php/Documents/Kernel_build">编译使用淘宝内核</a>和 <a href="kernel.taobao.org/index.php/Documents/Kernel_netoops_howto">netoops 使用指南</a>。唯一有区别的地方就是淘宝使用的 RedHat6 的内核在 CentOS6 上有签名问题，需要自己从 CentOS 官网 ftp 下载 src.rpm 来用 —— 当然如果要自己搞定编译那步，少不了就要自己修改 config-genaric 和 kernel.spc 文件了。</p>
 <p>昨天同事升级修改到 CentOS6.3 内核( 2.6.32.220 -&gt; 2.6.32.279 )上。结果发现修改冲突代码编译通过后，再使用 soft dump 方式测试，远端主机 nc 收不到结果了。</p>
-<p>稍微 grep 一下代码，发现是在 <code>kernel/printk.c</code> 里定义 <code>void kmsg_dump()</code> 的。好了，使用 systemtap 来检查这里： </p>
-<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">stap</span> <span class="o">-</span><span class="n">ve</span> <span class="err">&#39;</span><span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">function</span><span class="p">(</span><span class="s">&quot;kmsg_dump&quot;</span><span class="p">){</span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="err">$$</span><span class="n">vars</span><span class="err">$$</span><span class="p">)}</span><span class="err">&#39;</span></code></pre></div>
-<p>结果发现在 soft dump 的时候有输出，也就是说调用了 <code>kmsg_dump()</code>。</p>
-<p>比较 2.6.32.220 和 2.6.32.279 的代码，发现在 <code>kmsg_dump()</code> 里，新内核多了一点判断，如果reason 低于 <code>KERNEL_OOPS</code> 而且没有设置 <code>always_kmsg_dump</code> 变量，那么直接返回不再 <code>dumper-&gt;dump()</code> 了。</p>
-<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="mi">1546</span>    <span class="k">if</span> <span class="p">((</span><span class="n">reason</span> <span class="o">&gt;</span> <span class="n">KMSG_DUMP_OOPS</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">always_kmsg_dump</span><span class="p">)</span>
-<span class="mi">1547</span>            <span class="k">return</span><span class="p">;</span></code></pre></div>
+<p>稍微 grep 一下代码，发现是在 <code class="highlighter-rouge">kernel/printk.c</code> 里定义 <code class="highlighter-rouge">void kmsg_dump()</code> 的。好了，使用 systemtap 来检查这里：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="n">stap</span> <span class="o">-</span><span class="n">ve</span> <span class="err">'</span><span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">function</span><span class="p">(</span><span class="s">"kmsg_dump"</span><span class="p">){</span><span class="n">printf</span><span class="p">(</span><span class="s">"%s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span><span class="err">$$</span><span class="n">vars</span><span class="err">$$</span><span class="p">)}</span><span class="err">'</span>
+</code></pre>
+</div>
+<p>结果发现在 soft dump 的时候有输出，也就是说调用了 <code class="highlighter-rouge">kmsg_dump()</code>。</p>
+<p>比较 2.6.32.220 和 2.6.32.279 的代码，发现在 <code class="highlighter-rouge">kmsg_dump()</code> 里，新内核多了一点判断，如果reason 低于 <code class="highlighter-rouge">KERNEL_OOPS</code> 而且没有设置 <code class="highlighter-rouge">always_kmsg_dump</code> 变量，那么直接返回不再 <code class="highlighter-rouge">dumper-&gt;dump()</code> 了。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="mi">1546</span>    <span class="k">if</span> <span class="p">((</span><span class="n">reason</span> <span class="o">&gt;</span> <span class="n">KMSG_DUMP_OOPS</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">always_kmsg_dump</span><span class="p">)</span>
+<span class="mi">1547</span>            <span class="k">return</span><span class="p">;</span> 
+</code></pre>
+</div>
 <p>我们验证一下是不是这个原因：</p>
-<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">stap</span> <span class="o">-</span><span class="n">gve</span> <span class="err">&#39;</span><span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">statement</span><span class="p">(</span><span class="s">&quot;*@kernel/printk.c:1548&quot;</span><span class="p">)</span>  <span class="p">{</span> <span class="n">printf</span><span class="p">(</span><span class="s">&quot;%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="err">$$</span><span class="n">parms</span><span class="err">$$</span><span class="p">)</span> <span class="p">}</span><span class="err">&#39;</span></code></pre></div>
-<p>显然测试的时候 reason 是 <code>KERNEL_SOFT</code>，这个是不好调的，那么我们可以调整这个变量，找了一下没发现这个可以在 sysctl 什么的里面，所以继续用 systemtap 搞定：</p>
-<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">stap</span> <span class="o">-</span><span class="n">gve</span> <span class="err">&#39;</span><span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">statement</span><span class="p">(</span><span class="s">&quot;*@kernel/printk.c:1545&quot;</span><span class="p">)</span>  <span class="p">{</span> <span class="err">$</span><span class="n">always_kmsg_dump</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span> <span class="n">printf</span><span class="p">(</span><span class="s">&quot;%d&quot;</span><span class="p">,</span><span class="err">$</span><span class="n">always_kmsg_dump</span><span class="p">);</span> <span class="n">printf</span><span class="p">(</span><span class="s">&quot;%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="err">$$</span><span class="n">parms</span><span class="err">$$</span><span class="p">)</span> <span class="p">}</span><span class="err">&#39;</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="n">stap</span> <span class="o">-</span><span class="n">gve</span> <span class="err">'</span><span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">statement</span><span class="p">(</span><span class="s">"*@kernel/printk.c:1548"</span><span class="p">)</span>  <span class="p">{</span> <span class="n">printf</span><span class="p">(</span><span class="s">"%s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span><span class="err">$$</span><span class="n">parms</span><span class="err">$$</span><span class="p">)</span> <span class="p">}</span><span class="err">'</span>
+</code></pre>
+</div>
+<p>显然测试的时候 reason 是 <code class="highlighter-rouge">KERNEL_SOFT</code>，这个是不好调的，那么我们可以调整这个变量，找了一下没发现这个可以在 sysctl 什么的里面，所以继续用 systemtap 搞定：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="n">stap</span> <span class="o">-</span><span class="n">gve</span> <span class="err">'</span><span class="n">probe</span> <span class="n">kernel</span><span class="p">.</span><span class="n">statement</span><span class="p">(</span><span class="s">"*@kernel/printk.c:1545"</span><span class="p">)</span>  <span class="p">{</span> <span class="err">$</span><span class="n">always_kmsg_dump</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span> <span class="n">printf</span><span class="p">(</span><span class="s">"%d"</span><span class="p">,</span><span class="err">$</span><span class="n">always_kmsg_dump</span><span class="p">);</span> <span class="n">printf</span><span class="p">(</span><span class="s">"%s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span><span class="err">$$</span><span class="n">parms</span><span class="err">$$</span><span class="p">)</span> <span class="p">}</span><span class="err">'</span>
+</code></pre>
+</div>
 <p>果然搞定。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/01/10/update-puppet-to-3.0" title="升级 Puppet 到 3.0 及其他附件简介">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/01/10/update-puppet-to-3.0/" title="升级 Puppet 到 3.0 及其他附件简介">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/01/31/puppet-define-type-and-custom-function" title="Puppet 自定义 type 和 function">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/01/31/puppet-define-type-and-custom-function/" title="Puppet 自定义 type 和 function">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -114,15 +122,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

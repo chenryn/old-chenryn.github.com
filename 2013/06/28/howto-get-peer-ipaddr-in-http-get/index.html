@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -51,49 +51,51 @@
   <div style='background-color: #FFF;'>
     <p>在运维工作中我们经常需要检测用户访问是否正常，一般来说，直接通过 DNS 客户端获取 A 记录就可以满足需要。不过如果我们可以获得具体连接的 IP 地址，那么就可以缩小问题的判断范围，因为 DNS 的 A 记录通常是有多个的。</p>
 <p>AE::HTTP 模块可以返回 sock 给用户进行具体操作，我们可以通过 sock 接口很简单的获得对端的 IP 地址：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="nn">Web::Checker::Util::</span><span class="n">HTTP</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Moo</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">MooX::Types::MooseLike::</span><span class="n">Base</span> <span class="sx">qw/Str Num/</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">AnyEvent::</span><span class="n">HTTP</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">AnyEvent::</span><span class="n">Socket</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">AnyEvent</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Time::</span><span class="n">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
-<span class="n">has</span> <span class="n">peer</span>    <span class="o">=&gt;</span> <span class="p">(</span> <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;rw&#39;</span><span class="p">,</span> <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span> <span class="p">);</span>
-<span class="n">has</span> <span class="n">reptime</span> <span class="o">=&gt;</span> <span class="p">(</span> <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;rw&#39;</span><span class="p">,</span> <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Num</span> <span class="p">);</span>
-<span class="n">has</span> <span class="n">clength</span> <span class="o">=&gt;</span> <span class="p">(</span> <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;rw&#39;</span><span class="p">,</span> <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Num</span> <span class="p">);</span>
-<span class="n">has</span> <span class="n">body</span>    <span class="o">=&gt;</span> <span class="p">(</span> <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span> <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span> <span class="p">);</span>
-<span class="n">has</span> <span class="n">proxy</span>   <span class="o">=&gt;</span> <span class="p">(</span> <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span> <span class="n">isa</span> <span class="o">=&gt;</span> <span class="n">Str</span><span class="p">,</span> <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nb">undef</span> <span class="p">}</span> <span class="p">);</span>
-<span class="n">has</span> <span class="n">cv</span> <span class="o">=&gt;</span> <span class="p">(</span> <span class="n">is</span> <span class="o">=&gt;</span> <span class="s">&#39;ro&#39;</span><span class="p">,</span> <span class="n">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">condvar</span> <span class="p">}</span> <span class="p">);</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="nb">package</span> <span class="nn">Web::Checker::Util::</span><span class="nv">HTTP</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">Moo</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">MooX::Types::MooseLike::</span><span class="nv">Base</span> <span class="sx">qw/Str Num/</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">AnyEvent::</span><span class="nv">HTTP</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">AnyEvent::</span><span class="nv">Socket</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">AnyEvent</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Time::</span><span class="nv">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
+<span class="nv">has</span> <span class="nv">peer</span>    <span class="o">=&gt;</span> <span class="p">(</span> <span class="nv">is</span> <span class="o">=&gt;</span> <span class="s">'rw'</span><span class="p">,</span> <span class="nv">isa</span> <span class="o">=&gt;</span> <span class="nv">Str</span> <span class="p">);</span>
+<span class="nv">has</span> <span class="nv">reptime</span> <span class="o">=&gt;</span> <span class="p">(</span> <span class="nv">is</span> <span class="o">=&gt;</span> <span class="s">'rw'</span><span class="p">,</span> <span class="nv">isa</span> <span class="o">=&gt;</span> <span class="nv">Num</span> <span class="p">);</span>
+<span class="nv">has</span> <span class="nv">clength</span> <span class="o">=&gt;</span> <span class="p">(</span> <span class="nv">is</span> <span class="o">=&gt;</span> <span class="s">'rw'</span><span class="p">,</span> <span class="nv">isa</span> <span class="o">=&gt;</span> <span class="nv">Num</span> <span class="p">);</span>
+<span class="nv">has</span> <span class="nv">body</span>    <span class="o">=&gt;</span> <span class="p">(</span> <span class="nv">is</span> <span class="o">=&gt;</span> <span class="s">'ro'</span><span class="p">,</span> <span class="nv">isa</span> <span class="o">=&gt;</span> <span class="nv">Str</span> <span class="p">);</span>
+<span class="nv">has</span> <span class="nv">proxy</span>   <span class="o">=&gt;</span> <span class="p">(</span> <span class="nv">is</span> <span class="o">=&gt;</span> <span class="s">'ro'</span><span class="p">,</span> <span class="nv">isa</span> <span class="o">=&gt;</span> <span class="nv">Str</span><span class="p">,</span> <span class="nv">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nb">undef</span> <span class="p">}</span> <span class="p">);</span>
+<span class="nv">has</span> <span class="nv">cv</span> <span class="o">=&gt;</span> <span class="p">(</span> <span class="nv">is</span> <span class="o">=&gt;</span> <span class="s">'ro'</span><span class="p">,</span> <span class="nv">default</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span> <span class="nv">AnyEvent</span><span class="o">-&gt;</span><span class="nv">condvar</span> <span class="p">}</span> <span class="p">);</span>
 <span class="k">sub </span><span class="nf">get</span> <span class="p">{</span>
     <span class="k">my</span> <span class="p">(</span> <span class="nv">$self</span><span class="p">,</span> <span class="nv">$url</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">cv</span><span class="o">-&gt;</span><span class="n">begin</span><span class="p">;</span>
+    <span class="nv">$self</span><span class="o">-&gt;</span><span class="nv">cv</span><span class="o">-&gt;</span><span class="nv">begin</span><span class="p">;</span>
     <span class="k">my</span> <span class="nv">$begin</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
-    <span class="n">http_get</span> <span class="nv">$url</span><span class="p">,</span>
-      <span class="n">proxy</span>            <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">proxy</span><span class="p">,</span>
+    <span class="nv">http_get</span> <span class="nv">$url</span><span class="p">,</span>
+      <span class="nv">proxy</span>            <span class="o">=&gt;</span> <span class="nv">$self</span><span class="o">-&gt;</span><span class="nv">proxy</span><span class="p">,</span>
       <span class="c1"># 就是这里发挥了作用，默认应该是直接返回 body 字符串的</span>
-      <span class="n">want_body_handle</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
+      <span class="nv">want_body_handle</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
       <span class="k">sub </span><span class="p">{</span>
         <span class="k">my</span> <span class="p">(</span> <span class="nv">$hdl</span><span class="p">,</span> <span class="nv">$headers</span> <span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
         <span class="k">my</span> <span class="p">(</span> <span class="nv">$port</span><span class="p">,</span> <span class="nv">$peer</span> <span class="p">)</span> <span class="o">=</span>
-          <span class="nn">AnyEvent::Socket::</span><span class="n">unpack_sockaddr</span> <span class="nb">getpeername</span> <span class="nv">$hdl</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">fh</span><span class="p">};</span>
-        <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">peer</span><span class="p">(</span> <span class="nn">AnyEvent::Socket::</span><span class="n">format_address</span> <span class="nv">$peer</span> <span class="p">);</span>
-        <span class="k">if</span> <span class="p">(</span> <span class="nv">$headers</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">Status</span><span class="p">}</span> <span class="o">=~</span><span class="sr"> /^2/</span> <span class="p">)</span> <span class="p">{</span>
+          <span class="nn">AnyEvent::Socket::</span><span class="nv">unpack_sockaddr</span> <span class="nb">getpeername</span> <span class="nv">$hdl</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">fh</span><span class="p">};</span>
+        <span class="nv">$self</span><span class="o">-&gt;</span><span class="nv">peer</span><span class="p">(</span> <span class="nn">AnyEvent::Socket::</span><span class="nv">format_address</span> <span class="nv">$peer</span> <span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span> <span class="nv">$headers</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">Status</span><span class="p">}</span> <span class="o">=~</span> <span class="sr">/^2/</span> <span class="p">)</span> <span class="p">{</span>
             <span class="k">my</span> <span class="nv">$end</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
-            <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">reptime</span><span class="p">(</span> <span class="nv">$end</span> <span class="o">-</span> <span class="nv">$begin</span> <span class="p">);</span>
-            <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">clength</span><span class="p">(</span> <span class="nv">$headers</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;content-length&#39;</span><span class="p">}</span> <span class="p">);</span>
-            <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">cv</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">;</span>
+            <span class="nv">$self</span><span class="o">-&gt;</span><span class="nv">reptime</span><span class="p">(</span> <span class="nv">$end</span> <span class="o">-</span> <span class="nv">$begin</span> <span class="p">);</span>
+            <span class="nv">$self</span><span class="o">-&gt;</span><span class="nv">clength</span><span class="p">(</span> <span class="nv">$headers</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">'content-length'</span><span class="p">}</span> <span class="p">);</span>
+            <span class="nv">$self</span><span class="o">-&gt;</span><span class="nv">cv</span><span class="o">-&gt;</span><span class="nv">end</span><span class="p">;</span>
         <span class="p">}</span>
       <span class="p">};</span>
-    <span class="nv">$self</span><span class="o">-&gt;</span><span class="n">cv</span><span class="o">-&gt;</span><span class="nb">recv</span><span class="p">;</span>
+    <span class="nv">$self</span><span class="o">-&gt;</span><span class="nv">cv</span><span class="o">-&gt;</span><span class="nb">recv</span><span class="p">;</span>
 <span class="p">}</span>
-<span class="mi">1</span><span class="p">;</span></code></pre></div>
-<p>其实 AE::HTTP 还可以在 <code>tcp_connect</code> 的时候获取 sock，这时候就需要自己用 <code>AnyEvent::Handle</code> 写一遍 <code>AnyEvent::HTTP::tcp_connect</code> 已经写过的东西了(当然如果你本来就打算干点别的事情，那就是另外一回事情了)~~</p>
+<span class="mi">1</span><span class="p">;</span>
+</code></pre>
+</div>
+<p>其实 AE::HTTP 还可以在 <code class="highlighter-rouge">tcp_connect</code> 的时候获取 sock，这时候就需要自己用 <code class="highlighter-rouge">AnyEvent::Handle</code> 写一遍 <code class="highlighter-rouge">AnyEvent::HTTP::tcp_connect</code> 已经写过的东西了(当然如果你本来就打算干点别的事情，那就是另外一回事情了)~~</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/06/24/who-to-calculate-days-between-two-date" title="计算两个时间点之间隔了几天">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/06/24/who-to-calculate-days-between-two-date/" title="计算两个时间点之间隔了几天">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/07/11/howto-filter-count-in-logstash" title="【Logstash 系列】根据事件统计值报警">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/07/11/howto-filter-count-in-logstash/" title="【Logstash 系列】根据事件统计值报警">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -137,15 +139,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

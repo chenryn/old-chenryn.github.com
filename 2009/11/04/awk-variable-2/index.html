@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,47 +52,51 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>在squid自动配置脚本里，用到了sed的/r把一个文件的内容插入另一个文件。今天看到awk对两个文件的处理方法，要通过不少运算，不怎么方便。不过作为加深对NR和FNR的不同的理解，还是有些作用。
-先说下NR和FNR的不同。
-在一次awk中，NR是从头计算到尾的，而FNR是每打开一个文件，就重新计算：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">[</span>root@raocl ~<span class="o">]</span><span class="c"># awk &#39;{print NR,FNR,$0}&#39; ts st</span>
-<span class="m">1</span> <span class="m">1</span> <span class="m">123</span> 456
-<span class="m">2</span> <span class="m">2</span> abc def
-<span class="m">3</span> <span class="m">3</span> ABC DEF
-<span class="m">4</span> <span class="m">4</span> <span class="m">654</span> 321
-<span class="m">5</span> <span class="m">1</span> <span class="m">123</span> 456
-<span class="m">6</span> <span class="m">2</span> abc def
-<span class="m">7</span> <span class="m">3</span> ABC DEF
-<span class="m">8</span> <span class="m">4</span> <span class="m">654</span> 321</code></pre></div>
-<p>下面转载一个例子：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">[</span>root@raocl ~<span class="o">]</span><span class="c"># cat a</span>
-<span class="m">1000</span> 北京市 地级 北京市 北京市
-<span class="m">1100</span> 天津市 地级 天津市 天津市
-<span class="m">1210</span> 石家庄市 地级 石家庄市 河北省
-<span class="m">1210</span> 晋州市 县级 石家庄市 河北省
-<span class="m">1243</span> 滦县 县级 唐山市 河北省
-<span class="m">1244</span> 滦南县 县级 唐山市 河北省
-<span class="o">[</span>root@raocl ~<span class="o">]</span><span class="c"># cat b</span>
+    <p>在squid自动配置脚本里，用到了sed的/r把一个文件的内容插入另一个文件。今天看到awk对两个文件的处理方法，要通过不少运算，不怎么方便。不过作为加深对NR和FNR的不同的理解，还是有些作用。<br />
+先说下NR和FNR的不同。<br />
+在一次awk中，NR是从头计算到尾的，而FNR是每打开一个文件，就重新计算：<br />
+<code class="highlighter-rouge">bash
+[root@raocl ~]# awk '{print NR,FNR,$0}' ts st
+1 1 123 456
+2 2 abc def
+3 3 ABC DEF
+4 4 654 321
+5 1 123 456
+6 2 abc def
+7 3 ABC DEF
+8 4 654 321
+</code><br />
+下面转载一个例子：<br />
+<code class="highlighter-rouge">bash
+[root@raocl ~]# cat a
+1000 北京市 地级 北京市 北京市
+1100 天津市 地级 天津市 天津市
+1210 石家庄市 地级 石家庄市 河北省
+1210 晋州市 县级 石家庄市 河北省
+1243 滦县 县级 唐山市 河北省
+1244 滦南县 县级 唐山市 河北省
+[root@raocl ~]# cat b
 110000,北京市
 120000,天津市
 130000,河北省
 130131,平山县
 130132,元氏县
-<span class="o">[</span>root@raocl ~<span class="o">]</span><span class="c"># awk &#39;BEGIN{FS=&quot;[|,]&quot;;OFS=&quot;,&quot;}NRFNR{print</span>
-<span class="nv">$1</span>,<span class="nv">$2</span>,a<span class="o">[</span><span class="nv">$2</span><span class="o">]}</span><span class="err">&#39;</span> a b
+[root@raocl ~]# awk 'BEGIN{FS="[|,]";OFS=","}NRFNR{print
+$1,$2,a[$2]}' a b
 110000,北京市,1000
 120000,天津市,1100
 130000,河北省,
 130131,平山县,
-130132,元氏县,</code></pre></div>
-<p>解释：
+130132,元氏县,
+</code></p>
+<p>解释：<br />
 NRFNR也就是到文件b的时候，打印文件b的第1、2列和之前创建的数组a[北京市]等。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2009/11/04/awk-variable-1" title="awk变量（续）">&larr; Previous</a></li>
+        <li class="prev"><a href="/2009/11/04/awk-variable-1/" title="awk变量（续）">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2009/11/04/dist-shell" title="分布式shell程序">Next &rarr;</a></li>
+        <li class="next"><a href="/2009/11/04/dist-shell/" title="分布式shell程序">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -136,15 +140,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

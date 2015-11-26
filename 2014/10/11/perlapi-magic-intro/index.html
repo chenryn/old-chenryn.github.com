@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -51,28 +51,30 @@
   <div style='background-color: #FFF;'>
     <p>前几天看到 cindylinz 发了一个新 CPAN 模块叫 <a href="https://metacpan.org/pod/Scalar::Watcher">Scalar::Watcher</a>，有朋友问我这个是怎么实现的，在无限循环啊，多线程啊，IO 阻塞啊等情况下，还能被触发么？</p>
 <p>于是我去仔细看了一下这个模块的代码。最关键的就是下面这几行：</p>
-<div class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">SvUPGRADE</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">SVt_PVMG</span><span class="p">);</span>
-        <span class="n">sv_magicext</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">handler_cv</span><span class="p">,</span> <span class="n">PERL_MAGIC_ext</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">modified_vtbl</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>        <span class="n">SvUPGRADE</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">SVt_PVMG</span><span class="p">);</span>
+        <span class="n">sv_magicext</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">handler_cv</span><span class="p">,</span> <span class="n">PERL_MAGIC_ext</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">modified_vtbl</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</code></pre>
+</div>
 <p>这里其实用的是 perlapi 里的 Magic：</p>
 <ul>
   <li>
-    <p>第一行，设置监听变量为 <code>SVt_PVMG</code>，即带有 Magic 的标量；</p>
-    <p><code>SvUPGRADE</code> 函数见 perlguts 文档的 &ldquo;<a href="http://perldoc.perl.org/perlguts.html#Assigning-Magic">Assigning Magic</a>&rdquo; 部分。</p>
+    <p>第一行，设置监听变量为 <code class="highlighter-rouge">SVt_PVMG</code>，即带有 Magic 的标量；</p>
+    <p><code class="highlighter-rouge">SvUPGRADE</code> 函数见 perlguts 文档的 &ldquo;<a href="http://perldoc.perl.org/perlguts.html#Assigning-Magic">Assigning Magic</a>&rdquo; 部分。</p>
   </li>
   <li>
     <p>第二行，设置该变量的 Magic 扩展，即往标量的 Magic 链表上加内容。</p>
-    <p><code>sv_magicext</code> 函数说明见 perlapi 文档的 &ldquo;<a href="http://perldoc.perl.org/perlapi.html#SV-Body-Allocation">SV-Body Allocation</a>&rdquo; 部分。</p>
+    <p><code class="highlighter-rouge">sv_magicext</code> 函数说明见 perlapi 文档的 &ldquo;<a href="http://perldoc.perl.org/perlapi.html#SV-Body-Allocation">SV-Body Allocation</a>&rdquo; 部分。</p>
   </li>
 </ul>
 <p>Magic 主要有两个作用，一个叫 Hook Method，一个叫 Managed Data。我们都很熟悉的 Moose 框架就是利用的 Magic 的 Managed Data 实现的。而这里，用到的是 Hook Method。</p>
-<p>Scalar::Watcher 模块文档较少，虽然好用但是不好懂。我在 CPAN 上发现另一个模块，<a href="https://metacpan.org/pod/Variable::Magic">Variable::Magic</a> 。文档写的很详细。其中的 <code>set</code> 方法就是跟 Scalar::Watcher 类似的作用，大家可以读一读这个模块的文档。</p>
+<p>Scalar::Watcher 模块文档较少，虽然好用但是不好懂。我在 CPAN 上发现另一个模块，<a href="https://metacpan.org/pod/Variable::Magic">Variable::Magic</a> 。文档写的很详细。其中的 <code class="highlighter-rouge">set</code> 方法就是跟 Scalar::Watcher 类似的作用，大家可以读一读这个模块的文档。</p>
 <p>所以可以回答朋友的问题了，在循环之类的地方每次都可以触发没问题。但是如果你在回调函数里面做阻塞操作，那肯定也是堵塞的。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2014/10/10/run-kibana4-without-jar" title="从源代码运行 Kibana 4">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/10/10/run-kibana4-without-jar/" title="从源代码运行 Kibana 4">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/10/17/netty-to-eventmachine-on-jruby" title="在 JRuby 上用 netty 模拟 eventmachine">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/10/17/netty-to-eventmachine-on-jruby/" title="在 JRuby 上用 netty 模拟 eventmachine">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -116,15 +118,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

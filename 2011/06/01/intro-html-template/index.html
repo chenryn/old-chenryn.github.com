@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -49,113 +49,110 @@
     <div class="date"><span>01 June 2011</span></div>
   </div>
   <div style='background-color: #FFF;'>
-    <p>给我自己的学习计划做个开头，从html::template开始试用。
-首先利用上上篇的nmap.pl脚本，提取一些数据，然后展示在页面上。
-cgi脚本如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="k">use</span> <span class="nn">HTML::</span><span class="n">Template</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">XML::</span><span class="n">Simple</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Net::</span><span class="n">MySQL</span><span class="p">;</span>
-<span class="c1">#定期执行这个</span>
-<span class="c1">#system(&quot;nmap -n -p 22,5666 10.168.168.0/23 10.168.170.0/24 -oX output.xml&quot;);</span>
-<span class="k">my</span> <span class="nv">$text</span> <span class="o">=</span> <span class="n">XMLin</span><span class="p">(</span><span class="s">&quot;output.xml&quot;</span><span class="p">);</span>
-<span class="c1">#读取html模版</span>
-<span class="k">my</span> <span class="nv">$temp</span> <span class="o">=</span> <span class="nn">HTML::</span><span class="n">Template</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="n">filename</span> <span class="o">=&gt;</span> <span class="s">&#39;../template/html/server.tmpl&#39;</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">$localhost</span> <span class="o">=</span> <span class="s">&#39;127.0.0.1&#39;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">@array</span> <span class="o">=</span> <span class="p">();</span>
-<span class="k">my</span> <span class="nv">$i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$hash</span> <span class="o">=</span> <span class="p">{};</span>
-<span class="k">while</span> <span class="p">(</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span> <span class="p">)</span> <span class="p">{</span>
-<span class="c1">#因为新增了ssh端口扫描，所以xml解析和前例稍有不同</span>
-    <span class="k">my</span> <span class="nv">$ssh_state</span> <span class="o">=</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">ports</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">port</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$nrpe_state</span> <span class="o">=</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">ports</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">port</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">state</span><span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="nb">ref</span><span class="p">(</span><span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">})</span> <span class="ow">eq</span> <span class="s">&#39;ARRAY&#39;</span> <span class="p">?</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">addr</span><span class="p">}</span> <span class="p">:</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">addr</span><span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$mac</span> <span class="o">=</span> <span class="nb">ref</span><span class="p">(</span><span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">})</span> <span class="ow">eq</span> <span class="s">&#39;ARRAY&#39;</span> <span class="p">?</span> <span class="nv">$text</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">host</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$i</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">address</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">addr</span><span class="p">}</span> <span class="p">:</span> <span class="s">&#39;00:1E:C9:E6:E1:7C&#39;</span><span class="p">;</span>
-    <span class="nv">$i</span><span class="o">++</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$channel</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">amp</span><span class="p">;</span><span class="n">mysql_query</span><span class="p">(</span><span class="nv">$mac</span><span class="p">);</span>
-<span class="c1">#将ip按照频道排成列表，每个ip存有ssh和nrpe状态</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nb">exists</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$channel</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nb">push</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$channel</span><span class="p">}},</span> <span class="p">{</span> <span class="s">&#39;IP&#39;</span> <span class="o">=&gt;</span> <span class="nv">$ip</span><span class="p">,</span> <span class="s">&#39;SSH&#39;</span> <span class="o">=&gt;</span> <span class="nv">$ssh_state</span><span class="p">,</span> <span class="s">&#39;NRPE&#39;</span> <span class="o">=&gt;</span> <span class="nv">$nrpe_state</span><span class="p">,</span> <span class="p">};</span>
-    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-        <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$channel</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span> <span class="s">&#39;IP&#39;</span> <span class="o">=&gt;</span> <span class="nv">$ip</span><span class="p">,</span> <span class="s">&#39;SSH&#39;</span> <span class="o">=&gt;</span> <span class="nv">$ssh_state</span><span class="p">,</span> <span class="s">&#39;NRPE&#39;</span> <span class="o">=&gt;</span> <span class="nv">$nrpe_state</span><span class="p">,</span> <span class="p">};</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-<span class="c1">#将上面while生成的hash转成HTML::Template认可的array，不过array的单个元素可以是hash</span>
-<span class="k">foreach</span> <span class="k">my</span> <span class="nv">$key</span><span class="p">(</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$hash</span><span class="p">}</span> <span class="p">)</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$onechannel</span> <span class="o">=</span> <span class="p">{};</span>
-    <span class="nv">$onechannel</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;CHANNEL&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="nv">$key</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="k">foreach</span> <span class="k">my</span> <span class="nv">$ip</span><span class="p">(</span> <span class="nv">@</span><span class="p">{</span><span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$key</span><span class="p">}}</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$onechannel</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;IP_LOOP&quot;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">[</span><span class="nv">$j</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$ip</span><span class="p">;</span>
-        <span class="nv">$j</span><span class="o">++</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="nb">push</span> <span class="nv">@array</span><span class="p">,</span> <span class="nv">$onechannel</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="c1">#将array传递给之前定义的html模版</span>
-<span class="c1">#注意：不管是param还是@array里，所有的key必须都在tmpl里使用，冗余也会报错</span>
-<span class="nv">$temp</span><span class="o">-&gt;</span><span class="n">param</span><span class="p">(</span><span class="n">CHANNEL_LOOP</span> <span class="o">=&gt;</span> <span class="o">\</span><span class="nv">@array</span><span class="p">);</span>
-<span class="c1">#输出成html格式</span>
-<span class="k">print</span> <span class="s">&quot;Content-Type: text/html\n\n&quot;</span><span class="p">,</span> <span class="nv">$temp</span><span class="o">-&gt;</span><span class="n">output</span><span class="p">;</span>
-<span class="c1">#这段没什么说的，根据mac获取频道</span>
-<span class="k">sub </span><span class="nf">mysql_query</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$mac</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$mysql</span> <span class="o">=</span> <span class="nn">Net::</span><span class="n">MySQL</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span> <span class="n">hostname</span> <span class="o">=&gt;</span> <span class="nv">$localhost</span><span class="p">,</span>
-                                 <span class="n">database</span> <span class="o">=&gt;</span> <span class="s">&#39;myops&#39;</span><span class="p">,</span>
-                                 <span class="n">user</span>     <span class="o">=&gt;</span> <span class="s">&#39;myops&#39;</span><span class="p">,</span>
-                                 <span class="n">password</span> <span class="o">=&gt;</span> <span class="s">&#39;myops&#39;</span><span class="p">,</span>
-                               <span class="p">);</span>
-    <span class="nv">$mysql</span><span class="o">-&gt;</span><span class="n">query</span><span class="p">(</span><span class="s">&quot;select channel from myhost where mac=&#39;$mac&#39;&quot;</span><span class="p">);</span>
-    <span class="o">&amp;</span><span class="n">amp</span><span class="p">;</span><span class="n">alert</span><span class="p">(</span><span class="s">&quot;New server&quot;</span><span class="p">)</span> <span class="k">unless</span> <span class="nv">$mysql</span><span class="o">-&gt;</span><span class="n">has_selected_record</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$a_record_iterator</span> <span class="o">=</span> <span class="nv">$mysql</span><span class="o">-&gt;</span><span class="n">create_record_iterator</span><span class="p">();</span>
-    <span class="k">while</span> <span class="p">(</span><span class="k">my</span> <span class="nv">$record</span> <span class="o">=</span> <span class="nv">$a_record_iterator</span><span class="o">-&gt;</span><span class="nb">each</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">return</span> <span class="nv">$record</span><span class="o">-&gt;</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
-    <span class="p">};</span>
-<span class="p">}</span>
-<span class="c1">#留着后续继续处理</span>
-<span class="k">sub </span><span class="nf">alert</span> <span class="p">{</span>
-    <span class="k">print</span> <span class="nv">@_</span><span class="p">,</span><span class="s">&quot;\n&quot;</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
-<p>然后是template文件server.tmpl：</p>
-<div class="highlight"><pre><code class="language-html" data-lang="html"><span class="nt">&lt;html&gt;</span>
-<span class="nt">&lt;head&gt;</span>
-<span class="nt">&lt;title&gt;</span>Server Plate<span class="nt">&lt;/title&gt;</span>
-<span class="nt">&lt;/head&gt;</span>
-<span class="nt">&lt;body&gt;</span>
-<span class="nt">&lt;table</span> <span class="na">width=</span><span class="s">&quot;100%&quot;</span> <span class="na">cellspacing=</span><span class="s">&quot;0&quot;</span> <span class="na">cellpadding=</span><span class="s">&quot;0&quot;</span> <span class="na">border=</span><span class="s">&quot;1&quot;</span><span class="nt">&gt;</span>
-<span class="c">&lt;!--TMPL_LOOP循环格式，使用的是array里channel_loop的每个元素--&gt;</span>
-<span class="nt">&lt;TMPL_LOOP</span> <span class="na">NAME=</span><span class="s">&quot;CHANNEL_LOOP&quot;</span><span class="nt">&gt;</span>
-<span class="nt">&lt;tr&gt;</span>
-<span class="c">&lt;!--根据本层loop中的某个元素的channel的value开始表格的一行--&gt;</span>
-<span class="nt">&lt;th&gt;&lt;center&gt;&lt;TMPL_VAR</span> <span class="na">NAME=</span><span class="s">&quot;CHANNEL&quot;</span><span class="nt">&gt;&lt;/center&gt;&lt;/th&gt;</span>
-<span class="c">&lt;!--本层loop中另一个元素ip_loop，也是array格式，所以继续循环，每个元素使用一列--&gt;</span>
-<span class="nt">&lt;TMPL_LOOP</span> <span class="na">NAME=</span><span class="s">&quot;IP_LOOP&quot;</span><span class="nt">&gt;</span>
-<span class="nt">&lt;td</span> <span class="na">valign=</span><span class="s">top</span><span class="nt">&gt;&lt;center&gt;</span>
+    <p>给我自己的学习计划做个开头，从html::template开始试用。<br />
+首先利用上上篇的nmap.pl脚本，提取一些数据，然后展示在页面上。<br />
+cgi脚本如下：<br />
+<code class="highlighter-rouge">perl#!/usr/bin/perl -w
+use HTML::Template;
+use XML::Simple;
+use Net::MySQL;
+#定期执行这个
+#system("nmap -n -p 22,5666 10.168.168.0/23 10.168.170.0/24 -oX output.xml");
+my $text = XMLin("output.xml");
+#读取html模版
+my $temp = HTML::Template-&gt;new(filename =&gt; '../template/html/server.tmpl');
+my $localhost = '127.0.0.1';
+my @array = ();
+my $i = 0;
+my $hash = {};
+while ( $text-&gt;{host}-&gt;[$i] ) {
+#因为新增了ssh端口扫描，所以xml解析和前例稍有不同
+    my $ssh_state = $text-&gt;{host}-&gt;[$i]-&gt;{ports}-&gt;{port}-&gt;[0]-&gt;{state}-&gt;{state};
+    my $nrpe_state = $text-&gt;{host}-&gt;[$i]-&gt;{ports}-&gt;{port}-&gt;[1]-&gt;{state}-&gt;{state};
+    my $ip = ref($text-&gt;{host}-&gt;[$i]-&gt;{address}) eq 'ARRAY' ? $text-&gt;{host}-&gt;[$i]-&gt;{address}-&gt;[0]-&gt;{addr} : $text-&gt;{host}-&gt;[$i]-&gt;{address}-&gt;{addr};
+    my $mac = ref($text-&gt;{host}-&gt;[$i]-&gt;{address}) eq 'ARRAY' ? $text-&gt;{host}-&gt;[$i]-&gt;{address}-&gt;[1]-&gt;{addr} : '00:1E:C9:E6:E1:7C';
+    $i++;
+    my $channel = &amp;amp;mysql_query($mac);
+#将ip按照频道排成列表，每个ip存有ssh和nrpe状态
+    if ( exists $hash-&gt;{$channel} ) {
+        push @{$hash-&gt;{$channel}}, { 'IP' =&gt; $ip, 'SSH' =&gt; $ssh_state, 'NRPE' =&gt; $nrpe_state, };
+    } else {
+        $hash-&gt;{$channel}-&gt;[0] = { 'IP' =&gt; $ip, 'SSH' =&gt; $ssh_state, 'NRPE' =&gt; $nrpe_state, };
+    }
+}
+#将上面while生成的hash转成HTML::Template认可的array，不过array的单个元素可以是hash
+foreach my $key( keys %{$hash} ) {
+    my $onechannel = {};
+    $onechannel-&gt;{"CHANNEL"} = $key;
+    my $j = 0;
+    foreach my $ip( @{$hash-&gt;{$key}} ) {
+        $onechannel-&gt;{"IP_LOOP"}-&gt;[$j] = $ip;
+        $j++;
+    }
+    push @array, $onechannel;
+}
+#将array传递给之前定义的html模版
+#注意：不管是param还是@array里，所有的key必须都在tmpl里使用，冗余也会报错
+$temp-&gt;param(CHANNEL_LOOP =&gt; \@array);
+#输出成html格式
+print "Content-Type: text/html\n\n", $temp-&gt;output;
+#这段没什么说的，根据mac获取频道
+sub mysql_query {
+    my $mac = shift;
+    my $mysql = Net::MySQL-&gt;new( hostname =&gt; $localhost,
+                                 database =&gt; 'myops',
+                                 user     =&gt; 'myops',
+                                 password =&gt; 'myops',
+                               );
+    $mysql-&gt;query("select channel from myhost where mac='$mac'");
+    &amp;amp;alert("New server") unless $mysql-&gt;has_selected_record;
+    my $a_record_iterator = $mysql-&gt;create_record_iterator();
+    while (my $record = $a_record_iterator-&gt;each) {
+        return $record-&gt;[0];
+    };
+}
+#留着后续继续处理
+sub alert {
+    print @_,"\n";
+}</code><br />
+然后是template文件server.tmpl：<br />
+```html</p>
+<html>
+<head>
+<title>Server Plate</title>
+</head>
+<body>
+<table width="100%" cellspacing="0" cellpadding="0" border="1">
+<!--TMPL_LOOP循环格式，使用的是array里channel_loop的每个元素-->
+<tmpl_loop name="CHANNEL_LOOP">
+<tr>
+<!--根据本层loop中的某个元素的channel的value开始表格的一行-->
+<th><center><tmpl_var name="CHANNEL">
+<!--本层loop中另一个元素ip_loop，也是array格式，所以继续循环，每个元素使用一列-->
+<tmpl_loop name="IP_LOOP">
+&lt;td valign=top&gt;<center>
 //根据本层loop的ssh情况选择显示哪个图标；TMPL_IF只能判断key的真假，所以用js
-<span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span><span class="nt">&gt;</span>
-<span class="k">if</span> <span class="p">(</span><span class="s1">&#39;&lt;TMPL_VAR NAME=&quot;SSH&quot;&gt;&#39;</span> <span class="o">==</span> <span class="s1">&#39;open&#39;</span><span class="p">)</span> <span class="p">{</span>
-    <span class="nb">document</span><span class="p">.</span><span class="nx">write</span><span class="p">(</span><span class="s2">&quot;&lt;img src=&#39;../template/images/unlock_server.png&#39;&gt;&quot;</span><span class="p">);</span>
-<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-    <span class="nb">document</span><span class="p">.</span><span class="nx">write</span><span class="p">(</span><span class="s2">&quot;&lt;img src=&#39;../template/images/desable_server.png&#39;&gt;&quot;</span><span class="p">);</span>
-<span class="p">}</span>
-<span class="nt">&lt;/script&gt;</span>
-<span class="c">&lt;!--显示第二层loop里元素的几个value--&gt;</span>
-<span class="nt">&lt;hr&gt;</span>nrpe:<span class="nt">&lt;TMPL_VAR</span> <span class="na">NAME=</span><span class="s">&quot;NRPE&quot;</span><span class="nt">&gt;&lt;hr&gt;</span>ssh :<span class="nt">&lt;TMPL_VAR</span> <span class="na">NAME=</span><span class="s">&quot;SSH&quot;</span><span class="nt">&gt;&lt;hr&gt;&lt;TMPL_VAR</span> <span class="na">NAME=</span><span class="s">&quot;IP&quot;</span><span class="nt">&gt;</span>
-<span class="nt">&lt;/center&gt;&lt;/td&gt;</span>
-<span class="c">&lt;!--结束里层loop，即完成一行表格--&gt;</span>
-<span class="nt">&lt;/TMPL_LOOP&gt;</span>
-<span class="nt">&lt;/tr&gt;</span>
-<span class="c">&lt;!--结束顶层loop，即完成表格--&gt;</span>
-<span class="nt">&lt;/TMPL_LOOP&gt;</span>
-<span class="nt">&lt;/table&gt;&lt;/center&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;center&gt;</span>
-<span class="nt">&lt;/body&gt;</span>
-<span class="nt">&lt;/html&gt;</span></code></pre></div>
-<p>用apache分别发布cgi目录和静态目录。然后访问一下；OK。</p>
+<script type="text/javascript">
+if ('<TMPL_VAR NAME="SSH">' == 'open') {
+    document.write("<img src='../template/images/unlock_server.png'>");
+} else {
+    document.write("<img src='../template/images/desable_server.png'>");
+}
+</script>
+<!--显示第二层loop里元素的几个value-->
+<hr />nrpe:<tmpl_var name="NRPE"><hr />ssh :<tmpl_var name="SSH"><hr /><tmpl_var name="IP">
+<!--结束里层loop，即完成一行表格-->
+<!--结束顶层loop，即完成表格-->
+<br /><br /><br /><center>
+```
+用apache分别发布cgi目录和静态目录。然后访问一下；OK。
+</center></tmpl_var></tmpl_var></tmpl_var></center></tmpl_loop></tmpl_var></center></th></tr></tmpl_loop></table></body></html>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/05/30/intro-perl_set-image_filter" title="nginx两个小测试(perl_set/image_filter)">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/05/30/intro-perl_set-image_filter/" title="nginx两个小测试(perl_set/image_filter)">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/06/03/aggregate-multi-servers-rollback-log-by-gearmand" title="用gearman汇总多台服务器的回滚日志">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/06/03/aggregate-multi-servers-rollback-log-by-gearmand/" title="用gearman汇总多台服务器的回滚日志">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -199,15 +196,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

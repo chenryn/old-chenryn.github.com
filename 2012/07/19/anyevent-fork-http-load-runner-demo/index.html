@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,104 +52,108 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>话不多说，先上第一版的代码：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="nn">Time::</span><span class="n">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">AnyEvent::</span><span class="n">HTTP</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">AnyEvent</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Coro</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">%code</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$count</span> <span class="o">=</span> <span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
-<span class="k">my</span> <span class="nv">$url</span> <span class="o">=</span> <span class="s">&quot;https://10.10.10.10/&quot;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$begin</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">@coro</span> <span class="o">=</span> <span class="nb">map</span> <span class="p">{</span>
-    <span class="n">async</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$cv</span> <span class="o">=</span> <span class="nn">AnyEvent::</span><span class="n">condvar</span><span class="p">;</span>
-        <span class="nv">$cv</span><span class="o">-&gt;</span><span class="n">begin</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$header_time</span><span class="p">;</span>
-        <span class="n">http_request</span> <span class="n">GET</span> <span class="o">=&gt;</span> <span class="s">&quot;$url&quot;</span><span class="p">,</span>
-            <span class="k">sub </span><span class="p">{</span>
-                <span class="k">my</span> <span class="p">(</span><span class="nb">undef</span><span class="p">,</span> <span class="nv">$hdr</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-                <span class="nv">$code</span><span class="p">{</span><span class="nv">$hdr</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;Status&#39;</span><span class="p">}}</span><span class="o">++</span><span class="p">;</span>
-                <span class="nv">$cv</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">;</span>
-            <span class="p">}</span>
-        <span class="p">;</span>
-        <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nb">recv</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="p">}</span> <span class="p">(</span><span class="mi">1</span> <span class="o">..</span> <span class="nv">$count</span><span class="p">);</span>
-<span class="nv">$_</span><span class="o">-&gt;</span><span class="nb">join</span> <span class="k">for</span> <span class="nv">@coro</span><span class="p">;</span>
-<span class="k">print</span> <span class="nv">$cpus</span><span class="o">*</span><span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="nb">time</span><span class="o">-</span><span class="nv">$begin</span><span class="p">);</span></code></pre></div>
+    <p>话不多说，先上第一版的代码：<br />
+```perl<br />
+use Time::HiRes qw/time/;<br />
+use AnyEvent::HTTP;<br />
+use AnyEvent;<br />
+use Coro;</p>
+<p>my %code;<br />
+my $count = $ARGV[0];<br />
+my $url = &ldquo;https://10.10.10.10/&rdquo;;<br />
+my $begin = time;<br />
+my @coro = map {<br />
+    async {<br />
+        my $cv = AnyEvent::condvar;<br />
+        $cv-&gt;begin;<br />
+        my $header_time;<br />
+        http_request GET =&gt; &ldquo;$url&rdquo;,<br />
+            sub {<br />
+                my (undef, $hdr) = @<em>;<br />
+                $code{$hdr-&gt;{&lsquo;Status&rsquo;}}++;<br />
+                $cv-&gt;end;<br />
+            }<br />
+        ;<br />
+        $cv-&gt;recv;<br />
+    }<br />
+} (1 .. $count);<br />
+$</em>-&gt;join for @coro;<br />
+print $cpus*$ARGV[0]/(time-$begin);<br />
+```</p>
 <p>上面这段脚本，作用是在每个进程中运行事件驱动的协程，以达到尽可能大的并发请求。</p>
 <p>初步的测试，在单核Coro的情况下可以每秒发送1000+的https请求。</p>
 <p>注意：如果使用的是AnyEvent::HTTP::LWP::UserAgent模块，虽然POD里写它用的其实就是AnyEvent::HTTP的代码套LWP的API格式，但实际只能用到30%的CPU，单核情况下的qps也就不到350的样子。</p>
 <p>注意：本例测试的是HTTPS，AnyEvent::HTTP在TLS模式(即https请求)下，无法开启persistent连接。如果是普通http请求，开启persistent参数的qps应该会更高！</p>
-<p>然后上第二版的代码，改用了EV循环，性能比Coro协程提高了大概5%的样子。使用了fork多进程，并且绑定到不同的CPU核上。</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">autodie</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Parallel::</span><span class="n">ForkManager</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Time::</span><span class="n">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Sys::</span><span class="n">CpuAffinity</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">AnyEvent::</span><span class="n">HTTP</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">AE</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">EV</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$cpus</span> <span class="o">=</span> <span class="nn">Sys::CpuAffinity::</span><span class="n">getNumCpus</span><span class="p">();</span>
-<span class="k">my</span> <span class="nv">$pm</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">Parallel::</span><span class="n">ForkManager</span><span class="p">(</span><span class="nv">$cpus</span><span class="p">,</span> <span class="s">&quot;/tmp/&quot;</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">@urls</span> <span class="o">=</span> <span class="sx">qw(https://10.11.19.35/ https://10.11.21.121/)</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$res</span><span class="p">;</span>
-<span class="nv">$pm</span><span class="o">-&gt;</span><span class="n">run_on_finish</span><span class="p">(</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="nv">$_</span><span class="p">[</span><span class="mi">5</span><span class="p">];</span>
-    <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$_</span><span class="p">}</span> <span class="o">+=</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$_</span><span class="p">}</span> <span class="k">for</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}};</span>
-    <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;size&#39;</span><span class="p">}</span> <span class="o">+=</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;size&#39;</span><span class="p">};</span>
-    <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;time&#39;</span><span class="p">}</span> <span class="o">+=</span> <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;time&#39;</span><span class="p">};</span>
-<span class="p">});</span>
-<span class="k">my</span> <span class="nv">$begin</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
-<span class="k">foreach</span> <span class="k">my</span> <span class="nv">$cpu</span> <span class="p">(</span><span class="mi">1</span> <span class="o">..</span> <span class="nv">$cpus</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$pid</span> <span class="o">=</span> <span class="nv">$pm</span><span class="o">-&gt;</span><span class="n">start</span> <span class="ow">and</span> <span class="k">next</span><span class="p">;</span>
-    <span class="nn">Sys::CpuAffinity::</span><span class="n">setAffinity</span><span class="p">(</span><span class="vg">$$</span><span class="p">,</span> <span class="mi">2</span> <span class="o">**</span> <span class="p">(</span><span class="nv">$cpu</span><span class="o">-</span><span class="mi">1</span><span class="p">));</span>
-    <span class="k">my</span> <span class="nv">$data</span> <span class="o">=</span> <span class="n">ae_get</span><span class="p">(</span><span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">\</span><span class="nv">@urls</span><span class="p">);</span>
-    <span class="nv">$pm</span><span class="o">-&gt;</span><span class="n">finish</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nv">$data</span><span class="p">);</span>
-<span class="p">}</span>
-<span class="nv">$pm</span><span class="o">-&gt;</span><span class="n">wait_all_children</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$use</span> <span class="o">=</span> <span class="nb">time</span> <span class="o">-</span> <span class="nv">$begin</span><span class="p">;</span>
-<span class="nb">printf</span> <span class="s">&quot;%d fetches, %d max processes, in %.03f seconds\n&quot;</span><span class="p">,</span> <span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="nv">$cpus</span><span class="p">,</span> <span class="nv">$cpus</span><span class="p">,</span> <span class="nv">$use</span><span class="p">;</span>
-<span class="nb">printf</span> <span class="s">&quot;%.03f fetches/sec, %.03f bytes/sec\n&quot;</span><span class="p">,</span> <span class="nv">$ARGV</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="nv">$cpus</span> <span class="sr">/ $use, $res-&gt;{&#39;size&#39;} /</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;time&#39;</span><span class="p">};</span>
-<span class="nb">printf</span> <span class="s">&quot;HTTP response codes:\n&quot;</span><span class="p">;</span>
-<span class="nb">printf</span> <span class="s">&quot;       %d - %d\n&quot;</span><span class="p">,</span> <span class="nv">$_</span><span class="p">,</span> <span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$_</span><span class="p">}</span> <span class="k">for</span> <span class="nb">sort</span> <span class="nb">keys</span> <span class="nv">%</span><span class="p">{</span><span class="nv">$res</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}};</span>
-<span class="k">sub </span><span class="nf">ae_get</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$count</span><span class="p">,</span> <span class="nv">$urls</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$data</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$tmptime</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$cv</span> <span class="o">=</span> <span class="nn">AE::</span><span class="n">cv</span><span class="p">;</span>
-    <span class="k">for</span> <span class="p">(</span><span class="mi">1</span> <span class="o">..</span> <span class="nv">$count</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$hdr_time</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$url</span> <span class="o">=</span> <span class="nv">$urls</span><span class="o">-&gt;</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="nb">rand</span><span class="p">(</span><span class="nv">$#</span><span class="p">{</span><span class="nv">$urls</span><span class="p">}</span><span class="o">+</span><span class="mi">1</span><span class="p">))];</span>
-        <span class="nv">$cv</span><span class="o">-&gt;</span><span class="n">begin</span><span class="p">;</span>
-        <span class="n">http_request</span>
-            <span class="n">GET</span>       <span class="o">=&gt;</span> <span class="s">&quot;$url&quot;</span><span class="p">,</span> 
-            <span class="n">on_header</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-                <span class="nv">$hdr_time</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
-            <span class="p">},</span>
-            <span class="k">sub </span><span class="p">{</span>
-                <span class="k">my</span> <span class="p">(</span><span class="nb">undef</span><span class="p">,</span> <span class="nv">$hdr</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-                <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;code&#39;</span><span class="p">}</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$hdr</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;Status&#39;</span><span class="p">}}</span><span class="o">++</span><span class="p">;</span>
-                <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;size&#39;</span><span class="p">}</span> <span class="o">+=</span> <span class="nv">$hdr</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;content-length&#39;</span><span class="p">};</span>
-                <span class="nv">$data</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;time&#39;</span><span class="p">}</span> <span class="o">+=</span> <span class="p">(</span> <span class="nb">time</span> <span class="o">-</span> <span class="nv">$hdr_time</span> <span class="p">);</span>
-                <span class="nv">$cv</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">;</span>
-            <span class="p">}</span>
-        <span class="p">;</span>
-    <span class="p">}</span> 
-    <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nb">recv</span><span class="p">;</span>
-    <span class="k">return</span> <span class="nv">$data</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
-<p>增加了简单的统计功能，包括每秒请求数、平均下载速度，状态码汇总等。因为不好计算header的长度，所以只计算body部分的下载速度。
+<p>然后上第二版的代码，改用了EV循环，性能比Coro协程提高了大概5%的样子。使用了fork多进程，并且绑定到不同的CPU核上。<br />
+```perl<br />
+#!/usr/bin/perl<br />
+use strict;<br />
+use warnings;<br />
+use autodie;<br />
+use Parallel::ForkManager;<br />
+use Time::HiRes qw/time/;<br />
+use Sys::CpuAffinity;<br />
+use AnyEvent::HTTP;<br />
+use AE;<br />
+use EV;</p>
+<p>my $cpus = Sys::CpuAffinity::getNumCpus();<br />
+my $pm = new Parallel::ForkManager($cpus, &ldquo;/tmp/&rdquo;);<br />
+my @urls = qw(https://10.11.19.35/ https://10.11.21.121/);<br />
+my $res;</p>
+<p>$pm-&gt;run_on_finish( sub {<br />
+    my $data = $<em>[5];<br />
+    $res-&gt;{&lsquo;code&rsquo;}-&gt;{$</em>} += $data-&gt;{&lsquo;code&rsquo;}-&gt;{$_} for keys %{$data-&gt;{&lsquo;code&rsquo;}};<br />
+    $res-&gt;{&lsquo;size&rsquo;} += $data-&gt;{&lsquo;size&rsquo;};<br />
+    $res-&gt;{&lsquo;time&rsquo;} += $data-&gt;{&lsquo;time&rsquo;};<br />
+});</p>
+<p>my $begin = time;<br />
+foreach my $cpu (1 .. $cpus) {<br />
+    my $pid = $pm-&gt;start and next;<br />
+    Sys::CpuAffinity::setAffinity($$, 2 ** ($cpu-1));<br />
+    my $data = ae_get($ARGV[0], \@urls);<br />
+    $pm-&gt;finish(0, $data);<br />
+}<br />
+$pm-&gt;wait_all_children;<br />
+my $use = time - $begin;</p>
+<p>printf &ldquo;%d fetches, %d max processes, in %.03f seconds\n&rdquo;, $ARGV[0] * $cpus, $cpus, $use;<br />
+printf &ldquo;%.03f fetches/sec, %.03f bytes/sec\n&rdquo;, $ARGV[0] * $cpus / $use, $res-&gt;{&lsquo;size&rsquo;} / $res-&gt;{&lsquo;time&rsquo;};<br />
+printf &ldquo;HTTP response codes:\n&rdquo;;<br />
+printf &ldquo;       %d - %d\n&rdquo;, $<em>, $res-&gt;{&lsquo;code&rsquo;}-&gt;{$</em>} for sort keys %{$res-&gt;{&lsquo;code&rsquo;}};</p>
+<p>sub ae_get {<br />
+    my ($count, $urls) = @<em>;<br />
+    my $data;<br />
+    my $tmptime;<br />
+    my $cv = AE::cv;<br />
+    for (1 .. $count) {<br />
+        my $hdr_time;<br />
+        my $url = $urls-&gt;[int(rand($#{$urls}+1))];<br />
+        $cv-&gt;begin;<br />
+        http_request<br />
+            GET       =&gt; &ldquo;$url&rdquo;, <br />
+            on_header =&gt; sub {<br />
+                $hdr_time = time;<br />
+            },<br />
+            sub {<br />
+                my (undef, $hdr) = @</em>;<br />
+                $data-&gt;{&lsquo;code&rsquo;}-&gt;{$hdr-&gt;{&lsquo;Status&rsquo;}}++;<br />
+                $data-&gt;{&lsquo;size&rsquo;} += $hdr-&gt;{&lsquo;content-length&rsquo;};<br />
+                $data-&gt;{&lsquo;time&rsquo;} += ( time - $hdr_time );<br />
+                $cv-&gt;end;<br />
+            }<br />
+        ;<br />
+    } <br />
+    $cv-&gt;recv;<br />
+    return $data;<br />
+}<br />
+```</p>
+<p>增加了简单的统计功能，包括每秒请求数、平均下载速度，状态码汇总等。因为不好计算header的长度，所以只计算body部分的下载速度。<br />
 增加了url列表功能，每次请求会随机的抽取其中的一个url。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/07/07/intro-ipc-locker" title="IPC::Locker模块介绍">&larr; Previous</a></li>
+        <li class="prev"><a href="/2012/07/07/intro-ipc-locker/" title="IPC::Locker模块介绍">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/07/30/dancer-plugin-demo" title="一个Dancer::Plugin的实例">Next &rarr;</a></li>
+        <li class="next"><a href="/2012/07/30/dancer-plugin-demo/" title="一个Dancer::Plugin的实例">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -193,15 +197,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,38 +53,44 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>和apache、nginx一样，resin也自带了一个比较简易的status模块，只需要在resin.conf里配置就行了。在里添加如下一段：</p>
-<div class="highlight"><pre><code class="language-xml" data-lang="xml"><span class="nt">&lt;servlet-mapping</span> <span class="na">servlet-class=</span><span class="s">&#39;com.caucho.servlets.ResinStatusServlet&#39;</span><span class="nt">&gt;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nt">&lt;servlet-mapping</span> <span class="na">servlet-class=</span><span class="s">'com.caucho.servlets.ResinStatusServlet'</span><span class="nt">&gt;</span>
       <span class="nt">&lt;url-pattern&gt;</span>/resin-status<span class="nt">&lt;/url-pattern&gt;</span>
-      <span class="nt">&lt;init</span> <span class="na">enable=</span><span class="s">&quot;read&quot;</span><span class="nt">/&gt;</span>
-    <span class="nt">&lt;/servlet-mapping&gt;</span></code></pre></div>
+      <span class="nt">&lt;init</span> <span class="na">enable=</span><span class="s">"read"</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;/servlet-mapping&gt;</span>
+</code></pre>
+</div>
 <p>重启resin即可。</p>
 <p>然后curl访问http://127.0.0.1:8080/resin-status就可以看到输出了。</p>
-<p>用浏览器的话，大致如下图：
+<p>用浏览器的话，大致如下图：<br />
 <img src="/images/uploads/resin.jpg" alt="resin" /></p>
 <p>可以关注线程数、连接数、内存使用大小和请求处理数。</p>
 <p>如果要做监控的话，直接从html里获取相应数值即可。</p>
 <p>唯一需要稍微注意的是请求处理数。因为其他的都是AVERAGE，只有这个是COUNTER型的。要是想很方便的看到rps。可以采用如下方法查看：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c"># a=`curl -s http://127.0.0.1:8081/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 1;curl -s http://10.168.168.56:8081/resin-status|awk -F/ &#39;/Invocation/{print($NF-&#39;$a&#39;}&#39;</span>
-718</code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="c"># a=`curl -s http://127.0.0.1:8081/resin-status|awk -F/ '/Invocation/{print $NF}'`;sleep 1;curl -s http://10.168.168.56:8081/resin-status|awk -F/ '/Invocation/{print($NF-'$a'}'</span>
+718
+</code></pre>
+</div>
 <p>这里比较有趣的是因为这行的数据本身是有个括号的，所以就有了各种各样的写法和报错了。一并贴上来，可以体会一下awk的系统变量/内部函数/字符类型的用法：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&#39;$a&#39;}&#39;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ '/Invocation/{print $NF}'`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ '/Invocation/{print $NF-'$a'}'</span>
 awk: cmd. line:1: /Invocation/<span class="o">{</span>print <span class="nv">$NF</span>-3949612<span class="o">)}</span>
 awk: cmd. line:1:                               ^ syntax error
-<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&#39;&quot;$a&quot;&#39;}&#39;</span>
+<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ '/Invocation/{print $NF}'`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ '/Invocation/{print $NF-'"$a"'}'</span>
 awk: cmd. line:1: /Invocation/<span class="o">{</span>print <span class="nv">$NF</span>-4025373<span class="o">)}</span>
 awk: cmd. line:1:                               ^ syntax error
-<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&quot;&#39;$a&#39;&quot;}&#39;</span>
+<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ '/Invocation/{print $NF}'`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ '/Invocation/{print $NF-"'$a'"}'</span>
 7607
-<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print substr($NF,0,length($NF)-1)}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF-&#39;$a&#39;}&#39;</span>
+<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ '/Invocation/{print substr($NF,0,length($NF)-1)}'`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ '/Invocation/{print $NF-'$a'}'</span>
 7927
-<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print $NF}&#39;`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ &#39;/Invocation/{print($NF-&#39;$a&#39;}&#39;</span>
-7212</code></pre></div>
+<span class="c"># a=`curl -s http://127.0.0.1:8080/resin-status|awk -F/ '/Invocation/{print $NF}'`;sleep 10;curl -s http://127.0.0.1:8080/resin-status|awk -F/ '/Invocation/{print($NF-'$a'}'</span>
+7212
+</code></pre>
+</div>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/01/11/construct-http-auth-header" title="HTTP的auth请求模拟">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/01/11/construct-http-auth-header/" title="HTTP的auth请求模拟">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/01/13/learning-accel-dynamic-data" title="读《基于动态内容的缓存加速技术》笔记">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/01/13/learning-accel-dynamic-data/" title="读《基于动态内容的缓存加速技术》笔记">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -128,15 +134,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

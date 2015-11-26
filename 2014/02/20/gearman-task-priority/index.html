@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -55,52 +55,58 @@
     <p>今天同事跟我说 Gearman 客户端添加任务的时候似乎设置优先级没有效果，于是去实现了一下，发现 Gearman 的任务优先级只有在任务本身属性完全一致的时候才能起到作用。比如说：新提交的 background 任务优先级虽然是 high，也不会在已经提交的<em>非</em> background、优先级是 low 的任务之前执行。</p>
 <p>考虑到之前没用过优先级，这里贴一下测试代码当做笔记：</p>
 <h1 id="worker">worker</h1>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="n">Worker</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$worker</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">Gearman::XS::</span><span class="n">Worker</span><span class="p">;</span>
-<span class="k">my</span> <span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;10.4.1.21&#39;</span><span class="p">,</span> <span class="mi">4730</span><span class="p">);</span> 
-<span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">add_server</span><span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">add_function</span><span class="p">(</span><span class="s">&quot;reverse&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">\&amp;</span><span class="nb">reverse</span><span class="p">,</span> <span class="nv">$options</span><span class="p">);</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="nv">Worker</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$worker</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">Gearman::XS::</span><span class="nv">Worker</span><span class="p">;</span>
+<span class="k">my</span> <span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="s">'10.4.1.21'</span><span class="p">,</span> <span class="mi">4730</span><span class="p">);</span> 
+<span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$worker</span><span class="o">-&gt;</span><span class="nv">add_server</span><span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$worker</span><span class="o">-&gt;</span><span class="nv">add_function</span><span class="p">(</span><span class="s">"reverse"</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">\&amp;</span><span class="nb">reverse</span><span class="p">,</span> <span class="nv">$options</span><span class="p">);</span>
 <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
-  <span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$worker</span><span class="o">-&gt;</span><span class="n">work</span><span class="p">();</span>
+  <span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$worker</span><span class="o">-&gt;</span><span class="nv">work</span><span class="p">();</span>
 <span class="p">}</span>
 <span class="k">sub </span><span class="nf">reverse</span> <span class="p">{</span>
   <span class="k">my</span> <span class="nv">$job</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-  <span class="k">my</span> <span class="nv">$workload</span> <span class="o">=</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">workload</span><span class="p">();</span>
+  <span class="k">my</span> <span class="nv">$workload</span> <span class="o">=</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="nv">workload</span><span class="p">();</span>
   <span class="k">my</span> <span class="nv">$result</span>   <span class="o">=</span> <span class="nv">$workload</span><span class="p">;</span>
-  <span class="nb">printf</span><span class="p">(</span><span class="s">&quot;Job=%s Function_Name=%s Workload=%s Result=%s\n&quot;</span><span class="p">,</span>
-          <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">handle</span><span class="p">(),</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">function_name</span><span class="p">(),</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="n">workload</span><span class="p">(),</span> <span class="nv">$result</span><span class="p">);</span>
+  <span class="nb">printf</span><span class="p">(</span><span class="s">"Job=%s Function_Name=%s Workload=%s Result=%s\n"</span><span class="p">,</span>
+          <span class="nv">$job</span><span class="o">-&gt;</span><span class="nv">handle</span><span class="p">(),</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="nv">function_name</span><span class="p">(),</span> <span class="nv">$job</span><span class="o">-&gt;</span><span class="nv">workload</span><span class="p">(),</span> <span class="nv">$result</span><span class="p">);</span>
   <span class="nb">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>
   <span class="k">return</span> <span class="nv">$result</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
+<span class="p">}</span>
+</code></pre>
+</div>
 <h1 id="client">client</h1>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="n">Client</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Time::</span><span class="n">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$client</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">Gearman::XS::</span><span class="n">Client</span><span class="p">;</span>
-<span class="k">my</span> <span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;10.4.1.21&#39;</span><span class="p">,</span> <span class="mi">4730</span><span class="p">);</span> 
-<span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">add_server</span><span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">);</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="nv">Client</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Time::</span><span class="nv">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$client</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">Gearman::XS::</span><span class="nv">Client</span><span class="p">;</span>
+<span class="k">my</span> <span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="s">'10.4.1.21'</span><span class="p">,</span> <span class="mi">4730</span><span class="p">);</span> 
+<span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="nv">add_server</span><span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">);</span>
 <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$ret</span><span class="p">,</span> <span class="nv">$job_handle</span><span class="p">)</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">do_background</span><span class="p">(</span><span class="s">&quot;reverse&quot;</span><span class="p">,</span> <span class="s">&#39;low&#39;</span><span class="o">.</span><span class="nb">time</span><span class="p">()</span> <span class="p">);</span>
-<span class="p">}</span></code></pre></div>
+    <span class="k">my</span> <span class="p">(</span><span class="nv">$ret</span><span class="p">,</span> <span class="nv">$job_handle</span><span class="p">)</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="nv">do_background</span><span class="p">(</span><span class="s">"reverse"</span><span class="p">,</span> <span class="s">'low'</span><span class="o">.</span><span class="nb">time</span><span class="p">()</span> <span class="p">);</span>
+<span class="p">}</span> 
+</code></pre>
+</div>
 <h1 id="high-client">high-client</h1>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="n">Client</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Time::</span><span class="n">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$client</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">Gearman::XS::</span><span class="n">Client</span><span class="p">;</span>
-<span class="k">my</span> <span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;10.4.1.21&#39;</span><span class="p">,</span> <span class="mi">4730</span><span class="p">);</span> 
-<span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">add_server</span><span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">);</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">use</span> <span class="nn">Gearman::XS::</span><span class="nv">Client</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Time::</span><span class="nv">HiRes</span> <span class="sx">qw/time/</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$client</span> <span class="o">=</span> <span class="k">new</span> <span class="nn">Gearman::XS::</span><span class="nv">Client</span><span class="p">;</span>
+<span class="k">my</span> <span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="s">'10.4.1.21'</span><span class="p">,</span> <span class="mi">4730</span><span class="p">);</span> 
+<span class="k">my</span> <span class="nv">$ret</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="nv">add_server</span><span class="p">(</span><span class="nv">$host</span><span class="p">,</span> <span class="nv">$port</span><span class="p">);</span>
 <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$ret</span><span class="p">,</span> <span class="nv">$job_handle</span><span class="p">)</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="n">do_high_background</span><span class="p">(</span><span class="s">&quot;reverse&quot;</span><span class="p">,</span> <span class="s">&#39;high&#39;</span><span class="o">.</span><span class="nb">time</span><span class="p">()</span> <span class="p">);</span>
-<span class="p">}</span></code></pre></div>
+    <span class="k">my</span> <span class="p">(</span><span class="nv">$ret</span><span class="p">,</span> <span class="nv">$job_handle</span><span class="p">)</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="nv">do_high_background</span><span class="p">(</span><span class="s">"reverse"</span><span class="p">,</span> <span class="s">'high'</span><span class="o">.</span><span class="nb">time</span><span class="p">()</span> <span class="p">);</span>
+<span class="p">}</span> 
+</code></pre>
+</div>
 <p>同时运行三个脚本，可以看到 worker 的输出，一直都是这样：</p>
-<p>Job=H:YZSJHL1-21.opi.com:29434227 Function_Name=reverse Workload=high:1392887687.87583 Result=high:1392887687.87583
-Job=H:YZSJHL1-21.opi.com:29434228 Function_Name=reverse Workload=high:1392887687.87594 Result=high:1392887687.87594
+<p>Job=H:YZSJHL1-21.opi.com:29434227 Function_Name=reverse Workload=high:1392887687.87583 Result=high:1392887687.87583<br />
+Job=H:YZSJHL1-21.opi.com:29434228 Function_Name=reverse Workload=high:1392887687.87594 Result=high:1392887687.87594<br />
 Job=H:YZSJHL1-21.opi.com:29434229 Function_Name=reverse Workload=high:1392887687.87605 Result=high:1392887687.87605</p>
 <p>全都是高优先级的任务</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2014/02/20/diff-between-lsddistid-and-operatingsystem-facts-variables" title="Facts 变量中 lsbdistid 和 operatingsystem 的区别">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/02/20/diff-between-lsddistid-and-operatingsystem-facts-variables/" title="Facts 变量中 lsbdistid 和 operatingsystem 的区别">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/03/07/genarate-fig-from-diagramo" title="转换 diagramo 绘制的拓扑图成 fig.yml 格式">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/03/07/genarate-fig-from-diagramo/" title="转换 diagramo 绘制的拓扑图成 fig.yml 格式">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -144,15 +150,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -54,44 +54,48 @@
   <div style='background-color: #FFF;'>
     <p>公司服务器一般通过ssh进行远程管理。以前大家登录的时候，都是随意选内外网IP进入。王总接手后，说这事隐患太大了，必须禁了外网ssh。第一思路，用iptables把外网ssh的包DROP掉；第二思路，用tcpwrapper把sshd的allow写死；第三思路，修改sshd_config，只监听内网请求。</p>
 <p>由于一些说不清楚的原因，iptables的办法没法用；而tcpwrapper占用CPU资源较多；所以最后决定用第三种办法。</p>
-<p>公司服务器比较多，而且根据随机登录查看的结果，sshd_config内容居然还太不一样～～手工干了一天，改了两组服务器后，终于下定决心要整个全自动脚本出来干活……
+<p>公司服务器比较多，而且根据随机登录查看的结果，sshd_config内容居然还太不一样～～手工干了一天，改了两组服务器后，终于下定决心要整个全自动脚本出来干活……<br />
 目前的办法是这样的：</p>
-<p>cat ssh.exp</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/usr/bin/expect -f</span>
+<p>cat ssh.exp<br />
+<code class="highlighter-rouge">bash
+#!/usr/bin/expect -f
 log_file exp.log
-<span class="nb">set </span>timeout -1
-<span class="nb">set </span>ipaddr <span class="o">[</span>lrange <span class="nv">$argv</span> <span class="m">0</span> 0<span class="o">]</span>
-<span class="k">for</span> <span class="o">{</span><span class="nb">set </span>i 1<span class="o">}</span> <span class="o">{</span><span class="nv">$i</span>&lt;4<span class="o">}</span> <span class="o">{</span>incr i<span class="o">}</span> <span class="o">{</span>
-    spawn ssh <span class="nv">$ipaddr</span>
-    expect <span class="o">{</span>
-        <span class="s2">&quot;*password:&quot;</span> <span class="nb">break</span>
-        <span class="s2">&quot;to host&quot;</span> <span class="o">{</span>sleep 2<span class="o">}</span><span class="p">;</span>
+set timeout -1
+set ipaddr [lrange $argv 0 0]
+for {set i 1} {$i&lt;4} {incr i} {
+    spawn ssh $ipaddr
+    expect {
+        "*password:" break
+        "to host" {sleep 2};
         sleep 3
-    <span class="o">}</span>
-<span class="o">}</span>
-send <span class="s2">&quot;123456r&quot;</span>
-expect <span class="s2">&quot;]#&quot;</span>
-send <span class="s2">&quot;cd /etc/sshr&quot;</span>
-send <span class="s2">&quot;cp sshd_config sshd_config.`date +%F-%T`.bakr&quot;</span>
-send <span class="s2">&quot;sed -i /^ListenAddress.*$/d sshd_configr&quot;</span>
-send <span class="s2">&quot;echo ListenAddress `/sbin/ifconfig eth0|awk &#39;/inet /{print $2}&#39;|awk -F: &#39;{print $2}&#39;` &gt;&gt; sshd_configr&quot;</span>
-send <span class="s2">&quot;service sshd restartr&quot;</span>
-send <span class="s2">&quot;exitr&quot;</span>
-interact</code></pre></div>
-<p>cat do.sh</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/bin/sh</span>
-<span class="k">for</span> ip in <span class="sb">`</span>cat ip.lst<span class="sb">`</span>
-<span class="k">do</span>
-    ./ssh.exp <span class="nv">$ip</span> &gt; /dev/null 2&gt;<span class="p">&amp;</span>1
-<span class="k">done</span>
-cat exp.log <span class="p">|</span> grep host <span class="p">|</span> awk <span class="s1">&#39;{print $5}&#39;</span><span class="p">|</span>sort<span class="p">|</span>uniq &gt;&gt; errorip
-<span class="nb">echo</span> <span class="s2">&quot;以下IP无法修改&quot;</span><span class="p">;</span>cat errorip</code></pre></div>
+    }
+}
+send "123456r"
+expect "]#"
+send "cd /etc/sshr"
+send "cp sshd_config sshd_config.`date +%F-%T`.bakr"
+send "sed -i /^ListenAddress.*$/d sshd_configr"
+send "echo ListenAddress `/sbin/ifconfig eth0|awk '/inet /{print $2}'|awk -F: '{print $2}'` &gt;&gt; sshd_configr"
+send "service sshd restartr"
+send "exitr"
+interact
+</code><br />
+cat do.sh<br />
+<code class="highlighter-rouge">bash
+#!/bin/sh
+for ip in `cat ip.lst`
+do
+    ./ssh.exp $ip &gt; /dev/null 2&gt;&amp;1
+done
+cat exp.log | grep host | awk '{print $5}'|sort|uniq &gt;&gt; errorip
+echo "以下IP无法修改";cat errorip
+</code></p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2009/11/03/expect-log-analysis" title="expect日志分析">&larr; Previous</a></li>
+        <li class="prev"><a href="/2009/11/03/expect-log-analysis/" title="expect日志分析">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2009/11/03/learning-sed" title="sed使用">Next &rarr;</a></li>
+        <li class="next"><a href="/2009/11/03/learning-sed/" title="sed使用">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -135,15 +139,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

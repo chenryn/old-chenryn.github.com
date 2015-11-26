@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,48 +52,48 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>上篇加了bash_history的监控，这篇说mysql_history的监控。不像bash4，mysql自始至终没有提供过syslog的代码，只能自己通过守护进程去实时获取~/.mysql_history的记录了。一个小脚本如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="k">use</span> <span class="n">POE</span> <span class="sx">qw(Wheel::FollowTail)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Log::Syslog::</span><span class="n">Fast</span> <span class="sx">qw(:all)</span><span class="p">;</span>
-<span class="nb">defined</span><span class="p">(</span><span class="k">my</span> <span class="nv">$pid</span> <span class="o">=</span> <span class="nb">fork</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;Cant fork:$!&quot;</span><span class="p">;</span>
-<span class="k">unless</span><span class="p">(</span><span class="nv">$pid</span><span class="p">){</span>  
-<span class="p">}</span><span class="k">else</span><span class="p">{</span>
-         <span class="nb">exit</span> <span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="nn">POE::</span><span class="n">Session</span><span class="o">-&gt;</span><span class="n">create</span><span class="p">(</span>
-    <span class="n">inline_states</span> <span class="o">=&gt;</span> <span class="p">{</span>
-      <span class="n">_start</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-        <span class="nv">$_</span><span class="p">[</span><span class="n">HEAP</span><span class="p">]{</span><span class="n">tailor</span><span class="p">}</span> <span class="o">=</span> <span class="nn">POE::Wheel::</span><span class="n">FollowTail</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span>
-          <span class="n">Filename</span> <span class="o">=&gt;</span> <span class="s">&quot;/root/.mysql_history&quot;</span><span class="p">,</span>
-          <span class="n">InputEvent</span> <span class="o">=&gt;</span> <span class="s">&quot;got_log_line&quot;</span><span class="p">,</span>
-          <span class="n">ResetEvent</span> <span class="o">=&gt;</span> <span class="s">&quot;got_log_rollover&quot;</span><span class="p">,</span>
-        <span class="p">);</span>
-      <span class="p">},</span>
-      <span class="n">got_log_line</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-<span class="c1">#通过Data::Dumper看到实际是$_[10]，不过在POE::Session里定义了sub ARG0 () { 10 };这样写起来简单了</span>
-        <span class="n">to_rsyslog</span><span class="p">(</span><span class="nv">$_</span><span class="p">[</span><span class="n">ARG0</span><span class="p">]);</span>
-      <span class="p">},</span>
-      <span class="n">got_log_rollover</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-        <span class="n">to_rsyslog</span><span class="p">(</span><span class="s">&#39;roll&#39;</span><span class="p">);</span>
-      <span class="p">},</span>
-    <span class="p">}</span>
-<span class="p">);</span>
-<span class="nn">POE::</span><span class="n">Kernel</span><span class="o">-&gt;</span><span class="n">run</span><span class="p">();</span>
-<span class="nb">exit</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">to_rsyslog</span> <span class="p">{</span>
-  <span class="nv">$message</span> <span class="o">=</span> <span class="nb">join</span><span class="s">&#39; &#39;</span><span class="p">,</span><span class="nv">@_</span><span class="p">;</span>
-<span class="c1">#rsyslog开的是UDP的514端口；而LOG_LOCAL0和LOG_INFO都是syslog定义的，乱写的话会自动归入kernel | alert</span>
-  <span class="k">my</span> <span class="nv">$logger</span> <span class="o">=</span> <span class="nn">Log::Syslog::</span><span class="n">Fast</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">(</span><span class="n">LOG_UDP</span><span class="p">,</span> <span class="s">&quot;10.0.0.123&quot;</span><span class="p">,</span> <span class="mi">514</span><span class="p">,</span> <span class="n">LOG_LOCAL0</span><span class="p">,</span> <span class="n">LOG_INFO</span><span class="p">,</span> <span class="s">&quot;mysql_231&quot;</span><span class="p">,</span> <span class="s">&quot;mysql_monitor&quot;</span><span class="p">);</span>
-  <span class="nv">$logger</span><span class="o">-&gt;</span><span class="nb">send</span><span class="p">(</span><span class="nv">$message</span> <span class="p">,</span><span class="nb">time</span><span class="p">);</span>
-<span class="p">};</span></code></pre></div>
+    <p>上篇加了bash_history的监控，这篇说mysql_history的监控。不像bash4，mysql自始至终没有提供过syslog的代码，只能自己通过守护进程去实时获取~/.mysql_history的记录了。一个小脚本如下：<br />
+```perl#!/usr/bin/perl -w<br />
+use POE qw(Wheel::FollowTail);<br />
+use Log::Syslog::Fast qw(:all);</p>
+<p>defined(my $pid = fork) or die &ldquo;Cant fork:$!&rdquo;;<br />
+unless($pid){  <br />
+}else{<br />
+         exit 0;<br />
+}</p>
+<p>POE::Session-&gt;create(<br />
+    inline_states =&gt; {<br />
+      <em>start =&gt; sub {<br />
+        $</em>[HEAP]{tailor} = POE::Wheel::FollowTail-&gt;new(<br />
+          Filename =&gt; &ldquo;/root/.mysql_history&rdquo;,<br />
+          InputEvent =&gt; &ldquo;got_log_line&rdquo;,<br />
+          ResetEvent =&gt; &ldquo;got_log_rollover&rdquo;,<br />
+        );<br />
+      },<br />
+      got_log_line =&gt; sub {<br />
+#通过Data::Dumper看到实际是$<em>[10]，不过在POE::Session里定义了sub ARG0 () { 10 };这样写起来简单了<br />
+        to_rsyslog($</em>[ARG0]);<br />
+      },<br />
+      got_log_rollover =&gt; sub {<br />
+        to_rsyslog(&lsquo;roll&rsquo;);<br />
+      },<br />
+    }<br />
+);</p>
+<p>POE::Kernel-&gt;run();<br />
+exit;</p>
+<p>sub to_rsyslog {<br />
+  $message = join&rsquo; &lsquo;,@_;<br />
+#rsyslog开的是UDP的514端口；而LOG_LOCAL0和LOG_INFO都是syslog定义的，乱写的话会自动归入kernel | alert<br />
+  my $logger = Log::Syslog::Fast-&gt;new(LOG_UDP, &ldquo;10.0.0.123&rdquo;, 514, LOG_LOCAL0, LOG_INFO, &ldquo;mysql_231&rdquo;, &ldquo;mysql_monitor&rdquo;);<br />
+  $logger-&gt;send($message ,time);<br />
+};```</p>
 <p>当然，mysql的history其实不止一个位置，需要判断~</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/07/08/bash_syslog_history" title="bash_syslog_history">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/07/08/bash_syslog_history/" title="bash_syslog_history">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/07/21/some-tests-about-perl" title="perl小测试题(转自CU)">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/07/21/some-tests-about-perl/" title="perl小测试题(转自CU)">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -137,15 +137,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

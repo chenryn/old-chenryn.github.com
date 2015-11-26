@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -56,51 +56,55 @@
 <p>经历过上次事故后，我对全局变量已经大大的有不安全感，包括 puppet 3.0 新进内核的 hiera (<a href="http://docs.puppetlabs.com/puppet/3/reference/lang_classes.html#using-hierainclude">官网介绍文档</a>中也说是&rdquo;like a lightweight ENC&rdquo;)。虽然 module::role 看起来很多是重复内容，还是让人工的操作多经过一些检测才放心。</p>
 <p>从 2.7 升级到 3.0 没有太多的不适应。官网上列了很多<a href="http://docs.puppetlabs.com/puppet/3/reference/release_notes.html">不同</a>。不过实际上基本没改动什么。</p>
 <ul>
-  <li>运行命令统一成 <code>puppet command</code> 的形式，2.7的时候还保留的一堆命令都没有了。</li>
-  <li><code>--apply</code> 改成 <code>--catalog</code>  了。不过这个其实我没用过。</li>
-  <li><code>pluginsync</code> 默认开启了。这个是替代 <code>factsync</code> 的。2.7 的时候默认还是关闭。给 facter 写插件应该是很容易而且很必要的事情。</li>
-  <li>master 内置 webserver 取消了。也就是说原先各种优化文档里的 <code>--servertype=mongrel</code> 没用了。但是 3.0 变成了标准 Rack 应用。直接在 <code>/etc/puppet/rack</code> 下运行 <code>rackup -s thin -p 18140 -D -P /tmp/puppetmaster.pid</code> 就可以了。</li>
-  <li>自然对应的 rack 配置文件 <code>config.ru</code> 改了，看 example 就好。</li>
-  <li><code>include</code> 可以传递数组</li>
+  <li>运行命令统一成 <code class="highlighter-rouge">puppet command</code> 的形式，2.7的时候还保留的一堆命令都没有了。</li>
+  <li><code class="highlighter-rouge">--apply</code> 改成 <code class="highlighter-rouge">--catalog</code>  了。不过这个其实我没用过。</li>
+  <li><code class="highlighter-rouge">pluginsync</code> 默认开启了。这个是替代 <code class="highlighter-rouge">factsync</code> 的。2.7 的时候默认还是关闭。给 facter 写插件应该是很容易而且很必要的事情。</li>
+  <li>master 内置 webserver 取消了。也就是说原先各种优化文档里的 <code class="highlighter-rouge">--servertype=mongrel</code> 没用了。但是 3.0 变成了标准 Rack 应用。直接在 <code class="highlighter-rouge">/etc/puppet/rack</code> 下运行 <code class="highlighter-rouge">rackup -s thin -p 18140 -D -P /tmp/puppetmaster.pid</code> 就可以了。</li>
+  <li>自然对应的 rack 配置文件 <code class="highlighter-rouge">config.ru</code> 改了，看 example 就好。</li>
+  <li><code class="highlighter-rouge">include</code> 可以传递数组</li>
   <li>agent 的 lockfile 把 fork running 和 disabled 区分成两个文件了。不知道能不能消灭掉原先 agent 跑着跑着僵死的情况。</li>
 </ul>
 <p>以上是官网列举的主要内容。以下还有我__实际测试中发现的问题__：</p>
 <ul>
-  <li>agent 的 puppet.conf 里需要添加一行 <code>preferred_serialization_format = yaml</code>，否则默认使用 pson 会直接报错。</li>
+  <li>agent 的 puppet.conf 里需要添加一行 <code class="highlighter-rouge">preferred_serialization_format = yaml</code>，否则默认使用 pson 会直接报错。</li>
 </ul>
 <hr />
 <p>今天重温了一下 github 在 puppetconf 上的讲演<a href="https://speakerdeck.com/jnewland/chatops">《chatops》</a>。当然对其中的 hubot 不是重点关注。主要是其中提到的 rodjek 的几个 puppet 相关的项目觉得蛮有用的。</p>
 <ul>
-  <li>puppet-lint </li>
+  <li>puppet-lint</li>
 </ul>
 <p>地址：<a href="https://github.com/rodjek/puppet-lint.git">https://github.com/rodjek/puppet-lint.git</a></p>
-<p>这是一个语法格式检查器，如果 ERROR 会 <code>exit 1</code>。之前两天我还刚在 CPAN 上发现过一个 <a href="https://metacpan.org/module/Puppet::Tidy">Puppet::Tidy</a> 模块。不过目前为止，这两个都不是很满意：</p>
+<p>这是一个语法格式检查器，如果 ERROR 会 <code class="highlighter-rouge">exit 1</code>。之前两天我还刚在 CPAN 上发现过一个 <a href="https://metacpan.org/module/Puppet::Tidy">Puppet::Tidy</a> 模块。不过目前为止，这两个都不是很满意：</p>
 <ol>
   <li>puppet-lint 只能检查格式而不会替你修改格式。</li>
   <li>puppet-tidy 可以修改格式但是它对格式的检查太简陋了。</li>
 </ol>
 <p>当然比 puppet-tidy 稍微好一些的 puppet-lint 也不是很精准，比如他会对所有用双引号定义的变量报 &ldquo;WARNING: double quoted string containing no variables&rdquo;；而 puppet-tidy 更奇怪的给我 ip 地址的最后一段再加上了一个单引号变成了下面这个样子：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nv">$iplist</span> <span class="o">=</span> <span class="p">[</span><span class="s">&quot;192.168.1.&#39;2&#39;&quot;</span><span class="p">,</span><span class="s">&quot;192.168.1.&#39;3&#39;&quot;</span><span class="p">]</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="nv">$iplist</span> <span class="o">=</span> <span class="p">[</span><span class="s">"192.168.1.'2'"</span><span class="p">,</span><span class="s">"192.168.1.'3'"</span><span class="p">]</span>
+</code></pre>
+</div>
 <p>只能说规范化任重道远。</p>
 <ul>
   <li>puppet-profiler</li>
 </ul>
 <p>地址：<a href="https://github.com/rodjek/puppet-profiler.git">https://github.com/rodjek/puppet-profiler.git</a></p>
-<p>这是一个 agent 执行的调试器，不过至今为止功能也还很简单：就是执行一次 </p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">puppet agent --test --evaltrace --nocolor</code></pre></div>
+<p>这是一个 agent 执行的调试器，不过至今为止功能也还很简单：就是执行一次</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    puppet agent --test --evaltrace --nocolor
+</code></pre>
+</div>
 <p>排序各个 Resource 的执行耗时，并打印前十名。</p>
 <ul>
   <li>rspec-puppet</li>
 </ul>
 <p>地址：<a href="https://github.com/rodjek/rspec-puppet">https://github.com/rodjek/rspec-puppet</a></p>
-<p>这是一个 puppet 的 rspec 测试工具扩展。注意他依赖于 <code>puppetlabs_spec_helper</code> 但是 gem 里却没写。。。</p>
+<p>这是一个 puppet 的 rspec 测试工具扩展。注意他依赖于 <code class="highlighter-rouge">puppetlabs_spec_helper</code> 但是 gem 里却没写。。。</p>
 <p>使用方法看 github 上的说明比较详细了，稍后我再单写一篇介绍。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/01/10/rspec-puppet-intro" title="给 puppet 写 Rspec 测试用例">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/01/10/rspec-puppet-intro/" title="给 puppet 写 Rspec 测试用例">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/01/11/systemtap-to-debug-kmsg-dump" title="用 systemtap 调试 kmsg dump">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/01/11/systemtap-to-debug-kmsg-dump/" title="用 systemtap 调试 kmsg dump">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -144,15 +148,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

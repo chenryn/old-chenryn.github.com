@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -49,37 +49,41 @@
     <div class="date"><span>14 November 2009</span></div>
   </div>
   <div style='background-color: #FFF;'>
-    <p>做网站的，谁愿意自己辛辛苦苦的成果就被别人轻松转载，如果是文字的，一般也就禁鼠标右键，再没什么好办法（当然，名人好打官司另说），但如果是图片，影音的文件，大可以利用http协议的header信息进行控制，这就是大多数web服务器日志要记录的referer。
+    <p>做网站的，谁愿意自己辛辛苦苦的成果就被别人轻松转载，如果是文字的，一般也就禁鼠标右键，再没什么好办法（当然，名人好打官司另说），但如果是图片，影音的文件，大可以利用http协议的header信息进行控制，这就是大多数web服务器日志要记录的referer。<br />
 公司新进一测试客户，就要求CDN方配合做防盗链。</p>
-<p>公司自然有规范，直接ctrl+c、ctrl+v就搞定。但这些句子，还是值得细细研究一下的。
-相关语句如下：</p>
-<div class="highlight"><pre><code class="language-squid" data-lang="squid"><span class="k">acl</span><span class="w"> </span>test_domain<span class="w"> </span><span class="k">dstdomain</span><span class="w"> </span>.test.com<span class="w"></span>
-<span class="k">acl</span><span class="w"> </span>null_referer<span class="w"> </span><span class="k">referer_regex</span><span class="w"> </span>.<span class="w"></span>
-<span class="k">acl</span><span class="w"> </span>right_referer<span class="w"> </span><span class="k">referer_regex</span><span class="w"> </span>-i<span class="w"></span>
-^http://test.com<span class="w"> </span>^http://.*.test.com<span class="w"></span>
-<span class="k">http_access</span><span class="w"> </span><span class="no">allow</span><span class="w"> </span>test_domain<span class="w"> </span>!null_referer<span class="w"></span>
-<span class="k">http_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span>test_domain<span class="w"> </span>!right_referer<span class="w"></span></code></pre></div>
-<p>第一关键点，是第一行的那个“.”，“.”匹配的是除了“n”以外的任何一个字符。那么!null_referer也就是“n”，也就是说第一条access定义的，是允许referer为空行；</p>
+<p>公司自然有规范，直接ctrl+c、ctrl+v就搞定。但这些句子，还是值得细细研究一下的。<br />
+相关语句如下：<br />
+<code class="highlighter-rouge">squid
+acl test_domain dstdomain .test.com
+acl null_referer referer_regex .
+acl right_referer referer_regex -i
+^http://test.com ^http://.*.test.com
+http_access allow test_domain !null_referer
+http_access deny test_domain !right_referer
+</code><br />
+第一关键点，是第一行的那个“.”，“.”匹配的是除了“n”以外的任何一个字符。那么!null_referer也就是“n”，也就是说第一条access定义的，是允许referer为空行；</p>
 <p>第二关键点，是access的“!”，“!”就是非，那么!right_referer定义的就是一切除了test.com以外的域名，也就是说第二条access定义的，是不允许所有其他网站。</p>
 <p>这样的结果，也就是只有从test自己的网站，或者直接在浏览器地址栏里输入完整url，才能看到文件（linux上常用的wget、curl，默认的referer也是空，所以也可以。我又试试迅雷，其referer也是空，那么估计下载工具也都是这样）</p>
 <p>（比较奇怪的一点是：squid的日志里，空不显示为“ ”，而是“-”，很能迷惑人呀！）</p>
 <p>于是我想到新浪和百度呀这些博客之间转来转去的图片，一般都显示一个空图，但点开来（或许还要再刷一次）也一样能看。可见防盗链都是这么做的。</p>
 <p>如果真就狠到了连直接url查看也不让，那就把null_referer的定义删除掉，自然也就可以了……</p>
-<p>试到这里，发现另一个问题：nagios的监控，一般也是空referer的，如果真这么狠的要求，这个监控也得改了。
-因为不管是curl还是wget，都可以伪装referer。
-两个的伪装语法分别是：
-curl -e &ldquo;http://www.test.com&rdquo; -x $squidip:80 http://www.test.com/test.gif
+<p>试到这里，发现另一个问题：nagios的监控，一般也是空referer的，如果真这么狠的要求，这个监控也得改了。<br />
+因为不管是curl还是wget，都可以伪装referer。<br />
+两个的伪装语法分别是：<br />
+curl -e &ldquo;http://www.test.com&rdquo; -x $squidip:80 http://www.test.com/test.gif<br />
 wget http://www.test.com/test.gif &ndash;refer=&rdquo;http://www.test.com&rdquo; -e &ldquo;http_proxy=$squidip&rdquo;</p>
-<p>我对nagios不熟，不知道里面具体是用什么去check的，大概也差不离吧？
-最后，像新浪百度这样的盗链显示图片怎么做的？也就是一句话的事，如下：</p>
-<div class="highlight"><pre><code class="language-squid" data-lang="squid"><span class="k">deny_info</span><span class="w"> </span>http://www.test.com/你盗链啦.gif<span class="w"></span>
-right_referer<span class="w"></span></code></pre></div>
+<p>我对nagios不熟，不知道里面具体是用什么去check的，大概也差不离吧？<br />
+最后，像新浪百度这样的盗链显示图片怎么做的？也就是一句话的事，如下：<br />
+<code class="highlighter-rouge">squid
+deny_info http://www.test.com/你盗链啦.gif
+right_referer
+</code></p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2009/11/12/awk-variable-3" title="awk变量（三续）">&larr; Previous</a></li>
+        <li class="prev"><a href="/2009/11/12/awk-variable-3/" title="awk变量（三续）">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2009/11/16/configure-ssl-support-of-squid" title="squid的SSL配置">Next &rarr;</a></li>
+        <li class="next"><a href="/2009/11/16/configure-ssl-support-of-squid/" title="squid的SSL配置">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -123,15 +127,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

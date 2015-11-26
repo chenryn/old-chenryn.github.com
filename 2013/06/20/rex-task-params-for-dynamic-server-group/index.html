@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -54,36 +54,40 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>Rex 默认的服务器组定义方式有三种，直接写在 <code>Rexfile</code> 文件中；每行一个写成 IP 列表保存成文件，然后通过 <code>lookup_file</code> 读取；把组名和 IP 写成 <code>.ini</code> 格式文件，通过 <code>groups_file "$name.ini"</code> 一次性获取。</p>
-<p>如果服务器信息存在数据库里，那么可以通过 <code>Rex::Commands::DB</code> 来快速读取数据库信息，构建服务器组。不过，如果我们是想从数据库中根据查询条件，动态获取服务器列表完成指定任务的话，就没法提前定义好 <code>group</code> 了。这个时候，怎么办呢？</p>
-<p>我们可以利用 <code>task</code> 可以接受命令行参数这个特点，完成这个功能：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="nn">Rex::Commands::</span><span class="n">DB</span> <span class="p">{</span>
-    <span class="n">dsn</span>      <span class="o">=&gt;</span> <span class="s">&quot;dbi:SQLite:dbname=/etc/puppet/webui/node.db&quot;</span><span class="p">,</span>
-    <span class="n">user</span>     <span class="o">=&gt;</span> <span class="s">&quot;&quot;</span><span class="p">,</span>
-    <span class="n">password</span> <span class="o">=&gt;</span> <span class="s">&quot;&quot;</span><span class="p">,</span>
+    <p>Rex 默认的服务器组定义方式有三种，直接写在 <code class="highlighter-rouge">Rexfile</code> 文件中；每行一个写成 IP 列表保存成文件，然后通过 <code class="highlighter-rouge">lookup_file</code> 读取；把组名和 IP 写成 <code class="highlighter-rouge">.ini</code> 格式文件，通过 <code class="highlighter-rouge">groups_file "$name.ini"</code> 一次性获取。</p>
+<p>如果服务器信息存在数据库里，那么可以通过 <code class="highlighter-rouge">Rex::Commands::DB</code> 来快速读取数据库信息，构建服务器组。不过，如果我们是想从数据库中根据查询条件，动态获取服务器列表完成指定任务的话，就没法提前定义好 <code class="highlighter-rouge">group</code> 了。这个时候，怎么办呢？</p>
+<p>我们可以利用 <code class="highlighter-rouge">task</code> 可以接受命令行参数这个特点，完成这个功能：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">use</span> <span class="nn">Rex::Commands::</span><span class="nv">DB</span> <span class="p">{</span>
+    <span class="nv">dsn</span>      <span class="o">=&gt;</span> <span class="s">"dbi:SQLite:dbname=/etc/puppet/webui/node.db"</span><span class="p">,</span>
+    <span class="nv">user</span>     <span class="o">=&gt;</span> <span class="s">""</span><span class="p">,</span>
+    <span class="nv">password</span> <span class="o">=&gt;</span> <span class="s">""</span><span class="p">,</span>
 <span class="p">};</span>
-<span class="n">task</span> <span class="s">&quot;sqlite&quot;</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+<span class="nv">task</span> <span class="s">"sqlite"</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
     <span class="k">my</span> <span class="nv">$param</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$role</span>  <span class="o">=</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">role</span><span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$class</span> <span class="o">=</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">class</span><span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$todo</span>  <span class="o">=</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">todo</span><span class="p">};</span>
-    <span class="nb">grep</span> <span class="p">{</span> <span class="n">run_task</span> <span class="nv">$todo</span><span class="p">,</span> <span class="n">on</span> <span class="o">=&gt;</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">ip</span><span class="p">}</span> <span class="p">}</span> <span class="n">db</span> <span class="nb">select</span> <span class="o">=&gt;</span> <span class="p">{</span>
-        <span class="n">fields</span> <span class="o">=&gt;</span> <span class="s">&quot;ip&quot;</span><span class="p">,</span>
-        <span class="n">from</span>   <span class="o">=&gt;</span> <span class="s">&quot;node_info&quot;</span><span class="p">,</span>
-        <span class="n">where</span>  <span class="o">=&gt;</span> <span class="s">&quot;role like &#39;$role\%&#39; and classes like &#39;\%${class}\%&#39;&quot;</span><span class="p">,</span>
+    <span class="k">my</span> <span class="nv">$role</span>  <span class="o">=</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">role</span><span class="p">};</span>
+    <span class="k">my</span> <span class="nv">$class</span> <span class="o">=</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">class</span><span class="p">};</span>
+    <span class="k">my</span> <span class="nv">$todo</span>  <span class="o">=</span> <span class="nv">$param</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">todo</span><span class="p">};</span>
+    <span class="nb">grep</span> <span class="p">{</span> <span class="nv">run_task</span> <span class="nv">$todo</span><span class="p">,</span> <span class="nv">on</span> <span class="o">=&gt;</span> <span class="nv">$_</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">ip</span><span class="p">}</span> <span class="p">}</span> <span class="nv">db</span> <span class="nb">select</span> <span class="o">=&gt;</span> <span class="p">{</span>
+        <span class="nv">fields</span> <span class="o">=&gt;</span> <span class="s">"ip"</span><span class="p">,</span>
+        <span class="nv">from</span>   <span class="o">=&gt;</span> <span class="s">"node_info"</span><span class="p">,</span>
+        <span class="nv">where</span>  <span class="o">=&gt;</span> <span class="s">"role like '$role\%' and classes like '\%${class}\%'"</span><span class="p">,</span>
     <span class="p">};</span>
 <span class="p">};</span>
-<span class="n">task</span> <span class="s">&#39;hello&#39;</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="n">say</span> <span class="n">run</span> <span class="s">&quot;w&quot;</span><span class="p">;</span>
-<span class="p">};</span></code></pre></div>
+<span class="nv">task</span> <span class="s">'hello'</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="nv">say</span> <span class="nv">run</span> <span class="s">"w"</span><span class="p">;</span>
+<span class="p">};</span>
+</code></pre>
+</div>
 <p>然后这样运行命令即可：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">rex sqlite --role<span class="o">=</span>cdn --class<span class="o">=</span>nginx --todo<span class="o">=</span>hello</code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>rex sqlite --role<span class="o">=</span>cdn --class<span class="o">=</span>nginx --todo<span class="o">=</span>hello
+</code></pre>
+</div>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/06/19/skyline-algorithms-intro" title="【Etsy 的 Kale 系统】skyline 的过滤算法">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/06/19/skyline-algorithms-intro/" title="【Etsy 的 Kale 系统】skyline 的过滤算法">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/06/21/remove-auto-deps-from-rpmbuild" title="如何去除 rpmbuild 自动发现的依赖关系">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/06/21/remove-auto-deps-from-rpmbuild/" title="如何去除 rpmbuild 自动发现的依赖关系">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -127,15 +131,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

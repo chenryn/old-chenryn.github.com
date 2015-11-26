@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,42 +52,50 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>接着说上篇的脚本。
-因为看awk看的入迷，边想把exp.log的处理那段都用awk写出来。惊喜的发现awk有个内置参数NR，而且awk内部也可以进行运算。
-于是上次的脚本就改成了这个样子：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/bin/bash</span>
-<span class="k">for</span> ip in <span class="sb">`</span>cat ip.lst<span class="sb">`</span>
-<span class="k">do</span>
-./ssh.exp <span class="nv">$ip</span> &gt; /dev/null 2<span class="p">&amp;</span>&gt;1
-<span class="k">done</span>
-<span class="nv">NK</span><span class="o">=</span><span class="sb">`</span>awk <span class="s1">&#39;BEGIN{bs=4000000}/access/{if($1&gt;bs){nk=NR-1;print nk}}&#39;</span> exp.log<span class="sb">`</span>
-<span class="k">for</span> nnk in <span class="nv">$NK</span>
-<span class="k">do</span>
-awk -F<span class="s2">&quot;[@|&#39;]&quot;</span> <span class="s1">&#39;NR==&#39;</span><span class="s2">&quot;$nnk&quot;</span><span class="s1">&#39; {print $2}&#39;</span> exp.log
-<span class="k">done</span></code></pre></div>
-<p>然后又发现awk中$0的鬼怪。于是进一步简化成了这个样子：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/bin/bash</span>
-<span class="k">for</span> ip in
-<span class="sb">`</span>cat ip.lst<span class="sb">`</span>
-<span class="k">do</span>
-./ssh.exp <span class="nv">$ip</span> &gt; /dev/null 2<span class="p">&amp;</span>&gt;1
-<span class="k">done</span>
-awk <span class="s1">&#39;BEGIN{bs=4000000}/access/{if($1&gt;bs)print x};{x=$0}&#39;</span> exp.log<span class="p">|</span>awk -F<span class="s2">&quot;[@|&#39;]&quot;</span> <span class="s1">&#39;{print $2}&#39;</span></code></pre></div>
-<p>终于算是圆了自己用一句话搞定它的梦。yeah～
-不过对这个原理还是不很明白。因为print x;x=$0出来是上一行，但print $0则是本行。why?
-网上对打印前一行还提出另一个写法，就看的更莫名其妙了：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">awk <span class="s1">&#39;/regex/{print (x==&quot;&quot;?&quot;&quot;:x)};{x=$0}&#39;</span> <span class="nv">$1</span></code></pre></div>
-<p>而打印后一行是这样：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">awk <span class="s1">&#39;/regex/{getline;print}&#39;</span> <span class="nv">$1</span></code></pre></div>
-<p>不过这毕竟是恰好上下行而已，如果是要前几行的，还是要靠NR运算了。</p>
+    <p>接着说上篇的脚本。<br />
+因为看awk看的入迷，边想把exp.log的处理那段都用awk写出来。惊喜的发现awk有个内置参数NR，而且awk内部也可以进行运算。<br />
+于是上次的脚本就改成了这个样子：<br />
+<code class="highlighter-rouge">bash
+#!/bin/bash
+for ip in `cat ip.lst`
+do
+./ssh.exp $ip &gt; /dev/null 2&amp;&gt;1
+done
+NK=`awk 'BEGIN{bs=4000000}/access/{if($1&gt;bs){nk=NR-1;print nk}}' exp.log`
+for nnk in $NK
+do
+awk -F"[@|']" 'NR=='"$nnk"' {print $2}' exp.log
+done
+</code><br />
+然后又发现awk中$0的鬼怪。于是进一步简化成了这个样子：<br />
+<code class="highlighter-rouge">bash
+#!/bin/bash
+for ip in
+`cat ip.lst`
+do
+./ssh.exp $ip &gt; /dev/null 2&amp;&gt;1
+done
+awk 'BEGIN{bs=4000000}/access/{if($1&gt;bs)print x};{x=$0}' exp.log|awk -F"[@|']" '{print $2}'
+</code><br />
+终于算是圆了自己用一句话搞定它的梦。yeah～<br />
+不过对这个原理还是不很明白。因为print x;x=$0出来是上一行，但print $0则是本行。why?<br />
+网上对打印前一行还提出另一个写法，就看的更莫名其妙了：<br />
+<code class="highlighter-rouge">bash
+awk '/regex/{print (x==""?"":x)};{x=$0}' $1
+</code><br />
+而打印后一行是这样：<br />
+<code class="highlighter-rouge">bash
+awk '/regex/{getline;print}' $1
+</code><br />
+不过这毕竟是恰好上下行而已，如果是要前几行的，还是要靠NR运算了。</p>
 <hr />
 <p>这个问题现在已经知道了，因为awk的流式处理，print x;x=$0，这个时候的x要等到下一行时才print出来。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2009/11/03/automate-configure-squid" title="squid 自动配置脚本">&larr; Previous</a></li>
+        <li class="prev"><a href="/2009/11/03/automate-configure-squid/" title="squid 自动配置脚本">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2009/11/03/expect-log-analysis" title="expect日志分析">Next &rarr;</a></li>
+        <li class="next"><a href="/2009/11/03/expect-log-analysis/" title="expect日志分析">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -131,15 +139,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,28 +52,30 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>首先申明只是一个简单的方式，因为打算的是提取总列表成bind9使用的acl格式，所以不在乎性能问题。
-第一步、从CZ88.NET下载QQWry数据库，然后运行IP.exe，选择“解压”，然后会在桌面生成一个qqwry.txt，这里就有四十多万行的ip记录。格式如下：
-起始ip    结束ip   大区域     小区域
-但是这个大区域也不是想像中的那么整齐，比如清华大学宿舍楼也是大区域的……
-好在我们DNS只需要一个大概的南北指向，根据电信占主流的现实，只要取出来联通的，其他都算电信就行了~
-第二步、把起始ip-结束ip改成acl需要的子网掩码格式，这一步用perl完成，全文如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="k">use</span> <span class="nn">Net::IPAddress::Util::</span><span class="n">Range</span><span class="p">;</span>
-<span class="k">while</span><span class="p">(</span><span class="o">&lt;&gt;</span><span class="p">){</span>
-    <span class="k">next</span> <span class="k">unless</span> <span class="nv">$_</span> <span class="o">=~</span><span class="sr"> /^(\S+)\s+(\S+)\s+(.+)/</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$range</span> <span class="o">=</span> <span class="nn">Net::IPAddress::Util::</span><span class="n">Range</span><span class="o">-&gt;</span><span class="k">new</span><span class="p">({</span> <span class="n">lower</span> <span class="o">=&gt;</span> <span class="nv">$1</span><span class="p">,</span> <span class="n">upper</span> <span class="o">=&gt;</span> <span class="nv">$2</span> <span class="p">});</span>
-    <span class="nb">map</span> <span class="p">{</span><span class="nb">printf</span> <span class="s">&quot;%s\t%s\n&quot;</span><span class="p">,</span> <span class="nv">$_</span><span class="p">,</span> <span class="nv">$3</span> <span class="p">}</span> <span class="nv">$range</span><span class="o">-&gt;</span><span class="n">tight</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">as_cidrs</span><span class="p">();</span>
-<span class="p">}</span></code></pre></div>
-<p>其中tight()-&gt;as_cidrs()其实是Net::IPAddress::Util::Collection的函数（Range.pm里use了这个函数）。tight将不规律的ip段划分成规律的子网，cidrs将类似(1.1.1.0 .. .1.1.1.255)改成1.1.1.0/24。
-如果直接采用Net::IPAddress::Util::Range的$range-&gt;as_cidr()的话，它会把一个不规律的ip段取一个最近的规律子网来显示……比方1.59.0.0-1.60.149.255会被计算成1.57.0.0/13！！
+    <p>首先申明只是一个简单的方式，因为打算的是提取总列表成bind9使用的acl格式，所以不在乎性能问题。<br />
+第一步、从CZ88.NET下载QQWry数据库，然后运行IP.exe，选择“解压”，然后会在桌面生成一个qqwry.txt，这里就有四十多万行的ip记录。格式如下：<br />
+起始ip    结束ip   大区域     小区域<br />
+但是这个大区域也不是想像中的那么整齐，比如清华大学宿舍楼也是大区域的……<br />
+好在我们DNS只需要一个大概的南北指向，根据电信占主流的现实，只要取出来联通的，其他都算电信就行了~<br />
+第二步、把起始ip-结束ip改成acl需要的子网掩码格式，这一步用perl完成，全文如下：<br />
+<code class="highlighter-rouge">perl
+#!/usr/bin/perl -w
+use Net::IPAddress::Util::Range;
+while(&lt;&gt;){
+    next unless $_ =~ /^(\S+)\s+(\S+)\s+(.+)/;
+    my $range = Net::IPAddress::Util::Range-&gt;new({ lower =&gt; $1, upper =&gt; $2 });
+    map {printf "%s\t%s\n", $_, $3 } $range-&gt;tight()-&gt;as_cidrs();
+}
+</code><br />
+其中tight()-&gt;as_cidrs()其实是Net::IPAddress::Util::Collection的函数（Range.pm里use了这个函数）。tight将不规律的ip段划分成规律的子网，cidrs将类似(1.1.1.0 .. .1.1.1.255)改成1.1.1.0/24。<br />
+如果直接采用Net::IPAddress::Util::Range的$range-&gt;as_cidr()的话，它会把一个不规律的ip段取一个最近的规律子网来显示……比方1.59.0.0-1.60.149.255会被计算成1.57.0.0/13！！<br />
 不过这个还有一个问题，就是没有多行合并，导致条目太多~~这个之后再看吧~</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/05/12/script-process-link-failure" title="链路故障应急处理脚本">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/05/12/script-process-link-failure/" title="链路故障应急处理脚本">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/05/20/merge-iplist-of-qqwry" title="续上：合并纯真ip段">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/05/20/merge-iplist-of-qqwry/" title="续上：合并纯真ip段">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -117,15 +119,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -56,59 +56,63 @@
     <p>weathermap是一个利用php的gd库画图的程序，它可以自主运行，但更多情况下是作为cacti等监控工具的插件，通过rra数据库获取数据完成绘图。其官网地址如右：<a href="http://www.network-weathermap.com">http://www.network-weathermap.com</a></p>
 <p>正常情况下，其link的color是由浅到深，当链路接近满载时，显示为鲜红色~然而这个设定遗漏了一个更加严重的情况——链路中断！在完全没有流量的情况下，weathermap应该会按照默认的0%处理——显示为白色（有+1的黑色边框）。</p>
 <p>当然，这么可怕的事情，肯定会有多种手段来完成报警，不至于靠人眼盯着weathermap来汇报。但毕竟算是个功能上的缺失。</p>
-<p>很巧，在zenoss（和cacti类似的另一款监控软件）的wiki上，看到有网友修改的perl版的weathermap，网址如右：<a href="http://community.zenoss.org/docs/DOC-2543">http://community.zenoss.org/docs/DOC-2543</a>。其配置文件中的WIDTH标签，比php的多出了&lt;%status-width(device name,component name)%&gt;配置，其解释说“draw link with width 0 if it is down otherwise draw it with width_ok width”。相关代码如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">while</span><span class="p">(</span><span class="nv">$line</span><span class="o">=~</span><span class="sr">m/&lt;%status-width([^%]+)%&gt;/</span><span class="p">)</span>
-<span class="p">{</span>
-<span class="k">my</span> <span class="nv">$tmp</span><span class="p">;</span>
-<span class="nv">$tmp</span><span class="o">=</span><span class="nv">$1</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$res</span><span class="p">;</span>
-<span class="c1">#WidthIfOK, device, port</span>
-<span class="k">if</span> <span class="p">(</span><span class="nv">$tmp</span><span class="o">=~</span><span class="sr">m/\((.+),(.+),(.+)\)/</span><span class="p">)</span>
-<span class="p">{</span>
-<span class="k">my</span> <span class="nv">$url</span><span class="o">=</span><span class="n">get_device_url</span><span class="p">(</span><span class="nv">$2</span><span class="p">);</span>
-<span class="nv">$res</span><span class="o">=</span><span class="n">get_port_status</span><span class="p">(</span><span class="s">&quot;$url/$3&quot;</span><span class="p">);</span>
-<span class="k">if</span> <span class="p">(</span><span class="nv">$res</span><span class="o">==</span><span class="mi">1</span><span class="p">)</span> <span class="c1">#OK</span>
-<span class="p">{</span>
-<span class="nv">$res</span><span class="o">=</span><span class="nv">$1</span><span class="p">;</span> <span class="c1">#default width</span>
-<span class="p">}</span>
-<span class="k">else</span>
-<span class="p">{</span>
-<span class="nv">$res</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="p">}</span>
-<span class="k">else</span>
-<span class="p">{</span>
-<span class="nb">die</span> <span class="p">(</span><span class="s">&quot;Bad format $line&quot;</span><span class="p">);</span>
-<span class="p">}</span>
-<span class="k">if</span> <span class="p">(</span><span class="nv">$line</span><span class="o">!~</span><span class="sr">s/&lt;%status-width([^%]+)%&gt;/$res/</span><span class="p">)</span>
-<span class="p">{</span>
-<span class="nb">die</span> <span class="p">(</span><span class="s">&quot;Error 1&quot;</span><span class="p">);</span>
-<span class="p">}</span>
-<span class="p">}</span></code></pre></div>
-<p>思路是通过wget数据获取状态，一旦错误就至width为0，否则读取正常设定值绘图。</p>
-<p>在原版的php中相关部分如下：</p>
-<div class="highlight"><pre><code class="language-php" data-lang="php"><span class="x">if (preg_match(&quot;/^\s*WIDTH\s+(\d+)\s*$/i&quot;, $buffer, $matches))</span>
-<span class="x">{</span>
-<span class="x">if ($last_seen == &#39;LINK&#39;)</span>
-<span class="x">{</span>
-<span class="x">$curlink-&gt;width=$matches[1];</span>
-<span class="x">$linematched++;</span>
-<span class="x">}</span>
-<span class="x">else // we&#39;re talking about the global WIDTH</span>
-<span class="x">{</span>
-<span class="x">$this-&gt;width=$matches[1];</span>
-<span class="x">$linematched++;</span>
-<span class="x">}</span>
-<span class="x">}</span></code></pre></div>
-<p>显然只要在这里加上一个else{}就可以了。</p>
+<p>很巧，在zenoss（和cacti类似的另一款监控软件）的wiki上，看到有网友修改的perl版的weathermap，网址如右：<a href="http://community.zenoss.org/docs/DOC-2543">http://community.zenoss.org/docs/DOC-2543</a>。其配置文件中的WIDTH标签，比php的多出了&lt;%status-width(device name,component name)%&gt;配置，其解释说“draw link with width 0 if it is down otherwise draw it with width_ok width”。相关代码如下：<br />
+<code class="highlighter-rouge">perl
+while($line=~m/&lt;%status-width([^%]+)%&gt;/)
+{
+my $tmp;
+$tmp=$1;
+my $res;
+#WidthIfOK, device, port
+if ($tmp=~m/\((.+),(.+),(.+)\)/)
+{
+my $url=get_device_url($2);
+$res=get_port_status("$url/$3");
+if ($res==1) #OK
+{
+$res=$1; #default width
+}
+else
+{
+$res=0;
+}
+}
+else
+{
+die ("Bad format $line");
+}
+if ($line!~s/&lt;%status-width([^%]+)%&gt;/$res/)
+{
+die ("Error 1");
+}
+}
+</code><br />
+思路是通过wget数据获取状态，一旦错误就至width为0，否则读取正常设定值绘图。</p>
+<p>在原版的php中相关部分如下：<br />
+<code class="highlighter-rouge">php
+if (preg_match("/^\s*WIDTH\s+(\d+)\s*$/i", $buffer, $matches))
+{
+if ($last_seen == 'LINK')
+{
+$curlink-&gt;width=$matches[1];
+$linematched++;
+}
+else // we're talking about the global WIDTH
+{
+$this-&gt;width=$matches[1];
+$linematched++;
+}
+}
+</code><br />
+显然只要在这里加上一个else{}就可以了。</p>
 <p>至于如何判定链路中断，有待继续学习~是外挂一个ping？或者读取rra中的数值？下一步先看懂Weathermap.class.php是怎么读取rra数值的吧~</p>
 <p>（题外话，在baidu该字眼的第一页结果，看到中南民族大学的校园网cacti页面。他们居然开放匿名访问，甚至settings都能点开，无语~网址如右：<a href="http://210.42.159.3/cacti/plugins/weathermap/weathermap-cacti-plugin.php">http://210.42.159.3/cacti/plugins/weathermap/weathermap-cacti-plugin.php</a>）</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/11/22/pureftpd-problem-about-symbolic-links" title="ftp中的软连接问题">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/11/22/pureftpd-problem-about-symbolic-links/" title="ftp中的软连接问题">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/11/25/draw-images-of-inotify-log-by-gnuplot" title="inotify-purge后续分析">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/11/25/draw-images-of-inotify-log-by-gnuplot/" title="inotify-purge后续分析">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -152,15 +156,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -54,47 +54,51 @@
   <div style='background-color: #FFF;'>
     <h2 id="section">运行维护</h2>
 <h3 id="vacuum">vacuum命令</h3>
-<p>pgsql是multi-version concurrency control的，update和delete的操作并不会真正的修改原版本的内容，而只是做一个标记，最后需要用vacuum命令回收失效版本的位置。<br />
-vacuum的主要作用：
-1. 恢复或重用失效的空间；
-2. 更新pgsql规划器的数据统计；
-3. 避免事务ID的重复。
-事务ID只有32位，差不多40亿左右。建议在达到10亿左右的时候就需要vacuum一次。<br />
+<p>pgsql是multi-version concurrency control的，update和delete的操作并不会真正的修改原版本的内容，而只是做一个标记，最后需要用vacuum命令回收失效版本的位置。  <br />
+vacuum的主要作用：<br />
+1. 恢复或重用失效的空间；<br />
+2. 更新pgsql规划器的数据统计；<br />
+3. 避免事务ID的重复。<br />
+事务ID只有32位，差不多40亿左右。建议在达到10亿左右的时候就需要vacuum一次。  <br />
 在version8.*之后，默认就是用auto vacuum。注意auto vacuum不是定时启动，而是触发式的。</p>
-<p>vacuum命令有两种形式：
-1. vacuum，正常情况，不阻塞读写。
+<p>vacuum命令有两种形式：<br />
+1. vacuum，正常情况，不阻塞读写。<br />
 2. vacuum full，使用全表排他锁，不可读，产生最小大小的数据文件。不建议在7*24的生产环境使用。</p>
-<p>vacuum full命令的操作原理简述：
-1. 标记旧数据；
-2. 移动数据成连续空间；
+<p>vacuum full命令的操作原理简述：<br />
+1. 标记旧数据；<br />
+2. 移动数据成连续空间；<br />
 3. 截断文件。</p>
 <h3 id="reindex">reindex命令</h3>
-<p>在version7.4之后，该命令不再需要经常性运行了。<br />
+<p>在version7.4之后，该命令不再需要经常性运行了。  <br />
 执行该命令会阻塞写操作。读操作照常。</p>
 <h3 id="analyze">analyze命令</h3>
 <p>建议规划一个database范围的analyze，然后每天运行看效果。</p>
 <h2 id="section-1">存储过程</h2>
 <h3 id="plpgsql">pl/pgsql示例：</h3>
-<div class="highlight"><pre><code class="language-sql" data-lang="sql"><span class="k">CREATE</span> <span class="k">FUNCTION</span> <span class="n">func_name</span> <span class="p">(</span> <span class="k">option</span> <span class="k">type</span> <span class="p">)</span> <span class="k">RETURNS</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">FUNCTION</span> <span class="n">func_name</span> <span class="p">(</span> <span class="k">option</span> <span class="k">type</span> <span class="p">)</span> <span class="k">RETURNS</span>
     <span class="k">type</span> <span class="k">AS</span> <span class="err">$$</span>
-    <span class="p">...</span></code></pre></div>
+    <span class="p">...</span>
+</code></pre>
+</div>
 <h3 id="section-2">触发器示例：</h3>
-<div class="highlight"><pre><code class="language-sql" data-lang="sql"><span class="k">CREATE</span> <span class="k">FUNCTION</span> <span class="k">trigger_name</span> <span class="p">(</span> <span class="k">option</span> <span class="k">type</span> <span class="p">)</span> <span class="k">RETURNS</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">FUNCTION</span> <span class="k">trigger_name</span> <span class="p">(</span> <span class="k">option</span> <span class="k">type</span> <span class="p">)</span> <span class="k">RETURNS</span>
     <span class="n">tirgger</span> <span class="k">AS</span> <span class="err">$$</span>
 <span class="k">DECLARE</span> <span class="p">...</span>
 <span class="k">BEGIN</span>
     <span class="p">....</span>
     <span class="k">RETURN</span> <span class="k">NEW</span><span class="o">/</span><span class="k">NULL</span> <span class="cm">/*NULL就回滚上面的操作*/</span>
-<span class="k">END</span></code></pre></div>
+<span class="k">END</span>
+</code></pre>
+</div>
 <h3 id="section-3">调试</h3>
-<p>图形化安装时带有的pgadmin3里有一项debugger。<br />
-配置：shared_preload_libraries=&rdquo;$libdir/plugins/plugin_debugger.so&rdquo;<br />
+<p>图形化安装时带有的pgadmin3里有一项debugger。  <br />
+配置：shared_preload_libraries=&rdquo;$libdir/plugins/plugin_debugger.so&rdquo;  <br />
 导入：debugger.sql</p>
 <h2 id="section-4">监控</h2>
 <ol>
   <li>data/pg_log/*.log</li>
 </ol>
-<p>标示等级一般为：通用等级LOG NOTICE，错误等级FATAL ERROR，提示等级LOG HINT
+<p>标示等级一般为：通用等级LOG NOTICE，错误等级FATAL ERROR，提示等级LOG HINT<br />
 一般有一个startup.log文件记录启动过程；一些以时间为名字的日志，记录运行过程，每当文件超过10MB，每次重启，以及每过一整天的时候，就会生成一个新文件。</p>
 <ol>
   <li>pgadmin3</li>
@@ -103,22 +107,24 @@ vacuum的主要作用：
 <ol>
   <li>psql命令</li>
 </ol>
-<div class="highlight"><pre><code class="language-sql" data-lang="sql"><span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">pg_stat_activetity</span><span class="p">;</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">select</span> <span class="o">*</span> <span class="k">from</span> <span class="n">pg_stat_activetity</span><span class="p">;</span>
+</code></pre>
+</div>
 <p>配置：log_min_duration_statement，设置慢查询日志的时限，单位为毫秒。</p>
 <h2 id="section-5">集群</h2>
 <h3 id="section-6">8.*时代</h3>
 <p>复制以WAL File为单位，一旦丢失，就可能损失16MB的事务。而且standby不可读。</p>
 <h3 id="section-7">9.*时代</h3>
-<p>复制以WAL中的record为单位，且standby可以读操作，能设置成读写分离集群。
+<p>复制以WAL中的record为单位，且standby可以读操作，能设置成读写分离集群。<br />
 9.0中只有异步复制；9.1中有同步复制。</p>
 <h3 id="section-8">主要方案</h3>
 <p>PGPool II等</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/03/17/postgreSQL-DBA-2000-note1" title="PostgreSQL中国用户会DBA2000培训计划北京第一课笔记">&larr; Previous</a></li>
+        <li class="prev"><a href="/2012/03/17/postgreSQL-DBA-2000-note1/" title="PostgreSQL中国用户会DBA2000培训计划北京第一课笔记">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/04/16/configs-automatically-effective-for-elastic-monitor" title="弹性集群监控中的配置自动生效问题研究">Next &rarr;</a></li>
+        <li class="next"><a href="/2012/04/16/configs-automatically-effective-for-elastic-monitor/" title="弹性集群监控中的配置自动生效问题研究">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -162,15 +168,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -57,15 +57,17 @@
 <p>得重新想过办法……难道去看squid源代码？汗</p>
 <p>本着有头有尾善始善终的原则，决定还是把原先那个鸡肋想法写完。根据squid权威指南11章的说法，传递给重定向器的流格式为：URL IP/FQDN IDENT METHOD，其中FQDN和ident经常是空。METHOD，一般是GET和POST，squid只能缓存GET的数据，但不能无视POST方式，因为有时候POST数据header太大的话，squid可能拒绝转发这些内容，这就不好玩了。</p>
 <p>在明确这个格式以后（主要是草草收尾的想法影响下），我便觉得其实完全不用perl或者php来搞，简单的awk就足够了——当然，shell不行，因为shell不能从事这种流状的行处理。</p>
-<p>以下是本着我想法写的awk脚本：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/bin/awk -f</span>
-<span class="o">{</span>
-  <span class="k">if</span><span class="o">(</span>system<span class="o">(</span><span class="s2">&quot;curl -o /dev/null -s -w %{http_code}&quot;</span> <span class="nv">$1</span><span class="o">)</span>~/^<span class="o">[</span>2<span class="p">|</span>3<span class="o">]</span>/<span class="o">){</span>
-    print <span class="s2">&quot;:$1&quot;</span>
-  <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
-    print <span class="s2">&quot;:http://www.baidu.com/&quot;</span>
-  <span class="o">}</span>
-<span class="o">}</span></code></pre></div>
+<p>以下是本着我想法写的awk脚本：<br />
+<code class="highlighter-rouge">bash
+#!/bin/awk -f
+{
+  if(system("curl -o /dev/null -s -w %{http_code}" $1)~/^[2|3]/){
+    print ":$1"
+  } else {
+    print ":http://www.baidu.com/"
+  }
+}
+</code></p>
 <p>但是再度让我郁闷的事情接连发生。</p>
 <p>第一，不管我在{}中进行什么操作，程序都把system()的结果print出来了；</p>
 <table>
@@ -77,10 +79,12 @@
   </tbody>
 </table>
 <p>试验过程如下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">[</span>rao@localhost ~<span class="o">]</span><span class="nv">$ </span><span class="nb">echo</span> <span class="s2">&quot;http://www.google.com&quot;</span><span class="p">|</span>awk <span class="s1">&#39;{if(200~/^[2|3]/){ print &quot;:&quot;$1 } else{ print &quot;:http://www.baidu.com/&quot;}}&#39;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="o">[</span>rao@localhost ~]<span class="nv">$ </span><span class="nb">echo</span> <span class="s2">"http://www.google.com"</span>|awk <span class="s1">'{if(200~/^[2|3]/){ print ":"$1 } else{ print ":http://www.baidu.com/"}}'</span>
 :http://www.google.com
-<span class="o">[</span>rao@localhost ~<span class="o">]</span><span class="nv">$ </span><span class="nb">echo</span> <span class="s2">&quot;http://www.google.com&quot;</span><span class="p">|</span>awk <span class="s1">&#39;{if(system(&quot;curl -o /dev/null -s -w %{http_code} &quot;$1)~/^[2|3]/){print &quot;:&quot;$1 } else{ print &quot;:http://www.baidu.com/&quot;}}&#39;</span>
-200:http://www.baidu.com/</code></pre></div>
+<span class="o">[</span>rao@localhost ~]<span class="nv">$ </span><span class="nb">echo</span> <span class="s2">"http://www.google.com"</span>|awk <span class="s1">'{if(system("curl -o /dev/null -s -w %{http_code} "$1)~/^[2|3]/){print ":"$1 } else{ print ":http://www.baidu.com/"}}'</span>
+200:http://www.baidu.com/
+</code></pre>
+</div>
 <table>
   <tbody>
     <tr>
@@ -101,9 +105,9 @@
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2009/12/30/squid-gzip" title="squid3 的 gzip 支持">&larr; Previous</a></li>
+        <li class="prev"><a href="/2009/12/30/squid-gzip/" title="squid3 的 gzip 支持">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2009/12/31/process-of-request-to-squid" title="squid请求处理流程（源站故障转向研究）">Next &rarr;</a></li>
+        <li class="next"><a href="/2009/12/31/process-of-request-to-squid/" title="squid请求处理流程（源站故障转向研究）">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -147,15 +151,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

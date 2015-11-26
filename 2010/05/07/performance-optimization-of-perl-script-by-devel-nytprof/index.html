@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -50,19 +50,21 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>缓存服务器上有一个perl写的日志分析脚本，记录所有不重复的url。之后对squid进行目录刷新时，从记录下来的文件中查找匹配的url即可。</p>
-<p>不过这些天服务器老是出现负载报警，用top观察，这个 <code>url_parser.pl</code> 脚本一旦执行时，就占用了高达90%的CPU和40%的MEM。wc看存储的url.list文件，有大概4,000,000行；<code>url.$(date).list</code> 当前有140,000行。</p>
+<p>不过这些天服务器老是出现负载报警，用top观察，这个 <code class="highlighter-rouge">url_parser.pl</code> 脚本一旦执行时，就占用了高达90%的CPU和40%的MEM。wc看存储的url.list文件，有大概4,000,000行；<code class="highlighter-rouge">url.$(date).list</code> 当前有140,000行。</p>
 <p>于是上CU去请教perl执行效率的查找思路。</p>
 <p>回复有：1、正则精准度；2、文件读取效率；3、全局变量数；4、频繁打开句柄；5、流程优化</p>
-<p>比如读取文件不要用 <code>@line=FILE</code> 用 <code>while(&lt;FILE&gt;)</code> ；正则<code>^</code> 句首，带上 <code>/oi</code> ；注意哈希表与内存交换区等等；最后推荐给我 <code>Devel::NYTProf</code> ，进行测试。</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="n">perl</span> <span class="o">-</span><span class="n">MCPAN</span> <span class="o">-</span><span class="n">e</span> <span class="n">shell</span>
-<span class="o">&gt;</span><span class="n">install</span> <span class="nn">JSON::</span><span class="n">Any</span><span class="err">（不安这个东东，在</span><span class="n">nyt</span><span class="err">生成</span><span class="n">html</span><span class="err">的时候会报</span><span class="n">warning</span><span class="err">，不过不安也可以）</span>
-<span class="o">&gt;</span><span class="n">install</span> <span class="nn">Devel::</span><span class="n">NYTProf</span></code></pre></div>
-<p>然后采用 <code>perl -d:NYTProf /home/purge/url_parser.pl</code> 运行脚本，会在当前路径下生成nytprof.out。</p>
-<p>再用 <code>nytprofhtml nytprof.out</code> 生成web页面。</p>
+<p>比如读取文件不要用 <code class="highlighter-rouge">@line=FILE</code> 用 <code class="highlighter-rouge">while(&lt;FILE&gt;)</code> ；正则<code class="highlighter-rouge">^</code> 句首，带上 <code class="highlighter-rouge">/oi</code> ；注意哈希表与内存交换区等等；最后推荐给我 <code class="highlighter-rouge">Devel::NYTProf</code> ，进行测试。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="nv">perl</span> <span class="o">-</span><span class="nv">MCPAN</span> <span class="o">-</span><span class="nv">e</span> <span class="nv">shell</span>
+<span class="o">&gt;</span><span class="nv">install</span> <span class="nn">JSON::</span><span class="nv">Any</span><span class="err">（不安这个东东，在</span><span class="nv">nyt</span><span class="err">生成</span><span class="nv">html</span><span class="err">的时候会报</span><span class="nv">warning</span><span class="err">，不过不安也可以）</span>
+<span class="o">&gt;</span><span class="nv">install</span> <span class="nn">Devel::</span><span class="nv">NYTProf</span>
+</code></pre>
+</div>
+<p>然后采用 <code class="highlighter-rouge">perl -d:NYTProf /home/purge/url_parser.pl</code> 运行脚本，会在当前路径下生成nytprof.out。</p>
+<p>再用 <code class="highlighter-rouge">nytprofhtml nytprof.out</code> 生成web页面。</p>
 <p>另开一个apache，将生成的nytprof目录发布出来。用ie打开即可看到了，如下：</p>
 <p><img src="/images/uploads/nytprof-index.jpg" alt="nytprof" /></p>
 <p>下面还有载入模块的时间。之前我用strace跟踪了一下脚本的运行，发现在载入pm的时候，perl会搜索好多乱七八糟的目录，最后才正确，还一度担心是因为这个原因浪费了时间和资源呢。不过根据测试结果来看，载入模块总共花了不到30ms，不是什么可怕的事情。</p>
-<p>然后点击 <code>/home/purge/url_parser.pl</code> 的 <code>reports（line·block·sub）</code>，可以看到具体每个语句的执行情况：</p>
+<p>然后点击 <code class="highlighter-rouge">/home/purge/url_parser.pl</code> 的 <code class="highlighter-rouge">reports（line·block·sub）</code>，可以看到具体每个语句的执行情况：</p>
 <p><img src="/images/uploads/devel-nytprof-time.jpg" alt="nytprof-0" /></p>
 <p>打开十四万行的url文件花了2.14s，然后再用2.09s将它们载入哈希表中；</p>
 <p><img src="/images/uploads/devel-nytprof-time1.jpg" alt="nytprof-1" /></p>
@@ -70,17 +72,19 @@
 <p><img src="/images/uploads/devel-nytprof-time2.jpg" alt="nytprof-2" /></p>
 <p>最后，用919ms对哈希表排序，用1.58s重记录整个url文件。</p>
 <p>(143677-143579=98，即3306条日志中有98条是新增url)</p>
-<p>注意到第二张图中，对access.log分析时，match那步，<strong>每行花了30us</strong>！而在对urllist和tmplog分析时，每行只花3-4us的样子。看来是这一步的正则写的不好了，如下:</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">my</span> <span class="nv">$log_pattern</span><span class="err">  </span> <span class="o">=</span> <span class="n">qr</span> <span class="s">&#39;^.*?d+s+w+s+(http://.+?)s+.+&#39;</span><span class="p">;</span></code></pre></div>
-<p>根据日志的格式和需求，改成这样 <code>my $log_pattern   = qr 's(http://.+?)s';</code> 其他不变，再次测试，该部分的测试结果如下：</p>
+<p>注意到第二张图中，对access.log分析时，match那步，<strong>每行花了30us</strong>！而在对urllist和tmplog分析时，每行只花3-4us的样子。看来是这一步的正则写的不好了，如下:<br />
+<code class="highlighter-rouge">perl
+    my $log_pattern   = qr '^.*?d+s+w+s+(http://.+?)s+.+';
+</code></p>
+<p>根据日志的格式和需求，改成这样 <code class="highlighter-rouge">my $log_pattern   = qr 's(http://.+?)s';</code> 其他不变，再次测试，该部分的测试结果如下：</p>
 <p><img src="/images/uploads/devel-nytprof-time3.jpg" alt="nytprof-3" /></p>
 <p>__降低成7us每行__啦！效果明显呀~~</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/05/06/intro-httping" title="web服务监控小工具httping">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/05/06/intro-httping/" title="web服务监控小工具httping">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/05/07/purge-cache-by-perl-script-2" title="perl边学边练（purge脚本进阶）">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/05/07/purge-cache-by-perl-script-2/" title="perl边学边练（purge脚本进阶）">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -124,15 +128,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

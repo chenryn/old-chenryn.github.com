@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,56 +53,58 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>前两天<a href="http://chenlinux.com/2014/06/04/record-webqq-logs-by-avbot">博客里介绍了 avbot</a>，其中提到 avbot 提供了 HTTP 接口可以收发信息。那么，我们就可以自己写脚本来实现比原先的 <code>.qqbot help</code> 更详细的自动应答啦。今晚有空就写了几行 Perl ，实现了一个简单的扩展：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="n">utf8</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">JSON::</span><span class="n">XS</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">AnyEvent</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">AnyEvent::</span><span class="n">HTTP</span><span class="p">;</span>
+    <p>前两天<a href="http://chenlinux.com/2014/06/04/record-webqq-logs-by-avbot">博客里介绍了 avbot</a>，其中提到 avbot 提供了 HTTP 接口可以收发信息。那么，我们就可以自己写脚本来实现比原先的 <code class="highlighter-rouge">.qqbot help</code> 更详细的自动应答啦。今晚有空就写了几行 Perl ，实现了一个简单的扩展：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">use</span> <span class="nv">utf8</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">JSON::</span><span class="nv">XS</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">AnyEvent</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">AnyEvent::</span><span class="nv">HTTP</span><span class="p">;</span>
 <span class="k">my</span> <span class="nv">$f</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">help</span> <span class="o">=&gt;</span> <span class="s">&quot;.logstashbot support subcommand:\n\t&quot;</span><span class="p">,</span>
-    <span class="n">grok</span> <span class="o">=&gt;</span> <span class="s">&#39;请主动使用 http://grokdebug.herokuapp.com&#39;</span><span class="p">,</span>
-    <span class="n">tnnd</span> <span class="o">=&gt;</span> <span class="s">&#39;请直接说问题不要浪费口水问有人帮忙么&#39;</span><span class="p">,</span>
-    <span class="n">book</span> <span class="o">=&gt;</span> <span class="s">&#39;支持原作者，请购买 www.logstashbook.com 上电子版&#39;</span><span class="p">,</span>
+    <span class="nv">help</span> <span class="o">=&gt;</span> <span class="s">".logstashbot support subcommand:\n\t"</span><span class="p">,</span>
+    <span class="nv">grok</span> <span class="o">=&gt;</span> <span class="s">'请主动使用 http://grokdebug.herokuapp.com'</span><span class="p">,</span>
+    <span class="nv">tnnd</span> <span class="o">=&gt;</span> <span class="s">'请直接说问题不要浪费口水问有人帮忙么'</span><span class="p">,</span>
+    <span class="nv">book</span> <span class="o">=&gt;</span> <span class="s">'支持原作者，请购买 www.logstashbook.com 上电子版'</span><span class="p">,</span>
 <span class="p">};</span>
-<span class="nv">$f</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;help&#39;</span><span class="p">}</span> <span class="o">.=</span> <span class="nb">join</span><span class="p">(</span><span class="s">&quot;\n\t&quot;</span><span class="p">,</span> <span class="nb">keys</span> <span class="nv">%$f</span><span class="p">);</span>
+<span class="nv">$f</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">'help'</span><span class="p">}</span> <span class="o">.=</span> <span class="nb">join</span><span class="p">(</span><span class="s">"\n\t"</span><span class="p">,</span> <span class="nb">keys</span> <span class="nv">%$f</span><span class="p">);</span>
 <span class="nv">$</span><span class="nn">AnyEvent::HTTP::</span><span class="nv">TIMEOUT</span> <span class="o">=</span> <span class="mi">86400</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$url</span> <span class="o">=</span> <span class="s">&#39;http://127.0.0.1:6176/message&#39;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$cv</span> <span class="o">=</span> <span class="n">AnyEvent</span><span class="o">-&gt;</span><span class="n">condvar</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$url</span> <span class="o">=</span> <span class="s">'http://127.0.0.1:6176/message'</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$cv</span> <span class="o">=</span> <span class="nv">AnyEvent</span><span class="o">-&gt;</span><span class="nv">condvar</span><span class="p">;</span>
 <span class="k">my</span> <span class="nv">$ua</span><span class="p">;</span><span class="nv">$ua</span> <span class="o">=</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="nv">$cv</span><span class="o">-&gt;</span><span class="n">begin</span><span class="p">;</span>
-    <span class="n">http_get</span> <span class="nv">$url</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+    <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nv">begin</span><span class="p">;</span>
+    <span class="nv">http_get</span> <span class="nv">$url</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
         <span class="k">my</span> <span class="p">(</span><span class="nv">$data</span><span class="p">,</span> <span class="nv">$header</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$hash</span> <span class="o">=</span> <span class="n">decode_json</span> <span class="nv">$data</span><span class="p">;</span>
-        <span class="k">my</span> <span class="nv">$msg</span> <span class="o">=</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;message&#39;</span><span class="p">}{</span><span class="s">&#39;text&#39;</span><span class="p">};</span>
-        <span class="k">my</span> <span class="nv">$from</span> <span class="o">=</span> <span class="s">&#39;@&#39;</span> <span class="o">.</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;who&#39;</span><span class="p">}{</span><span class="s">&#39;nick&#39;</span><span class="p">}</span> <span class="o">.</span> <span class="s">&#39;(&#39;</span> <span class="o">.</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;who&#39;</span><span class="p">}{</span><span class="s">&#39;code&#39;</span><span class="p">}</span> <span class="o">.</span> <span class="s">&quot;)\n&quot;</span><span class="p">;</span>
-        <span class="k">if</span> <span class="p">(</span> <span class="nv">$msg</span> <span class="o">=~</span><span class="sr"> /^\.logstashbot (\w+)/</span> <span class="p">)</span> <span class="p">{</span>
-            <span class="k">my</span> <span class="nv">$body</span> <span class="o">=</span> <span class="n">encode_json</span><span class="p">({</span>
-                <span class="n">protocol</span> <span class="o">=&gt;</span> <span class="nb">delete</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;protocol&#39;</span><span class="p">},</span>
-                <span class="n">channel</span>  <span class="o">=&gt;</span> <span class="nb">delete</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;channel&#39;</span><span class="p">},</span>
-                <span class="n">message</span>  <span class="o">=&gt;</span> <span class="p">{</span>
-                    <span class="n">text</span> <span class="o">=&gt;</span> <span class="nv">$from</span> <span class="o">.</span> <span class="p">(</span> <span class="nv">$f</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$1</span><span class="p">}</span> <span class="sr">//</span> <span class="nv">$f</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;help&#39;</span><span class="p">}</span> <span class="p">),</span>
+        <span class="k">my</span> <span class="nv">$hash</span> <span class="o">=</span> <span class="nv">decode_json</span> <span class="nv">$data</span><span class="p">;</span>
+        <span class="k">my</span> <span class="nv">$msg</span> <span class="o">=</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">'message'</span><span class="p">}{</span><span class="s">'text'</span><span class="p">};</span>
+        <span class="k">my</span> <span class="nv">$from</span> <span class="o">=</span> <span class="s">'@'</span> <span class="o">.</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">'who'</span><span class="p">}{</span><span class="s">'nick'</span><span class="p">}</span> <span class="o">.</span> <span class="s">'('</span> <span class="o">.</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">'who'</span><span class="p">}{</span><span class="s">'code'</span><span class="p">}</span> <span class="o">.</span> <span class="s">")\n"</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span> <span class="nv">$msg</span> <span class="o">=~</span> <span class="sr">/^\.logstashbot (\w+)/</span> <span class="p">)</span> <span class="p">{</span>
+            <span class="k">my</span> <span class="nv">$body</span> <span class="o">=</span> <span class="nv">encode_json</span><span class="p">({</span>
+                <span class="nv">protocol</span> <span class="o">=&gt;</span> <span class="nb">delete</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">'protocol'</span><span class="p">},</span>
+                <span class="nv">channel</span>  <span class="o">=&gt;</span> <span class="nb">delete</span> <span class="nv">$hash</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">'channel'</span><span class="p">},</span>
+                <span class="nv">message</span>  <span class="o">=&gt;</span> <span class="p">{</span>
+                    <span class="nv">text</span> <span class="o">=&gt;</span> <span class="nv">$from</span> <span class="o">.</span> <span class="p">(</span> <span class="nv">$f</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$1</span><span class="p">}</span> <span class="sr">//</span> <span class="nv">$f</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">'help'</span><span class="p">}</span> <span class="p">),</span>
                 <span class="p">},</span>
             <span class="p">});</span>
-            <span class="nv">$cv</span><span class="o">-&gt;</span><span class="n">begin</span><span class="p">;</span>
-            <span class="n">http_post</span> <span class="nv">$url</span><span class="p">,</span> <span class="nv">$body</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
-                <span class="nv">$cv</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">;</span>
+            <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nv">begin</span><span class="p">;</span>
+            <span class="nv">http_post</span> <span class="nv">$url</span><span class="p">,</span> <span class="nv">$body</span><span class="p">,</span> <span class="k">sub </span><span class="p">{</span>
+                <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nv">end</span><span class="p">;</span>
             <span class="p">};</span>
         <span class="p">};</span>
         <span class="nv">$ua</span><span class="o">-&gt;</span><span class="p">();</span>
-        <span class="nv">$cv</span><span class="o">-&gt;</span><span class="n">end</span><span class="p">;</span>
+        <span class="nv">$cv</span><span class="o">-&gt;</span><span class="nv">end</span><span class="p">;</span>
     <span class="p">};</span>
 <span class="p">};</span>
 <span class="nv">$ua</span><span class="o">-&gt;</span><span class="p">();</span>
-<span class="nv">$cv</span><span class="o">-&gt;</span><span class="nb">recv</span><span class="p">;</span></code></pre></div>
-<p>原先是打算在回调里 <code>undef $ua</code> 然后通过 <code>AnyEvent-&gt;timer</code> 里检测 $ua 是否还在，否则再起来的方式。后来一想 <code>timer</code> 还有间隔，直接函数内部通过 <code>$cv-&gt;end</code> 控制计数，不断的重新运行 <code>$ua-&gt;()</code> 来保持持续获取，间隔更短，就改成现在这样了。</p>
+<span class="nv">$cv</span><span class="o">-&gt;</span><span class="nb">recv</span><span class="p">;</span>
+</code></pre>
+</div>
+<p>原先是打算在回调里 <code class="highlighter-rouge">undef $ua</code> 然后通过 <code class="highlighter-rouge">AnyEvent-&gt;timer</code> 里检测 $ua 是否还在，否则再起来的方式。后来一想 <code class="highlighter-rouge">timer</code> 还有间隔，直接函数内部通过 <code class="highlighter-rouge">$cv-&gt;end</code> 控制计数，不断的重新运行 <code class="highlighter-rouge">$ua-&gt;()</code> 来保持持续获取，间隔更短，就改成现在这样了。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2014/06/04/skyline-port-to-perl" title="用 Perl5 改写 skyline 异常检测算法">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/06/04/skyline-port-to-perl/" title="用 Perl5 改写 skyline 异常检测算法">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/06/11/nginx-access-log-to-elasticsearch" title="用 LEK 组合处理 Nginx 访问日志">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/06/11/nginx-access-log-to-elasticsearch/" title="用 LEK 组合处理 Nginx 访问日志">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -146,15 +148,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

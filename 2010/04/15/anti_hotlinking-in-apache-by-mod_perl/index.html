@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>apache防盗链（mod_perl试用）</title>
+    <title>apache防盗链(modperl试用)</title>
     <meta name="author" content="陈子">
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -45,7 +45,7 @@
       <div class="span7">
 <div class="row">
   <div class="page-header">
-    <h1>apache防盗链（mod_perl试用） <small></small></h1>
+    <h1>apache防盗链(modperl试用) <small></small></h1>
     <div class="date"><span>15 April 2010</span></div>
     <ul class="tag_box pull-right">
     	<li><a href="/tags.html#apache-ref">apache <span>8</span></a></li>
@@ -62,16 +62,16 @@
   <li>视频文件真实路径，即/path/to/file.rmvb；</li>
   <li>请求时间，以当前UNIX时间换算为十六进制字符串，并作为明文；</li>
 </ol>
-<p>最终url格式是 <code>http://www.test.com/path/to/file.rmvb?key=1234567890abcdefghijklmnopqrstuy&amp;t=1234abcd</code> 这样。</p>
+<p>最终url格式是 <code class="highlighter-rouge">http://www.test.com/path/to/file.rmvb?key=1234567890abcdefghijklmnopqrstuy&amp;t=1234abcd</code> 这样。</p>
 <p>要求失效时间为8小时。</p>
-<p>这个需求和之前一次相当类似，不过上回是squid，这次是apache。同样采用perl脚本进行防盗链设置，apache需要使用mod_perl模块。</p>
+<p>这个需求和之前一次相当类似，不过上回是squid，这次是apache。同样采用perl脚本进行防盗链设置，apache需要使用modperl模块。</p>
 <p>首先安装perl模块：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">wget http://perl.apache.org/dist/mod_perl-2.0-current.tar.gz
+<div class="highlighter-rouge"><pre class="highlight"><code>wget http://perl.apache.org/dist/mod_perl-2.0-current.tar.gz
 tar zxvf mod_perl-2.0-current.tar.gz
 <span class="nb">cd </span>mod_perl-2.0-current.tar.gz
 perl Makefile.PL <span class="nv">MP_APXS</span><span class="o">=</span>/home/apache2/bin/apxs
 make <span class="o">&amp;&amp;</span> make install
-<span class="nb">echo</span> <span class="s2">&quot;LoadModule perl_module modules/mod_perl.so&quot;</span> &gt;&gt; /home/apache2/conf/httpd.conf
+<span class="nb">echo</span> <span class="s2">"LoadModule perl_module modules/mod_perl.so"</span> &gt;&gt; /home/apache2/conf/httpd.conf
 perl -MCPAN -e shell
 &gt;install Apache2::Request
 &gt;look Apache2::Request
@@ -82,85 +82,96 @@ perl Makefile.PL
 make <span class="o">&amp;&amp;</span> make install
 <span class="nb">exit</span>
 <span class="c">#因为64位系统的libexpat.so有问题，编译libapreq2会出问题，只好如此强制安装</span>
-<span class="nb">echo</span> <span class="s2">&quot;LoadModule apreq_module modules/mod_apreq2.so&quot;</span> &gt;&gt; /home/apache2/conf/httpd.conf</code></pre></div>
-<p>因为libapreq2.so安装在/home/apache2/lib/下了，所以需要echo &ldquo;/home/apache2/lib&rdquo; &gt;/etc/lo.so.conf.d/apache.conf，然后ldconfig。</p>
+<span class="nb">echo</span> <span class="s2">"LoadModule apreq_module modules/mod_apreq2.so"</span> &gt;&gt; /home/apache2/conf/httpd.conf
+</code></pre>
+</div>
+<p>因为libapreq2.so安装在/home/apache2/lib/下了，所以需要<code class="highlighter-rouge">echo "/home/apache2/lib" &gt;/etc/lo.so.conf.d/apache.conf</code>，然后ldconfig。</p>
 <p>修改httpd.conf，加入如下设置：</p>
-<div class="highlight"><pre><code class="language-apache" data-lang="apache"><span class="nb">PerlPostConfigRequire</span> <span class="sx">/home/apache2/perl/start.pl</span>
-<span class="nt">&lt;Location</span> <span class="s">/smg</span><span class="nt">&gt;</span>
-<span class="nb">SetHandler</span> modperl
-<span class="nb">PerlAccessHandler</span> DLAuth
-<span class="nb">PerlSetVar</span> ShareKey abcde.
-<span class="nt">&lt;/Location&gt;</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code>PerlPostConfigRequire /home/apache2/perl/start.pl
+&lt;Location /smg&gt;
+SetHandler modperl
+PerlAccessHandler DLAuth
+PerlSetVar ShareKey abcde.
+&lt;/Location&gt;
+</code></pre>
+</div>
 <p>然后mkdir /home/apache2/perl/，在其中创建start.pl和DLAuth.pm两个文件。start.pl文件内容如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="n">strict</span><span class="p">;</span> 
-<span class="k">use</span> <span class="n">lib</span> <span class="sx">qw(/home/apache2/perl)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestIO</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestRec</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Connection</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestUtil</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Log</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Request</span> <span class="p">();</span>
-<span class="mi">1</span><span class="p">;</span></code></pre></div>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">use</span> <span class="nv">strict</span><span class="p">;</span> 
+<span class="k">use</span> <span class="nv">lib</span> <span class="sx">qw(/home/apache2/perl)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">RequestIO</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">RequestRec</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">Connection</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">RequestUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">ServerUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">Log</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">Request</span> <span class="p">();</span>
+<span class="mi">1</span><span class="p">;</span> 
+</code></pre>
+</div>
 <p>DLAuth.pm文件内容如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="n">DLAuth</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">strict</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">warnings</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Socket</span> <span class="sx">qw(inet_aton)</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(difftime strftime)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestIO</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestRec</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Connection</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">RequestUtil</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Log</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Request</span> <span class="p">();</span>
-<span class="k">use</span> <span class="nn">Apache2::</span><span class="n">Const</span> <span class="o">-</span><span class="n">compile</span> <span class="o">=&gt;</span> <span class="sx">qw(OK FORBIDDEN)</span><span class="p">;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="nb">package</span> <span class="nv">DLAuth</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">strict</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">warnings</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">Socket</span> <span class="sx">qw(inet_aton)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nv">POSIX</span> <span class="sx">qw(difftime strftime)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Digest::</span><span class="nv">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">RequestIO</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">RequestRec</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">Connection</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">RequestUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">ServerUtil</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">Log</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">Request</span> <span class="p">();</span>
+<span class="k">use</span> <span class="nn">Apache2::</span><span class="nv">Const</span> <span class="o">-</span><span class="nv">compile</span> <span class="o">=&gt;</span> <span class="sx">qw(OK FORBIDDEN)</span><span class="p">;</span>
 <span class="k">sub </span><span class="nf">handler</span> <span class="p">{</span>
 <span class="err">   </span> <span class="k">my</span> <span class="nv">$r</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="nn">Apache2::</span><span class="n">ServerUtil</span><span class="o">-&gt;</span><span class="n">server</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$shareKey</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">dir_config</span><span class="p">(</span><span class="s">&#39;ShareKey&#39;</span><span class="p">)</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">uri</span><span class="p">()</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">my</span> <span class="nv">$args</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="n">args</span><span class="p">()</span> <span class="o">||</span> <span class="s">&#39;&#39;</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$s</span> <span class="o">=</span> <span class="nn">Apache2::</span><span class="nv">ServerUtil</span><span class="o">-&gt;</span><span class="nv">server</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$shareKey</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="nv">dir_config</span><span class="p">(</span><span class="s">'ShareKey'</span><span class="p">)</span> <span class="o">||</span> <span class="s">''</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="nv">uri</span><span class="p">()</span> <span class="o">||</span> <span class="s">''</span><span class="p">;</span>
+<span class="err">   </span> <span class="k">my</span> <span class="nv">$args</span> <span class="o">=</span> <span class="nv">$r</span><span class="o">-&gt;</span><span class="nv">args</span><span class="p">()</span> <span class="o">||</span> <span class="s">''</span><span class="p">;</span>
 <span class="err">   </span> <span class="k">my</span> <span class="nv">$expire</span> <span class="o">=</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">3600</span><span class="p">;</span>
-<span class="err">   </span> <span class="k">if</span> <span class="p">(</span><span class="nv">$args</span> <span class="o">=~</span> <span class="n">m</span><span class="c1">#^key=(\w{32})&amp;t=(\w{8})$#i) {</span>
+<span class="err">   </span> <span class="k">if</span> <span class="p">(</span><span class="nv">$args</span> <span class="o">=~</span> <span class="nv">m</span><span class="c1">#^key=(\w{32})&amp;t=(\w{8})$#i) {</span>
 <span class="err">   </span>     <span class="k">my</span> <span class="p">(</span><span class="nv">$key</span><span class="p">,</span> <span class="nv">$date</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$1</span><span class="p">,</span> <span class="nv">$2</span><span class="p">);</span>
-<span class="err">   </span>     <span class="k">my</span> <span class="nv">$str</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$shareKey</span> <span class="o">.</span> <span class="nv">$uri</span> <span class="o">.</span> <span class="nv">$date</span><span class="p">)</span>
+<span class="err">   </span>     <span class="k">my</span> <span class="nv">$str</span> <span class="o">=</span> <span class="nv">md5_hex</span><span class="p">(</span><span class="nv">$shareKey</span> <span class="o">.</span> <span class="nv">$uri</span> <span class="o">.</span> <span class="nv">$date</span><span class="p">)</span>
 <span class="err">   </span>     <span class="k">my</span> <span class="nv">$reqtime</span> <span class="o">=</span> <span class="nb">hex</span><span class="p">(</span><span class="nv">$date</span><span class="p">);</span>
 <span class="err">   </span>     <span class="k">my</span> <span class="nv">$now</span> <span class="o">=</span> <span class="nb">time</span><span class="p">;</span>
 <span class="err">   </span>     <span class="k">if</span> <span class="p">(</span> <span class="nv">$now</span> <span class="o">-</span> <span class="nv">$reqtime</span> <span class="o">&lt;</span> <span class="nv">$expire</span><span class="p">)</span> <span class="p">{</span>
 <span class="err">   </span> <span class="err">   </span>     <span class="k">if</span> <span class="p">(</span><span class="nv">$str</span> <span class="ow">eq</span> <span class="nv">$key</span><span class="p">)</span> <span class="p">{</span>
-<span class="err">   </span> <span class="err">   </span> <span class="err">   </span>     <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">OK</span><span class="p">;</span>
+<span class="err">   </span> <span class="err">   </span> <span class="err">   </span>     <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="nv">OK</span><span class="p">;</span>
 <span class="err">   </span> <span class="err">   </span>     <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-<span class="err">       </span> <span class="err">   </span> <span class="err">   </span> <span class="nv">$s</span><span class="o">-&gt;</span><span class="n">log_error</span><span class="p">(</span><span class="s">&quot;[$uri FORBIDDEN] Auth failed&quot;</span><span class="p">);</span>
-<span class="err">   </span> <span class="err">   </span> <span class="err">   </span>     <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">FORBIDDEN</span><span class="p">;</span>
+<span class="err">       </span> <span class="err">   </span> <span class="err">   </span> <span class="nv">$s</span><span class="o">-&gt;</span><span class="nv">log_error</span><span class="p">(</span><span class="s">"[$uri FORBIDDEN] Auth failed"</span><span class="p">);</span>
+<span class="err">   </span> <span class="err">   </span> <span class="err">   </span>     <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="nv">FORBIDDEN</span><span class="p">;</span>
 <span class="err">   </span> <span class="err">   </span>     <span class="p">}</span>
 <span class="err">   </span>     <span class="p">}</span>
 <span class="err">   </span> <span class="p">}</span>
-<span class="err">   </span> <span class="nv">$s</span><span class="o">-&gt;</span><span class="n">log_error</span><span class="p">(</span><span class="s">&quot;[$uri FORBIDDEN] Auth failed&quot;</span><span class="p">);</span>
-<span class="err">   </span> <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="n">FORBIDDEN</span><span class="p">;</span>
+<span class="err">   </span> <span class="nv">$s</span><span class="o">-&gt;</span><span class="nv">log_error</span><span class="p">(</span><span class="s">"[$uri FORBIDDEN] Auth failed"</span><span class="p">);</span>
+<span class="err">   </span> <span class="k">return</span> <span class="nn">Apache2::Const::</span><span class="nv">FORBIDDEN</span><span class="p">;</span>
 <span class="p">}</span>
-<span class="mi">1</span><span class="p">;</span></code></pre></div>
+<span class="mi">1</span><span class="p">;</span>
+</code></pre>
+</div>
 <p>就可以了。</p>
 <p>apachectl restart。测试一下，先用perl自己生成一个测试链接：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="k">use</span> <span class="nn">Digest::</span><span class="n">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$key</span> <span class="o">=</span> <span class="s">&quot;bestv.&quot;</span><span class="p">;</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="c1">#!/usr/bin/perl -w</span>
+<span class="k">use</span> <span class="nn">Digest::</span><span class="nv">MD5</span> <span class="sx">qw(md5_hex)</span><span class="p">;</span>
+<span class="k">my</span> <span class="nv">$key</span> <span class="o">=</span> <span class="s">"bestv."</span><span class="p">;</span>
 <span class="nv">$path</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">(</span><span class="nv">@ARGV</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">$date</span> <span class="o">=</span> <span class="nb">sprintf</span><span class="p">(</span><span class="s">&quot;%x&quot;</span><span class="p">,</span><span class="nb">time</span><span class="p">);</span>
-<span class="nv">$result</span> <span class="o">=</span> <span class="n">md5_hex</span><span class="p">(</span><span class="nv">$key</span> <span class="o">.</span> <span class="nv">$path</span> <span class="o">.</span> <span class="nv">$date</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="s">&quot;http://127.0.0.1$path?key=$result&amp;t=$date&quot;</span><span class="p">;</span>
-<span class="k">print</span> <span class="nv">$uri</span><span class="p">;</span></code></pre></div>
-<p>运行 <code>./url.pl /smg/abc.rmvb</code> 生成 <code>http://127.0.0.1/smg/abc.rmvb?key=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=4bc7dd5a</code>，然后 <code>wget -S -O /dev/null "http://127.0.0.1/smg/abc.rmvb?key=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=4bc7dd5a"</code>，返回 200 OK;任意修改 t 为 12345678，再 wget，返回 403 Forbidden。<code>error_log</code> 显示如下：</p>
-<pre><code>[Fri Apr 16 11:47:06 2010] [error] [/smg/abc.rmvbkey=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=12345678 FORBIDDEN] Auth failed
+<span class="k">my</span> <span class="nv">$date</span> <span class="o">=</span> <span class="nb">sprintf</span><span class="p">(</span><span class="s">"%x"</span><span class="p">,</span><span class="nb">time</span><span class="p">);</span>
+<span class="nv">$result</span> <span class="o">=</span> <span class="nv">md5_hex</span><span class="p">(</span><span class="nv">$key</span> <span class="o">.</span> <span class="nv">$path</span> <span class="o">.</span> <span class="nv">$date</span><span class="p">);</span>
+<span class="k">my</span> <span class="nv">$uri</span> <span class="o">=</span> <span class="s">"http://127.0.0.1$path?key=$result&amp;t=$date"</span><span class="p">;</span>
+<span class="k">print</span> <span class="nv">$uri</span><span class="p">;</span>
 </code></pre>
+</div>
+<p>运行 <code class="highlighter-rouge">./url.pl /smg/abc.rmvb</code> 生成 <code class="highlighter-rouge">http://127.0.0.1/smg/abc.rmvb?key=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=4bc7dd5a</code>，然后 <code class="highlighter-rouge">wget -S -O /dev/null "http://127.0.0.1/smg/abc.rmvb?key=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=4bc7dd5a"</code>，返回 200 OK;任意修改 t 为 12345678，再 wget，返回 403 Forbidden。<code class="highlighter-rouge">error_log</code> 显示如下：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>[Fri Apr 16 11:47:06 2010] [error] [/smg/abc.rmvbkey=4fb6b4e6a0ec484aea98fa727fc7149d&amp;t=12345678 FORBIDDEN] Auth failed
+</code></pre>
+</div>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/04/12/intro-iscsi-1" title="iscsi试验（失败，慎入）">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/04/12/intro-iscsi-1/" title="iscsi试验（失败，慎入）">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/04/15/intro-iscsi-2" title="iscsi试验（读写测试）">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/04/15/intro-iscsi-2/" title="iscsi试验（读写测试）">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -204,15 +215,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

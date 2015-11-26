@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -55,165 +55,185 @@
   <div style='background-color: #FFF;'>
     <p>使用puppet管理集群配置是个很靠谱的做法。跟其他同类产品相比，第一他的DSL语法很丰富够灵活，第二围绕他的生态圈活跃，资料比较多。</p>
 <h1 id="puppet">puppet安装</h1>
-<p>由于关注热度比较高，所以各种简便安装办法都出来了。大家可以各自选择，走yum、apt或者src都行。我这里演示一下用rubygems的办法。优点是不用像yum那样找epel源，而且版本够新，缺点是没有yum自动出来的配置目录和管理脚本。</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/usr/bin/env bash</span>
-<span class="c"># Set Curlrc for https</span>
-<span class="nb">echo</span> <span class="s1">&#39;insecure&#39;</span> &gt;&gt; ~/.curlrc
-<span class="c"># Install git</span>
-curl -L get-git.rvm.io <span class="p">|</span> sudo bash
-<span class="c"># Install RVM</span>
-curl -L get.rvm.io <span class="p">|</span> sudo bash -s stable
-<span class="c"># Install Last Ruby</span>
-<span class="nb">source</span> <span class="s2">&quot;/usr/local/rvm/scripts/rvm&quot;</span>
+<p>由于关注热度比较高，所以各种简便安装办法都出来了。大家可以各自选择，走yum、apt或者src都行。我这里演示一下用rubygems的办法。优点是不用像yum那样找epel源，而且版本够新，缺点是没有yum自动出来的配置目录和管理脚本。<br />
+<code class="highlighter-rouge">bash
+#!/usr/bin/env bash
+# Set Curlrc for https
+echo 'insecure' &gt;&gt; ~/.curlrc
+# Install git
+curl -L get-git.rvm.io | sudo bash
+# Install RVM
+curl -L get.rvm.io | sudo bash -s stable
+# Install Last Ruby
+source "/usr/local/rvm/scripts/rvm"
 rvm install 1.9.3
-<span class="c"># Use GEM Mirror in Taobao</span>
+# Use GEM Mirror in Taobao
 gem sources -r http://rubygems.org/
 gem sources -a http://rubygems.taobao.org/
-<span class="c"># Install puppet</span>
+# Install puppet
 gem install puppet --no-ri --no-rdoc
 groupadd puppet
 useradd -g puppet -s /bin/false -M puppet
-<span class="c"># Get default puppet config</span>
+# Get default puppet config
 mkdir /etc/puppet
-puppet --genconfig &gt; /etc/puppet/puppet.conf</code></pre></div>
-<p>需要说明一点，puppet对集群的识别高度依赖fdqn，所以必须保证主机名和IP的一一对应。我的环境里因为本身kerberos认证也是fdqn依赖的，所以反而省事不少，其他环境中，估计折腾dns或者hosts也是个大步骤。    </p>
+puppet --genconfig &gt; /etc/puppet/puppet.conf
+</code><br />
+需要说明一点，puppet对集群的识别高度依赖fdqn，所以必须保证主机名和IP的一一对应。我的环境里因为本身kerberos认证也是fdqn依赖的，所以反而省事不少，其他环境中，估计折腾dns或者hosts也是个大步骤。</p>
 <h1 id="facter">facter简介</h1>
-<p>在安装puppet的时候，会顺带安装好facter工具，这个工具是用来探测本机各类变量，提供给puppetd使用的。    </p>
+<p>在安装puppet的时候，会顺带安装好facter工具，这个工具是用来探测本机各类变量，提供给puppetd使用的。</p>
 <p>因为facter也是ruby写的。所以我们可以自己根据其规则书写补充工具获取更多的变量，方便之后定制模块和类资源。</p>
 <h1 id="puppetca">puppetca认证</h1>
-<p>安装完成后需要建立认证关系。puppet没有像其他通用系统一样借用sshkey的认证，而是自己维护了一套，所以有这么个单独的章节：    </p>
-<p>首先是客户端上的申请，没有单独的命令，就跟一次正常请求一样即可：    </p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">puppetd --test --server master.pp.domain.com</code></pre></div>
-<p>注意：因为puppet2.7和ruby1.9.2以上版本在ssl上的冲突，所以新版本ruby的client需要多几步处理：    </p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">scp master.puppet.domain.com:/etc/puppet/ssl/certs/ca.pem /etc/puppet/ssl/certs/
-<span class="nb">hash</span><span class="o">=</span><span class="sb">`</span>openssl x509 -hash -noout -in /etc/puppet/ssl/certs/ca.pem<span class="sb">`</span>
-ln -s /etc/puppet/ssl/certs/ca.pem /etc/pki/tls/certs/<span class="k">${</span><span class="nv">hash</span><span class="k">}</span>.0</code></pre></div>
-<p>这样才能正常申请cert。    </p>
-<p>然后在主控端上审批。首先可以puppetca &ndash;list查看有多少请求过来的client是未认证的。然后运行如下命令通过：    </p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">puppetca -s -a</code></pre></div>
-<p>(吐槽一下，内网上已经有这么多认证了，还搞一套pp的，还搞出问题来了，有够无聊的，强烈希望pp提供一个开关)</p>
+<p>安装完成后需要建立认证关系。puppet没有像其他通用系统一样借用sshkey的认证，而是自己维护了一套，所以有这么个单独的章节：</p>
+<p>首先是客户端上的申请，没有单独的命令，就跟一次正常请求一样即可：    <br />
+<code class="highlighter-rouge">bash
+    puppetd --test --server master.pp.domain.com    
+</code></p>
+<p>注意：因为puppet2.7和ruby1.9.2以上版本在ssl上的冲突，所以新版本ruby的client需要多几步处理：    <br />
+<code class="highlighter-rouge">bash
+scp master.puppet.domain.com:/etc/puppet/ssl/certs/ca.pem /etc/puppet/ssl/certs/
+hash=`openssl x509 -hash -noout -in /etc/puppet/ssl/certs/ca.pem`
+ln -s /etc/puppet/ssl/certs/ca.pem /etc/pki/tls/certs/${hash}.0
+</code></p>
+<p>这样才能正常申请cert。</p>
+<p>然后在主控端上审批。首先可以puppetca &ndash;list查看有多少请求过来的client是未认证的。然后运行如下命令通过：    <br />
+<code class="highlighter-rouge">bash
+    puppetca -s -a    
+</code><br />
+(吐槽一下，内网上已经有这么多认证了，还搞一套pp的，还搞出问题来了，有够无聊的，强烈希望pp提供一个开关)</p>
 <h1 id="sitepp">site.pp简介</h1>
-<p>/etc/puppet/manifests/site.pp是puppetmaster的总入口。在这里主要完成几个工作：加载模块(import &ldquo;module&rdquo;)；加载节点配置(node {})。    </p>
-<p>模块的名字，就是直接来自于/etc/puppet/modules/dir_name的命名；而node里include包含的class类名，则是modules/dir_name/manifests/init.pp中写的名字。    </p>
-<p>一般来说，这两个可以保持一致方便管理。但是规则毕竟如此，碰到不一致的还是要懂（我就是碰上不一致的样例才研究的）。    </p>
-<p>node配置太多的话，可以另外写在别的目录和配置文件里。在site.pp中只要<code>include 'nodes/*.pp'</code>这样就可以了。</p>
-<p>node配置主要三个部分：    </p>
+<p>/etc/puppet/manifests/site.pp是puppetmaster的总入口。在这里主要完成几个工作：加载模块(import &ldquo;module&rdquo;)；加载节点配置(node {})。</p>
+<p>模块的名字，就是直接来自于/etc/puppet/modules/dir_name的命名；而node里include包含的class类名，则是modules/dir_name/manifests/init.pp中写的名字。</p>
+<p>一般来说，这两个可以保持一致方便管理。但是规则毕竟如此，碰到不一致的还是要懂（我就是碰上不一致的样例才研究的）。</p>
+<p>node配置太多的话，可以另外写在别的目录和配置文件里。在site.pp中只要<code class="highlighter-rouge">include 'nodes/*.pp'</code>这样就可以了。</p>
+<p>node配置主要三个部分：</p>
 <ol>
-  <li>node的fdqn的正则匹配；    </li>
-  <li>node的变量赋值；    </li>
-  <li>node的特定类；    </li>
+  <li>node的fdqn的正则匹配；</li>
+  <li>node的变量赋值；</li>
+  <li>node的特定类；</li>
 </ol>
-<p>比如下面这个例子：</p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">node</span> <span class="s2">&quot;cache[0-9]\.domain\.com&quot;</span> <span class="p">{</span>
-  <span class="vg">$var</span> <span class="o">=</span> <span class="s2">&quot;strings&quot;</span>
-  <span class="vg">$array</span> <span class="o">=</span> <span class="o">[</span><span class="s2">&quot;one&quot;</span><span class="p">,</span> <span class="s2">&quot;two&quot;</span><span class="o">]</span>
-  <span class="kp">include</span> <span class="n">facter</span> <span class="n">squid</span>
-<span class="p">}</span></code></pre></div>
+<p>比如下面这个例子：<br />
+<code class="highlighter-rouge">ruby
+node "cache[0-9]\.domain\.com" {
+  $var = "strings"
+  $array = ["one", "two"]
+  include facter squid
+}
+</code></p>
 <h1 id="modules">modules简介</h1>
-<p>模块中一定有manifests/init.pp作为入口，然后根据其中的定义，另外有templates和files作为辅助目录。    </p>
-<p>init.pp中可以使用require &lsquo;other.pp&rsquo;指令来加载模块的其他配置。    </p>
-<p>init.pp中可以使用puppet的各种资源，包括file、service、exec、package、cron、user等等。    </p>
-<p>各种资源下有各种属性和方法可用，这里就不展开讲了，一来我也没掌握多少，二来真写全了够出书了。主要写关于file的几个，因为linux的本质就是All is file嘛~    </p>
+<p>模块中一定有manifests/init.pp作为入口，然后根据其中的定义，另外有templates和files作为辅助目录。</p>
+<p>init.pp中可以使用require &lsquo;other.pp&rsquo;指令来加载模块的其他配置。</p>
+<p>init.pp中可以使用puppet的各种资源，包括file、service、exec、package、cron、user等等。</p>
+<p>各种资源下有各种属性和方法可用，这里就不展开讲了，一来我也没掌握多少，二来真写全了够出书了。主要写关于file的几个，因为linux的本质就是All is file嘛~</p>
 <ol>
-  <li>content:直接在puppet配置里写file的内容，一般只会在测试的时候这么直接用。更多的是用template(&lsquo;class/class.template.erb&rsquo;)的方式调用模板文件。    </li>
-  <li>source:直接下载puppetmaster上的原始文件，具体url写法是puppet:///module/file。    </li>
-  <li>notify:在客户端搞定file的写入后准备触发的下一个操作，一般用来重启服务(可以用service方法，也可以用exec方法)等等。    </li>
-  <li>ensure:file的状态。比如absent是如果已存在的就删除掉；present是如果不存在就新建；directory是目录；latest是最新的包版本等等。    </li>
-  <li>path:file在客户端的真是存放路径。如果没有定义，就是用name配置。    </li>
+  <li>content:直接在puppet配置里写file的内容，一般只会在测试的时候这么直接用。更多的是用template(&lsquo;class/class.template.erb&rsquo;)的方式调用模板文件。</li>
+  <li>source:直接下载puppetmaster上的原始文件，具体url写法是puppet:///module/file。</li>
+  <li>notify:在客户端搞定file的写入后准备触发的下一个操作，一般用来重启服务(可以用service方法，也可以用exec方法)等等。</li>
+  <li>ensure:file的状态。比如absent是如果已存在的就删除掉；present是如果不存在就新建；directory是目录；latest是最新的包版本等等。</li>
+  <li>path:file在客户端的真是存放路径。如果没有定义，就是用name配置。</li>
   <li>mode:file在客户端的权限，也就是644,755之类的。</li>
 </ol>
 <h1 id="template">template简介</h1>
-<p>puppet用的erb模板引擎，也是RoR中用的模板引擎。看起来和Perl5中的Template::Toolkit相当的一样。尤其是&lt;%%&gt;里使用=和-的表现。    </p>
-<p>我们可以在puppet里用erb完成比puppet语法复杂的多的功能，比如根据node的变量进行运算、循环、判断等等。    </p>
+<p>puppet用的erb模板引擎，也是RoR中用的模板引擎。看起来和Perl5中的Template::Toolkit相当的一样。尤其是&lt;%%&gt;里使用=和-的表现。</p>
+<p>我们可以在puppet里用erb完成比puppet语法复杂的多的功能，比如根据node的变量进行运算、循环、判断等等。</p>
 <h1 id="squid">squid示例</h1>
 <p>最后举例今天完成的一个简单的squid的配置。</p>
-<p>首先是/etc/puppet/manifests/site.pp：    </p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">import</span> <span class="s2">&quot;squid&quot;</span>
-<span class="n">node</span> <span class="s2">&quot;cache[0-9]\.domain\.com&quot;</span> <span class="p">{</span>
-  <span class="vg">$cache_peers</span> <span class="o">=</span> <span class="o">[</span> <span class="s1">&#39;1.2.3.4&#39;</span><span class="p">,</span> <span class="s1">&#39;1.2.3.5&#39;</span><span class="o">]</span>
-  <span class="vg">$http_port</span> <span class="o">=</span> <span class="s2">&quot;8080&quot;</span>
-  <span class="vg">$fs_type</span> <span class="o">=</span> <span class="s2">&quot;aufs&quot;</span>
-<span class="c1">#  单独区分coss，是因为squid源码被修改过后，关于COSS的配置跟磁盘都是特制的，不能像原版那样计算了 </span>
-<span class="c1">#  $fs_type = &quot;coss&quot;</span>
-<span class="c1">#  $coss_options = &quot;/data/coss/stripe0 32 backstore=/data/coss/stripe4,32 max-size=1024768 block-size=1024&quot;</span>
-  <span class="kp">include</span> <span class="n">facter</span> <span class="n">squid</span>
-<span class="p">}</span></code></pre></div>
+<p>首先是/etc/puppet/manifests/site.pp：    <br />
+```ruby<br />
+import &ldquo;squid&rdquo;<br />
+node &ldquo;cache[0-9].domain.com&rdquo; {</p>
+<p>$cache_peers = [ &lsquo;1.2.3.4&rsquo;, &lsquo;1.2.3.5&rsquo;]<br />
+  $http_port = &ldquo;8080&rdquo;<br />
+  $fs_type = &ldquo;aufs&rdquo;<br />
+#  单独区分coss，是因为squid源码被修改过后，关于COSS的配置跟磁盘都是特制的，不能像原版那样计算了 <br />
+#  $fs_type = &ldquo;coss&rdquo;<br />
+#  $coss_options = &ldquo;/data/coss/stripe0 32 backstore=/data/coss/stripe4,32 max-size=1024768 block-size=1024&rdquo;</p>
+<p>include facter squid<br />
+}<br />
+```</p>
 <p>然后是/etc/puppet/modules/facter/manifests/init.pp:</p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="n">facter</span> <span class="p">{</span>
-    <span class="n">file</span> <span class="p">{</span> <span class="s2">&quot;df.rb&quot;</span><span class="p">:</span>
-        <span class="n">path</span>   <span class="o">=&gt;</span> <span class="s2">&quot;/usr/lib/ruby/gems/1.8/gems/facter-1.6.8/lib/facter/df.rb&quot;</span><span class="p">,</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">class</span> <span class="n">facter</span> <span class="p">{</span>
+    <span class="n">file</span> <span class="p">{</span> <span class="s2">"df.rb"</span><span class="p">:</span>
+        <span class="n">path</span>   <span class="o">=&gt;</span> <span class="s2">"/usr/lib/ruby/gems/1.8/gems/facter-1.6.8/lib/facter/df.rb"</span><span class="p">,</span>
         <span class="k">ensure</span> <span class="o">=&gt;</span> <span class="n">file</span><span class="p">,</span>
         <span class="n">mode</span>   <span class="o">=&gt;</span> <span class="mi">644</span><span class="p">,</span>
-        <span class="n">source</span> <span class="o">=&gt;</span> <span class="s2">&quot;puppet:///modules/facter/df.rb&quot;</span><span class="p">,</span>
+        <span class="n">source</span> <span class="o">=&gt;</span> <span class="s2">"puppet:///modules/facter/df.rb"</span><span class="p">,</span>
     <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
-<p>关于给facter写插件，网站的资料说的path都是直接在#{rubysitedir}/facter目录下。但我这里实际情况却不是(好吧，暴露了我的实验机并没有按照上面说的用rvm安装ruby而是yum的)。  <br />
-<strong>2013年1月31日更正：</strong>
-更优的做法应该是放在<code>#{puppetdir}/modules/yourmodule/lib/facter/</code>下，然后作为pluginsync发下去。
+<span class="p">}</span>
+</code></pre>
+</div>
+<p>关于给facter写插件，网站的资料说的path都是直接在#{rubysitedir}/facter目录下。但我这里实际情况却不是(好吧，暴露了我的实验机并没有按照上面说的用rvm安装ruby而是yum的)。    <br />
+<strong>2013年1月31日更正：</strong><br />
+更优的做法应该是放在<code class="highlighter-rouge">#{puppetdir}/modules/yourmodule/lib/facter/</code>下，然后作为pluginsync发下去。<br />
 <strong>更正以上</strong></p>
 <p>然后是对应的/etc/puppet/modules/facter/files/df.rb:</p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="n">data_dir_list</span> <span class="o">=</span> <span class="p">{}</span>
-<span class="n">df</span> <span class="o">=</span> <span class="no">Facter</span><span class="o">::</span><span class="no">Util</span><span class="o">::</span><span class="no">Resolution</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="s2">&quot;/bin/df -m 2&gt;/dev/null&quot;</span><span class="p">)</span>
-<span class="n">df</span><span class="o">.</span><span class="n">each_line</span> <span class="k">do</span> <span class="o">|</span><span class="n">l</span><span class="o">|</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="n">data_dir_list</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">df</span> <span class="o">=</span> <span class="no">Facter</span><span class="o">::</span><span class="no">Util</span><span class="o">::</span><span class="no">Resolution</span><span class="p">.</span><span class="nf">exec</span><span class="p">(</span><span class="s2">"/bin/df -m 2&gt;/dev/null"</span><span class="p">)</span>
+<span class="n">df</span><span class="p">.</span><span class="nf">each_line</span> <span class="k">do</span> <span class="o">|</span><span class="n">l</span><span class="o">|</span>
   <span class="k">if</span> <span class="n">l</span> <span class="o">=~</span> <span class="sr">/^\/dev\/\w+\s+(\d+).+\/(data\d*)$/</span>
-    <span class="n">data_dir_list</span><span class="o">[</span><span class="vg">$2</span><span class="o">]</span> <span class="o">=</span> <span class="vg">$1</span>
+    <span class="n">data_dir_list</span><span class="p">[</span><span class="vg">$2</span><span class="p">]</span> <span class="o">=</span> <span class="vg">$1</span>
   <span class="k">end</span>
 <span class="k">end</span>
-<span class="no">Facter</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;DataDirCount&quot;</span><span class="p">)</span> <span class="k">do</span>
+<span class="no">Facter</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="s2">"DataDirCount"</span><span class="p">)</span> <span class="k">do</span>
   <span class="n">setcode</span> <span class="k">do</span>
-    <span class="k">if</span> <span class="n">data_dir_list</span><span class="o">.</span><span class="n">length</span> <span class="o">!=</span> <span class="mi">0</span>
-      <span class="n">data_dir_list</span><span class="o">.</span><span class="n">length</span>
+    <span class="k">if</span> <span class="n">data_dir_list</span><span class="p">.</span><span class="nf">length</span> <span class="o">!=</span> <span class="mi">0</span>
+      <span class="n">data_dir_list</span><span class="p">.</span><span class="nf">length</span>
     <span class="k">end</span>
   <span class="k">end</span>
 <span class="k">end</span>
-<span class="n">data_dir_list</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">k</span><span class="p">,</span><span class="n">v</span><span class="o">|</span>
-  <span class="no">Facter</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;DirSize_</span><span class="si">#{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="k">do</span>
+<span class="n">data_dir_list</span><span class="p">.</span><span class="nf">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">k</span><span class="p">,</span><span class="n">v</span><span class="o">|</span>
+  <span class="no">Facter</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="s2">"DirSize_</span><span class="si">#{</span><span class="n">k</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="k">do</span>
     <span class="n">setcode</span> <span class="k">do</span>
       <span class="n">v</span>
     <span class="k">end</span>
   <span class="k">end</span>
-<span class="k">end</span></code></pre></div>
-<p>实现很简单，实质就是执行df -m，获取挂载点为/data、/data1&hellip;的目录数以及各目录的总大小，然后把结果添加到facter里。之所以要加这么个插件，是因为之后squid的缓存目录，需要根据目录数量和大小自动计算，而标准的facter里没有这方面的信息，无法传递相关变量。    </p>
+<span class="k">end</span>
+</code></pre>
+</div>
+<p>实现很简单，实质就是执行df -m，获取挂载点为/data、/data1&hellip;的目录数以及各目录的总大小，然后把结果添加到facter里。之所以要加这么个插件，是因为之后squid的缓存目录，需要根据目录数量和大小自动计算，而标准的facter里没有这方面的信息，无法传递相关变量。</p>
 <p>下面正式进入squid模块部分。看/etc/puppet/modules/squid/manifests/init.pp:</p>
-<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="n">squid</span> <span class="p">{</span>
-    <span class="n">service</span> <span class="p">{</span> <span class="s2">&quot;squid&quot;</span><span class="p">:</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">class</span> <span class="n">squid</span> <span class="p">{</span>
+    <span class="n">service</span> <span class="p">{</span> <span class="s2">"squid"</span><span class="p">:</span>
         <span class="k">ensure</span>    <span class="o">=&gt;</span> <span class="n">running</span><span class="p">,</span>
-        <span class="n">subscribe</span> <span class="o">=&gt;</span> <span class="no">File</span><span class="o">[</span><span class="s2">&quot;squid.conf&quot;</span><span class="o">]</span><span class="p">,</span>
+        <span class="n">subscribe</span> <span class="o">=&gt;</span> <span class="no">File</span><span class="p">[</span><span class="s2">"squid.conf"</span><span class="p">],</span>
     <span class="p">}</span>
-    <span class="n">file</span> <span class="p">{</span> <span class="s2">&quot;squid.conf&quot;</span><span class="p">:</span>
-        <span class="n">path</span>    <span class="o">=&gt;</span> <span class="s2">&quot;/tmp/squid.conf&quot;</span><span class="p">,</span>
-        <span class="n">notify</span>  <span class="o">=&gt;</span> <span class="no">Service</span><span class="o">[</span><span class="s2">&quot;squid&quot;</span><span class="o">]</span><span class="p">,</span>
-        <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s2">&quot;squid/squid.conf.erb&quot;</span><span class="p">),</span>
+    <span class="n">file</span> <span class="p">{</span> <span class="s2">"squid.conf"</span><span class="p">:</span>
+        <span class="n">path</span>    <span class="o">=&gt;</span> <span class="s2">"/tmp/squid.conf"</span><span class="p">,</span>
+        <span class="n">notify</span>  <span class="o">=&gt;</span> <span class="no">Service</span><span class="p">[</span><span class="s2">"squid"</span><span class="p">],</span>
+        <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s2">"squid/squid.conf.erb"</span><span class="p">),</span>
         <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="n">present</span><span class="p">,</span>
     <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
-<p>这里只写了service和file两个，实际上还应该有package保证client上确实有squid软件，有file保证/etc/init.d/squid脚本存在等等。注意其中file里的notify和service里的subscribe正好是对应的意思。    </p>
-<p>最后是/etc/puppet/squid/template/squid.conf.erb:</p>
-<div class="highlight"><pre><code class="language-squid" data-lang="squid">&lt;%<span class="w"> </span>if<span class="w"> </span>(fs_type<span class="w"> </span>==<span class="w"> </span>&#39;aufs&#39;)<span class="w"> </span>-%&gt;<span class="w"></span>
-<span class="k">cache_dir</span><span class="w"> </span>aufs<span class="w"> </span>/data/fcache<span class="w"> </span>&lt;%=<span class="w"> </span>Integer(dirsize_data.to_i*0.8)<span class="w"> </span>%&gt;<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="m">256</span><span class="w"></span>
-&lt;%<span class="w"> </span>if<span class="w"> </span>(datadircount.to_i<span class="w"> </span>&gt;<span class="w"> </span><span class="m">1</span>)<span class="w"> </span>-%&gt;<span class="w"></span>
-&lt;%<span class="w"> </span><span class="m">1</span>.upto(datadircount.to_i<span class="w"> </span>-<span class="w"> </span><span class="m">1</span>).each<span class="w"> </span>do<span class="w"> </span>|i|<span class="w"> </span>-%&gt;<span class="w"></span>
-&lt;%<span class="w"> </span>size<span class="w"> </span>=<span class="w"> </span>eval<span class="w"> </span>&quot;dirsize_data#{i}&quot;<span class="w"> </span>-%&gt;<span class="w"></span>
-<span class="k">cache_dir</span><span class="w"> </span>aufs<span class="w"> </span>/data&lt;%=<span class="w"> </span>i<span class="w"> </span>%&gt;/fcache<span class="w"> </span>&lt;%=<span class="w"> </span>Integer(size.to_i*0.8)<span class="w"> </span>%&gt;<span class="w"> </span><span class="m">16</span><span class="w"> </span><span class="m">256</span><span class="w"></span>
-&lt;%<span class="w"> </span>end<span class="w"> </span>-%&gt;<span class="w"></span>
-&lt;%<span class="w"> </span>end<span class="w"> </span>-%&gt;<span class="w"></span>
-&lt;%<span class="w"> </span>else<span class="w"> </span>%&gt;<span class="w"></span>
-<span class="k">cache_dir</span><span class="w"> </span>coss<span class="w"> </span>&lt;%=<span class="w"> </span>coss_options<span class="w"> </span>%&gt;<span class="w"></span>
-&lt;%<span class="w"> </span>end<span class="w"> </span>%&gt;<span class="w"></span>
-<span class="k">cache_mem</span><span class="w"> </span>&lt;%=<span class="w"> </span>Integer(memorysize.to_i<span class="w"> </span>*<span class="w"> </span><span class="m">0</span>.45<span class="w"> </span>*<span class="w"> </span><span class="m">1024</span>)<span class="w"> </span>%&gt;<span class="w"> </span>MB<span class="w"></span>
-<span class="k">visible_hostname</span><span class="w"> </span>&lt;%=<span class="w"> </span>fqdn<span class="w"> </span>%&gt;<span class="w"></span>
-<span class="k">http_port</span><span class="w"> </span>&lt;%=<span class="w"> </span><span class="k">http_port</span><span class="w"> </span>%&gt;<span class="w"> </span>vhost<span class="w"></span>
-&lt;%<span class="w"> </span>cache_peers.each<span class="w"> </span>do<span class="w"> </span>|peer|<span class="w"> </span>-%&gt;<span class="w"></span>
-<span class="k">cache_peer</span><span class="w"> </span>&lt;%=<span class="w"> </span>peer<span class="w"> </span>%&gt;<span class="w"> </span><span class="no">parent</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="no">no-query</span><span class="w"> </span>originserver<span class="w"> </span><span class="no">round-robin</span><span class="w"></span>
-&lt;%<span class="w"> </span>end<span class="w"> </span>%&gt;<span class="w"></span></code></pre></div>
-<p>这里只贴跟模板变量相关的部分。初学ruby，被to_i方法搞得很是郁闷，还好像eval方法之类的很像很眼熟~~  <br />
+<span class="p">}</span>
+</code></pre>
+</div>
+<p>这里只写了service和file两个，实际上还应该有package保证client上确实有squid软件，有file保证/etc/init.d/squid脚本存在等等。注意其中file里的notify和service里的subscribe正好是对应的意思。</p>
+<p>最后是/etc/puppet/squid/template/squid.conf.erb:<br />
+```squid<br />
+&lt;% if (fs_type == &lsquo;aufs&rsquo;) -%&gt;<br />
+cache_dir aufs /data/fcache &lt;%= Integer(dirsize_data.to_i<em>0.8) %&gt; 16 256<br />
+&lt;% if (datadircount.to_i &gt; 1) -%&gt;<br />
+&lt;% 1.upto(datadircount.to_i - 1).each do |i| -%&gt;<br />
+&lt;% size = eval &ldquo;dirsize_data#{i}&rdquo; -%&gt;<br />
+cache_dir aufs /data&lt;%= i %&gt;/fcache &lt;%= Integer(size.to_i</em>0.8) %&gt; 16 256<br />
+&lt;% end -%&gt;<br />
+&lt;% end -%&gt;<br />
+&lt;% else %&gt;<br />
+cache_dir coss &lt;%= coss_options %&gt;<br />
+&lt;% end %&gt;<br />
+cache_mem &lt;%= Integer(memorysize.to_i * 0.45 * 1024) %&gt; MB<br />
+visible_hostname &lt;%= fqdn %&gt;<br />
+http_port &lt;%= http_port %&gt; vhost</p>
+<p>&lt;% cache_peers.each do |peer| -%&gt;<br />
+cache_peer &lt;%= peer %&gt; parent 80 0 no-query originserver round-robin<br />
+&lt;% end %&gt;<br />
+```<br />
+这里只贴跟模板变量相关的部分。初学ruby，被to_i方法搞得很是郁闷，还好像eval方法之类的很像很眼熟~~    <br />
 模板里cache_peers等，是在node配置里定义的；memorysize等，是facter获取的。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2012/05/08/collect-log-variables-by-ngx-lua" title="通过lua统计nginx内部变量数据">&larr; Previous</a></li>
+        <li class="prev"><a href="/2012/05/08/collect-log-variables-by-ngx-lua/" title="通过lua统计nginx内部变量数据">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2012/05/18/puppet-external-nodes-classifier" title="【puppet系列】puppet使用ENC定义节点">Next &rarr;</a></li>
+        <li class="next"><a href="/2012/05/18/puppet-external-nodes-classifier/" title="【puppet系列】puppet使用ENC定义节点">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -257,15 +277,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

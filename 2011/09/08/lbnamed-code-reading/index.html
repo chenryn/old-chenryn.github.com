@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -63,7 +63,7 @@
 <ul>
   <li>接下来主要是去看Stanford::DNSserver里的add_*和answer_queries函数。</li>
 </ul>
-<p>这个模块里，$self除了new()传递的参数以外，还有几个很重要的空间，分别是$self-&gt;{select}、$self-&gt;{static}-&gt;{$domain}-&gt;{$type}-&gt;{answer}、$self-&gt;{static}-&gt;{$domain}-&gt;{$type}-&gt;{ancount}和$self-&gt;{dynamic}-&gt;{$domain}。
+<p>这个模块里，$self除了new()传递的参数以外，还有几个很重要的空间，分别是$self-&gt;{select}、$self-&gt;{static}-&gt;{$domain}-&gt;{$type}-&gt;{answer}、$self-&gt;{static}-&gt;{$domain}-&gt;{$type}-&gt;{ancount}和$self-&gt;{dynamic}-&gt;{$domain}。<br />
 1. add_static()很简单，把传入的配置按照格式组装给Stanford::DNS::dns_answer()，返回值存入$self-&gt;{static}-&gt;{$domain}-&gt;{$type}-&gt;{answer}，同时$self-&gt;{static}-&gt;{$domain}-&gt;{$type}-&gt;{ancount}加1。</p>
 <pre><code>
 *** 2011-10-09注: 代码是.=，即返回值是接入，static方法可以返回多条记录，而dynamic方法只会返回最后加载的一条。
@@ -72,9 +72,9 @@
   <li>add_dynamic()更简单，直接把lbnamed里的handle_lb_request()的引用存入$self-&gt;{dynamic}-&gt;{$domain}就完了。</li>
   <li>answer_queries()方法启动服务器，步骤如下：</li>
 </ol>
-<p>$self-&gt;daemon()，其实就是改变STD后的fork。<br />
- $self-&gt;init()，首先用IO::Socket::INET模块，new出两个socket，分别监听在TCP/UDP的DNS端口上；然后调用$self-&gt;{select}，这在new的时候已经创建了一个IO::Select对象。把之前的两个socket加入到select队列中。<br />
- 在一个while(1){}死循环中，调用select的can_read()方法，具体是$self-&gt;{select}-&gt;can_read(600)，根据IO::Select的说明，这个600表示如果一直没有可以READ的SOCKET，等待600秒后返回一个空队列，也就是说轮训的时候，每个socket会阻塞600秒~<br />
+<p>$self-&gt;daemon()，其实就是改变STD后的fork。<br /><br />
+ $self-&gt;init()，首先用IO::Socket::INET模块，new出两个socket，分别监听在TCP/UDP的DNS端口上；然后调用$self-&gt;{select}，这在new的时候已经创建了一个IO::Select对象。把之前的两个socket加入到select队列中。<br /><br />
+ 在一个while(1){}死循环中，调用select的can_read()方法，具体是$self-&gt;{select}-&gt;can_read(600)，根据IO::Select的说明，这个600表示如果一直没有可以READ的SOCKET，等待600秒后返回一个空队列，也就是说轮训的时候，每个socket会阻塞600秒~<br /><br />
  如果can_read成立，根据其协议是UDP还是TCP，调用$self-&gt;handle_udp_req或者$self-&gt;handle_tcp_req处理这个socket。</p>
 <ul>
   <li>然后看$self-&gt;handle_udp_req()方法。</li>
@@ -124,7 +124,7 @@
 <ul>
   <li>接着是check_dynamic()函数</li>
 </ul>
-<p>跟static不同的是，这里对域名进行了分割然后重拼装，在获取到最先匹配的handler后跳出循环，调用handler处理。举例说：team.www.domain.com这个域名，它先检查是不是存在$self-&gt;{dynamic}-&gt;{www.domain.com}，有就传递(&lsquo;www.domain.com&rsquo;,&rsquo;team&rsquo;,&hellip;)；否则下一步检查$self-&gt;{dynamic}-&gt;{domain.com}，有就传递(&lsquo;domain.com&rsquo;,&rsquo;team.www&rsquo;,&hellip;)；依此类推……
+<p>跟static不同的是，这里对域名进行了分割然后重拼装，在获取到最先匹配的handler后跳出循环，调用handler处理。举例说：team.www.domain.com这个域名，它先检查是不是存在$self-&gt;{dynamic}-&gt;{www.domain.com}，有就传递(&lsquo;www.domain.com&rsquo;,&rsquo;team&rsquo;,&hellip;)；否则下一步检查$self-&gt;{dynamic}-&gt;{domain.com}，有就传递(&lsquo;domain.com&rsquo;,&rsquo;team.www&rsquo;,&hellip;)；依此类推……<br />
 <br />至于Stanford::DNS模块，主要就是拼装各种数据成DNS协议规范的数据格式，在没看懂RFC1035和pack/unpack的用法前，就不写了。</p>
 <ul>
   <li>回头继续看那个handler函数</li>
@@ -145,15 +145,17 @@
   <li>然后dump_lb()函数里取出各host的探测结果，计算weight，写入文件。</li>
 </ol>
 <p>这个计算方法主要包括了服务器的登录user数量和loadavg的大小。说实话我不清楚为啥要计算user数量……具体的数据格式，可以看LBCD.pm里注释的C语言typeof struct定义，也可以看slbcd脚本里的pack。如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nv">$reply</span> <span class="o">=</span> <span class="nb">pack</span><span class="p">(</span><span class="s">&quot;nnnnNNNnnnnnCC&quot;</span><span class="p">,</span>            <span class="c1"># build the reply</span>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="nv">$reply</span> <span class="o">=</span> <span class="nb">pack</span><span class="p">(</span><span class="s">"nnnnNNNnnnnnCC"</span><span class="p">,</span>            <span class="c1"># build the reply</span>
               <span class="nv">$version</span><span class="p">,</span> <span class="nv">$id</span><span class="p">,</span> <span class="nv">$op</span><span class="p">,</span> <span class="nv">$status</span><span class="p">,</span>
               <span class="nv">$btime</span><span class="p">,</span> <span class="nb">time</span><span class="p">(),</span> <span class="nv">$utime</span><span class="p">,</span>
               <span class="nv">$l1</span><span class="p">,</span> <span class="nv">$l5</span><span class="p">,</span> <span class="nv">$l15</span><span class="p">,</span> <span class="nv">$tot</span><span class="p">,</span> <span class="nv">$uniq</span><span class="p">,</span>
-              <span class="nv">$console</span><span class="p">,</span> <span class="nv">$reserved</span><span class="p">);</span></code></pre></div>
+              <span class="nv">$console</span><span class="p">,</span> <span class="nv">$reserved</span><span class="p">);</span>
+</code></pre>
+</div>
 <ul>
   <li>最后总结</li>
 </ul>
-<p>这个server利用poller调整解析的weight，但并不是我想象中的百分比解析，而是针对每次解析请求时后端服务器的准实时（120秒）负载情况给出最适合的一个。对于全网GSLB，感觉不太适用；对于内部SLB，又感觉不如LVS好用。<br />
+<p>这个server利用poller调整解析的weight，但并不是我想象中的百分比解析，而是针对每次解析请求时后端服务器的准实时（120秒）负载情况给出最适合的一个。对于全网GSLB，感觉不太适用；对于内部SLB，又感觉不如LVS好用。<br /><br />
 不过作为一个DNS框架，如果抛开poller，倒也可以自己再设想一个动态dns来：</p>
 <ol>
   <li>用Net::IP::Match::Regexp匹配ip列表到area区域——可以注意到，lbnamed中写的handler中没有用上传递进去的$from；</li>
@@ -163,9 +165,9 @@
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/08/25/nginx-diff-response-via-filesize" title="用nginx区分文件大小做出不同响应">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/08/25/nginx-diff-response-via-filesize/" title="用nginx区分文件大小做出不同响应">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/09/16/dancing-website-for-sync-dist-1" title="写个同步分发系统(一)">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/09/16/dancing-website-for-sync-dist-1/" title="写个同步分发系统(一)">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -209,15 +211,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

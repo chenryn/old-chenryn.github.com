@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -75,20 +75,22 @@
 <p>现有版本已经添加了 doc values 支持。本质上，doc values 提供了和内存中 fielddata 一样的功能，不过他们在写入索引的时候就直接落到了磁盘上。而好处就是：他们<strong>消耗很少的堆空间</strong>。Doc values 在读取的时候也不是从内存，而是从磁盘上读取。虽然访问磁盘很慢，但是 doc values 可以利用内核的文件系统缓存。文件系统缓存可不像 JVM 的堆，不会有 32GB 的限制。所以把 fielddata 从堆转移到文件系统缓存里，你只用消耗更小的堆空间，也意味着更快的垃圾回收，以及<strong>更稳定的节点</strong>。</p>
 <p>在本次发版之前，doc values 明显慢于在内存里的 fielddata 。而这次我们显著提升了性能，几乎达到了和在内存里一样快的效果。</p>
 <p>用doc values 替换内存 fielddata，你只需要向下面这样构建新字段就行：</p>
-<div class="highlight"><pre><code class="language-json" data-lang="json"><span class="err">PUT</span> <span class="err">/my_index</span>
-<span class="p">{</span>
-  <span class="nt">&quot;mappings&quot;</span><span class="p">:</span> <span class="p">{</span>
-    <span class="nt">&quot;my_type&quot;</span><span class="p">:</span> <span class="p">{</span>
-      <span class="nt">&quot;properties&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="nt">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">{</span>
-          <span class="nt">&quot;type&quot;</span><span class="p">:</span>       <span class="s2">&quot;date&quot;</span><span class="p">,</span>
-          <span class="nt">&quot;doc_values&quot;</span><span class="p">:</span> <span class="kc">true</span>
-        <span class="p">}</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
-<p>有了这个映射表，要用这个字段数据都会自动从磁盘加载 doc values 而不是进到内存里。<strong>注意</strong>：目前 doc values 还不能在经过分词器的 <code>string</code> 字段上使用。</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="err">PUT</span><span class="w"> </span><span class="err">/my_index</span><span class="w">
+</span><span class="p">{</span><span class="w">
+  </span><span class="nt">"mappings"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nt">"my_type"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nt">"properties"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nt">"timestamp"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+          </span><span class="nt">"type"</span><span class="p">:</span><span class="w">       </span><span class="s2">"date"</span><span class="p">,</span><span class="w">
+          </span><span class="nt">"doc_values"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+      </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre>
+</div>
+<p>有了这个映射表，要用这个字段数据都会自动从磁盘加载 doc values 而不是进到内存里。<strong>注意</strong>：目前 doc values 还不能在经过分词器的 <code class="highlighter-rouge">string</code> 字段上使用。</p>
 <h3 id="request-circuit-breaker">request circuit breaker</h3>
 <p>fielddata 断路器之前已经被加入，用作限制 fielddata 可用的最大内存，这是导致 OOM 的最大恶因。而限制，我们把这个机制扩展到<a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/1.4/index-modules-fielddata.html#request-circuit-breaker">请求界别</a>，用来限制每次请求可用的最大内存。</p>
 <h3 id="bloom-filters">bloom filters</h3>
@@ -115,34 +117,37 @@
 <p>一个新的实验性<a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/1.4/index-modules-shard-query-cache.html">分片层次的请求缓存</a>可以让在静态索引上的聚合请求瞬间返回响应。想想你有一个仪表板展示你的网站每天的 PV 数。这个书在过去的索引上不可能再变化了，但是聚合请求在每次页面刷新的时候都需要重新计算。有了新的请求缓存，聚合结果就可以直接从缓存中返回，除非分片中的数据发生了变化。你不用担心会从缓存中得到过期的结果 &ndash; 它永远都会跟没缓存一样。</p>
 <h3 id="section-4">新的聚合函数</h3>
 <p>我们添加了三个新的聚合函数：</p>
-<p><code>filters</code></p>
-<pre><code>这是 `filter` 聚合的扩展。允许你定义多个桶(bucket)，每个桶里有不同的过滤器。
+<p><code class="highlighter-rouge">filters</code></p>
+<div class="highlighter-rouge"><pre class="highlight"><code>这是 `filter` 聚合的扩展。允许你定义多个桶(bucket)，每个桶里有不同的过滤器。
 </code></pre>
-<p><code>children</code></p>
-<pre><code>相当于 `nested` 的父子聚合，`children` 可以针对属于某个父文档的子文档做聚合。
+</div>
+<p><code class="highlighter-rouge">children</code></p>
+<div class="highlighter-rouge"><pre class="highlight"><code>相当于 `nested` 的父子聚合，`children` 可以针对属于某个父文档的子文档做聚合。
 </code></pre>
-<p><code>scripted_metric</code></p>
-<pre><code>给你完全掌控数据数值运算的能力。提供了在初始化、文档收集、分片层次合并，以及全局归并阶段的钩子。
+</div>
+<p><code class="highlighter-rouge">scripted_metric</code></p>
+<div class="highlighter-rouge"><pre class="highlight"><code>给你完全掌控数据数值运算的能力。提供了在初始化、文档收集、分片层次合并，以及全局归并阶段的钩子。
 </code></pre>
+</div>
 <h3 id="index-">获取 /index 的接口</h3>
-<p>之前，你可以分别为一个索引获取他的别名，映射表，配置等等。而<a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/1.4/indices-get-index.html"><code>get-index</code> 接口</a> 现在让你可以一次获取一个或者多个索引的全部信息。这在你需要创建一个跟已有索引很类似或者几乎一样的新索引的时候，相当有用。</p>
+<p>之前，你可以分别为一个索引获取他的别名，映射表，配置等等。而<a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/1.4/indices-get-index.html"><code class="highlighter-rouge">get-index</code> 接口</a> 现在让你可以一次获取一个或者多个索引的全部信息。这在你需要创建一个跟已有索引很类似或者几乎一样的新索引的时候，相当有用。</p>
 <h3 id="section-5">索引写入和更新</h3>
 <p>在文档写入和更新方面也有一些改进：</p>
 <ul>
   <li>我们现在用 <a href="http://boundary.com/blog/2012/01/12/flake-a-decentralized-k-ordered-unique-id-generator-in-erlang">Flake IDs</a> 自动生成文档的 ID。在查找主键的时候，能提供更好的性能。</li>
-  <li>如果设置 <code>detect_noop</code> 为 <code>true</code>，一个不做任何实际变动的更新操作现在消耗更小了。打开这个参数，就只有变更了 <code>_source</code> 字段内容的更新请求才能写入新版本文档。</li>
-  <li>更新操作可以完全由脚本控制。之前，脚本只能在字段已经存在的时候运行，否则会插入一个 <code>upsert</code> 文档。现在 <code>scripted_upsert</code> 参数允许你在脚本中直接处理文档创建工作。</li>
+  <li>如果设置 <code class="highlighter-rouge">detect_noop</code> 为 <code class="highlighter-rouge">true</code>，一个不做任何实际变动的更新操作现在消耗更小了。打开这个参数，就只有变更了 <code class="highlighter-rouge">_source</code> 字段内容的更新请求才能写入新版本文档。</li>
+  <li>更新操作可以完全由脚本控制。之前，脚本只能在字段已经存在的时候运行，否则会插入一个 <code class="highlighter-rouge">upsert</code> 文档。现在 <code class="highlighter-rouge">scripted_upsert</code> 参数允许你在脚本中直接处理文档创建工作。</li>
 </ul>
 <h3 id="function-score">function score</h3>
-<p>非常有用的 <a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/1.4/query-dsl-function-score-query.html"><code>function_score</code> 请求</a>现在支持权重参数，用来优化每个指定函数的相关性影响。这样你可以把更多权重给新近的而不是热点的，给价格而不是位置。此外，<code>random_score</code>函数不再被 segment 合并影响，增强了排序一致性。</p>
+<p>非常有用的 <a href="http://www.elasticsearch.org/guide/en/elasticsearch/reference/1.4/query-dsl-function-score-query.html"><code class="highlighter-rouge">function_score</code> 请求</a>现在支持权重参数，用来优化每个指定函数的相关性影响。这样你可以把更多权重给新近的而不是热点的，给价格而不是位置。此外，<code class="highlighter-rouge">random_score</code>函数不再被 segment 合并影响，增强了排序一致性。</p>
 <h2 id="section-6">试一试</h2>
 <p>请<a href="http://www.elasticsearch.org/downloads/1-4-0-Beta1">下载 Elasticsearch 1.4.0.Beta1</a>，尝试一下，然后在 Twitter 上<a href="https://twitter.com/elasticsearch">@elasticsearch</a>) 说出你的想法。你也可以在 <a href="https://github.com/elasticsearch/elasticsearch/issues">GitHub issues 页</a>上报告问题。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2014/10/07/kibana-4-beta-1-released" title="【翻译】Kibana 4 beta 1 发版日志">&larr; Previous</a></li>
+        <li class="prev"><a href="/2014/10/07/kibana-4-beta-1-released/" title="【翻译】Kibana 4 beta 1 发版日志">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2014/10/10/run-kibana4-without-jar" title="从源代码运行 Kibana 4">Next &rarr;</a></li>
+        <li class="next"><a href="/2014/10/10/run-kibana4-without-jar/" title="从源代码运行 Kibana 4">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -186,15 +191,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

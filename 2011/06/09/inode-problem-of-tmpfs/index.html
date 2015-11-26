@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -49,41 +49,33 @@
     <div class="date"><span>09 June 2011</span></div>
   </div>
   <div style='background-color: #FFF;'>
-    <p>一些squid服务器为了强调加速效果，使用tmpfs来做cache_dir。刚开始运行的时候也嗖嗖的，不过没过一两天，mgr:info就看到缓存命中率急剧下降，字节命中率甚至只剩下10%左右！检查了多次配置，绝对没有问题，但同样的url，曾经一分钟几百次的HIT，现在一分钟几百次MISS……
-df看，不管是tmpfs，还是logs所在的目录，都才用了不到30%。最后想起来df -i看了下，果然，tmpfs的inode使用率100%了！
-赶紧remount了一次，解决了问题。但不是根本出路。还是得想办法搞定这个inode。
-在linux代码说明里找到了关于tmpfs的文档（/usr/src/linux/Documentation/filesystems/tmpfs.txt）：
-    tmpfs has three mount options for sizing:
-    ……
+    <p>一些squid服务器为了强调加速效果，使用tmpfs来做cache_dir。刚开始运行的时候也嗖嗖的，不过没过一两天，mgr:info就看到缓存命中率急剧下降，字节命中率甚至只剩下10%左右！检查了多次配置，绝对没有问题，但同样的url，曾经一分钟几百次的HIT，现在一分钟几百次MISS……<br />
+df看，不管是tmpfs，还是logs所在的目录，都才用了不到30%。最后想起来df -i看了下，果然，tmpfs的inode使用率100%了！<br />
+赶紧remount了一次，解决了问题。但不是根本出路。还是得想办法搞定这个inode。<br />
+在linux代码说明里找到了关于tmpfs的文档（/usr/src/linux/Documentation/filesystems/tmpfs.txt）：<br />
+    tmpfs has three mount options for sizing:<br />
+    ……<br />
     nr_inodes: The maximum number of inodes for this instance. <strong>The default
-               is half of the number of your physical RAM pages</strong>, or (on a
-               machine with highmem) the number of lowmem RAM pages,
-               whichever is the lower.
-    These parameters accept a suffix k, m or g for kilo, mega and giga and
-    can be changed on remount.  The size parameter also accepts a suffix %
-    to limit this tmpfs instance to that percentage of your physical RAM:
+               is half of the number of your physical RAM pages</strong>, or (on a<br />
+               machine with highmem) the number of lowmem RAM pages,<br />
+               whichever is the lower.<br />
+    These parameters accept a suffix k, m or g for kilo, mega and giga and<br />
+    can be changed on remount.  The size parameter also accepts a suffix %<br />
+    to limit this tmpfs instance to that percentage of your physical RAM:<br />
     <strong>the default, when neither size nor nr_blocks is specified, is size=50%</strong></p>
-<pre><code>If nr_blocks=0 (or size=0), blocks will not be limited in that instance;
+<div class="highlighter-rouge"><pre class="highlight"><code>If nr_blocks=0 (or size=0), blocks will not be limited in that instance;
 &lt;strong&gt;if nr_inodes=0, inodes will not be limited.&lt;/strong&gt;  It is generally unwise to
 mount with such options, since it allows any user with write access to
 use up all the memory on the machine; but enhances the scalability of
-that instance in a system with many cpus making intensive use of it. linux默认的RAM page大小是4k，好了来计算一下吧。
+that instance in a system with many cpus making intensive use of it. linux默认的RAM page大小是4k，好了来计算一下吧。 ```bash[root@bbs_squid4 ~]# df -i|awk '/tmpfs/{print $2}' 504912 [root@bbs_squid4 ~]# free -k|awk '/Mem/{print $2/4/2}' 504912``` 果然如此！ 那么真正的解决办法也就有了： ```bash[root@localhost ~]# mount -t tmpfs -o size=2000M,mode=777,nr_inodes=0 tmpfs /tmpfs [root@localhost ~]# df -i|grep tmpfs tmpfs                      0       0       0    -  /tmpfs```
 </code></pre>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">[</span>root@bbs_squid4 ~<span class="o">]</span><span class="c"># df -i|awk &#39;/tmpfs/{print $2}&#39;</span>
-504912
-<span class="o">[</span>root@bbs_squid4 ~<span class="o">]</span><span class="c"># free -k|awk &#39;/Mem/{print $2/4/2}&#39;</span>
-504912</code></pre></div>
-<p>果然如此！
-那么真正的解决办法也就有了：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># mount -t tmpfs -o size=2000M,mode=777,nr_inodes=0 tmpfs /tmpfs</span>
-<span class="o">[</span>root@localhost ~<span class="o">]</span><span class="c"># df -i|grep tmpfs</span>
-tmpfs                      <span class="m">0</span>       <span class="m">0</span>       <span class="m">0</span>    -  /tmpfs</code></pre></div>
+</div>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/06/03/aggregate-multi-servers-rollback-log-by-gearmand" title="用gearman汇总多台服务器的回滚日志">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/06/03/aggregate-multi-servers-rollback-log-by-gearmand/" title="用gearman汇总多台服务器的回滚日志">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/06/09/intro-spread" title="spread试验">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/06/09/intro-spread/" title="spread试验">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -127,15 +119,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

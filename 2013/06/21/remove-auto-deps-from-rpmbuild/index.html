@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -53,23 +53,25 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>同事在用简单的 SPEC 配置打包 nagios 套件的时候，发现最后生成的 RPM 包附加了很多依赖关系。其中 <code>perl-Net-SNMP</code> 这个包，是服务器默认安装中没有的。这也不是什么大问题。不过这个出现还是蛮奇怪的。值得研究一下。</p>
-<p>后来在 <code>/usr/lib/rpm/</code> 目录下发现了一系列脚本，诸如<code>javadeps</code>/<code>perl.req</code>/<code>pythondeps</code>/<code>find-requires</code>/<code>mono-find-requires</code>等等。</p>
-<p>这些脚本的作用是，用 <code>file</code> 命令判断文件，如果是二进制的，用ldd判断依赖；如果是脚本，过滤文件中对应的 <code>use</code>/<code>requires</code>/<code>import</code> 语句。这样就可以找出来源代码的内部依赖了。</p>
+    <p>同事在用简单的 SPEC 配置打包 nagios 套件的时候，发现最后生成的 RPM 包附加了很多依赖关系。其中 <code class="highlighter-rouge">perl-Net-SNMP</code> 这个包，是服务器默认安装中没有的。这也不是什么大问题。不过这个出现还是蛮奇怪的。值得研究一下。</p>
+<p>后来在 <code class="highlighter-rouge">/usr/lib/rpm/</code> 目录下发现了一系列脚本，诸如<code class="highlighter-rouge">javadeps</code>/<code class="highlighter-rouge">perl.req</code>/<code class="highlighter-rouge">pythondeps</code>/<code class="highlighter-rouge">find-requires</code>/<code class="highlighter-rouge">mono-find-requires</code>等等。</p>
+<p>这些脚本的作用是，用 <code class="highlighter-rouge">file</code> 命令判断文件，如果是二进制的，用ldd判断依赖；如果是脚本，过滤文件中对应的 <code class="highlighter-rouge">use</code>/<code class="highlighter-rouge">requires</code>/<code class="highlighter-rouge">import</code> 语句。这样就可以找出来源代码的内部依赖了。</p>
 <p>那么怎么才能跳过这段逻辑呢？</p>
 <p>最暴力的办法，这些文件都是 bash 或者 perl 脚本，直接修改。</p>
 <p>但是还可以文明一点，像下面这段，添加在 SPEC 文件中：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">%setup
+<div class="highlighter-rouge"><pre class="highlight"><code>    %setup
     %prep
-    cat <span class="s">&lt;&lt; \EOF &gt; %{name}-req</span>
-<span class="s">    #!/bin/sh</span>
-<span class="s">    %{__perl_requires} $* |\</span>
-<span class="s">    sed -e &#39;/perl(Net::SNMP)/d&#39;</span>
-<span class="s">    EOF</span>
-    %define __perl_requires %<span class="o">{</span>_builddir<span class="o">}</span>/%<span class="o">{</span>name<span class="o">}</span>-%<span class="o">{</span>version<span class="o">}</span>/%<span class="o">{</span>name<span class="o">}</span>-req
-    chmod <span class="m">755</span> %<span class="o">{</span>__perl_requires<span class="o">}</span></code></pre></div>
-<p>这里重定义了一个脚本，原先的定义在 <code>/usr/lib/rpm/macros</code> 中，是：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#%__find_provides       /usr/lib/rpm/rpmdeps --provides</span>
+    cat <span class="sh">&lt;&lt; \EOF &gt; %{name}-req
+    #!/bin/sh
+    %{__perl_requires} $* |\
+    sed -e '/perl(Net::SNMP)/d'
+    EOF
+</span>    %define __perl_requires %<span class="o">{</span>_builddir<span class="o">}</span>/%<span class="o">{</span>name<span class="o">}</span>-%<span class="o">{</span>version<span class="o">}</span>/%<span class="o">{</span>name<span class="o">}</span>-req
+    chmod 755 %<span class="o">{</span>__perl_requires<span class="o">}</span>
+</code></pre>
+</div>
+<p>这里重定义了一个脚本，原先的定义在 <code class="highlighter-rouge">/usr/lib/rpm/macros</code> 中，是：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code>    <span class="c">#%__find_provides       /usr/lib/rpm/rpmdeps --provides</span>
     <span class="c">#%__find_requires       /usr/lib/rpm/rpmdeps --requires</span>
     %__find_provides        /usr/lib/rpm/find-provides
     %__find_requires        /usr/lib/rpm/find-requires
@@ -80,14 +82,16 @@
     %__python_provides      /usr/lib/rpm/pythondeps.sh --provides
     %__python_requires      /usr/lib/rpm/pythondeps.sh --requires
     %__mono_provides        /usr/lib/rpm/mono-find-provides %<span class="o">{</span>_builddir<span class="o">}</span>/%<span class="o">{</span>?buildsubdir<span class="o">}</span> %<span class="o">{</span>buildroot<span class="o">}</span> %<span class="o">{</span>_libdir<span class="o">}</span>
-    %__mono_requires        /usr/lib/rpm/mono-find-requires %<span class="o">{</span>_builddir<span class="o">}</span>/%<span class="o">{</span>?buildsubdir<span class="o">}</span> %<span class="o">{</span>buildroot<span class="o">}</span> %<span class="o">{</span>_libdir<span class="o">}</span></code></pre></div>
-<p>然后将加入了 <code>sed</code> 命令的新脚本定位为新的 MACROS 变量给 <code>rpmbuild</code> 后续使用。</p>
+    %__mono_requires        /usr/lib/rpm/mono-find-requires %<span class="o">{</span>_builddir<span class="o">}</span>/%<span class="o">{</span>?buildsubdir<span class="o">}</span> %<span class="o">{</span>buildroot<span class="o">}</span> %<span class="o">{</span>_libdir<span class="o">}</span>
+</code></pre>
+</div>
+<p>然后将加入了 <code class="highlighter-rouge">sed</code> 命令的新脚本定位为新的 MACROS 变量给 <code class="highlighter-rouge">rpmbuild</code> 后续使用。</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/06/20/rex-task-params-for-dynamic-server-group" title="通过 Rex 命令行参数向动态服务器组发起任务">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/06/20/rex-task-params-for-dynamic-server-group/" title="通过 Rex 命令行参数向动态服务器组发起任务">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/06/24/who-to-calculate-days-between-two-date" title="计算两个时间点之间隔了几天">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/06/24/who-to-calculate-days-between-two-date/" title="计算两个时间点之间隔了几天">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -131,15 +135,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

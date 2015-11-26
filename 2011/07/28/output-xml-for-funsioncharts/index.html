@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,128 +52,130 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>准备使用funsioncharts绘图，其采用xml数据，在绘制line图的时候，就要从mysql里读取数据，并输出成xml格式，相关配置如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="n">cachemoni</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Dancer</span> <span class="s">&#39;:syntax&#39;</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Dancer::Plugin::</span><span class="n">Database</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">POSIX</span> <span class="sx">qw(strftime)</span><span class="p">;</span>
-<span class="n">get</span> <span class="s">&#39;/xml&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$begin_time</span> <span class="o">=</span> <span class="n">date_format</span><span class="p">(</span><span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">begin</span><span class="p">});</span>
-    <span class="k">my</span> <span class="nv">$end_time</span> <span class="o">=</span> <span class="n">date_format</span><span class="p">(</span><span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">end</span><span class="p">});</span>
-    <span class="k">my</span> <span class="nv">$type</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">type</span><span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$color</span> <span class="o">=</span> <span class="p">{</span> <span class="n">chinacache</span> <span class="o">=&gt;</span> <span class="s">&#39;1D8BD1&#39;</span><span class="p">,</span>
-                  <span class="n">dnion</span>      <span class="o">=&gt;</span> <span class="s">&#39;F1683C&#39;</span><span class="p">,</span>
-                  <span class="n">fastweb</span>    <span class="o">=&gt;</span> <span class="s">&#39;2AD62A&#39;</span><span class="p">,</span>
-                <span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$xml_head</span> <span class="o">=</span> <span class="s">&quot;&lt;graph caption=&#39;Response Time&#39; subcaption=&#39;from $begin_time to $end_time&#39; hovercapbg=&#39;FFECAA&#39; hovercapborder=&#39;F47E00&#39; formatNumberScale=&#39;0&#39; decimalPrecision=&#39;0&#39; showvalues=&#39;0&#39; numdivlines=&#39;3&#39; numVdivlines=&#39;0&#39; yaxisminvalue=&#39;1000&#39; yaxismaxvalue=&#39;1800&#39;  rotateNames=&#39;1&#39;&gt;\n&lt;categories &gt;\n&quot;</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$group</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nv">$type</span> <span class="ow">eq</span> <span class="s">&#39;time&#39;</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$group</span> <span class="o">=</span> <span class="s">&#39;cur_date&#39;</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$type</span> <span class="ow">eq</span> <span class="s">&#39;isp&#39;</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$group</span> <span class="o">=</span> <span class="s">&#39;isp&#39;</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$type</span> <span class="ow">eq</span> <span class="s">&#39;area&#39;</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$group</span> <span class="o">=</span> <span class="s">&#39;area&#39;</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-        <span class="k">return</span> <span class="s">&#39;Error&#39;</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="k">my</span> <span class="nv">$xml</span> <span class="o">=</span> <span class="n">cdn_select</span><span class="p">(</span><span class="nv">$begin_time</span><span class="p">,</span> <span class="nv">$end_time</span><span class="p">,</span> <span class="nv">$group</span><span class="p">,</span> <span class="nv">$color</span><span class="p">,</span> <span class="nv">$xml_head</span><span class="p">);</span>
-    <span class="k">return</span> <span class="nv">$xml</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">get_area_code</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$file</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$area_code</span> <span class="o">=</span> <span class="p">{</span> <span class="s">&#39;0000&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;其他&#39;</span> <span class="p">};</span>
-    <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span><span class="s">&#39;&lt;&#39;</span><span class="p">,</span><span class="s">&quot;$file&quot;</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;Cannot open $file&quot;</span><span class="p">;</span>
-    <span class="k">while</span> <span class="p">(</span><span class="sr">&lt;$fh&gt;</span><span class="p">)</span> <span class="p">{</span>
-	<span class="nb">chomp</span><span class="p">;</span>
-        <span class="k">my</span><span class="p">(</span><span class="nv">$area</span><span class="p">,</span><span class="nv">$code</span><span class="p">)</span> <span class="o">=</span> <span class="nb">split</span><span class="p">;</span>
-	<span class="nv">$area_code</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$code&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="s">&quot;$area&quot;</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="nb">close</span> <span class="nv">$fh</span><span class="p">;</span>
-    <span class="k">return</span> <span class="nv">$area_code</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">cdn_select</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$begin_time</span><span class="p">,</span> <span class="nv">$end_time</span><span class="p">,</span> <span class="nv">$group</span><span class="p">,</span> <span class="nv">$color</span><span class="p">,</span> <span class="nv">$xml</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$sql</span> <span class="o">=</span> <span class="s">&quot;SELECT ${group},AVG(avg_time) avg FROM cdn_cron_record WHERE cdn = ? AND cur_date BETWEEN ? AND ? GROUP BY ${group} ORDER BY ${group}&quot;</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$sth</span> <span class="o">=</span> <span class="n">database</span><span class="o">-&gt;</span><span class="n">prepare</span><span class="p">(</span><span class="nv">$sql</span><span class="p">);</span>
-    <span class="k">my</span> <span class="nv">$i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="k">for</span> <span class="k">my</span> <span class="nv">$cdn</span> <span class="p">(</span><span class="sx">qw{chinacache dnion fastweb}</span><span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">execute</span><span class="p">(</span><span class="nv">$cdn</span><span class="p">,</span> <span class="nv">$begin_time</span><span class="p">,</span> <span class="nv">$end_time</span><span class="p">);</span>
-        <span class="k">unless</span><span class="p">(</span><span class="nv">$i</span><span class="p">)</span> <span class="p">{</span>
-            <span class="k">my</span> <span class="nv">@values</span><span class="p">;</span>
-            <span class="k">while</span> <span class="p">(</span> <span class="k">my</span> <span class="nv">$ref</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">fetchrow_hashref</span> <span class="p">)</span> <span class="p">{</span>
-                <span class="k">my</span> <span class="p">(</span><span class="nv">$avg_time</span><span class="p">,</span> <span class="nv">$type</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&#39;avg&#39;</span><span class="p">},</span> <span class="nv">$ref</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$group&quot;</span><span class="p">});</span>
-                <span class="nv">$xml</span> <span class="o">.=</span> <span class="s">&quot;&lt;category name=&#39;convert_group($group, $type)&#39; /&gt;\n&quot;</span><span class="p">;</span>
-                <span class="nb">push</span> <span class="nv">@values</span><span class="p">,</span> <span class="nv">$avg_time</span><span class="p">;</span>
-            <span class="p">};</span>
-            <span class="nv">$xml</span> <span class="o">.=</span> <span class="s">&quot;&lt;/category&gt;\n&quot;</span><span class="p">;</span>
-            <span class="nv">$xml</span> <span class="o">.=</span> <span class="s">&quot;&lt;dataset seriesName=&#39;$cdn&#39; color=&#39;$color-&gt;{$cdn}&#39;&gt;\n&quot;</span><span class="p">;</span>
-            <span class="nv">$xml</span> <span class="o">.=</span> <span class="s">&quot;&lt;set value=&#39;$_&#39; /&gt;\n&quot;</span> <span class="k">for</span> <span class="nv">@values</span><span class="p">;</span>
-            <span class="nv">$xml</span> <span class="o">.=</span> <span class="s">&quot;&lt;/dataset&gt;\n&quot;</span><span class="p">;</span>
-        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-            <span class="nv">$xml</span> <span class="o">.=</span> <span class="s">&quot;&lt;dataset seriesName=&#39;$cdn&#39; color=&#39;$color-&gt;{$cdn}&#39;&gt;\n&quot;</span><span class="p">;</span>
-            <span class="k">while</span> <span class="p">(</span> <span class="k">my</span> <span class="nv">$ref</span> <span class="o">=</span> <span class="nv">$sth</span><span class="o">-&gt;</span><span class="n">fetchrow_hashref</span> <span class="p">)</span> <span class="p">{</span>
-                <span class="nv">$xml</span> <span class="o">.=</span> <span class="s">&quot;&lt;set value=&#39;$ref-&gt;{avg}&#39; /&gt;\n&quot;</span><span class="p">;</span>
-            <span class="p">};</span>
-            <span class="nv">$xml</span> <span class="o">.=</span> <span class="s">&quot;&lt;/dataset&gt;\n&quot;</span><span class="p">;</span>
-        <span class="p">};</span>
-        <span class="nv">$i</span><span class="o">++</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="nv">$xml</span> <span class="o">.=</span> <span class="s">&#39;&lt;/graph&gt;&#39;</span><span class="p">;</span>
-    <span class="k">return</span> <span class="nv">$xml</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">convert_group</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="p">(</span><span class="nv">$group</span><span class="p">,</span> <span class="nv">$origin</span><span class="p">)</span> <span class="o">=</span> <span class="nv">@_</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span><span class="nv">$group</span> <span class="ow">eq</span> <span class="s">&#39;cur_date&#39;</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">return</span> <span class="nv">$origin</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="nv">$group</span> <span class="ow">eq</span> <span class="s">&#39;isp&#39;</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">@isplist</span> <span class="o">=</span> <span class="sx">qw(其他 电信 联通 移动 教育网)</span><span class="p">;</span>
-        <span class="k">return</span> <span class="nv">$isplist</span><span class="p">[</span><span class="nv">$origin</span><span class="p">];</span>
-    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span><span class="nv">$group</span> <span class="ow">eq</span> <span class="s">&#39;area&#39;</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$arealist</span> <span class="o">=</span> <span class="n">get_area_code</span><span class="p">(</span><span class="s">&#39;quhao.txt&#39;</span><span class="p">);</span>
-        <span class="k">my</span> <span class="nv">$code</span> <span class="o">=</span> <span class="nb">sprintf</span><span class="p">(</span><span class="s">&quot;%04s&quot;</span><span class="p">,</span><span class="nv">$origin</span><span class="p">);</span>
-        <span class="k">return</span> <span class="nv">$arealist</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">$code</span><span class="p">};</span>
-    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-        <span class="k">return</span> <span class="s">&#39;Error&#39;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-<span class="k">sub </span><span class="nf">date_format</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$time</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">return</span> <span class="n">strftime</span><span class="p">(</span><span class="s">&quot;%F %H:%M&quot;</span><span class="p">,</span><span class="nb">localtime</span><span class="p">(</span><span class="nv">$time</span><span class="p">))</span> <span class="k">if</span> <span class="nv">$time</span> <span class="o">=~</span> <span class="sr">m/\d+/</span><span class="p">;</span>
-<span class="p">};</span></code></pre></div>
-<p>用curl请求一下，如下：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">[</span>root@naigos ~<span class="o">]</span><span class="c"># curl &#39;http://cache.monitor.china.com/xml?begin=1311739200&amp;end=1311840000&amp;type=time&#39;</span>
-&lt;graph <span class="nv">caption</span><span class="o">=</span><span class="s1">&#39;Daily Visits&#39;</span> <span class="nv">subcaption</span><span class="o">=</span><span class="s1">&#39;from 2011-07-27 12:00 to 2011-07-28 16:00&#39;</span> <span class="nv">hovercapbg</span><span class="o">=</span><span class="s1">&#39;FFECAA&#39;</span> <span class="nv">hovercapborder</span><span class="o">=</span><span class="s1">&#39;F47E00&#39;</span> <span class="nv">formatNumberScale</span><span class="o">=</span><span class="s1">&#39;0&#39;</span> <span class="nv">decimalPrecision</span><span class="o">=</span><span class="s1">&#39;0&#39;</span> <span class="nv">showvalues</span><span class="o">=</span><span class="s1">&#39;0&#39;</span> <span class="nv">numdivlines</span><span class="o">=</span><span class="s1">&#39;3&#39;</span> <span class="nv">numVdivlines</span><span class="o">=</span><span class="s1">&#39;0&#39;</span> <span class="nv">yaxisminvalue</span><span class="o">=</span><span class="s1">&#39;1000&#39;</span> <span class="nv">yaxismaxvalue</span><span class="o">=</span><span class="s1">&#39;1800&#39;</span>  <span class="nv">rotateNames</span><span class="o">=</span><span class="s1">&#39;1&#39;</span>&gt;&lt;categories &gt;&lt;category <span class="nv">name</span><span class="o">=</span><span class="s1">&#39;2011-07-27 17:27:12&#39;</span> /&gt;
-&lt;category <span class="nv">name</span><span class="o">=</span><span class="s1">&#39;2011-07-27 17:32:12&#39;</span> /&gt;
-&lt;category <span class="nv">name</span><span class="o">=</span><span class="s1">&#39;2011-07-27 17:37:01&#39;</span> /&gt;
-&lt;/category&gt;&lt;dataset <span class="nv">seriesName</span><span class="o">=</span><span class="s1">&#39;chinacache&#39;</span> <span class="nv">color</span><span class="o">=</span><span class="s1">&#39;1D8BD1&#39;</span>&gt;&lt;<span class="nb">set </span><span class="nv">value</span><span class="o">=</span><span class="s1">&#39;300.0000&#39;</span> /&gt;
-&lt;<span class="nb">set </span><span class="nv">value</span><span class="o">=</span><span class="s1">&#39;511.0000&#39;</span> /&gt;
-&lt;<span class="nb">set </span><span class="nv">value</span><span class="o">=</span><span class="s1">&#39;482.0000&#39;</span> /&gt;
-&lt;/dataset&gt;&lt;dataset <span class="nv">seriesName</span><span class="o">=</span><span class="s1">&#39;dnion&#39;</span> <span class="nv">color</span><span class="o">=</span><span class="s1">&#39;F1683C&#39;</span>&gt;&lt;<span class="nb">set </span><span class="nv">value</span><span class="o">=</span><span class="s1">&#39;595.6667&#39;</span> /&gt;
-&lt;<span class="nb">set </span><span class="nv">value</span><span class="o">=</span><span class="s1">&#39;432.0000&#39;</span> /&gt;
-&lt;/dataset&gt;&lt;dataset <span class="nv">seriesName</span><span class="o">=</span><span class="s1">&#39;fastweb&#39;</span> <span class="nv">color</span><span class="o">=</span><span class="s1">&#39;2AD62A&#39;</span>&gt;&lt;<span class="nb">set </span><span class="nv">value</span><span class="o">=</span><span class="s1">&#39;471.0000&#39;</span> /&gt;
-&lt;<span class="nb">set </span><span class="nv">value</span><span class="o">=</span><span class="s1">&#39;431.5000&#39;</span> /&gt;
-&lt;/dataset&gt;&lt;/graph&gt;</code></pre></div>
-<p>换个area参数试试：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">[</span>root@naigos lib<span class="o">]</span><span class="c"># curl &#39;http://cache.monitor.china.com/xml?begin=1311739200&amp;end=1312169668&amp;type=area&#39;</span>
-&lt;graph <span class="nv">caption</span><span class="o">=</span><span class="s1">&#39;Response Time&#39;</span> <span class="nv">subcaption</span><span class="o">=</span><span class="s1">&#39;from 2011-07-27 12:00 to 2011-08-01 11:34&#39;</span> <span class="nv">hovercapbg</span><span class="o">=</span><span class="s1">&#39;FFECAA&#39;</span> <span class="nv">hovercapborder</span><span class="o">=</span><span class="s1">&#39;F47E00&#39;</span> <span class="nv">formatNumberScale</span><span class="o">=</span><span class="s1">&#39;0&#39;</span> <span class="nv">decimalPrecision</span><span class="o">=</span><span class="s1">&#39;0&#39;</span> <span class="nv">showvalues</span><span class="o">=</span><span class="s1">&#39;0&#39;</span> <span class="nv">numdivlines</span><span class="o">=</span><span class="s1">&#39;3&#39;</span> <span class="nv">numVdivlines</span><span class="o">=</span><span class="s1">&#39;0&#39;</span> <span class="nv">yaxisminvalue</span><span class="o">=</span><span class="s1">&#39;1000&#39;</span> <span class="nv">yaxismaxvalue</span><span class="o">=</span><span class="s1">&#39;1800&#39;</span>  <span class="nv">rotateNames</span><span class="o">=</span><span class="s1">&#39;1&#39;</span>&gt;
-&lt;categories &gt;
-&lt;category <span class="nv">name</span><span class="o">=</span><span class="s1">&#39;四川&#39;</span> /&gt;
-&lt;category <span class="nv">name</span><span class="o">=</span><span class="s1">&#39;江西&#39;</span> /&gt;
-&lt;/category&gt;&lt;dataset <span class="nv">seriesName</span><span class="o">=</span><span class="s1">&#39;chinacache&#39;</span> <span class="nv">color</span><span class="o">=</span><span class="s1">&#39;1D8BD1&#39;</span>&gt;
-&lt;<span class="nb">set </span><span class="nv">value</span><span class="o">=</span><span class="s1">&#39;511.0000&#39;</span> /&gt;
-&lt;<span class="nb">set </span><span class="nv">value</span><span class="o">=</span><span class="s1">&#39;421.3333&#39;</span> /&gt;
-&lt;/dataset&gt;&lt;dataset <span class="nv">seriesName</span><span class="o">=</span><span class="s1">&#39;dnion&#39;</span> <span class="nv">color</span><span class="o">=</span><span class="s1">&#39;F1683C&#39;</span>&gt;
-&lt;<span class="nb">set </span><span class="nv">value</span><span class="o">=</span><span class="s1">&#39;482.5000&#39;</span> /&gt;
-&lt;/dataset&gt;&lt;dataset <span class="nv">seriesName</span><span class="o">=</span><span class="s1">&#39;fastweb&#39;</span> <span class="nv">color</span><span class="o">=</span><span class="s1">&#39;2AD62A&#39;</span>&gt;
-&lt;<span class="nb">set </span><span class="nv">value</span><span class="o">=</span><span class="s1">&#39;431.3333&#39;</span> /&gt;
-&lt;/dataset&gt;&lt;/graph&gt;</code></pre></div>
-<p>呃，上面用的数据只是我自己insert的，所以出现了比较囧的条数不一致……</p>
+    <p>准备使用funsioncharts绘图，其采用xml数据，在绘制line图的时候，就要从mysql里读取数据，并输出成xml格式，相关配置如下：<br />
+```perl<br />
+package cachemoni;<br />
+use Dancer &lsquo;:syntax&rsquo;;<br />
+use Dancer::Plugin::Database;<br />
+use POSIX qw(strftime);</p>
+<p>get &lsquo;/xml&rsquo; =&gt; sub {<br />
+    my $begin_time = date_format(params-&gt;{begin});<br />
+    my $end_time = date_format(params-&gt;{end});<br />
+    my $type = params-&gt;{type};<br />
+    my $color = { chinacache =&gt; &lsquo;1D8BD1&rsquo;,<br />
+                  dnion      =&gt; &lsquo;F1683C&rsquo;,<br />
+                  fastweb    =&gt; &lsquo;2AD62A&rsquo;,<br />
+                };<br />
+    my $xml_head = &ldquo;<graph caption="Response Time" subcaption="from $begin_time to $end_time" hovercapbg="FFECAA" hovercapborder="F47E00" formatnumberscale="0" decimalprecision="0" showvalues="0" numdivlines="3" numvdivlines="0" yaxisminvalue="1000" yaxismaxvalue="1800" rotatenames="1">\n<categories>\n";
+    my $group;
+    if ( $type eq 'time' ) {
+        $group = 'cur_date';
+    } elsif ( $type eq 'isp' ) {
+        $group = 'isp';
+    } elsif ( $type eq 'area' ) {
+        $group = 'area';
+    } else {
+        return 'Error';
+    };
+    my $xml = cdn_select($begin_time, $end_time, $group, $color, $xml_head);
+    return $xml;
+};</categories></graph></p>
+<p>sub get_area_code {<br />
+    my $file = shift;<br />
+    my $area_code = { &lsquo;0000&rsquo; =&gt; &lsquo;其他&rsquo; };<br />
+    open my $fh,&rsquo;&lt;&rsquo;,&rdquo;$file&rdquo; or die &ldquo;Cannot open $file&rdquo;;<br />
+    while (&lt;$fh&gt;) {<br />
+	chomp;<br />
+        my($area,$code) = split;<br />
+	$area_code-&gt;{&ldquo;$code&rdquo;} = &ldquo;$area&rdquo;;<br />
+    }<br />
+    close $fh;<br />
+    return $area_code;<br />
+};</p>
+<p>sub cdn_select {<br />
+    my ($begin_time, $end_time, $group, $color, $xml) = @_;<br />
+    my $sql = &ldquo;SELECT ${group},AVG(avg_time) avg FROM cdn_cron_record WHERE cdn = ? AND cur_date BETWEEN ? AND ? GROUP BY ${group} ORDER BY ${group}&rdquo;;<br />
+    my $sth = database-&gt;prepare($sql);<br />
+    my $i = 0;<br />
+    for my $cdn (qw{chinacache dnion fastweb}) {<br />
+        $sth-&gt;execute($cdn, $begin_time, $end_time);<br />
+        unless($i) {<br />
+            my @values;<br />
+            while ( my $ref = $sth-&gt;fetchrow_hashref ) {<br />
+                my ($avg_time, $type) = ($ref-&gt;{&lsquo;avg&rsquo;}, $ref-&gt;{&ldquo;$group&rdquo;});<br />
+                $xml .= &ldquo;<category name="convert_group($group, $type)"></category>\n&rdquo;;<br />
+                push @values, $avg_time;<br />
+            };<br />
+            $xml .= &ldquo;&lt;/category&gt;\n&rdquo;;<br />
+            $xml .= &ldquo;<dataset seriesname="$cdn" color="$color-&gt;{$cdn}">\n";
+            $xml .= "<set value="$_"></set>\n" for @values;
+            $xml .= "</dataset>\n&rdquo;;<br />
+        } else {<br />
+            $xml .= &ldquo;<dataset seriesname="$cdn" color="$color-&gt;{$cdn}">\n";
+            while ( my $ref = $sth-&gt;fetchrow_hashref ) {
+                $xml .= "<set value="$ref-&gt;{avg}"></set>\n";
+            };
+            $xml .= "</dataset>\n&rdquo;;<br />
+        };<br />
+        $i++;<br />
+    };<br />
+    $xml .= &lsquo;&lt;/graph&gt;&rsquo;;<br />
+    return $xml;<br />
+};</p>
+<p>sub convert_group {<br />
+    my ($group, $origin) = @_;<br />
+    if ($group eq &lsquo;cur_date&rsquo;) {<br />
+        return $origin;<br />
+    } elsif ($group eq &lsquo;isp&rsquo;) {<br />
+        my @isplist = qw(其他 电信 联通 移动 教育网);<br />
+        return $isplist[$origin];<br />
+    } elsif ($group eq &lsquo;area&rsquo;) {<br />
+        my $arealist = get_area_code(&lsquo;quhao.txt&rsquo;);<br />
+        my $code = sprintf(&ldquo;%04s&rdquo;,$origin);<br />
+        return $arealist-&gt;{$code};<br />
+    } else {<br />
+        return &lsquo;Error&rsquo;;<br />
+    };<br />
+};</p>
+<p>sub date_format {<br />
+    my $time = shift;<br />
+    return strftime(&ldquo;%F %H:%M&rdquo;,localtime($time)) if $time =~ m/\d+/;<br />
+};<code class="highlighter-rouge">
+用curl请求一下，如下：
+</code>bash[root@naigos ~]# curl &lsquo;http://cache.monitor.china.com/xml?begin=1311739200&amp;end=1311840000&amp;type=time&rsquo;</p>
+<graph caption="Daily Visits" subcaption="from 2011-07-27 12:00 to 2011-07-28 16:00" hovercapbg="FFECAA" hovercapborder="F47E00" formatnumberscale="0" decimalprecision="0" showvalues="0" numdivlines="3" numvdivlines="0" yaxisminvalue="1000" yaxismaxvalue="1800" rotatenames="1"><categories><category name="2011-07-27 17:27:12" />
+<category name="2011-07-27 17:32:12" />
+<category name="2011-07-27 17:37:01" />
+<dataset seriesname="chinacache" color="1D8BD1"><set value="300.0000" />
+<set value="511.0000" />
+<set value="482.0000" />
+</dataset><dataset seriesname="dnion" color="F1683C"><set value="595.6667" />
+<set value="432.0000" />
+</dataset><dataset seriesname="fastweb" color="2AD62A"><set value="471.0000" />
+<set value="431.5000" />
+</dataset>```
+换个area参数试试：
+```bash[root@naigos lib]# curl 'http://cache.monitor.china.com/xml?begin=1311739200&amp;end=1312169668&amp;type=area'
+<graph caption="Response Time" subcaption="from 2011-07-27 12:00 to 2011-08-01 11:34" hovercapbg="FFECAA" hovercapborder="F47E00" formatnumberscale="0" decimalprecision="0" showvalues="0" numdivlines="3" numvdivlines="0" yaxisminvalue="1000" yaxismaxvalue="1800" rotatenames="1">
+<categories>
+<category name="四川" />
+<category name="江西" />
+<dataset seriesname="chinacache" color="1D8BD1">
+<set value="511.0000" />
+<set value="421.3333" />
+</dataset><dataset seriesname="dnion" color="F1683C">
+<set value="482.5000" />
+</dataset><dataset seriesname="fastweb" color="2AD62A">
+<set value="431.3333" />
+</dataset>```
+呃，上面用的数据只是我自己insert的，所以出现了比较囧的条数不一致……
+</categories></graph></categories></graph>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/07/27/prepare-mysql-for-self-monitor" title="cdn自主监控(三):数据库准备工作">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/07/27/prepare-mysql-for-self-monitor/" title="cdn自主监控(三):数据库准备工作">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/08/01/fusioncharts-for-self-monitor" title="cdn自主监控(五):生成charts图像">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/08/01/fusioncharts-for-self-monitor/" title="cdn自主监控(五):生成charts图像">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -217,15 +219,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

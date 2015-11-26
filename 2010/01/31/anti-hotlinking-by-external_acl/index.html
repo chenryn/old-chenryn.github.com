@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,41 +52,45 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>服务器防盗链设置，从最简单的referer判断，到进阶的key+time生成md5值，应该说是比较可靠了，而还有一种防盗链方式，基于IP/COOKIE的，这个我没找到太多有用信息，似乎IIS有个相关插件？
-只看到一篇squid的相关文章，简单的举了个防盗链的例子，未必有效（因为把cookie做明文处理，相比md5加密实在是防君子不防小人）。倒是从中学习一下external_acl_type用法，对squid进阶一番罢~~
-首先按惯例，上权威：《squid中文权威指南》6.1.3章节和12.5章节。
-用法如下：
-external_acl_type name [options] FORMAT.. /path/to/helper
-[helper arguments..]
-options包括：ttl、negtive_ttl、children、concurrency、cache和grace；
-FORMAT包括：%LOGIN,%EXT_USER,%IDENT,%SRC,%SRCPORT,%DST,%PROTO,%PORT,%METHOD,%MYADDR,%MYPORT,%PATH,%USER_CERT,%USER_CERTCHAIN,%USER_CERT_xx,%USER_CA_xx,%{Header},%{Hdr:member},%{Hdr:;member},%ACL,%DATA。
-外部程序输出结果必须是OK或者ERR，不过可以再带上一些keyword，比如user/passwd，ERR的messages，access.log里记录的%ea等等。
-cookie防盗链举例squid/libexec/check_cookie.pl如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="c1"># 这个脚本仅仅是验证了Cache这个cookie的存在，没有严格的校验其值。</span>
-<span class="c1"># disable output buffering</span>
-<span class="vg">$|</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span>
-<span class="k">while</span> <span class="p">()</span> <span class="p">{</span>
-    <span class="nb">chop</span><span class="p">;</span>
-    <span class="nv">$cookie</span><span class="o">=</span><span class="nv">$_</span><span class="p">;</span>
-    <span class="k">if</span><span class="p">(</span> <span class="nv">$cookie</span> <span class="o">=~</span><span class="sr"> /$COOKIE/i</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">print</span> <span class="s">&quot;OK\n&quot;</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-        <span class="k">print</span> <span class="s">&quot;ERR\n&quot;</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="p">}</span></code></pre></div>
-<p>squid.conf配置如下：</p>
-<div class="highlight"><pre><code class="language-squid" data-lang="squid">external_acl_type<span class="w"> </span>download<span class="w"> </span><span class="no">children</span>=15<span class="w"> </span>%{Cookie}<span class="w"> </span>squid/libexec/check_cookie.pl<span class="w"></span>
-<span class="k">acl</span><span class="w"> </span>dl<span class="w"> </span>external<span class="w"> </span>download<span class="w"></span>
-<span class="k">acl</span><span class="w"> </span>filetype<span class="w"> </span><span class="k">url_regex</span><span class="w"> </span>-i<span class="w"> </span>.wmv<span class="w"> </span>.wma<span class="w"> </span>.asf<span class="w"> </span>.asx<span class="w"> </span>.avi<span class="w"> </span>.mp3<span class="w"> </span>.smi<span class="w"> </span>.rm<span class="w"> </span>.ram<span class="w"> </span>.rmvb<span class="w"> </span>.swf<span class="w"> </span>.mpg<span class="w"> </span>.mpeg<span class="w"> </span>.mov<span class="w"> </span>.zip<span class="w"> </span>.mid<span class="w"></span>
-<span class="k">http_access</span><span class="w"> </span><span class="no">deny</span><span class="w"> </span>filetype<span class="w"> </span>!dl<span class="w"></span></code></pre></div>
-<p>回过头来，想到之前的squid_session一文中，也是用的这个外部ACL~~</p>
+    <p>服务器防盗链设置，从最简单的referer判断，到进阶的key+time生成md5值，应该说是比较可靠了，而还有一种防盗链方式，基于IP/COOKIE的，这个我没找到太多有用信息，似乎IIS有个相关插件？<br />
+只看到一篇squid的相关文章，简单的举了个防盗链的例子，未必有效（因为把cookie做明文处理，相比md5加密实在是防君子不防小人）。倒是从中学习一下external_acl_type用法，对squid进阶一番罢~~<br />
+首先按惯例，上权威：《squid中文权威指南》6.1.3章节和12.5章节。<br />
+用法如下：<br />
+external_acl_type name [options] FORMAT.. /path/to/helper<br />
+[helper arguments..]<br />
+options包括：ttl、negtive_ttl、children、concurrency、cache和grace；<br />
+FORMAT包括：%LOGIN,%EXT_USER,%IDENT,%SRC,%SRCPORT,%DST,%PROTO,%PORT,%METHOD,%MYADDR,%MYPORT,%PATH,%USER_CERT,%USER_CERTCHAIN,%USER_CERT_xx,%USER_CA_xx,%{Header},%{Hdr:member},%{Hdr:;member},%ACL,%DATA。<br />
+外部程序输出结果必须是OK或者ERR，不过可以再带上一些keyword，比如user/passwd，ERR的messages，access.log里记录的%ea等等。<br />
+cookie防盗链举例squid/libexec/check_cookie.pl如下：<br />
+<code class="highlighter-rouge">perl
+#!/usr/bin/perl -w
+# 这个脚本仅仅是验证了Cache这个cookie的存在，没有严格的校验其值。
+# disable output buffering
+$|=1;
+while () {
+    chop;
+    $cookie=$_;
+    if( $cookie =~ /$COOKIE/i) {
+        print "OK\n";
+    } else {
+        print "ERR\n";
+    }
+}
+</code><br />
+squid.conf配置如下：<br />
+<code class="highlighter-rouge">squid
+external_acl_type download children=15 %{Cookie} squid/libexec/check_cookie.pl
+acl dl external download
+acl filetype url_regex -i .wmv .wma .asf .asx .avi .mp3 .smi .rm .ram .rmvb .swf .mpg .mpeg .mov .zip .mid
+http_access deny filetype !dl
+</code><br />
+回过头来，想到之前的squid_session一文中，也是用的这个外部ACL~~</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2010/01/30/solution-of-linuxqq-die-on-ubuntu-9-10" title="ubuntu 9.10下linuxqq经常挂掉的解决方案">&larr; Previous</a></li>
+        <li class="prev"><a href="/2010/01/30/solution-of-linuxqq-die-on-ubuntu-9-10/" title="ubuntu 9.10下linuxqq经常挂掉的解决方案">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2010/01/31/intro-header_replace" title="header_replace试验">Next &rarr;</a></li>
+        <li class="next"><a href="/2010/01/31/intro-header_replace/" title="header_replace试验">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -130,15 +134,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -50,28 +50,30 @@
   </div>
   <div style='background-color: #FFF;'>
     <p>现在的网站越来越狡猾，连招聘网站的信息都懂的把公司的联系方式动态图片化了。还好为了观看方便，没加什么干扰。所以写个脚本来识别还是可以的。虽然到目前为止没发现比较好的 OCR 工具——我指的是可以直接apt-get安装的，有朋友知道哪个比较好的话，欢迎告诉我~</p>
-<p>尝试了一下 tesseract-ocr 和 gocr ，还是 gocr 靠谱一点点。所以 <code>apt-get install gocr</code> 安装然后运行下面这个 Perl 脚本：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="k">use</span> <span class="n">ojo</span><span class="p">;</span>
+<p>尝试了一下 tesseract-ocr 和 gocr ，还是 gocr 靠谱一点点。所以 <code class="highlighter-rouge">apt-get install gocr</code> 安装然后运行下面这个 Perl 脚本：</p>
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">use</span> <span class="nv">ojo</span><span class="p">;</span>
 <span class="k">use</span> <span class="mf">5.010</span><span class="p">;</span>
-<span class="n">g</span><span class="p">(</span><span class="s">&quot;http://search.buildhr.com/job/581968.html&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">dom</span><span class="o">-&gt;</span><span class="n">charset</span><span class="p">(</span><span class="s">&quot;UTF-8&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">find</span><span class="p">(</span><span class="s">&quot;div .postjob .padding&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">find</span><span class="p">(</span><span class="s">&quot;p&quot;</span><span class="p">)</span><span class="o">-&gt;</span><span class="nb">each</span><span class="p">(</span><span class="n">sub</span><span class="p">{</span>
+<span class="nv">g</span><span class="p">(</span><span class="s">"http://search.buildhr.com/job/581968.html"</span><span class="p">)</span><span class="o">-&gt;</span><span class="nv">dom</span><span class="o">-&gt;</span><span class="nv">charset</span><span class="p">(</span><span class="s">"UTF-8"</span><span class="p">)</span><span class="o">-&gt;</span><span class="nv">find</span><span class="p">(</span><span class="s">"div .postjob .padding"</span><span class="p">)</span><span class="o">-&gt;</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">-&gt;</span><span class="nv">find</span><span class="p">(</span><span class="s">"p"</span><span class="p">)</span><span class="o">-&gt;</span><span class="nb">each</span><span class="p">(</span><span class="nv">sub</span><span class="p">{</span>
     <span class="k">my</span> <span class="nv">$line</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$img_element</span> <span class="o">=</span> <span class="nv">$line</span><span class="o">-&gt;</span><span class="n">at</span><span class="p">(</span><span class="s">&#39;img&#39;</span><span class="p">);</span>
+    <span class="k">my</span> <span class="nv">$img_element</span> <span class="o">=</span> <span class="nv">$line</span><span class="o">-&gt;</span><span class="nv">at</span><span class="p">(</span><span class="s">'img'</span><span class="p">);</span>
     <span class="k">if</span> <span class="p">(</span><span class="nb">defined</span> <span class="nv">$img_element</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">my</span> <span class="nv">$img_url</span> <span class="o">=</span> <span class="nv">$img_element</span><span class="o">-&gt;</span><span class="p">{</span><span class="n">src</span><span class="p">};</span>
-        <span class="n">g</span><span class="p">(</span><span class="nv">$img_url</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">content</span><span class="o">-&gt;</span><span class="n">asset</span><span class="o">-&gt;</span><span class="n">move_to</span><span class="p">(</span><span class="s">&quot;test.jpg&quot;</span><span class="p">);</span>
+        <span class="k">my</span> <span class="nv">$img_url</span> <span class="o">=</span> <span class="nv">$img_element</span><span class="o">-&gt;</span><span class="p">{</span><span class="nv">src</span><span class="p">};</span>
+        <span class="nv">g</span><span class="p">(</span><span class="nv">$img_url</span><span class="p">)</span><span class="o">-&gt;</span><span class="nv">content</span><span class="o">-&gt;</span><span class="nv">asset</span><span class="o">-&gt;</span><span class="nv">move_to</span><span class="p">(</span><span class="s">"test.jpg"</span><span class="p">);</span>
         <span class="k">my</span> <span class="nv">$seem_str</span> <span class="o">=</span> <span class="sb">`gocr test.jpg`</span><span class="p">;</span>
         <span class="nb">chomp</span><span class="p">(</span><span class="nv">$seem_str</span><span class="p">);</span>
-        <span class="n">say</span> <span class="nb">join</span><span class="p">(</span><span class="nv">$seem_str</span><span class="p">,</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/ /</span><span class="p">,</span> <span class="nv">$line</span><span class="o">-&gt;</span><span class="n">text</span><span class="p">));</span>
+        <span class="nv">say</span> <span class="nb">join</span><span class="p">(</span><span class="nv">$seem_str</span><span class="p">,</span> <span class="nb">split</span><span class="p">(</span><span class="sr">/ /</span><span class="p">,</span> <span class="nv">$line</span><span class="o">-&gt;</span><span class="nv">text</span><span class="p">));</span>
     <span class="p">}</span>
-<span class="p">});</span></code></pre></div>
-<p>不过老是把 <code>7</code> 识别成 <code>_</code>。</p>
+<span class="p">});</span>
+</code></pre>
+</div>
+<p>不过老是把 <code class="highlighter-rouge">7</code> 识别成 <code class="highlighter-rouge">_</code>。</p>
 <p>真是越来越觉得 ojo 好用啊~</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2013/04/19/something-dive-to-perl" title="Newbie::Gift 所用知识总结">&larr; Previous</a></li>
+        <li class="prev"><a href="/2013/04/19/something-dive-to-perl/" title="Newbie::Gift 所用知识总结">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2013/05/27/use-rex-box-replace-vagrant" title="使用 Rex::Box 代替 Vagrant 的工作">Next &rarr;</a></li>
+        <li class="next"><a href="/2013/05/27/use-rex-box-replace-vagrant/" title="使用 Rex::Box 代替 Vagrant 的工作">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -115,15 +117,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

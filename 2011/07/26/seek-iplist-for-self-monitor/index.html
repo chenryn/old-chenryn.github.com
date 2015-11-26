@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,68 +52,68 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>话接上篇，ip整理出来，然后就是接一个ip地址，快速定位查找到它属于哪个ip段，然后返回具体的省份和运营商。因为之前的ip已经转换成数字，而且是顺序排列的，所以可以采用折半算法(二分法)。perl脚本如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="c1">#!/usr/bin/perl -w</span>
-<span class="c1">#my $ip = inet_aton(&quot;$ARGV[0]&quot;);</span>
-<span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="n">inet_aton</span><span class="p">(</span><span class="n">get_test_ip</span><span class="p">());</span>
-<span class="k">my</span> <span class="nv">$file</span> <span class="o">=</span> <span class="nv">$ARGV</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">||</span> <span class="s">&#39;iplist.txt&#39;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$length</span> <span class="o">=</span> <span class="sb">`cat $file | wc -l`</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$code</span> <span class="o">=</span> <span class="n">get_area_code</span><span class="p">(</span><span class="s">&#39;quhao.txt&#39;</span><span class="p">);</span>
-<span class="k">my</span> <span class="nv">@isplist</span> <span class="o">=</span> <span class="sx">qw(&#39;其他&#39; &#39;电信&#39; &#39;联通&#39; &#39;移动&#39; &#39;教育网&#39;)</span><span class="p">;</span>
-<span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span> <span class="s">&#39;&lt;&#39;</span><span class="p">,</span> <span class="s">&quot;$file&quot;</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;Cannot open $file\n&quot;</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$line_len</span> <span class="o">=</span> <span class="s">&#39;26&#39;</span><span class="p">;</span>                       <span class="c1">#=10+10+4+1+1，包括回车符(注意上篇输出为了好看多了空格，可以删掉) </span>
-<span class="k">my</span> <span class="nv">$first</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-<span class="k">my</span> <span class="nv">$last</span> <span class="o">=</span> <span class="nv">$length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>                    <span class="c1">#统一使用SEEK_SET,所以最后一行的起始位置是length-1 </span>
-<span class="k">my</span> <span class="nv">$result</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-<span class="k">while</span> <span class="p">(</span><span class="nv">$result</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$middle</span> <span class="o">=</span> <span class="nb">sprintf</span><span class="p">(</span><span class="s">&quot;%.0f&quot;</span><span class="p">,(</span><span class="nv">$last</span><span class="o">-</span><span class="nv">$first</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="nv">$first</span><span class="p">);</span>    <span class="c1">#折半位置，除法取整时采用sprintf比直接int精确</span>
-    <span class="nb">seek</span> <span class="nv">$fh</span><span class="p">,</span> <span class="nv">$line_len</span> <span class="o">*</span> <span class="nv">$middle</span><span class="p">,</span> <span class="mi">0</span><span class="p">;</span>                            <span class="c1">#移动到折半位置 </span>
-    <span class="nb">sysread</span> <span class="nv">$fh</span><span class="p">,</span> <span class="nv">$begin_ip</span><span class="p">,</span> <span class="mi">10</span><span class="p">;</span>                                  <span class="c1">#从折半处读取10位 </span>
-    <span class="nb">sysread</span> <span class="nv">$fh</span><span class="p">,</span> <span class="nv">$end_ip</span><span class="p">,</span> <span class="mi">10</span><span class="p">;</span>                                    <span class="c1">#接着再读10位,如果没删空格,还要先seek移动1位,麻烦 </span>
-    <span class="c1">#根据比大小决定下次向哪个方向折半</span>
-    <span class="k">if</span> <span class="p">(</span> <span class="nv">$ip</span> <span class="o">&lt;</span> <span class="nv">$begin_ip</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$last</span> <span class="o">=</span> <span class="nv">$middle</span><span class="p">;</span>
-        <span class="k">next</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">elsif</span> <span class="p">(</span> <span class="nv">$ip</span> <span class="o">&gt;</span> <span class="nv">$end_ip</span> <span class="p">)</span> <span class="p">{</span>
-        <span class="nv">$first</span> <span class="o">=</span> <span class="nv">$middle</span><span class="p">;</span>
-        <span class="k">next</span><span class="p">;</span>
-    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-    <span class="c1">#找到相应区间，读取区号和运营商号</span>
-        <span class="nb">sysread</span> <span class="nv">$fh</span><span class="p">,</span> <span class="nv">$area</span><span class="p">,</span> <span class="mi">4</span><span class="p">;</span>
-        <span class="nb">sysread</span> <span class="nv">$fh</span><span class="p">,</span> <span class="nv">$isp</span><span class="p">,</span> <span class="mi">1</span><span class="p">;</span>
-        <span class="nb">printf</span> <span class="s">&quot;%010s %s %s\n&quot;</span><span class="p">,</span> <span class="nv">$ip</span><span class="p">,</span> <span class="nv">$code</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$area&quot;</span><span class="p">},</span> <span class="nv">$isplist</span><span class="p">[</span><span class="nv">$isp</span><span class="p">];</span>
-        <span class="nv">$result</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>                                             <span class="c1">#设定$result为假，退出循环 </span>
-    <span class="p">};</span>
-<span class="p">};</span>
-<span class="nb">close</span> <span class="nv">$fh</span><span class="p">;</span>
-<span class="k">sub </span><span class="nf">inet_aton</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$ip</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$short</span> <span class="o">=</span> <span class="nb">sprintf</span> <span class="s">&quot;%010s&quot;</span><span class="p">,</span> <span class="nv">$1</span> <span class="o">*</span> <span class="mi">256</span><span class="o">**</span><span class="mi">3</span> <span class="o">+</span> <span class="nv">$2</span> <span class="o">*</span> <span class="mi">256</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="nv">$3</span> <span class="o">*</span> <span class="mi">256</span> <span class="o">+</span> <span class="nv">$4</span> <span class="k">if</span> <span class="nv">$ip</span> <span class="o">=~</span><span class="sr"> /(\d+)\.(\d+)\.(\d+)\.(\d+)/</span><span class="p">;</span>
-    <span class="k">return</span> <span class="nv">$short</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="c1">#对应区号和省份，跟上篇的kv相反</span>
-<span class="k">sub </span><span class="nf">get_area_code</span> <span class="p">{</span>
-    <span class="k">my</span> <span class="nv">$file</span> <span class="o">=</span> <span class="nb">shift</span><span class="p">;</span>
-    <span class="k">my</span> <span class="nv">$area_code</span> <span class="o">=</span> <span class="p">{</span> <span class="s">&#39;0000&#39;</span> <span class="o">=&gt;</span> <span class="s">&#39;other&#39;</span> <span class="p">};</span>
-    <span class="nb">open</span> <span class="k">my</span> <span class="nv">$fh</span><span class="p">,</span><span class="s">&#39;&lt;&#39;</span><span class="p">,</span><span class="s">&quot;$file&quot;</span> <span class="ow">or</span> <span class="nb">die</span> <span class="s">&quot;Cannot open $file&quot;</span><span class="p">;</span>
-    <span class="k">while</span> <span class="p">(</span><span class="sr">&lt;$fh&gt;</span><span class="p">)</span> <span class="p">{</span>
-	<span class="nb">chomp</span><span class="p">;</span>
-        <span class="k">my</span><span class="p">(</span><span class="nv">$area</span><span class="p">,</span><span class="nv">$code</span><span class="p">)</span> <span class="o">=</span> <span class="nb">split</span><span class="p">;</span>
-	<span class="nv">$area_code</span><span class="o">-&gt;</span><span class="p">{</span><span class="s">&quot;$code&quot;</span><span class="p">}</span> <span class="o">=</span> <span class="s">&quot;$area&quot;</span><span class="p">;</span>
-    <span class="p">}</span>
-    <span class="nb">close</span> <span class="nv">$fh</span><span class="p">;</span>
-    <span class="k">return</span> <span class="nv">$area_code</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="c1">#生成一个随机的合法ip地址</span>
-<span class="k">sub </span><span class="nf">get_test_ip</span> <span class="p">{</span>
-    <span class="k">return</span> <span class="nb">join</span> <span class="s">&#39;.&#39;</span><span class="p">,</span> <span class="nb">map</span> <span class="nb">int</span> <span class="nb">rand</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">1</span><span class="o">..</span><span class="mi">4</span><span class="p">;</span>
-<span class="p">}</span></code></pre></div>
+    <p>话接上篇，ip整理出来，然后就是接一个ip地址，快速定位查找到它属于哪个ip段，然后返回具体的省份和运营商。因为之前的ip已经转换成数字，而且是顺序排列的，所以可以采用折半算法(二分法)。perl脚本如下：<br />
+```perl#!/usr/bin/perl -w<br />
+#my $ip = inet_aton(&ldquo;$ARGV[0]&rdquo;);<br />
+my $ip = inet_aton(get_test_ip());<br />
+my $file = $ARGV[1] || &lsquo;iplist.txt&rsquo;;<br />
+my $length = <code class="highlighter-rouge">cat $file | wc -l</code>;</p>
+<p>my $code = get_area_code(&lsquo;quhao.txt&rsquo;);<br />
+my @isplist = qw(&lsquo;其他&rsquo; &lsquo;电信&rsquo; &lsquo;联通&rsquo; &lsquo;移动&rsquo; &lsquo;教育网&rsquo;);</p>
+<p>open my $fh, &lsquo;&lt;&rsquo;, &ldquo;$file&rdquo; or die &ldquo;Cannot open $file\n&rdquo;;<br />
+my $line_len = &lsquo;26&rsquo;;                       #=10+10+4+1+1，包括回车符(注意上篇输出为了好看多了空格，可以删掉) <br />
+my $first = 0;<br />
+my $last = $length - 1;                    #统一使用SEEK_SET,所以最后一行的起始位置是length-1 <br />
+my $result = 1;<br />
+while ($result) {<br />
+    my $middle = sprintf(&ldquo;%.0f&rdquo;,($last-$first) / 2 + $first);    #折半位置，除法取整时采用sprintf比直接int精确<br />
+    seek $fh, $line_len * $middle, 0;                            #移动到折半位置 <br />
+    sysread $fh, $begin_ip, 10;                                  #从折半处读取10位 <br />
+    sysread $fh, $end_ip, 10;                                    #接着再读10位,如果没删空格,还要先seek移动1位,麻烦 <br />
+    #根据比大小决定下次向哪个方向折半<br />
+    if ( $ip &lt; $begin_ip ) {<br />
+        $last = $middle;<br />
+        next;<br />
+    } elsif ( $ip &gt; $end_ip ) {<br />
+        $first = $middle;<br />
+        next;<br />
+    } else {<br />
+    #找到相应区间，读取区号和运营商号<br />
+        sysread $fh, $area, 4;<br />
+        sysread $fh, $isp, 1;<br />
+        printf &ldquo;%010s %s %s\n&rdquo;, $ip, $code-&gt;{&ldquo;$area&rdquo;}, $isplist[$isp];<br />
+        $result = 0;                                             #设定$result为假，退出循环 <br />
+    };<br />
+};</p>
+<p>close $fh;</p>
+<p>sub inet_aton {<br />
+    my $ip = shift;<br />
+    my $short = sprintf &ldquo;%010s&rdquo;, $1 * 256<strong>3 + $2 * 256</strong>2 + $3 * 256 + $4 if $ip =~ /(\d+).(\d+).(\d+).(\d+)/;<br />
+    return $short;<br />
+};<br />
+#对应区号和省份，跟上篇的kv相反<br />
+sub get_area_code {<br />
+    my $file = shift;<br />
+    my $area_code = { &lsquo;0000&rsquo; =&gt; &lsquo;other&rsquo; };<br />
+    open my $fh,&rsquo;&lt;&rsquo;,&rdquo;$file&rdquo; or die &ldquo;Cannot open $file&rdquo;;<br />
+    while (&lt;$fh&gt;) {<br />
+	chomp;<br />
+        my($area,$code) = split;<br />
+	$area_code-&gt;{&ldquo;$code&rdquo;} = &ldquo;$area&rdquo;;<br />
+    }<br />
+    close $fh;<br />
+    return $area_code;<br />
+};<br />
+#生成一个随机的合法ip地址<br />
+sub get_test_ip {<br />
+    return join &lsquo;.&rsquo;, map int rand 256, 1..4;<br />
+}```</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/07/25/overwrite-qqwry-for-self-monitor" title="cdn自主监控(一):整理一个可用范围内的尽可能小的ip库">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/07/25/overwrite-qqwry-for-self-monitor/" title="cdn自主监控(一):整理一个可用范围内的尽可能小的ip库">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/07/27/prepare-mysql-for-self-monitor" title="cdn自主监控(三):数据库准备工作">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/07/27/prepare-mysql-for-self-monitor/" title="cdn自主监控(三):数据库准备工作">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -157,15 +157,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">

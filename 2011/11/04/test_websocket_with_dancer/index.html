@@ -26,13 +26,13 @@
         <div class="container">
           <a class="brand" href="/">三斗室</a>
           <ul class="nav">
-      	<li><a href="/archive.html">归档</a></li>
-      	<li><a href="/categories.html">分类</a></li>
-      	<li><a href="/elk-errata.html">《ELK stack权威指南》勘误</a></li>
-      	<li><a href="/errata.html">《网站运维技术与实践》勘误</a></li>
-      	<li><a href="/pages.html">Pages</a></li>
-      	<li><a href="/projects.html">学习记录</a></li>
-      	<li><a href="/tags.html">标签</a></li>
+      	<li><a href="/archive/">归档</a></li>
+      	<li><a href="/categories/">分类</a></li>
+      	<li><a href="/elk-errata/">《ELK stack权威指南》勘误</a></li>
+      	<li><a href="/errata/">《网站运维技术与实践》勘误</a></li>
+      	<li><a href="/pages/">Pages</a></li>
+      	<li><a href="/projects/">学习记录</a></li>
+      	<li><a href="/tags/">标签</a></li>
             <li><a href="http://chenlinux.com/poetry/index.html" />诗文集</a></li>
             <li><link title="RSS 2.0" type="application/rss+xml" href="http://chenlinux.com/feed.xml" rel="alternate" /><a href="http://chenlinux.com/feed.xml" target="_blank">RSS订阅</a></li>
           </ul>
@@ -52,59 +52,61 @@
     </ul>
   </div>
   <div style='background-color: #FFF;'>
-    <p>因为看到mojo在宣传其内置websocket支持，去CPAN上search了一下，发现Dancer也有plugin做websocket用。稍微看了一下，很显然没看mojo的内嵌代码，而dancer的plugin代码倒是相当简单。
-简单的说，就是通过AnyMQ、Plack和Web::Hippie的组合完成。注意的是，因为Web::Hippie使用了AnyEvent::Handle管理websocket的fh，AnyMQ也使用AnyEvent管理message queue，所以在启动plackup的时候，必须使用AnyEvent核心的Twiggy服务器。
-Plugin里硬编码很多。比较重要的地方就是&rdquo;set plack_middlewares_map&rdquo;，plack_middlewares_map是dancer新加的功能，这里用URLMap来mount &lsquo;/_hippie&rsquo;到Web::Hippie::Pipe和AnyMQ上。也就是说，使用websocket的访问路径，必须固定为&rsquo;^/_hippie/.*&lsquo;这样。
-然后像两个get方法，&rsquo;/new_listener&rsquo;和&rsquo;/message&rsquo;，这两个访问路径是Web::Hippie里写死的，不能改。好在一般应用也不会直接访问这个。
+    <p>因为看到mojo在宣传其内置websocket支持，去CPAN上search了一下，发现Dancer也有plugin做websocket用。稍微看了一下，很显然没看mojo的内嵌代码，而dancer的plugin代码倒是相当简单。<br />
+简单的说，就是通过AnyMQ、Plack和Web::Hippie的组合完成。注意的是，因为Web::Hippie使用了AnyEvent::Handle管理websocket的fh，AnyMQ也使用AnyEvent管理message queue，所以在启动plackup的时候，必须使用AnyEvent核心的Twiggy服务器。<br />
+Plugin里硬编码很多。比较重要的地方就是&rdquo;set plack_middlewares_map&rdquo;，plack_middlewares_map是dancer新加的功能，这里用URLMap来mount &lsquo;/_hippie&rsquo;到Web::Hippie::Pipe和AnyMQ上。也就是说，使用websocket的访问路径，必须固定为&rsquo;^/_hippie/.*&lsquo;这样。<br />
+然后像两个get方法，&rsquo;/new_listener&rsquo;和&rsquo;/message&rsquo;，这两个访问路径是Web::Hippie里写死的，不能改。好在一般应用也不会直接访问这个。<br />
 最后有三个register到Dancer的方法，&rsquo;ws_on_message&rsquo;、&rsquo;ws_on_new_listener&rsquo;和&rsquo;ws_send&rsquo;，前两个用来覆盖上面提到的get的两个route的具体信息，一般不用前面两个，因为这样就意味着页面的js里无法控制websocket了（个人理解，不知道对否？）后面那个类似把websocket改成普通的params方式请求响应（用curl/wget可以请求的那种）。</p>
 <hr />
-<p>好了，大概的机理就是这样，现在做个小东西试试看。cpanm和dancer的运用之前写过，就略过了。lib/WS_test.pm如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="nb">package</span> <span class="n">WS_test</span><span class="p">;</span>
-<span class="k">use</span> <span class="n">Dancer</span> <span class="s">&#39;:syntax&#39;</span><span class="p">;</span>
-<span class="k">use</span> <span class="nn">Dancer::Plugin::</span><span class="n">WebSocket</span><span class="p">;</span>
-<span class="n">get</span> <span class="s">&#39;/ws&#39;</span> <span class="o">=&gt;</span> <span class="k">sub </span><span class="p">{</span>
-    <span class="n">template</span> <span class="s">&#39;websocket&#39;</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="n">true</span><span class="p">;</span></code></pre></div>
-<p>views/websocket.tt如下：</p>
-<div class="highlight"><pre><code class="language-perl" data-lang="perl"><span class="sr">&lt;html&gt;</span>
-<span class="sr">&lt;head&gt;</span>
-<span class="sr">&lt;script&gt;</span>
-<span class="n">var</span> <span class="n">ws_path</span> <span class="o">=</span> <span class="s">&quot;ws://chenlinux.com:8080/_hippie/ws&quot;</span><span class="p">;</span>
-<span class="n">var</span> <span class="nb">socket</span> <span class="o">=</span> <span class="k">new</span> <span class="n">WebSocket</span><span class="p">(</span><span class="n">ws_path</span><span class="p">);</span>
-<span class="nb">socket</span><span class="o">.</span><span class="n">onopen</span> <span class="o">=</span> <span class="n">function</span><span class="p">()</span> <span class="p">{</span>
-    <span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span><span class="s">&#39;conn-status&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">innerHTML</span> <span class="o">=</span> <span class="s">&#39;Connected&#39;</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="nb">socket</span><span class="o">.</span><span class="n">onmessage</span> <span class="o">=</span> <span class="n">function</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">var</span> <span class="n">data</span> <span class="o">=</span> <span class="n">JSON</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">data</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">msg</span><span class="p">)</span>
-        <span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span><span class="s">&#39;textmsg&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">+=</span> <span class="n">data</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="n">data</span><span class="o">.</span><span class="n">msg</span> <span class="o">+</span> <span class="s">&quot;\n&quot;</span><span class="p">;</span>
-<span class="p">};</span>
-<span class="n">function</span> <span class="n">send_msg</span><span class="p">()</span> <span class="p">{</span>
-    <span class="n">var</span> <span class="n">name</span> <span class="o">=</span> <span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span><span class="s">&#39;name&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="s">&quot;: &quot;</span><span class="p">;</span>
-    <span class="n">var</span> <span class="n">talk</span> <span class="o">=</span> <span class="n">document</span><span class="o">.</span><span class="n">getElementById</span><span class="p">(</span><span class="s">&#39;ownmsg&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">;</span>
-    <span class="nb">socket</span><span class="o">.</span><span class="nb">send</span><span class="p">(</span><span class="n">JSON</span><span class="o">.</span><span class="n">stringify</span><span class="p">({</span> <span class="n">name:</span> <span class="n">name</span><span class="p">,</span><span class="n">msg:</span> <span class="n">talk</span> <span class="p">}));</span>
-<span class="p">}</span>
-<span class="sr">&lt;/script&gt;</span>
-<span class="sr">&lt;/head&gt;</span>
-<span class="sr">&lt;body&gt;</span>
-<span class="n">Connection</span> <span class="n">Status:</span> <span class="o">&lt;</span><span class="n">br</span> <span class="sr">/&gt;&lt;span id=&quot;conn-status&quot;&gt; Disconnected &lt;/s</span><span class="n">pan</span><span class="o">&gt;&lt;</span><span class="n">br</span> <span class="o">/&gt;</span>
-<span class="o">&lt;</span><span class="n">textarea</span> <span class="n">id</span><span class="o">=</span><span class="s">&quot;textmsg&quot;</span> <span class="n">cols</span><span class="o">=</span><span class="s">&quot;55&quot;</span> <span class="n">rows</span><span class="o">=</span><span class="s">&quot;10&quot;</span><span class="o">&gt;</span><span class="sr">&lt;/textarea&gt;</span><span class="o">&lt;</span><span class="n">hr</span> <span class="o">/&gt;</span>
-<span class="n">nickname:</span> <span class="o">&lt;</span><span class="n">input</span> <span class="n">type</span><span class="o">=</span><span class="s">&quot;text&quot;</span> <span class="n">id</span><span class="o">=</span><span class="s">&quot;name&quot;</span> <span class="sr">/&gt;&lt;br /</span><span class="o">&gt;</span>
-<span class="n">messages:</span> <span class="o">&lt;</span><span class="n">textarea</span> <span class="n">id</span><span class="o">=</span><span class="s">&quot;ownmsg&quot;</span><span class="o">&gt;</span><span class="sr">&lt;/textarea&gt;</span><span class="o">&lt;</span><span class="n">br</span> <span class="o">/&gt;</span>
-<span class="o">&lt;</span><span class="n">input</span> <span class="n">value</span><span class="o">=</span><span class="s">&quot;send&quot;</span> <span class="n">type</span><span class="o">=</span><span class="n">button</span> <span class="n">onclick</span><span class="o">=</span><span class="s">&quot;send_msg()&quot;</span> <span class="o">/&gt;</span>
-<span class="sr">&lt;/body&gt;</span>
-<span class="sr">&lt;/html&gt;</span></code></pre></div>
-<p>ok，然后启动server就行了：</p>
-<div class="highlight"><pre><code class="language-bash" data-lang="bash">sudo twiggy --listen :8080 bin/app.pl</code></pre></div>
-<p>然后访问http://chenlinux.com:8080/ws/看看效果吧~一个小聊天室就出来了。
+<p>好了，大概的机理就是这样，现在做个小东西试试看。cpanm和dancer的运用之前写过，就略过了。lib/WS_test.pm如下：<br />
+<code class="highlighter-rouge">perlpackage WS_test;
+use Dancer ':syntax';
+use Dancer::Plugin::WebSocket;
+get '/ws' =&gt; sub {
+    template 'websocket';
+};
+true;</code><br />
+views/websocket.tt如下：<br />
+```perl</p>
+<html>
+<head>
+<script>
+var ws_path = "ws://chenlinux.com:8080/_hippie/ws";
+var socket = new WebSocket(ws_path);
+socket.onopen = function() {
+    document.getElementById('conn-status').innerHTML = 'Connected';
+};
+socket.onmessage = function(e) {
+    var data = JSON.parse(e.data);
+    if (data.msg)
+        document.getElementById('textmsg').value += data.name + data.msg + "\n";
+};
+function send_msg() {
+    var name = document.getElementById('name').value + ": ";
+    var talk = document.getElementById('ownmsg').value;
+    socket.send(JSON.stringify({ name: name,msg: talk }));
+}
+</script>
+</head>
+<body>
+Connection Status: <br /><span id="conn-status"> Disconnected </span><br />
+<textarea id="textmsg" cols="55" rows="10"></textarea><hr />
+nickname: <input type="text" id="name" /><br />
+messages: <textarea id="ownmsg"></textarea><br />
+&lt;input value="send" type=button onclick="send_msg()" /&gt;
+</body>
+</html>
+<p><code class="highlighter-rouge">
+ok，然后启动server就行了：
+</code>bashsudo twiggy &ndash;listen :8080 bin/app.pl```<br />
+然后访问http://chenlinux.com:8080/ws/看看效果吧~一个小聊天室就出来了。<br />
 不过还有点问题，就是根据加入聊天室的时间先后，信息看不全……估计应该是AnyMQ的问题，个人对MQ了解不多，还需要继续看代码……</p>
     <hr>
     <div class="pagination">
       <ul>
-        <li class="prev"><a href="/2011/11/04/perl_oauth_to_weibo_api" title="用perl调用新浪微博API小实验">&larr; Previous</a></li>
+        <li class="prev"><a href="/2011/11/04/perl_oauth_to_weibo_api/" title="用perl调用新浪微博API小实验">&larr; Previous</a></li>
         <li><a href="/archive.html">Archive</a></li>
-        <li class="next"><a href="/2011/12/12/nginx_perl_demo" title="nginx_perl试用">Next &rarr;</a></li>
+        <li class="next"><a href="/2011/12/12/nginx_perl_demo/" title="nginx_perl试用">Next &rarr;</a></li>
       </ul>
     </div>
     <hr>
@@ -148,15 +150,15 @@ var jiathis_config={
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
-                 <li><a href="/2015/10/25/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/10/20/escc">ESCC 参会笔记</a></li>
-                 <li><a href="/2015/09/24/condition-in-rsyslog">rsyslog 中 if 条件判断的限制</a></li>
-                 <li><a href="/2015/08/25/kibana-custom-field-formatters">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/14/spark-streaming-kafka">spark streaming 接收 kafka 数据示例</a></li>
-                 <li><a href="/2015/03/14/kibana3-source-code-analysis">Kibana 3 源码解析</a></li>
-                 <li><a href="/2015/03/06/kibana4-for-slowlog">用 Kibana4 实现 PHP 慢日志函数堆栈分析</a></li>
-                 <li><a href="/2015/02/25/kibana-aggregation-execution-order-and-you">【翻译】kibana 的聚合执行次序</a></li>
+                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
+                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
+                 <li><a href="/2015/10/25/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
+                 <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
+                 <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
+                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
+                 <li><a href="/2015/03/14/spark-streaming-kafka/">spark streaming 接收 kafka 数据示例</a></li>
+                 <li><a href="/2015/03/14/kibana3-source-code-analysis/">Kibana 3 源码解析</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">
