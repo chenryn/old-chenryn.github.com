@@ -46,6 +46,62 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h2 class="entry-title">
+      <a href="/2010/03/18/zabbix-install/" title="zabbix安装试用" rel="bookmark">zabbix安装试用</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-03-18 00:00:00 +0800">18 Mar 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+    <p>在CU上看到有帖子比较各开源monitor软件，其中对zabbix颇多赞誉。决定试用一下。<br />
+<code class="highlighter-rouge">bash
+#为快速安装方便，LAMP环境都采用yum获取。
+yum install httpd mysql* php* gcc net-snmp* curl*
+#然后编译安装zabbix，步骤如下：
+groupadd zabbix
+useradd -g zabbix zabbix
+wget http://cdnetworks-kr-1.dl.sourceforge.net/project/zabbix/ZABBIX%20Latest%20Stable/1.8.1/zabbix-1.8.1.tar.gz
+tar zxvf zabbix-1.8.1.tar.gz
+cd zabbix-1.8.1
+mysql -uroot -p
+&gt;create database zabbix;
+&gt;grant all privileges on zabbix.* to zabbix@"localhost" identified by '123456';
+&gt;flush privileges;
+mysql -uroot -p zabbix &lt; create/schema/mysql.sql
+mysql -uroot -p zabbix &lt; create/data/data.sql
+mysql -uroot -p zabbix &lt; create/data/images_msql.sql
+./configure --prefix=/home/zabbix --enable-server --enable-proxy --enable-agent --with-mysql --with-net-snmp --with-libcurl
+make &amp;&amp; make install
+cat &gt;&gt; /etc/services &lt;&lt;EOF
+zabbix-agent    10050/tcp            # Zabbix Agent
+zabbix-agent    10050/udp            # Zabbix Agent
+zabbix-trapper    10051/tcp            # Zabbix Trapper
+zabbix-trapper    10051/udp            # Zabbix Trapper
+EOF
+make /home/zabbix/conf
+cp misc/conf/* /home/zabbix/conf/
+ln -s /home/zabbix/conf /etc/zabbix
+chown -R zabbix.zabbix /etc/zabbix
+i=`hostname`;sed -i "s/^Hostname=system.uname/Hostname=$i" /etc/zabbix/zabbix_agentd.conf
+sed -i 's/^DBUser=root/DBUser=zabbix/g' /etc/zabbix/zabbix_server.conf
+sed -i 's/^# DBPassword=/DBPassword=zabbix/g' /etc/zabbix/zabbix_server.conf
+mv frontends/php /var/www/html/zabbix
+chown -R zabbix.zabbix /var/www/html/zabbix
+</code><br />
+根据zabbix需求修改LAMP，vi /etc/php.ini修改相关参数如下：
+      <a href="/2010/03/18/zabbix-install/" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
       <a href="/2010/03/17/problem-of-squid-access-log/" title="squid 灵异日志" rel="bookmark">squid 灵异日志</a>
     </h2>
     <p class="alt-font tight">
@@ -700,32 +756,6 @@ $ squidclient -p 80 mgr:info<br />
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2010/02/04/performance-optimization-test-of-tcmalloc-loaded-by-squid-3/" title="squid加载tcmalloc性能优化测试(编译)" rel="bookmark">squid加载tcmalloc性能优化测试(编译)</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-02-04 00:00:00 +0800">04 Feb 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#squid-ref" title="squid" rel="category tag">squid</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-    <p>话接上文，同一组LVS下，昨天采用重编译方式部署了另一台squid服务器。同样跑上一天，再次对比一番。今天流量比上回稍微少些，未加载的服务器cacti监控截图如下：<br />
-<img src="/images/uploads/62d80b5eh73140310b076690.jpg" alt="" title="cpu" width="573" height="259" class="alignnone size-full wp-image-2565" /><br />
-CPU占用率<br />
-=====================<br />
-<img src="/images/uploads/62d80b5eh73140316c9a2690.jpg" alt="" title="loadavg" width="569" height="254" class="alignnone size-full wp-image-2567" /><br />
-负载
-      <a href="/2010/02/04/performance-optimization-test-of-tcmalloc-loaded-by-squid-3/" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -799,6 +829,8 @@ CPU占用率<br />
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+                 <li><a href="/2016/03/16/juttle-intro/">juttle 介绍</a></li>
+                 <li><a href="/2016/01/27/kibana-server-plugin-develop/">Kibana4 服务器端插件开发</a></li>
                  <li><a href="/2015/12/27/report-of-this-year/">2015 年度个人总结</a></li>
                  <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
                  <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
@@ -806,8 +838,6 @@ CPU占用率<br />
                  <li><a href="/2015/10/20/escc/">ESCC 参会笔记</a></li>
                  <li><a href="/2015/09/24/condition-in-rsyslog/">rsyslog 中 if 条件判断的限制</a></li>
                  <li><a href="/2015/08/25/kibana-custom-field-formatters/">【翻译】Kibana 字段的自定义展示格式开发</a></li>
-                 <li><a href="/2015/04/03/types-mapping-conflict-in-one-index/">Elasticsearch 同一索引不同类型下同名字段的映射冲突实例</a></li>
-                 <li><a href="/2015/03/16/juttle-intro/">juttle 介绍</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">
