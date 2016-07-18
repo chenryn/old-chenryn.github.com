@@ -46,6 +46,67 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h2 class="entry-title">
+      <a href="/2009/11/03/expect-log-analysis/" title="expect日志分析" rel="bookmark">expect日志分析</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2009-11-03 00:00:00 +0800">03 Nov 2009</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#bash-ref" title="bash" rel="category tag">bash</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+    <p>接着上次expect脚本那事儿往下走。<br />
+由于不同服务的管理方法不同，上次关闭了ssh的外网登录以后，各地不断有服务器报出这样那样的问题。主管一发狠：“全面检查！”<br />
+在检查中，还真发现不少问题。最突出的就是很多本应该上传到中心服务器的日志居然一直留在本机没动弹！时不时发作出来，就撑爆了根分区——这当然有分区规划不合理的问题。但在线业务，磁盘划分修改起来就不是那么方便了。于是退而求其次，定期监控日志文件大小吧。这回expect只要du<br />
+-sh一下就行了，方便的很。问题在下一步的分析。<br />
+摘举exp.log中一次循环的执行结果如下：<br />
+<code class="highlighter-rouge">bash
+The authenticity of host '1.2.3.4 (1.2.3.4)' can't be established.
+RSA key fingerprint is
+bb:d5:81:e1:84:09:c5:32:f6:fb:e1:b3:d3:de:c3:53.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added '1.2.3.4' (RSA) to the list of known hosts.
+root@1.2.3.4's password:
+4.0K /home/apache2/logs/access_log
+</code><br />
+第一步，是用如下脚本，可以做到提取日志达到50M大小的服务器IP。<br />
+<code class="highlighter-rouge">bash
+#!/bin/bash
+nk=`sed -n -e "/50M/=" exp.log`
+nnk=`expr $nk - 1`
+sed -n "$nnk"p"" exp.log|awk -F"'" '{print $1}'|awk -F"@" '{print $2}'
+</code><br />
+但问题是：如果同时有两台到50M呢？或者在运行到它时，已经到50M以上呢？<br />
+于是我想，以ls -sh显示大小，人眼好看，电脑不好认啊。如果用du -b，那大小相同的几率就应该小很多很多了。然后定一个阀值，进行比较循环就可以了。<br />
+最后脚本如下：<br />
+<code class="highlighter-rouge">bash
+#!/bin/bash
+for ip in `cat ip.lst`
+do
+./ssh.exp $ip &gt; /dev/null 2&amp;&gt;1
+done
+bs=400
+size=`grep access exp.log | awk '{if ($1&amp;gt;'"$bs"'){print $1}}'`
+for so in $size
+do
+nk=`sed -n -e "/$so/=" exp.log`
+nnk=`expr $nk - 1`
+sed -n "$nnk"p"" exp.log | awk -F"'" '{print $1}'|awk -F@ '{print $2}'
+done
+</code><br />
+#本来想用sed &lsquo;N;s/n//g&rsquo; exp.log来合并行尾，省得调行号，但exp日志的格式因为ssh登录的提示信息不一而无法统一，只能放弃。<br />
+试验性的在ip.lst中输入了15个IP，运行结果显示出来了两个。成功。
+      <a href="/2009/11/03/expect-log-analysis/" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
       <a href="/2009/11/03/dollar-zero-in-awk/" title="awk变量$0妙用" rel="bookmark">awk变量$0妙用</a>
     </h2>
     <p class="alt-font tight">
@@ -197,6 +258,7 @@ awk '/regex/{getline;print}' $1
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+                 <li><a href="/2016/07/07/hapi-auth/">hapi.js 框架的认证授权插件示例</a></li>
                  <li><a href="/2016/04/04/lucene-proximity-querystring/">Lucene 查询中的距离查询(proximity query)</a></li>
                  <li><a href="/2016/04/01/javaflamegraph/">用火焰图看 elasticsearch 的资源占用</a></li>
                  <li><a href="/2016/03/19/machine-vs-ops/">机器战胜人类了，伺候机器的运维呢？</a></li>
@@ -205,7 +267,6 @@ awk '/regex/{getline;print}' $1
                  <li><a href="/2016/01/27/kibana-server-plugin-develop/">Kibana4 服务器端插件开发</a></li>
                  <li><a href="/2015/12/27/report-of-this-year/">2015 年度个人总结</a></li>
                  <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
-                 <li><a href="/2015/10/29/siren/">SIREn 插件试用</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">
