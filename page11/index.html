@@ -46,6 +46,44 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h2 class="entry-title">
+      <a href="/2011/05/19/get-iplist-from-qqwry/" title="从纯真数据库里获取ip列表" rel="bookmark">从纯真数据库里获取ip列表</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2011-05-19 00:00:00 +0800">19 May 2011</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+    <p>首先申明只是一个简单的方式，因为打算的是提取总列表成bind9使用的acl格式，所以不在乎性能问题。<br />
+第一步、从CZ88.NET下载QQWry数据库，然后运行IP.exe，选择“解压”，然后会在桌面生成一个qqwry.txt，这里就有四十多万行的ip记录。格式如下：<br />
+起始ip    结束ip   大区域     小区域<br />
+但是这个大区域也不是想像中的那么整齐，比如清华大学宿舍楼也是大区域的……<br />
+好在我们DNS只需要一个大概的南北指向，根据电信占主流的现实，只要取出来联通的，其他都算电信就行了~<br />
+第二步、把起始ip-结束ip改成acl需要的子网掩码格式，这一步用perl完成，全文如下：<br />
+<code class="highlighter-rouge">perl
+#!/usr/bin/perl -w
+use Net::IPAddress::Util::Range;
+while(&lt;&gt;){
+    next unless $_ =~ /^(\S+)\s+(\S+)\s+(.+)/;
+    my $range = Net::IPAddress::Util::Range-&gt;new({ lower =&gt; $1, upper =&gt; $2 });
+    map {printf "%s\t%s\n", $_, $3 } $range-&gt;tight()-&gt;as_cidrs();
+}
+</code><br />
+其中tight()-&gt;as_cidrs()其实是Net::IPAddress::Util::Collection的函数（Range.pm里use了这个函数）。tight将不规律的ip段划分成规律的子网，cidrs将类似(1.1.1.0 .. .1.1.1.255)改成1.1.1.0/24。<br />
+如果直接采用Net::IPAddress::Util::Range的$range-&gt;as_cidr()的话，它会把一个不规律的ip段取一个最近的规律子网来显示……比方1.59.0.0-1.60.149.255会被计算成1.57.0.0/13！！<br />
+不过这个还有一个问题，就是没有多行合并，导致条目太多~~这个之后再看吧~
+      <a href="/2011/05/19/get-iplist-from-qqwry/" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
       <a href="/2011/05/12/script-process-link-failure/" title="链路故障应急处理脚本" rel="bookmark">链路故障应急处理脚本</a>
     </h2>
     <p class="alt-font tight">
@@ -970,27 +1008,6 @@ ls -l /var/www/html/category/model | awk '$1~/^l/ &amp;&amp; $9~ /mod$/ {gsub(/m
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2011/01/13/learning-accel-dynamic-data/" title="读《基于动态内容的缓存加速技术》笔记" rel="bookmark">读《基于动态内容的缓存加速技术》笔记</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2011-01-13 00:00:00 +0800">13 Jan 2011</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#CDN-ref" title="CDN" rel="category tag">CDN</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-    <p>《程序员》2010年11月刊的86-89四页，刊登了F5售前技术顾问，原VIACDN(TOM的CDN部门，后来独立运营)架构师徐超的文章《基于动态内容的缓存加速技术——F5 Web Accelerator产品技术剖析》。
-      <a href="/2011/01/13/learning-accel-dynamic-data/" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -1067,6 +1084,7 @@ ls -l /var/www/html/category/model | awk '$1~/^l/ &amp;&amp; $9~ /mod$/ {gsub(/m
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+                 <li><a href="/2016/07/18/event-pattern/">山寨一个 Splunk 的事件模式功能</a></li>
                  <li><a href="/2016/07/07/hapi-auth/">hapi.js 框架的认证授权插件示例</a></li>
                  <li><a href="/2016/04/04/lucene-proximity-querystring/">Lucene 查询中的距离查询(proximity query)</a></li>
                  <li><a href="/2016/04/01/javaflamegraph/">用火焰图看 elasticsearch 的资源占用</a></li>
@@ -1075,7 +1093,6 @@ ls -l /var/www/html/category/model | awk '$1~/^l/ &amp;&amp; $9~ /mod$/ {gsub(/m
                  <li><a href="/2016/03/16/juttle-intro/">juttle 介绍</a></li>
                  <li><a href="/2016/01/27/kibana-server-plugin-develop/">Kibana4 服务器端插件开发</a></li>
                  <li><a href="/2015/12/27/report-of-this-year/">2015 年度个人总结</a></li>
-                 <li><a href="/2015/11/25/rsyslog-mmnormalize/">Rsyslog 的 mmnormalize 模块用法</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">
