@@ -46,6 +46,27 @@
 <div class="row">
   <div class="full" style='background-color: #FFF;'>
     <h2 class="entry-title">
+      <a href="/2010/08/13/intro-pnp4nagios/" title="nagios绘图" rel="bookmark">nagios绘图</a>
+    </h2>
+    <p class="alt-font tight">
+      <span class="date full-date">
+        <abbr class="published" title="2010-08-13 00:00:00 +0800">13 Aug 2010</abbr>
+      </span>
+      <span>
+      </span>
+      Posted in&nbsp;
+      <a href="/categories.html#monitor-ref" title="monitor" rel="category tag">monitor</a>
+    </p>
+    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
+    <p>nagios默认command中，有个未开启的process_performance_data。可以开启它来保存数据，然后提供给rrdtools绘图。
+      <a href="/2010/08/13/intro-pnp4nagios/" class="read_more span2 pull-right">继续阅读……</a>
+      <div class="clear"></div>
+    </div>
+    <div class="clear"></div>
+  </div>
+  <div class="rule"><hr/></div>
+  <div class="full" style='background-color: #FFF;'>
+    <h2 class="entry-title">
       <a href="/2010/08/13/intro-gnuplot/" title="gnuplot画图" rel="bookmark">gnuplot画图</a>
     </h2>
     <p class="alt-font tight">
@@ -702,83 +723,6 @@ Nmap finished: 1 IP address (1 host up) scanned in 37.623 seconds
     <div class="clear"></div>
   </div>
   <div class="rule"><hr/></div>
-  <div class="full" style='background-color: #FFF;'>
-    <h2 class="entry-title">
-      <a href="/2010/05/21/intro-strace/" title="strace进程跟踪排错一例" rel="bookmark">strace进程跟踪排错一例</a>
-    </h2>
-    <p class="alt-font tight">
-      <span class="date full-date">
-        <abbr class="published" title="2010-05-21 00:00:00 +0800">21 May 2010</abbr>
-      </span>
-      <span>
-      </span>
-      Posted in&nbsp;
-      <a href="/categories.html#linux-ref" title="linux" rel="category tag">linux</a>
-    </p>
-    <div class="entry-content full-content" style='background-color: #FFF; margin-left: 24px; padding: 10px;'>
-    <p>在对HTTPS进行反向代理的时候，如果源站未能提供SSL的cert和key，可以采用TCP协议的端口转发完成。最常见的是iptables，还有rinetd。之前的博文中都有提到。    <br />
-今天碰到一个事情，使用rinetd进行443转发的客户，全网都无法访问了……    <br />
-proxy上对源站443端口能telnet通，绑定ie访问源站是没有问题；proxy的443端口本地也能telnet通，但是ie访问就是打不开任何页面。    <br />
-偶然想起strace，觉得对rinetd进程进行跟踪试试。strace -p 13916，然后这边打开ie，输入https的域名，回车……    <br />
-看到服务器tty上显示如下信息：    <br />
-select(16, [4], [], NULL, NULL)         = 1 (in [4])    <br />
-#rinetd程序处于select()，运行的FD为4    <br />
-accept(4, {sa_family=AF_INET, sin_port=htons(3766), sin_addr=inet_addr(&ldquo;211.99.216.18&rdquo;)}, [16]) = 6    <br />
-#从我本机的3766端口发起请求，被服务器接受，FD为6    <br />
-ioctl(6, FIONBIO, [1])                  = 0    <br />
-#设定该socket为阻塞状态    <br />
-setsockopt(6, SOL_SOCKET, SO_LINGER, [0], 4) = -1 EINVAL (Invalid argument)    <br />
-#设定其为异步处理方式，不错失败了……汗    <br />
-socket(PF_INET, SOCK_STREAM, IPPROTO_TCP) = 7    <br />
-#打开FD为7的socket，tcp传输方式为stream流方式    <br />
-bind(7, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr(&ldquo;0.0.0.0&rdquo;)}, 16) = 0    <br />
-#服务器打开对任一端口的监听    <br />
-setsockopt(7, SOL_SOCKET, SO_LINGER, [0], 4) = -1 EINVAL (Invalid argument)    <br />
-ioctl(7, FIONBIO, [1])                  = 0    <br />
-#设定这个向源请求的socket为已阻塞    <br />
-connect(7, {sa_family=AF_INET, sin_port=htons(443), sin_addr=inet_addr(&ldquo;222.73.34.25&rdquo;)}, 16) = -1 EINPROGRESS (Operation now in progress)    <br />
-#向222.73.34.25的443端口发送请求    <br />
-select(16, [4 6 7], [], NULL, NULL)     = 1 (in [6])    <br />
-recvfrom(6, &ldquo;2631A1=31K36536423&rdquo;217:352346225207N7qP&rsquo;342!2008&rdquo;&hellip;, 1024, 0, NULL, NULL) = 70    <br />
-#从FD6即连接客户电脑的socket收到的内容    <br />
-select(16, [4 6 7], [7], NULL, NULL)    = 2 (in [7], out [7])    <br />
-recvfrom(7, 0x111e6860, 1024, 0, 0, 0)  = -1 EHOSTUNREACH (No route to host)    <br />
-#从FD7即回源的socket收到的内容——“无法找到连接主机的路由”！！    <br />
-close(7)                                = 0    <br />
-#关闭FD7    <br />
-select(16, [4 6], [6], NULL, NULL)      = 1 (out [6])    <br />
-time(NULL)                              = 1274410006    <br />
-stat(&ldquo;/etc/localtime&rdquo;, {st_mode=S_IFREG|0644, st_size=405, &hellip;}) = 0    <br />
-close(6)                                = 0    <br />
-#关闭FD6，这个是我关闭ie后关闭的。    <br />
-很奇怪呀，这个222.73.34.25是什么地址？ping客户域名返回的明明不是这个ip呀？    <br />
-试着kill rinetd，然后重启动rinetd服务。再重复如上操作。相关内容如下：    <br />
-accept(4, {sa_family=AF_INET, sin_port=htons(3917), sin_addr=inet_addr(&ldquo;211.99.216.18&rdquo;)}, [16]) = 6    <br />
-ioctl(6, FIONBIO, [1])                  = 0    <br />
-setsockopt(6, SOL_SOCKET, SO_LINGER, [0], 4) = -1 EINVAL (Invalid argument)    <br />
-socket(PF_INET, SOCK_STREAM, IPPROTO_TCP) = 7    <br />
-bind(7, {sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr(&ldquo;0.0.0.0&rdquo;)}, 16) = 0    <br />
-setsockopt(7, SOL_SOCKET, SO_LINGER, [0], 4) = -1 EINVAL (Invalid argument)    <br />
-ioctl(7, FIONBIO, [1])                  = 0    <br />
-connect(7, {sa_family=AF_INET, sin_port=htons(443), sin_addr=inet_addr(&ldquo;219.235.4.17&rdquo;)}, 16) = -1 EINPROGRESS (Operation now in progress)    <br />
-#回源地址是219.235.4.17，这个正是ping出来的正确源ip！    <br />
-select(18, [4 6 7], [], NULL, NULL)     = 1 (in [6])    <br />
-recvfrom(6, &ldquo;2631A1=31K365365f334370210367202260B33332E3337232423340s21&rdquo;&hellip;, 1024, 0, NULL, NULL) = 70    <br />
-select(18, [4 6 7], [7], NULL, NULL)    = 1 (out [7])    <br />
-sendto(7, &ldquo;2631A1=31K365365f334370210367202260B33332E3337232423340s21&rdquo;&hellip;, 70, 0, NULL, 0) = 70    <br />
-select(18, [4 6 7], [], NULL, NULL)     = 1 (in [7])    <br />
-recvfrom(7, &ldquo;2631r2432F31K365365U10200u236332*Mf316l2252306v254350364&rdquo;&hellip;, 1024, 0, NULL, NULL) = 1024    <br />
-select(18, [4 6], [6], NULL, NULL)      = 1 (out [6])    <br />
-……    <br />
-#这些recv和send就是页面请求的传输过程，ie上显示出来正确的页面了。<br />
-返回去查找之前的工单，也确认了222.73.34.25正是该客户之前的源站ip，而后改成219.235.4.17的。<br />
-由此看来rinetd虽然可以在conf里写域名，但其对域名的解析，只会在启动的时候执行一次，之后就一直持续对固定的那个ip进行转发了！
-      <a href="/2010/05/21/intro-strace/" class="read_more span2 pull-right">继续阅读……</a>
-      <div class="clear"></div>
-    </div>
-    <div class="clear"></div>
-  </div>
-  <div class="rule"><hr/></div>
   <div id="post-pagination" class="pagination pagination-centered">
   <ul class="pages nav nav-pills">
     <li>
@@ -855,6 +799,7 @@ select(18, [4 6], [6], NULL, NULL)      = 1 (out [6])    <br />
           <div class="well sidebar-nav">
              <ul id="relate_blog" class="nav nav-list">
                <li class="nav-header">最近文章</li>
+                 <li><a href="/2016/08/19/es-rally/">Elastic 官方压测工具 rally 试用</a></li>
                  <li><a href="/2016/07/21/sampler-aggregation/">elasticsearch 的 sampler 聚合</a></li>
                  <li><a href="/2016/07/18/event-pattern/">山寨一个 Splunk 的事件模式功能</a></li>
                  <li><a href="/2016/07/07/hapi-auth/">hapi.js 框架的认证授权插件示例</a></li>
@@ -863,7 +808,6 @@ select(18, [4 6], [6], NULL, NULL)      = 1 (out [6])    <br />
                  <li><a href="/2016/03/19/machine-vs-ops/">机器战胜人类了，伺候机器的运维呢？</a></li>
                  <li><a href="/2016/03/16/juttle-viz-intro/">juttle 可视化界面介绍</a></li>
                  <li><a href="/2016/03/16/juttle-intro/">juttle 介绍</a></li>
-                 <li><a href="/2016/01/27/kibana-server-plugin-develop/">Kibana4 服务器端插件开发</a></li>
             </ul>
           </div>
         <div class="well sidebar-nav">
